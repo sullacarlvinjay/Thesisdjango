@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}BiPSU SRMS{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] },
+          colors: {
+            primary: { DEFAULT: '#3b5bdb', soft: '#edf2ff', foreground: '#ffffff' },
+            success: { DEFAULT: '#2f9e44', foreground: '#ffffff' },
+            warning: { DEFAULT: '#f59f00', foreground: '#1a1a1a' },
+            info: { DEFAULT: '#1971c2', foreground: '#ffffff' },
+            sidebar: { DEFAULT: '#fafafa', foreground: '#1e2a3a', accent: '#edf2ff', border: '#e8ecf0' },
+            muted: { DEFAULT: '#f1f3f9', foreground: '#6b7a99' },
+            border: '#e8ecf0',
+            card: '#ffffff',
+          },
+          borderRadius: { lg: '0.75rem', xl: '1rem', '2xl': '1.25rem' },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #f6f8fc; color: #1e2a3a; -webkit-font-smoothing: antialiased; }
+    h1,h2,h3,h4 { letter-spacing: -0.02em; }
+    .sidebar-link { display:flex; align-items:center; gap:0.75rem; border-radius:0.5rem; padding:0.5rem 0.75rem; font-size:0.875rem; transition:background 0.15s; color:#374151; }
+    .sidebar-link:hover { background:#edf2ff; }
+    .sidebar-link.active { background:#edf2ff; color:#3b5bdb; font-weight:600; }
+    .card { background:#fff; border-radius:0.75rem; border:1px solid #e8ecf0; }
+    .badge { display:inline-flex; align-items:center; border-radius:9999px; padding:0.15rem 0.65rem; font-size:0.75rem; font-weight:500; border:1px solid; }
+    .badge-success { background:#f0fdf4; color:#2f9e44; border-color:#bbf7d0; }
+    .badge-warning { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+    .badge-info { background:#eff6ff; color:#1971c2; border-color:#bfdbfe; }
+    .badge-destructive { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+    .badge-muted { background:#f1f3f9; color:#6b7a99; border-color:#e8ecf0; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; border-radius:0.5rem; padding:0.5rem 1rem; font-size:0.875rem; font-weight:500; cursor:pointer; transition:background 0.15s; }
+    .btn-primary { background:#3b5bdb; color:#fff; border:none; }
+    .btn-primary:hover { background:#3451c7; }
+    .btn-outline { background:#fff; color:#374151; border:1px solid #e8ecf0; }
+    .btn-outline:hover { background:#f1f3f9; }
+    input, select, textarea { width:100%; border-radius:0.5rem; border:1px solid #e8ecf0; padding:0.5rem 0.75rem; font-size:0.875rem; background:#fff; outline:none; font-family:inherit; }
+    input:focus, select:focus, textarea:focus { border-color:#3b5bdb; box-shadow:0 0 0 2px #edf2ff; }
+    label { font-size:0.75rem; font-weight:500; color:#374151; }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="flex min-h-screen w-full">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar" style="background:#fafafa;border-right:1px solid #e8ecf0;">
+    <div class="flex items-center gap-2 px-6 py-5" style="border-bottom:1px solid #e8ecf0;">
+      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white" style="background:#3b5bdb;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold" style="color:#1e2a3a;">BiPSU SRMS</p>
+        <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">{% block brand %}Portal{% endblock %}</p>
+      </div>
+    </div>
+    <nav class="flex-1 overflow-y-auto p-3 space-y-0.5">
+      {% block nav %}{% endblock %}
+    </nav>
+    <div class="p-3" style="border-top:1px solid #e8ecf0;">
+      <a href="/logout" class="sidebar-link" style="color:#6b7a99;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
+        Sign out
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="flex flex-1 flex-col min-w-0">
+    <!-- Header -->
+    <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 px-4 lg:px-8" style="background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);border-bottom:1px solid #e8ecf0;">
+      <div class="min-w-0">
+        <h1 class="text-lg font-semibold truncate">{% block page_title %}{% endblock %}</h1>
+        <p class="text-xs truncate" style="color:#6b7a99;">{% block page_subtitle %}{% endblock %}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="relative hidden md:block">
+          <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+          <input placeholder="Search…" style="width:16rem;padding-left:2.25rem;" />
+        </div>
+        <button class="relative p-2 rounded-lg hover:bg-muted" style="background:transparent;border:none;cursor:pointer;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style="background:#dc2626;"></span>
+        </button>
+        <div class="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 cursor-pointer hover:bg-muted">
+          <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white" style="background:#3b5bdb;">{{ user.initials|default:"U" }}</div>
+          <div class="hidden md:block text-left">
+            <p class="text-xs font-medium leading-tight">{{ user.get_full_name|default:user.username }}</p>
+            <p class="text-xs leading-tight" style="color:#6b7a99;">{{ user.role|default:"" }}</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 lg:px-8 py-6">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

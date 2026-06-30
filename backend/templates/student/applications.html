@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}My Applications — BiPSU SRMS{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}My Applications{% endblock %}
+{% block page_subtitle %}Track and manage your submitted applications{% endblock %}
+
+{% block nav %}
+  <a href="/student/apply/academic/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>Apply: Academic</a>
+  <a href="/student/applications/" class="sidebar-link active">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
+  <a href="/student/notifications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:50; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:#fff; border-radius:0.75rem; padding:1.5rem; max-width:480px; width:100%; margin:1rem; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#6b7a99; padding:0.75rem 1rem; border-bottom:1px solid #e8ecf0; }
+  td { padding:0.75rem 1rem; font-size:0.875rem; border-bottom:1px solid #f1f3f9; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:#f6f8fc; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card p-6">
+  <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
+    <div class="relative flex-1" style="min-width:16rem;">
+      <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+      <input id="search" placeholder="Search applications…" style="padding-left:2.25rem;" oninput="filterTable(this.value)" />
+    </div>
+    <button class="btn btn-outline">
+      <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      Export
+    </button>
+  </div>
+  <div style="overflow-x:auto;">
+    <table id="appTable">
+      <thead>
+        <tr>
+          <th>ID</th><th>Scholarship</th><th>Submitted</th><th>Status</th><th>Remarks</th><th>Updated</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in applications %}
+        <tr>
+          <td class="font-mono text-xs">APP-{{ a.id|stringformat:"07d" }}</td>
+          <td class="font-medium">{{ a.scholarship.name }}</td>
+          <td>{{ a.submitted_at|date:"M d, Y" }}</td>
+          <td>
+            {% if a.status == "Approved" %}<span class="badge badge-success">{{ a.status }}</span>
+            {% elif a.status == "Rejected" %}<span class="badge badge-destructive">{{ a.status }}</span>
+            {% elif a.status == "Needs Revision" %}<span class="badge badge-info">{{ a.status }}</span>
+            {% elif a.status == "Draft" %}<span class="badge badge-muted">{{ a.status }}</span>
+            {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
+          </td>
+          <td style="color:#6b7a99;">{{ a.remarks|default:"—" }}</td>
+          <td>{{ a.updated_at|date:"M d, Y" }}</td>
+          <td>
+            <button class="btn btn-outline" style="padding:0.25rem 0.5rem;" onclick="openModal('{{ a.id }}','{{ a.scholarship.name }}','{{ a.submitted_at|date:"M d, Y" }}','{{ a.status }}','{{ a.updated_at|date:"M d, Y" }}','{{ a.remarks|default:"—"|escapejs }}')">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center py-8" style="color:#6b7a99;">No applications yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold" id="modal-title"></h2>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7a99;">✕</button>
+    </div>
+    <div class="space-y-2 text-sm">
+      <p><span style="color:#6b7a99;">Submitted:</span> <span id="modal-submitted"></span></p>
+      <p><span style="color:#6b7a99;">Status:</span> <span id="modal-status"></span></p>
+      <p><span style="color:#6b7a99;">Last update:</span> <span id="modal-updated"></span></p>
+      <p><span style="color:#6b7a99;">Admin remarks:</span> <span id="modal-remarks"></span></p>
+    </div>
+    <button class="btn btn-outline w-full mt-4">
+      <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      Download receipt
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function openModal(id, name, submitted, status, updated, remarks) {
+    document.getElementById('modal-title').textContent = name + ' — APP-' + id.padStart(7,'0');
+    document.getElementById('modal-submitted').textContent = submitted;
+    document.getElementById('modal-status').textContent = status;
+    document.getElementById('modal-updated').textContent = updated;
+    document.getElementById('modal-remarks').textContent = remarks;
+    document.getElementById('modal').classList.add('open');
+  }
+  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+  function filterTable(q) {
+    const rows = document.querySelectorAll('#appTable tbody tr');
+    rows.forEach(r => r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none');
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Application — BiPSU SRMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background:#f6f8fc; -webkit-font-smoothing:antialiased; }
+    input, select { width:100%; border-radius:0.5rem; border:1px solid #e8ecf0; padding:0.5rem 0.75rem; font-size:0.875rem; background:#fff; outline:none; font-family:inherit; box-sizing:border-box; }
+    label { font-size:0.75rem; font-weight:500; color:#374151; display:block; margin-bottom:0.375rem; }
+    .card { background:#fff; border-radius:0.75rem; border:1px solid #e8ecf0; padding:1.5rem; }
+    .section-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#3b5bdb; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid #edf2ff; }
+    .badge { display:inline-flex; align-items:center; border-radius:9999px; padding:0.2rem 0.75rem; font-size:0.75rem; font-weight:600; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav style="background:#fff;border-bottom:1px solid #e8ecf0;position:sticky;top:0;z-index:40;">
+  <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="h-8 w-8 rounded-lg flex items-center justify-center" style="background:#3b5bdb;">
+        <svg class="h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>
+      </div>
+      <span class="text-sm font-semibold" style="color:#1e2a3a;">BiPSU SRMS</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm" style="color:#6b7a99;">{{ application.full_name }}</span>
+      <a href="/apply/logout/" style="font-size:0.8rem;color:#dc2626;font-weight:500;">Sign Out</a>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- Status Banner -->
+  {% if application.qualified_for == 'Staff' %}
+  <div class="card" style="border-color:#bbf7d0;background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+    <div class="flex items-center gap-4">
+      <div class="h-11 w-11 rounded-xl flex items-center justify-center shrink-0" style="background:#2f9e44;">
+        <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="flex-1">
+        <p class="text-xs font-semibold uppercase tracking-wider" style="color:#2f9e44;">Qualified</p>
+        <h2 class="font-bold text-lg" style="color:#1e2a3a;">NSU Staff Scholarship</h2>
+        <p class="text-sm" style="color:#374151;">Welcome back, {{ application.full_name }}. Your application status is shown below.</p>
+      </div>
+      <span class="badge
+        {% if application.status == 'Approved' %}bg-green-100 text-green-700
+        {% elif application.status == 'Rejected' %}bg-red-100 text-red-700
+        {% elif application.status == 'Needs Revision' %}bg-blue-100 text-blue-700
+        {% elif application.status == 'Draft' %}bg-gray-100 text-gray-600
+        {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+        {{ application.status }}
+      </span>
+    </div>
+  </div>
+
+  {% elif application.qualified_for == 'Affirmative' %}
+  <div class="card" style="border-color:#fde68a;background:linear-gradient(135deg,#fffbeb,#fef9c3);">
+    <div class="flex items-center gap-4">
+      <div class="h-11 w-11 rounded-xl flex items-center justify-center shrink-0" style="background:#f59f00;">
+        <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="flex-1">
+        <p class="text-xs font-semibold uppercase tracking-wider" style="color:#f59f00;">Qualified</p>
+        <h2 class="font-bold text-lg" style="color:#1e2a3a;">Affirmative Action Scholarship</h2>
+        <p class="text-sm" style="color:#374151;">Welcome back, {{ application.full_name }}. Your application status is shown below.</p>
+      </div>
+      <span class="badge
+        {% if application.status == 'Approved' %}bg-green-100 text-green-700
+        {% elif application.status == 'Rejected' %}bg-red-100 text-red-700
+        {% elif application.status == 'Needs Revision' %}bg-blue-100 text-blue-700
+        {% elif application.status == 'Draft' %}bg-gray-100 text-gray-600
+        {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+        {{ application.status }}
+      </span>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="card" style="border-color:#fecaca;background:#fef2f2;">
+    <p class="font-semibold" style="color:#dc2626;">Not Qualified</p>
+    <p class="text-sm mt-1" style="color:#374151;">Based on your responses, you do not qualify for the NSU Staff or Affirmative Scholarship. Please explore other scholarships on the portal.</p>
+    <a href="/" class="inline-block mt-3 text-sm font-medium" style="color:#3b5bdb;">← Back to Scholarship Portal</a>
+  </div>
+  {% endif %}
+
+  {% if application.qualified_for != 'None' %}
+
+  <!-- Scholarship Background -->
+  <div class="card">
+    {% if application.qualified_for == 'Staff' %}
+    <p class="section-title">About the NSU Staff Scholarship</p>
+    <p class="text-sm mb-2" style="color:#374151;">The NSU Staff Scholarship is an institutional benefit granted by Biliran Province State University (BiPSU) to its permanent faculty and employees, as well as their qualified dependents. It was established to recognize the dedication of university personnel and to support their families in pursuing higher education within the institution.</p>
+    <p class="text-sm" style="color:#374151;">This scholarship covers tuition and miscellaneous fees for one academic year, renewable each semester provided the scholar maintains good academic standing.</p>
+    {% else %}
+    <p class="section-title">About the Affirmative Action Scholarship</p>
+    <p class="text-sm mb-2" style="color:#374151;">The Affirmative Action Scholarship at Biliran Province State University (BiPSU) is designed to promote inclusivity and equal access to quality education. It targets students who have demonstrated academic potential in Senior High School and performed well in the university's admission examination.</p>
+    <p class="text-sm" style="color:#374151;">This scholarship aims to provide opportunities for deserving students who may not qualify for traditional merit-based programs but show strong potential for academic success.</p>
+    {% endif %}
+  </div>
+
+  <!-- Application Form -->
+  <form method="post" action="/apply/submit/" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+    <input type="hidden" name="application_id" value="{{ application.id }}" />
+
+    <div class="card">
+      <p class="section-title">Personal Information</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div><label>Full Name</label><input value="{{ application.full_name }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Email</label><input value="{{ application.email }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Contact Number</label><input value="{{ application.contact_number }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Date of Birth</label><input value="{{ application.date_of_birth }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Gender</label><input value="{{ application.gender }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Address</label><input value="{{ application.address }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Course</label><input value="{{ application.course }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Year Level</label><input value="Year {{ application.year_level }}" readonly style="background:#f6f8fc;" /></div>
+      </div>
+    </div>
+
+    {% if application.qualified_for == 'Staff' %}
+    <div class="card">
+      <p class="section-title">NSU Staff Details</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        {% if application.is_nsu_staff %}
+        <div class="sm:col-span-2"><label>Employment Status</label><input value="Permanent NSU Faculty / Employee" readonly style="background:#f6f8fc;" /></div>
+        {% else %}
+        <div><label>NSU Staff Member</label><input value="{{ application.staff_name }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Employee ID</label><input value="{{ application.staff_employee_id }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Relationship</label><input value="{{ application.relationship_to_staff }}" readonly style="background:#f6f8fc;" /></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if application.qualified_for == 'Affirmative' %}
+    <div class="card">
+      <p class="section-title">Academic Eligibility</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div><label>SHS GPA</label><input value="{{ application.shs_gpa }}%" readonly style="background:#f6f8fc;" /></div>
+        <div><label>SUC Exam Score</label><input value="{{ application.suc_exam_score }}%" readonly style="background:#f6f8fc;" /></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <p class="section-title">Family Background</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div><label>Father's Name</label><input name="father_name" value="{{ application.father_name|default:'' }}" /></div>
+        <div><label>Father's Occupation</label><input name="father_occupation" value="{{ application.father_occupation|default:'' }}" /></div>
+        <div><label>Mother's Name</label><input name="mother_name" value="{{ application.mother_name|default:'' }}" /></div>
+        <div><label>Mother's Occupation</label><input name="mother_occupation" value="{{ application.mother_occupation|default:'' }}" /></div>
+        <div class="sm:col-span-2"><label>Family Annual Income</label><input name="family_income" type="number" step="0.01" value="{{ application.family_income|default:'' }}" /></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="section-title">Supporting Documents</p>
+      <div class="border-2 border-dashed rounded-xl p-6 text-center mb-4" style="border-color:#e8ecf0;background:#f6f8fc;">
+        <svg class="h-7 w-7 mx-auto mb-2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <p class="text-sm font-medium">Upload supporting documents</p>
+        <p class="text-xs mt-1" style="color:#6b7a99;">PDF, JPG, PNG · Max 5MB each</p>
+        <input type="file" name="extra_documents" multiple accept=".pdf,.jpg,.png" class="mt-3" style="width:auto;display:inline-block;" />
+      </div>
+      <ul class="text-xs space-y-1" style="color:#6b7a99;">
+        <li>• Certificate of Enrollment / Registration</li>
+        <li>• 2x2 ID Picture</li>
+        <li>• Birth Certificate (PSA)</li>
+        {% if application.qualified_for == 'Staff' and not application.is_nsu_staff %}
+        <li>• Employment Certificate of NSU staff member</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" name="action" value="submit" style="flex:1;background:#3b5bdb;color:#fff;border:none;border-radius:0.5rem;padding:0.65rem;font-size:0.875rem;font-weight:600;cursor:pointer;font-family:inherit;">Submit Application</button>
+      <button type="submit" name="action" value="draft" style="flex:1;background:#fff;color:#374151;border:1px solid #e8ecf0;border-radius:0.5rem;padding:0.65rem;font-size:0.875rem;font-weight:600;cursor:pointer;font-family:inherit;">Save as Draft</button>
+    </div>
+  </form>
+
+  {% endif %}
+</div>
+</body>
+</html>

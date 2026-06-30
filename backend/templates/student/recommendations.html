@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Recommendations — BiPSU SRMS{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}Recommended Scholarships{% endblock %}
+{% block page_subtitle %}AI-matched programs tailored to your profile{% endblock %}
+
+{% block nav %}
+  <a href="/student/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    Dashboard
+  </a>
+  <a href="/student/recommendations/" class="sidebar-link active">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+    Recommendations
+  </a>
+  <a href="/student/apply/academic/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>
+    Apply: Academic
+  </a>
+  <a href="/student/apply/tdp/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+    Apply: TDP
+  </a>
+  <a href="/student/applications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    My Applications
+  </a>
+  <a href="/student/notifications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+    Notifications
+  </a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .tab-btn { padding:0.4rem 1rem; border-radius:0.4rem; font-size:0.875rem; font-weight:500; border:none; cursor:pointer; background:transparent; color:#6b7a99; }
+  .tab-btn.active { background:#fff; color:#1e2a3a; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+  .tabs-bar { display:inline-flex; background:#f1f3f9; border-radius:0.5rem; padding:0.2rem; margin-bottom:1rem; }
+  .tab-content { display:none; }
+  .tab-content.active { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div>
+  <div class="tabs-bar">
+    <button class="tab-btn active" onclick="switchTab('all',this)">All ({{ scholarships|length }})</button>
+    <button class="tab-btn" onclick="switchTab('apply',this)">Application-based ({{ apply_count }})</button>
+    <button class="tab-btn" onclick="switchTab('rec',this)">Recommendation ({{ rec_count }})</button>
+  </div>
+
+  {% for tab, items in tabs.items %}
+  <div class="tab-content {% if tab == 'all' %}active{% endif %}" id="tab-{{ tab }}">
+    {% for s in items %}
+    <div class="card p-5 flex flex-col">
+      <div class="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="font-semibold">{{ s.name }}</h3>
+            {% if s.category == "application" %}
+              <span class="badge badge-success">Apply in-system</span>
+            {% else %}
+              <span class="badge badge-info">Recommendation only</span>
+            {% endif %}
+          </div>
+          <p class="text-xs mt-1" style="color:#6b7a99;">{{ s.description|truncatewords:15 }}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-2xl font-bold" style="color:#3b5bdb;">{{ s.match|default:"—" }}%</p>
+          <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">match</p>
+        </div>
+      </div>
+      <div class="w-full rounded-full h-1.5 mb-4" style="background:#e8ecf0;">
+        <div class="h-1.5 rounded-full" style="background:#3b5bdb;width:{{ s.match|default:0 }}%;"></div>
+      </div>
+      <div class="space-y-2 text-sm flex-1">
+        <div class="flex gap-2">
+          <svg class="h-4 w-4 shrink-0 mt-0.5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div><p class="text-xs font-medium">Eligibility</p><p class="text-xs" style="color:#6b7a99;">{{ s.eligibility|truncatewords:12 }}</p></div>
+        </div>
+        <div class="flex gap-2">
+          <svg class="h-4 w-4 shrink-0 mt-0.5" style="color:#1971c2;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div><p class="text-xs font-medium">Requirements</p><p class="text-xs" style="color:#6b7a99;">{{ s.requirements|join:", " }}</p></div>
+        </div>
+      </div>
+      <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
+        {% if s.category == "application" %}
+          {% if s.type == "Academic" %}
+            <a href="/student/apply/academic/" class="btn btn-primary w-full">Start Application</a>
+          {% else %}
+            <a href="/student/apply/tdp/" class="btn btn-primary w-full">Start Application</a>
+          {% endif %}
+        {% else %}
+          <button class="btn btn-outline w-full" disabled style="opacity:0.5;cursor:not-allowed;">
+            <svg class="h-3 w-3 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Apply externally
+          </button>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <p class="text-sm col-span-2" style="color:#6b7a99;">No scholarships in this category.</p>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+{% endblock %}

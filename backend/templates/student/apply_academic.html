@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Apply: Academic — BiPSU SRMS{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}Academic Scholarship Application{% endblock %}
+{% block page_subtitle %}Submit your application for BiPSU's flagship merit grant{% endblock %}
+
+{% block nav %}
+  <a href="/student/apply/academic/" class="sidebar-link active">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>Apply: Academic</a>
+  <a href="/student/applications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
+  <a href="/student/notifications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5"><label>Student Number</label><input name="student_number" value="{{ profile.student_id }}" /></div>
+          <div class="space-y-1.5"><label>Course</label><input name="course" value="{{ profile.course }}" /></div>
+          <div class="space-y-1.5"><label>Name</label><input name="name" value="{{ profile.user.get_full_name }}" /></div>
+          <div class="space-y-1.5"><label>Age</label><input name="age" type="number" /></div>
+          <div class="space-y-1.5"><label>Birth Date</label><input name="birth_date" type="date" value="{{ profile.date_of_birth|date:'Y-m-d' }}" /></div>
+          <div class="space-y-1.5"><label>Gender</label><input name="gender" value="{{ profile.gender }}" /></div>
+          <div class="space-y-1.5"><label>Contact Number</label><input name="contact" value="{{ profile.contact_number }}" /></div>
+          <div class="space-y-1.5"><label>Address</label><input name="address" value="{{ profile.address }}" /></div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Educational Background</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5"><label>Elementary School</label><input name="elementary" /></div>
+          <div class="space-y-1.5"><label>High School</label><input name="highschool" /></div>
+          <div class="space-y-1.5"><label>Last School Attended</label><input name="last_school" /></div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5"><label>Father's Name</label><input name="father_name" /></div>
+          <div class="space-y-1.5"><label>Father's Occupation</label><input name="father_occupation" /></div>
+          <div class="space-y-1.5"><label>Mother's Name</label><input name="mother_name" /></div>
+          <div class="space-y-1.5"><label>Mother's Occupation</label><input name="mother_occupation" /></div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Academic Information</h3>
+        <div class="grid sm:grid-cols-3 gap-4 mb-4">
+          <div class="space-y-1.5"><label>GWA</label><input name="gwa" type="number" step="0.01" value="{{ profile.gwa }}" id="gwaInput" oninput="validateGWA(this.value)" /></div>
+          <div class="space-y-1.5"><label>Semester</label><input name="semester" value="2nd Semester" /></div>
+          <div class="space-y-1.5"><label>School Year</label><input name="school_year" value="2024-2025" /></div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Document Upload</h3>
+        <div class="border-2 border-dashed rounded-xl p-8 text-center mb-4" style="background:#f6f8fc;border-color:#e8ecf0;">
+          <svg class="h-8 w-8 mx-auto mb-2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <p class="text-sm font-medium">Drag & drop files here or click to upload</p>
+          <p class="text-xs mt-1" style="color:#6b7a99;">PDF, JPG, PNG · Max 5MB each</p>
+          <input type="file" name="documents" multiple accept=".pdf,.jpg,.png" class="mt-3" style="width:auto;display:inline-block;" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-Validation Sidebar -->
+    <div>
+      <div class="card p-6 sticky top-24">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="h-4 w-4" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          <h3 class="font-semibold">Auto-Validation</h3>
+        </div>
+        <p class="text-xs mb-4" style="color:#6b7a99;">Real-time eligibility evaluation based on submitted data.</p>
+        <div id="validationResult" class="p-4 rounded-xl {% if eligible %}bg-green-50{% else %}bg-red-50{% endif %}">
+          <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
+          <p class="text-xl font-bold mt-1 {% if eligible %}text-green-600{% else %}text-red-600{% endif %}" id="classificationText">{{ classification }}</p>
+          <p class="text-xs mt-2">GWA {{ profile.gwa }}</p>
+        </div>
+        <div class="mt-4 space-y-2 text-xs">
+          <div class="flex justify-between"><span>Rule: GWA ≤ 1.29</span>
+            <span class="badge {% if profile.gwa <= 1.29 %}badge-success{% else %}badge-warning{% endif %}">{% if profile.gwa <= 1.29 %}Pass{% else %}Fail{% endif %}</span>
+          </div>
+          <div class="flex justify-between"><span>Rule: GWA ≤ 1.50</span>
+            <span class="badge {% if profile.gwa <= 1.50 %}badge-success{% else %}badge-warning{% endif %}">{% if profile.gwa <= 1.50 %}Pass{% else %}Fail{% endif %}</span>
+          </div>
+        </div>
+        <button type="submit" name="action" value="submit" class="btn btn-primary w-full mt-6">Submit Application</button>
+        <button type="submit" name="action" value="draft" class="btn btn-outline w-full mt-2">Save as Draft</button>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function validateGWA(val) {
+    const gwa = parseFloat(val);
+    const result = document.getElementById('validationResult');
+    const text = document.getElementById('classificationText');
+    if (gwa <= 1.29) { text.textContent = 'University Scholar'; result.className = 'p-4 rounded-xl bg-green-50'; text.className = 'text-xl font-bold mt-1 text-green-600'; }
+    else if (gwa <= 1.50) { text.textContent = 'College Scholar'; result.className = 'p-4 rounded-xl bg-green-50'; text.className = 'text-xl font-bold mt-1 text-green-600'; }
+    else { text.textContent = 'Not Eligible'; result.className = 'p-4 rounded-xl bg-red-50'; text.className = 'text-xl font-bold mt-1 text-red-600'; }
+  }
+</script>
+{% endblock %}

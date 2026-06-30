@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — BiPSU SRMS{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}Welcome back, {{ profile.user.get_full_name|default:"Student" }}{% endblock %}
+{% block page_subtitle %}Here's an overview of your scholarship journey{% endblock %}
+
+{% block nav %}
+  <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>
+    Apply: Academic
+  </a>
+  <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    My Applications
+  </a>
+  <a href="/student/notifications/" class="sidebar-link {% if '/notifications' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+    Notifications
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Stat Cards -->
+  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="card p-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Recommended</p>
+          <p class="text-3xl font-bold mt-2">{{ dashboard.recommended_count|default:"0" }}</p>
+          <p class="text-xs mt-1" style="color:#6b7a99;">Matched scholarships</p>
+        </div>
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#edf2ff;color:#3b5bdb;">
+          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Pending</p>
+          <p class="text-3xl font-bold mt-2">{{ dashboard.pending_count|default:"0" }}</p>
+          <p class="text-xs mt-1" style="color:#6b7a99;">Under review</p>
+        </div>
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#fffbeb;color:#92400e;">
+          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Approved</p>
+          <p class="text-3xl font-bold mt-2">{{ dashboard.approved_count|default:"0" }}</p>
+          <p class="text-xs mt-1" style="color:#6b7a99;">Active scholar status</p>
+        </div>
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#f0fdf4;color:#2f9e44;">
+          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Notifications</p>
+          <p class="text-3xl font-bold mt-2">{{ dashboard.notification_count|default:"0" }}</p>
+          <p class="text-xs mt-1" style="color:#6b7a99;">Check notifications</p>
+        </div>
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#eff6ff;color:#1971c2;">
+          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Strength & Scholarships -->
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="card p-6 lg:col-span-2">
+      <h3 class="font-semibold mb-1">Recommended Scholarships</h3>
+      <p class="text-xs mb-4" style="color:#6b7a99;">AI-matched based on your profile</p>
+      <div class="space-y-3">
+        {% for s in scholarships|slice:":3" %}
+        <div class="p-4 rounded-xl border hover:border-primary transition" style="border-color:#e8ecf0;">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <p class="font-medium">{{ s.name }}</p>
+              <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ s.description|truncatewords:12 }}</p>
+            </div>
+            <span class="badge badge-info shrink-0">{{ s.match|default:"—" }}% Match</span>
+          </div>
+          <div class="w-full rounded-full h-1.5 mt-3" style="background:#e8ecf0;">
+            <div class="h-1.5 rounded-full" style="background:#3b5bdb;width:{{ s.match|default:0 }}%;"></div>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-sm" style="color:#6b7a99;">No scholarships available yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <h3 class="font-semibold mb-1">Profile Strength</h3>
+      <p class="text-xs mb-4" style="color:#6b7a99;">Top match: Academic Scholarship</p>
+      <div class="flex items-center justify-center my-6">
+        <div class="relative flex items-center justify-center" style="width:120px;height:120px;">
+          <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg);">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#e8ecf0" stroke-width="10"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#3b5bdb" stroke-width="10" stroke-dasharray="314" stroke-dashoffset="{{ top_match_offset|default:'157' }}" stroke-linecap="round"/>
+          </svg>
+          <div class="absolute text-center">
+            <p class="text-2xl font-bold">{{ top_match|default:"0" }}%</p>
+            <p class="text-xs" style="color:#6b7a99;">match</p>
+          </div>
+        </div>
+      </div>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between"><span style="color:#6b7a99;">GWA</span><span class="font-medium">{{ profile.gwa|default:"—" }}</span></div>
+        <div class="flex justify-between"><span style="color:#6b7a99;">Course</span><span class="font-medium">{{ profile.course|default:"—" }}</span></div>
+        <div class="flex justify-between"><span style="color:#6b7a99;">Year</span><span class="font-medium">Year {{ profile.year_level|default:"—" }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline & Announcements -->
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="card p-6 lg:col-span-2">
+      <h3 class="font-semibold mb-4">Recent Announcements</h3>
+      <div class="grid md:grid-cols-3 gap-4">
+        {% for a in announcements|slice:":3" %}
+        <div class="p-4 rounded-xl" style="background:#f6f8fc;">
+          <p class="text-xs" style="color:#6b7a99;">{{ a.created_at|date:"M d" }}</p>
+          <p class="font-medium text-sm mt-1">{{ a.title }}</p>
+          <p class="text-xs mt-2 line-clamp-2" style="color:#6b7a99;">{{ a.body|truncatewords:15 }}</p>
+        </div>
+        {% empty %}
+        <p class="text-sm col-span-3" style="color:#6b7a99;">No announcements yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <h3 class="font-semibold mb-4 flex items-center gap-2">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Application Timeline
+      </h3>
+      <div class="space-y-4">
+        {% for e in timeline %}
+        <div class="flex gap-3">
+          <div class="flex flex-col items-center">
+            <div class="h-3 w-3 rounded-full {% if e.status == 'done' %}bg-green-500{% else %}bg-gray-200 border-2 border-gray-300{% endif %}"></div>
+            {% if not forloop.last %}<div class="w-px flex-1 mt-1" style="background:#e8ecf0;"></div>{% endif %}
+          </div>
+          <div class="pb-4">
+            <p class="text-xs" style="color:#6b7a99;">{{ e.date }}</p>
+            <p class="text-sm font-medium">{{ e.title }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

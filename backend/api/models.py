@@ -54,6 +54,18 @@ class Scholarship(models.Model):
     requirements = models.JSONField(default=list)
     is_active = models.BooleanField(default=True)
 
+    def match_score(self, profile):
+        if not profile:
+            return 0
+        score = 50
+        if self.type == 'Academic' and profile.gwa <= 1.50:
+            score += 30 if profile.gwa <= 1.29 else 15
+        if self.type == 'TDP' and profile.family_income < 60000:
+            score += 30
+        if profile.is_athlete and self.type == 'Sports':
+            score += 30
+        return min(score, 100)
+
     def __str__(self):
         return self.name
 
@@ -177,6 +189,78 @@ class Office(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class AffirmativeNSUApplication(models.Model):
+    SCHOLARSHIP_TYPES = [
+        ('Affirmative', 'Affirmative Action Scholarship'),
+        ('Staff', 'NSU Staff Scholarship'),
+        ('None', 'Not Qualified'),
+    ]
+    STATUSES = [
+        ('Pending Validation', 'Pending Validation'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+        ('Needs Revision', 'Needs Revision'),
+        ('Draft', 'Draft'),
+    ]
+    # Personal Info
+    full_name = models.CharField(max_length=200)
+    email = models.EmailField(unique=True)
+    contact_number = models.CharField(max_length=20)
+    address = models.TextField()
+    date_of_birth = models.DateField()
+    gender = models.CharField(max_length=10)
+    course = models.CharField(max_length=100)
+    year_level = models.IntegerField(default=1)
+    school_id = models.CharField(max_length=30, blank=True)
+
+    # NSU Staff eligibility fields
+    is_nsu_staff = models.BooleanField(default=False)
+    is_nsu_dependent = models.BooleanField(default=False)
+    staff_name = models.CharField(max_length=200, blank=True)
+    staff_employee_id = models.CharField(max_length=50, blank=True)
+    relationship_to_staff = models.CharField(max_length=50, blank=True)
+    has_baccalaureate = models.BooleanField(default=False)
+
+    # Affirmative eligibility fields
+    shs_gpa = models.FloatField(null=True, blank=True)
+    shs_certificate = models.FileField(upload_to='affirmative/shs/', null=True, blank=True)
+    suc_exam_score = models.FloatField(null=True, blank=True)
+    suc_exam_certificate = models.FileField(upload_to='affirmative/suc/', null=True, blank=True)
+    is_tes_beneficiary = models.BooleanField(default=False)
+
+    # Result
+    password = models.CharField(max_length=255, default='')
+    qualified_for = models.CharField(max_length=20, choices=SCHOLARSHIP_TYPES, default='None')
+    status = models.CharField(max_length=30, choices=STATUSES, default='Pending Validation')
+    remarks = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.full_name} — {self.qualified_for}"
+
+    def set_password(self, raw_password):
+        from django.contrib.auth.hashers import make_password
+        self.password = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        from django.contrib.auth.hashers import check_password
+        return check_password(raw_password, self.password)
+
+    def determine_qualification(self):
+        # NSU Staff check
+        if self.has_baccalaureate:
+            pass  # disqualified from NSU Staff
+        elif self.is_nsu_staff or (self.is_nsu_dependent and self.staff_employee_id):
+            return 'Staff'
+        # Affirmative check
+        if (self.shs_gpa is not None and self.shs_gpa >= 75 and
+                self.suc_exam_score is not None and self.suc_exam_score >= 50 and
+                not self.is_tes_beneficiary):
+            return 'Affirmative'
+        return 'None'
 
 
 class ActivityLog(models.Model):

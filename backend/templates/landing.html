@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiPSU SRMS — Scholarship Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #f6f8fc; -webkit-font-smoothing: antialiased; }
+    .card { background:#fff; border-radius:0.75rem; border:1px solid #e8ecf0; overflow:hidden; transition: box-shadow 0.2s, transform 0.2s; }
+    .card:hover { box-shadow: 0 8px 32px -8px rgba(59,91,219,0.18); transform: translateY(-3px); }
+    .badge { display:inline-flex; align-items:center; border-radius:9999px; padding:0.2rem 0.75rem; font-size:0.7rem; font-weight:600; letter-spacing:0.04em; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:50; align-items:center; justify-content:center; padding:1rem; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:#fff; border-radius:1rem; max-width:540px; width:100%; max-height:90vh; overflow-y:auto; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; border-radius:0.5rem; padding:0.55rem 1.25rem; font-size:0.875rem; font-weight:600; cursor:pointer; text-decoration:none; border:none; font-family:inherit; }
+    .btn-primary { background:#3b5bdb; color:#fff; }
+    .btn-primary:hover { background:#3451c7; }
+    .btn-outline { background:#fff; color:#374151; border:1px solid #e8ecf0; }
+    .btn-outline:hover { background:#f6f8fc; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav style="background:#fff; border-bottom:1px solid #e8ecf0; position:sticky; top:0; z-index:40;">
+  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-9 w-9 rounded-lg flex items-center justify-center" style="background:#3b5bdb;">
+        <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold" style="color:#1e2a3a;">BiPSU SRMS</p>
+        <p class="text-xs" style="color:#6b7a99;">Scholarship Portal</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/login/" class="btn btn-outline" style="padding:0.4rem 1rem;">Sign In</a>
+      <a href="/apply/register/" class="btn btn-primary" style="padding:0.4rem 1rem;">Register</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div style="background:linear-gradient(135deg,#3b5bdb 0%,#1971c2 100%); padding:4rem 1rem; text-align:center;">
+  <p class="text-sm font-semibold mb-3" style="color:rgba(255,255,255,0.7); letter-spacing:0.1em; text-transform:uppercase;">Biliran Province State University</p>
+  <h1 class="text-4xl font-extrabold text-white mb-4" style="letter-spacing:-0.03em;">Scholarship Programs</h1>
+  <p class="text-lg max-w-xl mx-auto" style="color:rgba(255,255,255,0.8);">Explore available scholarships and find the program that fits you. Click any card to learn more and apply.</p>
+  <div class="flex items-center justify-center gap-3 mt-6 flex-wrap">
+    <a href="/login/" class="btn" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);">Sign in to Apply (Academic)</a>
+    <a href="/apply/register/" class="btn" style="background:#fff;color:#3b5bdb;">Register for Affirmative / NSU Staff</a>
+  </div>
+</div>
+
+<!-- Scholarship Cards -->
+<div class="max-w-6xl mx-auto px-6 py-12">
+  <h2 class="text-xl font-bold mb-2" style="color:#1e2a3a;">Available Scholarships</h2>
+  <p class="text-sm mb-8" style="color:#6b7a99;">Click on a scholarship card to view full details and how to apply.</p>
+
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+    <!-- Academic Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('academic')">
+      <div style="background:linear-gradient(135deg,#3b5bdb,#4c6ef5); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#edf2ff;color:#3b5bdb;">Merit-Based</span>
+          <span class="badge" style="background:#f0fdf4;color:#2f9e44;">In-System Apply</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">Academic Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">BiPSU's flagship merit-based scholarship for students with outstanding academic performance. Covers tuition and miscellaneous fees.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ University Scholar: GWA ≤ 1.29</p>
+          <p>✓ College Scholar: GWA 1.30–1.50</p>
+          <p>✓ No grade above 2.5</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#3b5bdb;">Assigned by Admin</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TDP Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('tdp')">
+      <div style="background:linear-gradient(135deg,#1971c2,#339af0); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#eff6ff;color:#1971c2;">Needs-Based</span>
+          <span class="badge" style="background:#fffbeb;color:#92400e;">External Process</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">TDP Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Tertiary Development Program scholarship under UniFAST providing financial subsidy to qualified students from low-income families.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ Filipino citizen enrolled in state university</p>
+          <p>✓ From low-income family (combined income)</p>
+          <p>✓ Not a recipient of other government subsidies</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#1971c2;">UniFAST Processed</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- NSU Staff Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('staff')">
+      <div style="background:linear-gradient(135deg,#2f9e44,#51cf66); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#f0fdf4;color:#2f9e44;">Institutional</span>
+          <span class="badge" style="background:#f0fdf4;color:#2f9e44;">In-System Apply</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">NSU Staff Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Exclusive scholarship for permanent NSU faculty, employees, and their qualified dependents as a benefit of university employment.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ Permanent NSU faculty/employee, OR</p>
+          <p>✓ Legitimate dependent of permanent NSU staff</p>
+          <p>✗ Dependents who already hold a baccalaureate degree are disqualified</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#2f9e44;">Register to Apply</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Affirmative Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('affirmative')">
+      <div style="background:linear-gradient(135deg,#f59f00,#fcc419); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#fffbeb;color:#92400e;">Affirmative Action</span>
+          <span class="badge" style="background:#f0fdf4;color:#2f9e44;">In-System Apply</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">Affirmative Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Scholarship for students who meet the university's affirmative action criteria based on SHS academic performance and SUC admission results.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ SHS GPA of at least 75% (certified by principal)</p>
+          <p>✓ At least 50% score in SUC admission exam</p>
+          <p>✗ Must NOT be a TES beneficiary</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#f59f00;">Register to Apply</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOST Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('dost')">
+      <div style="background:linear-gradient(135deg,#7048e8,#9775fa); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#f3f0ff;color:#7048e8;">Science & Tech</span>
+          <span class="badge" style="background:#fffbeb;color:#92400e;">External</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">DOST Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Department of Science and Technology scholarship for outstanding students pursuing science, technology, engineering, and mathematics courses.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ Enrolled in STEM-related course</p>
+          <p>✓ GWA of at least 85% in high school</p>
+          <p>✓ Must pass the DOST qualifying examination</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#7048e8;">DOST Processed</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHED Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('ched')">
+      <div style="background:linear-gradient(135deg,#e64980,#f783ac); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#fff0f6;color:#c2255c;">Government</span>
+          <span class="badge" style="background:#fffbeb;color:#92400e;">External</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">CHED Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Commission on Higher Education scholarship program providing financial assistance to deserving and qualified students in higher education.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ Filipino citizen with financial need</p>
+          <p>✓ GWA of 80% or higher in previous school year</p>
+          <p>✓ Not a recipient of other CHED scholarships</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#e64980;">CHED Processed</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CoScho Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('coscho')">
+      <div style="background:linear-gradient(135deg,#0ca678,#20c997); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#e6fcf5;color:#0ca678;">Agricultural</span>
+          <span class="badge" style="background:#fffbeb;color:#92400e;">External</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">CoScho Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Coconut Farmer's Scholar (CoScho) program for children and dependents of registered coconut farmers under the PCIC program.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ Child or dependent of a registered coconut farmer</p>
+          <p>✓ Farmer must be registered with PCIC</p>
+          <p>✓ Good academic standing</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#0ca678;">PCIC Processed</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sports Scholarship -->
+    <div class="card cursor-pointer" onclick="openModal('sports')">
+      <div style="background:linear-gradient(135deg,#f76707,#ff922b); height:8px;"></div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge" style="background:#fff4e6;color:#d9480f;">Athletics</span>
+          <span class="badge" style="background:#fffbeb;color:#92400e;">Institutional</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">Sports Scholarship</h3>
+        <p class="text-sm mb-4" style="color:#6b7a99;">Scholarship for student athletes who represent BiPSU in regional and national athletic competitions, covering fees and athletic allowance.</p>
+        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+          <p>✓ Must be a recognized university athlete</p>
+          <p>✓ Actively competing in university-sanctioned events</p>
+          <p>✓ Maintaining passing grades in all subjects</p>
+        </div>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+          <span class="text-xs font-medium" style="color:#f76707;">Coach Endorsed</span>
+          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="text-center py-8 text-xs" style="color:#6b7a99;border-top:1px solid #e8ecf0;">
+  © 2025 Biliran Province State University · Scholarship Records Management System
+</footer>
+
+<!-- Modals -->
+{% for key, s in scholarship_details.items %}
+<div class="modal-overlay" id="modal-{{ key }}" onclick="if(event.target===this)closeModal('{{ key }}')">
+  <div class="modal">
+    <div style="height:6px;background:{{ s.color }};border-radius:1rem 1rem 0 0;"></div>
+    <div class="p-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <span class="badge mb-2" style="background:{{ s.badge_bg }};color:{{ s.badge_color }};">{{ s.category }}</span>
+          <h2 class="text-xl font-bold" style="color:#1e2a3a;">{{ s.name }}</h2>
+        </div>
+        <button onclick="closeModal('{{ key }}')" style="background:none;border:none;cursor:pointer;color:#6b7a99;font-size:1.25rem;line-height:1;">✕</button>
+      </div>
+
+      <!-- Background / History -->
+      <div class="rounded-xl p-4 mb-4" style="background:#f6f8fc;">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Background</p>
+        <p class="text-sm" style="color:#374151;">{{ s.background }}</p>
+      </div>
+
+      <!-- Eligibility -->
+      <div class="mb-4">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">Eligibility Requirements</p>
+        <ul class="space-y-1">
+          {% for req in s.eligibility %}
+          <li class="text-sm flex gap-2" style="color:#374151;">
+            <span style="color:#2f9e44;">✓</span> {{ req }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- Benefits -->
+      <div class="mb-6">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">Benefits</p>
+        <ul class="space-y-1">
+          {% for b in s.benefits %}
+          <li class="text-sm flex gap-2" style="color:#374151;">
+            <span style="color:#3b5bdb;">•</span> {{ b }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- Action -->
+      <div class="flex gap-3">
+        {% if s.apply_url %}
+        <a href="{{ s.apply_url }}" class="btn btn-primary flex-1 text-center">{{ s.apply_label }}</a>
+        {% else %}
+        <button class="btn flex-1" style="background:#f1f3f9;color:#6b7a99;cursor:not-allowed;" disabled>{{ s.apply_label }}</button>
+        {% endif %}
+        <button onclick="closeModal('{{ key }}')" class="btn btn-outline">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+  function openModal(key) { document.getElementById('modal-' + key).classList.add('open'); }
+  function closeModal(key) { document.getElementById('modal-' + key).classList.remove('open'); }
+</script>
+</body>
+</html>

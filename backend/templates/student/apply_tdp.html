@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Apply: TDP — BiPSU SRMS{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}TDP Scholarship Application{% endblock %}
+{% block page_subtitle %}Tertiary Education Subsidy & Development Program{% endblock %}
+
+{% block nav %}
+  <a href="/student/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dashboard</a>
+  <a href="/student/recommendations/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>Recommendations</a>
+  <a href="/student/apply/academic/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>Apply: Academic</a>
+  <a href="/student/apply/tdp/" class="sidebar-link active">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TDP</a>
+  <a href="/student/applications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
+  <a href="/student/notifications/" class="sidebar-link">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5"><label>Full Name</label><input name="name" value="{{ profile.user.get_full_name }}" /></div>
+          <div class="space-y-1.5"><label>Date of Birth</label><input name="birth_date" type="date" value="{{ profile.date_of_birth|date:'Y-m-d' }}" /></div>
+          <div class="space-y-1.5"><label>Address</label><input name="address" value="{{ profile.address }}" /></div>
+          <div class="space-y-1.5"><label>School</label><input name="school" value="BiPSU" /></div>
+          <div class="space-y-1.5"><label>Campus</label><input name="campus" value="Main Campus" /></div>
+          <div class="space-y-1.5"><label>Course</label><input name="course" value="{{ profile.course }}" /></div>
+          <div class="space-y-1.5"><label>Year Level</label><input name="year_level" value="{{ profile.year_level }}" /></div>
+          <div class="space-y-1.5"><label>School ID</label><input name="school_id" value="{{ profile.student_id }}" /></div>
+          <div class="space-y-1.5"><label>Contact Number</label><input name="contact" value="{{ profile.contact_number }}" /></div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5"><label>Father's Name</label><input name="father_name" /></div>
+          <div class="space-y-1.5"><label>Father's Address</label><input name="father_address" /></div>
+          <div class="space-y-1.5"><label>Mother's Name</label><input name="mother_name" /></div>
+          <div class="space-y-1.5"><label>Mother's Address</label><input name="mother_address" /></div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Educational Assistance</h3>
+        <div class="space-y-1.5"><label>Existing scholarship / financial assistance</label><input name="existing_scholarship" value="None" /></div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Required Documents</h3>
+        <div class="border-2 border-dashed rounded-xl p-8 text-center mb-4" style="background:#f6f8fc;border-color:#e8ecf0;">
+          <svg class="h-8 w-8 mx-auto mb-2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <p class="text-sm font-medium">Drop documents to upload</p>
+          <p class="text-xs mt-1" style="color:#6b7a99;">PDF, JPG, PNG · Max 5MB</p>
+          <input type="file" name="documents" multiple accept=".pdf,.jpg,.png" class="mt-3" style="width:auto;display:inline-block;" />
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card p-6 sticky top-24">
+        <h3 class="font-semibold mb-2">Submission Summary</h3>
+        <p class="text-xs mb-4" style="color:#6b7a99;">Review before submitting to UniFAST for processing.</p>
+        <div class="space-y-2 text-sm mb-4">
+          <div class="flex justify-between"><span>Profile complete</span><span class="badge badge-success">100%</span></div>
+          <div class="flex justify-between"><span>Eligibility</span><span class="badge badge-success">Qualified</span></div>
+        </div>
+        <button type="submit" name="action" value="submit" class="btn btn-primary w-full">Submit to UniFAST</button>
+        <button type="submit" name="action" value="draft" class="btn btn-outline w-full mt-2">Save as Draft</button>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
