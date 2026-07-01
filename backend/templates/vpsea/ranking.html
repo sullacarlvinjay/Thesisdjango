@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Student Ranking — BiPSU SRMS{% endblock %}
+{% block brand %}VPSEA{% endblock %}
+{% block page_title %}Student Ranking{% endblock %}
+{% block page_subtitle %}Best-fit applicants — excludes already approved scholars{% endblock %}
+
+{% block nav %}
+  <a href="/vpsea/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dashboard</a>
+  <a href="/vpsea/applications/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Academic Applications</a>
+  <a href="/vpsea/renewals/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal Applications</a>
+  <a href="/vpsea/archives/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>Scholarship Archives</a>
+  <a href="/vpsea/uploads/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Excel Uploads</a>
+  <a href="/vpsea/analytics/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Analytics</a>
+  <a href="/vpsea/announcements/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>Announcements</a>
+  <a href="/vpsea/reports/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Reports</a>
+  <a href="/vpsea/ranking/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>Student Ranking</a>
+{% endblock %}
+
+{% block content %}
+<!-- Info banner -->
+<div class="card p-4 mb-5 flex items-start gap-3" style="background:#edf2ff;border-color:#c5d0e6;">
+  <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  <p class="text-sm" style="color:#3b5bdb;">
+    Applicants who are already <strong>Approved</strong> are excluded. Rankings are based on eligibility scores from submitted application data.
+  </p>
+</div>
+
+<!-- Type filter: only Affirmative and Staff -->
+<div class="flex gap-2 mb-5">
+  {% for t in scholarship_types %}
+  <a href="/vpsea/ranking/?type={{ t }}"
+    class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">
+    {% if t == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card p-6">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h3 class="font-semibold">
+        {% if active_type == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %} — Applicant Rankings
+      </h3>
+      <p class="text-xs mt-0.5" style="color:#6b7a99;">
+        {{ students|length }} eligible applicant{{ students|length|pluralize }} · sorted by fit score
+      </p>
+    </div>
+    <input placeholder="Search name or email…" style="width:14rem;" id="rankSearch" oninput="filterRank()" />
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="rankTable">
+      <thead>
+        <tr style="border-bottom:1px solid #e8ecf0;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;width:3rem;">Rank</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
+          {% if active_type == 'Affirmative' %}
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SHS GPA</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SUC Exam</th>
+          {% else %}
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Type</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Staff Name</th>
+          {% endif %}
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Fit Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr style="border-bottom:1px solid #f1f3f9;" class="rank-row"
+          data-name="{{ s.applicant.full_name|lower }}"
+          data-email="{{ s.applicant.email|lower }}">
+          <td style="padding:0.6rem 0.75rem;">
+            {% if s.rank == 1 %}<span style="font-size:1.1rem;">🥇</span>
+            {% elif s.rank == 2 %}<span style="font-size:1.1rem;">🥈</span>
+            {% elif s.rank == 3 %}<span style="font-size:1.1rem;">🥉</span>
+            {% else %}<span class="font-mono text-sm" style="color:#6b7a99;">#{{ s.rank }}</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">
+            <div class="flex items-center gap-2">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
+                style="background:{% if active_type == 'Affirmative' %}#f59f00{% else %}#2f9e44{% endif %};">
+                {{ s.applicant.full_name|first }}
+              </div>
+              <div>
+                <p class="font-medium leading-tight">{{ s.applicant.full_name }}</p>
+                <p class="text-xs" style="color:#6b7a99;">{{ s.applicant.email }}</p>
+              </div>
+            </div>
+          </td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.applicant.course }}</td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.applicant.year_level }}</td>
+          {% if active_type == 'Affirmative' %}
+          <td style="padding:0.6rem 0.75rem;">
+            {% if s.applicant.shs_gpa %}
+            <span class="badge {% if s.applicant.shs_gpa >= 90 %}badge-success{% elif s.applicant.shs_gpa >= 75 %}badge-info{% else %}badge-warning{% endif %}">
+              {{ s.applicant.shs_gpa }}%
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">
+            {% if s.applicant.suc_exam_score %}
+            <span class="badge {% if s.applicant.suc_exam_score >= 75 %}badge-success{% elif s.applicant.suc_exam_score >= 50 %}badge-info{% else %}badge-warning{% endif %}">
+              {{ s.applicant.suc_exam_score }}%
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          {% else %}
+          <td style="padding:0.6rem 0.75rem;">
+            {% if s.applicant.is_nsu_staff %}
+            <span class="badge badge-success">NSU Staff</span>
+            {% else %}
+            <span class="badge badge-info">Dependent</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.applicant.staff_name|default:"—" }}</td>
+          {% endif %}
+          <td style="padding:0.6rem 0.75rem;">
+            <span class="badge {% if s.applicant.status == 'Pending Validation' %}badge-warning{% elif s.applicant.status == 'Draft' %}badge-muted{% else %}badge-info{% endif %}">
+              {{ s.applicant.status }}
+            </span>
+          </td>
+          <td style="padding:0.6rem 0.75rem;">
+            <div class="flex items-center gap-2">
+              <div style="width:5rem;background:#e8ecf0;border-radius:9999px;height:0.5rem;">
+                <div style="height:0.5rem;border-radius:9999px;width:{{ s.score }}%;background:{% if s.score >= 80 %}#2f9e44{% elif s.score >= 50 %}#f59f00{% else %}#dc2626{% endif %};"></div>
+              </div>
+              <span class="font-semibold text-sm {% if s.score >= 80 %}text-green-600{% elif s.score >= 50 %}text-yellow-600{% else %}text-red-500{% endif %}">
+                {{ s.score }}%
+              </span>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="padding:3rem;text-align:center;color:#6b7a99;">
+            <svg class="h-10 w-10 mx-auto mb-2" style="color:#e8ecf0;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            No eligible applicants found for
+            {% if active_type == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %} scholarship.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterRank() {
+  const q = document.getElementById('rankSearch').value.toLowerCase();
+  document.querySelectorAll('.rank-row').forEach(row => {
+    row.style.display = (!q || row.dataset.name.includes(q) || row.dataset.email.includes(q)) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

@@ -119,6 +119,30 @@ class StudentDashboardView(APIView):
 
 # ── VPSEA ─────────────────────────────────────────────────────────────────────
 
+class VPSEAStudentRankingView(APIView):
+    def get(self, request):
+        from .models import AffirmativeNSUApplication
+        scholarship_type = request.query_params.get('type', 'Affirmative')
+        if scholarship_type not in ('Affirmative', 'Staff'):
+            scholarship_type = 'Affirmative'
+        applicants = AffirmativeNSUApplication.objects.exclude(status='Approved').filter(
+            qualified_for=scholarship_type
+        )
+        def score(a):
+            if scholarship_type == 'Affirmative':
+                s = 0
+                if a.shs_gpa: s += min((a.shs_gpa / 100) * 50, 50)
+                if a.suc_exam_score: s += min((a.suc_exam_score / 100) * 50, 50)
+                return round(s)
+            return 100 if a.is_nsu_staff else 75
+        ranked = sorted(applicants, key=score, reverse=True)
+        return Response([{
+            'rank': i + 1, 'name': a.full_name, 'course': a.course,
+            'year_level': a.year_level, 'shs_gpa': a.shs_gpa,
+            'suc_exam_score': a.suc_exam_score, 'score': score(a),
+        } for i, a in enumerate(ranked)])
+
+
 class VPSEAApplicationListView(generics.ListAPIView):
     serializer_class = ApplicationSerializer
     queryset = Application.objects.select_related('student__user', 'scholarship').all()

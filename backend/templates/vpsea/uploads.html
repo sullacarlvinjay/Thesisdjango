@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Excel Uploads — BiPSU SRMS{% endblock %}
+{% block brand %}VPSEA{% endblock %}
+{% block page_title %}Excel Uploads{% endblock %}
+{% block page_subtitle %}Import scholarship records via spreadsheet{% endblock %}
+
+{% block nav %}
+  <a href="/vpsea/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dashboard</a>
+  <a href="/vpsea/applications/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Academic Applications</a>
+  <a href="/vpsea/renewals/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal Applications</a>
+  <a href="/vpsea/archives/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>Scholarship Archives</a>
+  <a href="/vpsea/uploads/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Excel Uploads</a>
+  <a href="/vpsea/analytics/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Analytics</a>
+  <a href="/vpsea/announcements/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>Announcements</a>
+  <a href="/vpsea/reports/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Reports</a>
+  <a href="/vpsea/ranking/" class="sidebar-link"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>Student Ranking</a>
+{% endblock %}
+
+{% block content %}
+{% if message %}
+<div class="card p-4 mb-4" style="background:#f0fdf4;border-color:#bbf7d0;">
+  <p style="color:#2f9e44;font-size:0.875rem;">✓ {{ message }}</p>
+</div>
+{% endif %}
+{% if error %}
+<div class="card p-4 mb-4" style="background:#fff1f2;border-color:#fecdd3;">
+  <p style="color:#e11d48;font-size:0.875rem;">✗ {{ error }}</p>
+</div>
+{% endif %}
+
+<div class="card p-8 mb-6">
+  <form method="post" enctype="multipart/form-data" id="uploadForm">
+    {% csrf_token %}
+    <div class="border-2 border-dashed rounded-2xl p-10 text-center" style="background:#f6f8fc;border-color:#e8ecf0;">
+      <svg class="h-12 w-12 mx-auto mb-3" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+      <p class="font-semibold">Drag & drop your spreadsheet</p>
+      <p class="text-sm mt-1" style="color:#6b7a99;">.xlsx files only · up to 10MB</p>
+      <input type="file" name="file" accept=".xlsx" class="mt-4" style="width:auto;display:inline-block;" required />
+    </div>
+    <div class="mt-4 flex flex-wrap gap-3 items-end">
+      <div class="space-y-1.5">
+        <label>Scholarship Type</label>
+        <select name="scholarship_type" id="stypeSelect" style="width:auto;" onchange="updateHint()">
+          <option>Academic</option>
+          <option>TDP</option>
+          <option>DOST</option>
+          <option>CHED</option>
+          <option>CoScho</option>
+          <option>Sports</option>
+          <option>Affirmative</option>
+          <option>Staff</option>
+          <option>GSIS</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Import Records</button>
+    </div>
+    <!-- Dynamic column hint -->
+    <div class="mt-4 p-3 rounded-lg" style="background:#f0f4ff;border:1px solid #c7d2fe;">
+      <p class="text-xs font-semibold mb-1" style="color:#3b5bdb;">Expected columns for selected type:</p>
+      <p class="text-xs font-mono" style="color:#374151;" id="colHint"></p>
+    </div>
+  </form>
+</div>
+
+<div class="card p-6">
+  <h3 class="font-semibold mb-4">Recent Imports</h3>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+      <thead>
+        <tr style="border-bottom:1px solid #e8ecf0;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">File</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Action</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in recent %}
+        <tr style="border-bottom:1px solid #f1f3f9;">
+          <td style="padding:0.6rem 0.75rem;font-weight:500;">
+            <svg class="h-4 w-4 inline mr-2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {{ log.action }}
+          </td>
+          <td style="padding:0.6rem 0.75rem;"><span style="color:#2f9e44;font-size:0.8rem;">&#10003; Imported</span></td>
+          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ log.created_at }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" style="padding:2rem;text-align:center;color:#6b7a99;">No imports yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const HINTS = {
+  'Academic':    'No. | Last Name | First | Middle Name | Sex | Address: Brgy/St., Muni, Prov | Course | Year | GWA | % / Type of Academic Scholarship | Scholarship',
+  'Staff':       'No. | Last | First | Middle Initial | Sex | Course | Year Level | Student Number | % | Scholarship Program',
+  'CHED':        'No. | Award Number | Last Name | First Name | Middle Name | Sex | Address: Brgy/St., Mun. Prov | Congress District | Course | Yr. | Scholarship Program  (section title rows skipped automatically)',
+  'TDP':         'No. | Award Number | Last Name | First Name | Middle Name | Sex | Address: Brgy/St., Mun. Prov | Congress District | Course | Yr. | Scholarship Program',
+  'DOST':        'No. | Award Number | Last Name | First Name | Middle Name | Sex | Address: Brgy/St., Mun. Prov | Congress District | Course | Yr. | Scholarship Program',
+  'GSIS':        'No. | Last | First | Middle Initial | Address: Brgy/ St. Municipality, Province | Sex | Course | Year Level | Student Number | Scholarship Program',
+  'Affirmative': 'No. | Award Number | Last Name | First Name | Middle Name | Sex | Address: Brgy/St., Mun. Prov | Congress District | Course | Yr. | Scholarship Program',
+  'CoScho':      'No. | Last Name | First Name | Middle Initial | Sex | Address | Course | Year Level | Student Number | Scholarship Program',
+  'Sports':      'No. | Last Name | First Name | Middle Initial | Sex | Address | Course | Year Level | Student Number | Scholarship Program',
+};
+function updateHint() {
+  const t = document.getElementById('stypeSelect').value;
+  document.getElementById('colHint').textContent = HINTS[t] || '';
+}
+updateHint();
+</script>
+{% endblock %}

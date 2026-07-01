@@ -42,7 +42,7 @@ class Scholarship(models.Model):
     TYPES = [
         ('Academic', 'Academic'), ('TDP', 'TDP'), ('DOST', 'DOST'),
         ('CHED', 'CHED'), ('CoScho', 'CoScho'), ('Sports', 'Sports'),
-        ('Affirmative', 'Affirmative'), ('Staff', 'Staff'),
+        ('Affirmative', 'Affirmative'), ('Staff', 'Staff'), ('GSIS', 'GSIS'),
     ]
     CATEGORIES = [('application', 'Application'), ('recommendation', 'Recommendation')]
 
@@ -139,9 +139,10 @@ class ArchiveRecord(models.Model):
     scholarship_type = models.CharField(max_length=20)
     scholar_name = models.CharField(max_length=100)
     course = models.CharField(max_length=50)
-    gwa = models.FloatField()
-    year = models.IntegerField()
+    gwa = models.FloatField(default=0.0)
+    year = models.IntegerField(default=0)
     imported_from = models.CharField(max_length=100, blank=True)
+    extra_data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -261,6 +262,18 @@ class AffirmativeNSUApplication(models.Model):
                 not self.is_tes_beneficiary):
             return 'Affirmative'
         return 'None'
+
+
+class ScholarshipRollover(models.Model):
+    scholarship_type = models.CharField(max_length=20)
+    school_year = models.CharField(max_length=20)  # e.g. '2024-2025'
+    scholar_count = models.IntegerField(default=0)
+    excel_file = models.FileField(upload_to='rollovers/')
+    rolled_over_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.scholarship_type} — {self.school_year} ({self.scholar_count} scholars)'
 
 
 class ActivityLog(models.Model):
