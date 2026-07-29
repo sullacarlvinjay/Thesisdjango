@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Manage Students — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}VPSEA{% endblock %}
+{% block page_title %}Manage Students{% endblock %}
+{% block page_subtitle %}Approved scholars for {{ current_sem }} · A.Y. {{ current_sy }}{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
+
+{% block content %}
+
+{% if request.GET.added %}
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#2f9e44;font-size:0.875rem;">
+  <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+  Student added successfully.
+</div>
+{% endif %}
+{% if request.GET.edited %}
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1971c2;font-size:0.875rem;">
+  <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+  Student updated successfully.
+</div>
+{% endif %}
+{% if request.GET.deleted %}
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-size:0.875rem;">
+  <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+  Student deleted.
+</div>
+{% endif %}
+
+<div class="card p-6">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <form method="get" class="flex gap-2 flex-wrap items-end">
+      <div class="space-y-1">
+        <label style="font-size:0.7rem;">Search</label>
+        <input name="q" value="{{ q }}" placeholder="Name or student ID…" style="width:15rem;" />
+      </div>
+      <div class="space-y-1">
+        <label style="font-size:0.7rem;">Scholarship Program</label>
+        <select name="stype" style="width:12rem;">
+          <option value="">All Programs</option>
+          {% for t in scholarship_types %}
+          <option value="{{ t }}" {% if t == stype %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if q or stype %}<a href="/vpsea/students/" class="btn btn-outline">Clear</a>{% endif %}
+    </form>
+    <a href="/vpsea/students/add/" class="btn btn-primary gap-2">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add Student
+    </a>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+      <thead>
+        <tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student ID</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">GWA</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Gender</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Email</th>
+          <th style="text-align:right;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr style="border-bottom:1px solid #f1f3f9;">
+          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+          <td style="padding:0.6rem 0.75rem;">
+            <div class="flex items-center gap-2">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#3b5bdb;">
+                {{ s.user.first_name|first }}{{ s.user.last_name|first }}
+              </div>
+              <span class="font-medium">{{ s.user.get_full_name }}</span>
+            </div>
+          </td>
+          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.8rem;color:#6b7a99;">{{ s.student_id }}</td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.course }}</td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.year_level }}</td>
+          <td style="padding:0.6rem 0.75rem;"><span class="badge badge-{% if s.gwa <= 1.29 %}success{% elif s.gwa <= 1.50 %}info{% else %}muted{% endif %}">{{ s.gwa }}</span></td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.gender|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ s.user.email }}</td>
+          <td style="padding:0.6rem 0.75rem;text-align:right;">
+            <div class="flex items-center justify-end gap-1.5">
+              <a href="/vpsea/students/{{ s.pk }}/edit/" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;">
+                <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Edit
+              </a>
+              <button onclick="confirmDelete({{ s.pk }}, '{{ s.user.get_full_name|escapejs }}')"
+                class="btn" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+                <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">No approved students found for {{ current_sem }} · A.Y. {{ current_sy }}{% if q %} matching "{{ q }}"{% endif %}{% if stype %} under {{ stype }}{% endif %}.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
+  <div class="card" style="width:100%;max-width:26rem;padding:1.75rem;margin:1rem;">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#fef2f2;">
+        <svg class="h-5 w-5" style="color:#dc2626;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      </div>
+      <div>
+        <h3 class="font-semibold">Delete Student</h3>
+        <p class="text-xs" style="color:#6b7a99;">This action cannot be undone.</p>
+      </div>
+    </div>
+    <p class="text-sm mb-5" style="color:#374151;">Are you sure you want to delete <strong id="deleteStudentName"></strong>? All their applications and data will be permanently removed.</p>
+    <form method="post" id="deleteForm">
+      {% csrf_token %}
+      <div class="flex gap-2">
+        <button type="submit" class="btn flex-1" style="background:#dc2626;color:#fff;border:none;">Delete Student</button>
+        <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn btn-outline flex-1">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(pk, name) {
+  document.getElementById('deleteStudentName').textContent = name;
+  document.getElementById('deleteForm').action = '/vpsea/students/' + pk + '/delete/';
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+</script>
+{% endblock %}

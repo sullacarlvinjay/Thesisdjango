@@ -2,8 +2,9 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User, StudentProfile, Scholarship, Application, ApplicationDocument,
-    Notification, Announcement, Renewal, ArchiveRecord, BillingRecord,
-    LiquidationRecord, TDPApplication, Office, ActivityLog, SystemSettings,
+    Notification, Announcement, Renewal, ArchiveRecord,
+    TDPApplication, ActivityLog, SystemSettings,
+    AffirmativeNSUApplication, AcademicRenewal, ScholarshipLinkRequest, ScholarshipRollover,
 )
 
 @admin.register(User)
@@ -18,9 +19,10 @@ admin.site.register(Notification)
 admin.site.register(Announcement)
 admin.site.register(Renewal)
 admin.site.register(ArchiveRecord)
-admin.site.register(BillingRecord)
-admin.site.register(LiquidationRecord)
 admin.site.register(TDPApplication)
-admin.site.register(Office)
 admin.site.register(ActivityLog)
 admin.site.register(SystemSettings)
+admin.site.register(AffirmativeNSUApplication)
+admin.site.register(AcademicRenewal)
+admin.site.register(ScholarshipLinkRequest)
+admin.site.register(ScholarshipRollover)

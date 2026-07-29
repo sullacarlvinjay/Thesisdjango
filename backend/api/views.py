@@ -6,16 +6,15 @@ from rest_framework.authtoken.models import Token
 from django.db.models import Count
 from .models import (
     User, StudentProfile, Scholarship, Application, Notification,
-    Announcement, Renewal, ArchiveRecord, BillingRecord, LiquidationRecord,
-    TDPApplication, Office, ActivityLog, SystemSettings,
+    Announcement, Renewal, AcademicRenewal, ArchiveRecord,
+    TDPApplication, ActivityLog, SystemSettings,
 )
 from .serializers import (
     RegisterSerializer, LoginSerializer, StudentProfileSerializer,
     ScholarshipSerializer, ApplicationSerializer, NotificationSerializer,
-    AnnouncementSerializer, RenewalSerializer, ArchiveRecordSerializer,
-    BillingRecordSerializer, LiquidationRecordSerializer, TDPApplicationSerializer,
-    OfficeSerializer, ActivityLogSerializer, SystemSettingsSerializer,
-    AdminUserSerializer,
+    AnnouncementSerializer, RenewalSerializer, AcademicRenewalSerializer,
+    ArchiveRecordSerializer, TDPApplicationSerializer,
+    ActivityLogSerializer, SystemSettingsSerializer, AdminUserSerializer,
 )
 
 
@@ -161,13 +160,22 @@ class VPSEAApplicationDetailView(generics.RetrieveUpdateAPIView):
 
 
 class VPSEARenewalListView(generics.ListAPIView):
-    serializer_class = RenewalSerializer
-    queryset = Renewal.objects.select_related('student__user', 'scholarship').all()
+    serializer_class = AcademicRenewalSerializer
+
+    def get_queryset(self):
+        return AcademicRenewal.objects.select_related('student__user').order_by('-submitted_at')
 
 
 class VPSEARenewalDetailView(generics.RetrieveUpdateAPIView):
-    serializer_class = RenewalSerializer
-    queryset = Renewal.objects.all()
+    serializer_class = AcademicRenewalSerializer
+    queryset = AcademicRenewal.objects.select_related('student__user').all()
+
+    def perform_update(self, serializer):
+        renewal = serializer.save()
+        ActivityLog.objects.create(
+            user=self.request.user,
+            action=f"Updated renewal {renewal.id} to {renewal.status} for {renewal.student}"
+        )
 
 
 class VPSEAArchiveListView(generics.ListAPIView):
@@ -297,8 +305,7 @@ class UniFASTContinuingView(generics.ListAPIView):
 
 
 class UniFASTBillingListView(generics.ListAPIView):
-    serializer_class = BillingRecordSerializer
-    queryset = BillingRecord.objects.all()
+    pass  # BillingRecord removed
 
 
 class UniFASTDistributionView(APIView):
@@ -316,8 +323,7 @@ class UniFASTDistributionView(APIView):
 
 
 class UniFASTLiquidationListView(generics.ListAPIView):
-    serializer_class = LiquidationRecordSerializer
-    queryset = LiquidationRecord.objects.all()
+    pass  # LiquidationRecord removed
 
 
 class UniFASTFHEView(APIView):
@@ -345,10 +351,6 @@ class UniFASTFHEUploadView(APIView):
 
 class UniFASTAnalyticsView(APIView):
     def get(self, request):
-        from .models import BillingRecord
-        billing = BillingRecord.objects.values('semester').annotate(
-            submitted=Count('id'),
-        )
         return Response({
             'tes_disbursement': [
                 {'semester': '1st 2023', 'amount': 2400000},
@@ -357,7 +359,6 @@ class UniFASTAnalyticsView(APIView):
                 {'semester': '2nd 2024', 'amount': 3120000},
                 {'semester': '1st 2025', 'amount': 3450000},
             ],
-            'billing_progress': list(billing),
         })
 
 
@@ -376,7 +377,7 @@ class UniFASTDashboardView(APIView):
             'tes_beneficiaries': TDPApplication.objects.filter(status='Approved').count(),
             'tdp_scholars': TDPApplication.objects.count(),
             'billing_approved_pct': 92,
-            'pending_liquidation': LiquidationRecord.objects.filter(status='Pending Validation').count(),
+            'pending_liquidation': 0,
         })
 
 
@@ -397,8 +398,8 @@ class SuperUserDetailView(generics.RetrieveUpdateAPIView):
 
 
 class SuperOfficeListView(generics.ListAPIView):
-    serializer_class = OfficeSerializer
-    queryset = Office.objects.all()
+    queryset = []
+    serializer_class = AdminUserSerializer  # placeholder, Office removed
 
 
 class SuperCategoryListView(generics.ListAPIView):

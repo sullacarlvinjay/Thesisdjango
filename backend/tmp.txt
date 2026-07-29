@@ -1,0 +1,130 @@
+        else:
+            Application.objects.filter(id=app_id).update(status=new_status, remarks=remarks)
+        return redirect(f'/vpsea/applications/?tab={tab}')
+    tab = request.GET.get('tab', 'academic')
+    academic_apps = Application.objects.select_related('student__user', 'scholarship').all().order_by('-submitted_at')
+    staff_apps = AffirmativeNSUApplication.objects.filter(qualified_for='Staff').order_by('-submitted_at')
+    affirmative_apps = AffirmativeNSUApplication.objects.filter(qualified_for='Affirmative').order_by('-submitted_at')
+    return render(request, 'vpsea/applications.html', {
+        'academic_apps': academic_apps,
+        'staff_apps': staff_apps,
+        'affirmative_apps': affirmative_apps,
+        'active_tab': tab,
+    })
+
+
+@_vpsea_required
+def vpsea_renewals(request):
+    from .models import Renewal
+    renewals = Renewal.objects.select_related('student__user', 'scholarship').all().order_by('-created_at')
+    return render(request, 'vpsea/renewals.html', {'renewals': renewals})
+
+
+def vpsea_archives_dev_import(request):
+    """DEV-ONLY: seed fake approved scholars for testing. Access via /vpsea/archives/secret/"""
+    from .models import (
+        Application, AffirmativeNSUApplication, Scholarship,
+        StudentProfile, User, ActivityLog,
+    )
+    import random, uuid
+    from django.utils import timezone
+
+    SCHOLARSHIP_TYPES = ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'GSIS']
+    COURSES = ['BSCS', 'BSED', 'BSBA', 'BSHM', 'BSN', 'BSIT', 'BSCE', 'BSME', 'BSA', 'BSAG']
+    GENDERS = ['M', 'F']
+    ADDRESSES = [
+        'Brgy. Libertad, Naval, Biliran',
+        'Brgy. Atipolo, Naval, Biliran',
+        'Brgy. Libongao, Kananga, Leyte',
+        'Brgy. Upper Look, Almeria, Biliran',
+        'Brgy. Sabang, Caibiran, Biliran',
+    ]
+    FIRST_NAMES = ['Maria', 'Jose', 'Ana', 'Juan', 'Rosa', 'Pedro', 'Liza', 'Carlo', 'Nina', 'Mark']
+    LAST_NAMES  = ['Santos', 'Reyes', 'Cruz', 'Garcia', 'Dela Cruz', 'Ramos', 'Flores', 'Torres', 'Villanueva', 'Mendoza']
+
+    message = None
+    error   = None
+    counts  = {}
+
+    if request.method == 'POST':
+        try:
+            stype  = request.POST.get('stype', 'Academic')
+            count  = min(int(request.POST.get('count', 5)), 50)
+            created = 0
+
+            if stype in ('Affirmative', 'Staff'):
+                for _ in range(count):
+                    fn = random.choice(FIRST_NAMES)
+                    ln = random.choice(LAST_NAMES)
+                    uid = str(uuid.uuid4())[:8]
+                    AffirmativeNSUApplication.objects.create(
+                        full_name=f'{fn} {ln}',
+                        email=f'dev_{uid}@test.local',
+                        contact_number='09000000000',
+                        address=random.choice(ADDRESSES),
+                        date_of_birth='2000-01-01',
+                        gender=random.choice(GENDERS),
+                        course=random.choice(COURSES),
+                        year_level=random.randint(1, 4),
+                        school_id=f'DEV-{uid}',
+                        is_nsu_staff=(stype == 'Staff'),
+                        is_nsu_dependent=(stype == 'Staff'),
+                        shs_gpa=random.uniform(80, 98) if stype == 'Affirmative' else None,
+                        suc_exam_score=random.uniform(55, 95) if stype == 'Affirmative' else None,
+                        qualified_for=stype,
+                        status='Approved',
+                        password='!unusable',
+                    )
+                    created += 1
+            else:
+                scholarship = Scholarship.objects.filter(type=stype).first()
+                if not scholarship:
+                    scholarship = Scholarship.objects.create(
+                        name=f'{stype} Scholarship',
+                        type=stype,
+                        category='application',
+                        description=f'Dev seed for {stype}',
+                        eligibility='Dev only',
+                    )
+                for _ in range(count):
+                    fn = random.choice(FIRST_NAMES)
+                    ln = random.choice(LAST_NAMES)
+                    uid = str(uuid.uuid4())[:8]
+                    email = f'dev_{uid}@test.local'
+                    user = User.objects.create_user(
+                        username=email, email=email,
+                        password='devpass123',
+                        first_name=fn, last_name=ln,
+                        role='student',
+                    )
+                    gwa = round(random.uniform(1.0, 2.5), 2)
+                    profile = StudentProfile.objects.create(
+                        user=user,
+                        student_id=f'DEV-{uid}',
+                        course=random.choice(COURSES),
+                        year_level=random.randint(1, 4),
+                        gwa=gwa,
+                        gender=random.choice(GENDERS),
+                        address=random.choice(ADDRESSES),
+                        family_income=random.uniform(10000, 80000),
+                    )
+                    Application.objects.create(
+                        student=profile,
+                        scholarship=scholarship,
+                        status='Approved',
+                        form_data={
+                            'award_number': f'AWD-{uid}',
+                            'congress_district': f'{random.randint(1,3)}rd District',
+                        },
+                    )
+                    created += 1
+
+            message = f'✅ Created {created} fake {stype} scholars.'
+        except Exception as e:
+            error = f'Error: {e}'
+
+    # counts for display
+    for st in ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'GSIS']:
+        counts[st] = Application.objects.filter(status='Approved', scholarship__type=st).count()
+    counts['Affirmative'] = AffirmativeNSUApplication.objects.filter(status='Approved', qualified_for='Affirmative').count()
+    counts['Staff']       = AffirmativeNSUApplication.objects.filter(status='Approved', qualified_for='Staff').count()

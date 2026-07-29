@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}TDP Applications — UniFAST{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}TDP Applications{% endblock %}
+{% block page_subtitle %}Tertiary Development Program — application review{% endblock %}
+
+{% block nav %}{% include "unifast/_nav.html" with active="tdp" %}{% endblock %}
+
+{% block content %}
+<div class="card p-6">
+  <table class="w-full text-sm">
+    <thead>
+      <tr style="border-bottom:1px solid #e8ecf0;">
+        <th class="text-left py-2 px-3 font-medium" style="color:#6b7a99;">TDP ID</th>
+        <th class="text-left py-2 px-3 font-medium" style="color:#6b7a99;">Name</th>
+        <th class="text-left py-2 px-3 font-medium" style="color:#6b7a99;">Course</th>
+        <th class="text-left py-2 px-3 font-medium" style="color:#6b7a99;">Year</th>
+        <th class="text-left py-2 px-3 font-medium" style="color:#6b7a99;">Subsidy</th>
+        <th class="text-left py-2 px-3 font-medium" style="color:#6b7a99;">Status</th>
+        <th class="py-2 px-3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for app in applications %}
+      <tr style="border-bottom:1px solid #f1f3f9;">
+        <td class="py-2 px-3 font-mono text-xs">TDP-{{ app.id }}</td>
+        <td class="py-2 px-3 font-medium">{{ app.student.user.get_full_name }}</td>
+        <td class="py-2 px-3">{{ app.student.course }}</td>
+        <td class="py-2 px-3">{{ app.student.year_level }}</td>
+        <td class="py-2 px-3">₱{{ app.subsidy_amount|default:"20,000" }}</td>
+        <td class="py-2 px-3">
+          {% if app.status == 'Approved' %}<span class="badge badge-success">{{ app.status }}</span>
+          {% elif app.status == 'Rejected' %}<span class="badge badge-destructive">{{ app.status }}</span>
+          {% elif app.status == 'Needs Revision' %}<span class="badge badge-warning">{{ app.status }}</span>
+          {% else %}<span class="badge badge-info">{{ app.status }}</span>{% endif %}
+        </td>
+        <td class="py-2 px-3">
+          <form method="post" class="flex gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="app_id" value="{{ app.id }}">
+            <button name="status" value="Approved" class="btn btn-primary" style="padding:0.25rem 0.75rem;font-size:0.75rem;">Approve</button>
+            <button name="status" value="Rejected" class="btn btn-outline" style="padding:0.25rem 0.75rem;font-size:0.75rem;">Reject</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="py-8 text-center" style="color:#6b7a99;">No TDP applications found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

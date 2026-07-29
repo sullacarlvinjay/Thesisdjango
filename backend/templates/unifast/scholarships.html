@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Scholarship Records — UniFAST{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}Scholarship Records{% endblock %}
+{% block page_subtitle %}TES, TDP and FHE imported scholar records{% endblock %}
+
+{% block nav %}{% include "unifast/_nav.html" with active="scholarships" %}{% endblock %}
+
+{% block content %}
+<!-- Type Tabs -->
+<div class="flex flex-wrap gap-2 mb-5">
+  {% for t in record_types %}
+  <a href="/unifast/scholarships/?type={{ t }}" class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">{{ t }}</a>
+  {% endfor %}
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- LEFT: Records table (2 cols) -->
+  <div class="lg:col-span-2 space-y-4">
+    <div class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold">{{ active_type }} Records</h3>
+            <span class="badge badge-info">A.Y. {{ current_sy }}</span>
+          </div>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ total }} record{{ total|pluralize }}</p>
+        </div>
+        <div class="flex gap-2">
+          <input placeholder="Search…" id="schSearch" oninput="filterSch()" style="width:11rem;" />
+          {% if total > 0 %}
+          <button onclick="document.getElementById('rolloverModal').style.display='flex'"
+            class="btn" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;gap:0.4rem;white-space:nowrap;">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+            New School Year → {{ next_sy }}
+          </button>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="schTable">
+          <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Name</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">GWA</th>
+            {% if active_type == 'TES' or active_type == 'TDP' %}
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Award No.</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Congress District</th>
+            {% endif %}
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship Program</th>
+          </tr></thead>
+          <tbody>
+            {% for rec in scholars %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="sch-row"
+              data-name="{{ rec.scholar_name|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ rec.scholar_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ rec.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ rec.year }}</td>
+              <td style="padding:0.55rem 0.75rem;">
+                {% if rec.gwa %}<span class="badge badge-success">{{ rec.gwa }}</span>{% else %}—{% endif %}
+              </td>
+              {% if active_type == 'TES' or active_type == 'TDP' %}
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ rec.extra_data.award_number|default:"—" }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ rec.extra_data.address|default:"—" }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ rec.extra_data.congress_district|default:"—" }}</td>
+              {% endif %}
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ rec.extra_data.scholarship_program|default:active_type }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">No {{ active_type }} records found. Import an Excel file via VPSEA Excel Uploads.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: History panel -->
+  <div class="space-y-4">
+    <div class="card p-5">
+      <h3 class="font-semibold mb-3">Previous School Years</h3>
+      {% if history %}
+      <div class="space-y-2">
+        {% for h in history %}
+        <div class="flex items-center justify-between p-3 rounded-lg" style="background:#f6f8fc;border:1px solid #e8ecf0;">
+          <div>
+            <p class="text-sm font-medium">A.Y. {{ h.school_year }}</p>
+            <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ h.scholar_count }} record{{ h.scholar_count|pluralize }} · {{ h.created_at|date:"M d, Y" }}</p>
+          </div>
+          <a href="{{ h.excel_file.url }}" download
+            class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;">
+            <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            .xlsx
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm" style="color:#6b7a99;">No previous rollover history for {{ active_type }} yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Rollover Confirmation Modal -->
+<div id="rolloverModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:50;align-items:center;justify-content:center;">
+  <div class="card" style="width:100%;max-width:28rem;padding:1.75rem;margin:1rem;">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#fff7ed;">
+        <svg class="h-5 w-5" style="color:#c2410c;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      </div>
+      <div>
+        <h3 class="font-semibold">Start New School Year</h3>
+        <p class="text-xs" style="color:#6b7a99;">Archive A.Y. {{ current_sy }} · start A.Y. {{ next_sy }}</p>
+      </div>
+    </div>
+    <p class="text-sm mb-4" style="color:#374151;">
+      The <strong>{{ total }} {{ active_type }} record{{ total|pluralize }}</strong> for A.Y. <strong>{{ current_sy }}</strong> will be saved as an Excel file and removed from the active database. You can download the file anytime from the history panel.
+    </p>
+    <form method="post" action="/unifast/scholarships/rollover/">
+      {% csrf_token %}
+      <input type="hidden" name="type" value="{{ active_type }}" />
+      <input type="hidden" name="school_year" value="{{ current_sy }}" />
+      <div class="p-3 rounded-lg mb-4" style="background:#f6f8fc;border:1px solid #e8ecf0;">
+        <p class="text-xs" style="color:#6b7a99;">Archiving current school year</p>
+        <p class="font-semibold" style="color:#1e2a3a;">A.Y. {{ current_sy }}</p>
+      </div>
+      <div class="space-y-1.5 mb-4">
+        <label>Next School Year</label>
+        <input name="next_school_year" placeholder="e.g. {{ next_sy }}" value="{{ next_sy }}" required />
+        <p class="text-xs" style="color:#6b7a99;">Enter the label for the incoming school year.</p>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="btn flex-1" style="background:#c2410c;color:#fff;border:none;">
+          <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+          Archive & Start New Year
+        </button>
+        <button type="button" onclick="document.getElementById('rolloverModal').style.display='none'" class="btn btn-outline flex-1">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterSch() {
+  const q = document.getElementById('schSearch').value.toLowerCase();
+  document.querySelectorAll('.sch-row').forEach(row => {
+    row.style.display = (!q || row.dataset.name.includes(q)) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

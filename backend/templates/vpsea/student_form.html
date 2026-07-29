@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Student — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}VPSEA{% endblock %}
+{% block page_title %}{{ action }} Student{% endblock %}
+{% block page_subtitle %}{% if action == 'Add' %}Create a new student account and application{% else %}Update student information and application{% endif %}{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
+
+{% block content %}
+
+{% if errors %}
+<div class="mb-4 p-3 rounded-lg" style="background:#fef2f2;border:1px solid #fecaca;">
+  {% for e in errors %}<p class="text-sm" style="color:#dc2626;">{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="grid lg:grid-cols-3 gap-6">
+
+    <!-- LEFT: main sections -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Account Credentials -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Account Credentials</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>First Name <span style="color:#e03131;">*</span></label>
+            <input name="first_name" required value="{{ v_first_name }}" placeholder="e.g. Juan" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Last Name <span style="color:#e03131;">*</span></label>
+            <input name="last_name" required value="{{ v_last_name }}" placeholder="e.g. Dela Cruz" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Email <span style="color:#e03131;">*</span></label>
+            <input name="email" type="email" required value="{{ v_email }}" placeholder="student@bipsu.edu.ph" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Password {% if action == 'Edit' %}<span style="color:#6b7a99;font-weight:400;">(blank = keep current)</span>{% else %}<span style="color:#e03131;">*</span>{% endif %}</label>
+            <input name="password" type="password" {% if action == 'Add' %}required{% endif %} placeholder="{% if action == 'Edit' %}Leave blank to keep unchanged{% else %}Set a password{% endif %}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Personal Information -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>Student Number <span style="color:#e03131;">*</span></label>
+            <input name="student_id" required value="{{ v_student_id }}" placeholder="e.g. 2024-00001" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Course <span style="color:#e03131;">*</span></label>
+            <input name="course" required value="{{ v_course }}" placeholder="e.g. BSIT" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Birth Date</label>
+            <input name="date_of_birth" id="birthDateField" type="date" value="{{ v_date_of_birth }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Age</label>
+            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Gender</label>
+            <select name="gender">
+              <option value="">— Select —</option>
+              <option value="Male" {% if v_gender == "Male" %}selected{% endif %}>Male</option>
+              <option value="Female" {% if v_gender == "Female" %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Contact Number</label>
+            <input name="contact_number" value="{{ v_contact_number }}" placeholder="e.g. 09XX-XXX-XXXX" />
+          </div>
+          <div class="space-y-1.5 sm:col-span-2">
+            <label>Address</label>
+            <input name="address" value="{{ v_address }}" placeholder="Brgy., Municipality, Province" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Year Level <span style="color:#e03131;">*</span></label>
+            <select name="year_level">
+              <option value="1" {% if v_year_level == "1" %}selected{% endif %}>1st Year</option>
+              <option value="2" {% if v_year_level == "2" %}selected{% endif %}>2nd Year</option>
+              <option value="3" {% if v_year_level == "3" %}selected{% endif %}>3rd Year</option>
+              <option value="4" {% if v_year_level == "4" %}selected{% endif %}>4th Year</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Annual Family Income (₱)</label>
+            <input name="family_income" type="number" min="0" value="{{ v_family_income }}" placeholder="e.g. 120000" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Educational Background -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Educational Background</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>Elementary School</label>
+            <input name="elementary" value="{{ v_elementary }}" placeholder="School name" />
+          </div>
+          <div class="space-y-1.5">
+            <label>High School</label>
+            <input name="highschool" value="{{ v_highschool }}" placeholder="School name" />
+          </div>
+          <div class="space-y-1.5 sm:col-span-2">
+            <label>Last School Attended</label>
+            <input name="last_school" value="{{ v_last_school }}" placeholder="School name" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Family Background -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>Father's Name</label>
+            <input name="father_name" value="{{ v_father_name }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Father's Occupation</label>
+            <input name="father_occupation" value="{{ v_father_occupation }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Mother's Name</label>
+            <input name="mother_name" value="{{ v_mother_name }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Mother's Occupation</label>
+            <input name="mother_occupation" value="{{ v_mother_occupation }}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Academic Information -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Academic Information</h3>
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div class="space-y-1.5">
+            <label>GWA</label>
+            <input name="gwa" type="number" step="0.01" min="1" max="5" id="gwaInput"
+              value="{{ v_gwa }}" oninput="validateGWA(this.value)" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Semester</label>
+            <input name="semester" value="{{ v_semester }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>School Year</label>
+            <input name="school_year" value="{{ v_school_year }}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Document Upload -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#3b5bdb;">Document Upload</h3>
+        <p class="text-xs mb-5" style="color:#6b7a99;">
+          {% if action == 'Edit' %}Upload a new file to replace the existing one. Leave blank to keep the current file.{% else %}All documents are required. Accepted: PDF, JPG, PNG · Max 5MB each.{% endif %}
+        </p>
+        <div class="space-y-4">
+          {% for doc_key, doc_label, doc_hint in doc_list %}
+          <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">{{ forloop.counter }}</span>
+              <label class="text-sm font-medium" style="color:#374151;">{{ doc_label }} {% if action == 'Add' %}<span style="color:#e03131;">*</span>{% endif %}</label>
+            </div>
+            <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">{{ doc_hint }}</p>
+            {% if action == 'Edit' and app %}
+              {% for d in app.documents.all %}{% if d.name == doc_label %}
+              <div class="flex items-center gap-2 mb-2 ml-7">
+                <svg class="h-4 w-4 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <a href="{{ d.file.url }}" target="_blank" class="text-xs" style="color:#1971c2;">Current file on record</a>
+              </div>
+              {% endif %}{% endfor %}
+            {% endif %}
+            <input type="file" name="{{ doc_key }}" accept=".pdf,.jpg,.jpeg,.png"
+              {% if action == 'Add' %}required{% endif %} style="width:100%;" />
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Validation sidebar -->
+    <div>
+      <div class="card p-6 sticky top-24">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="h-4 w-4" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          <h3 class="font-semibold">Auto-Validation</h3>
+        </div>
+        <p class="text-xs mb-4" style="color:#6b7a99;">Real-time eligibility based on GWA.</p>
+        <div id="validationResult" class="p-4 rounded-xl" style="background:#f1f3f9;">
+          <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
+          <p class="text-xl font-bold mt-1" id="classificationText" style="color:#6b7a99;">Enter GWA</p>
+        </div>
+        <div class="mt-4 space-y-2 text-xs">
+          <div class="flex justify-between"><span>Rule: GWA ≤ 1.29</span><span class="badge badge-muted" id="rule1">—</span></div>
+          <div class="flex justify-between"><span>Rule: GWA ≤ 1.50</span><span class="badge badge-muted" id="rule2">—</span></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full mt-6">
+          {% if action == 'Add' %}Add Student{% else %}Save Changes{% endif %}
+        </button>
+        <a href="/vpsea/students/" class="btn btn-outline w-full mt-2" style="text-align:center;">Cancel</a>
+      </div>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const bdField = document.getElementById('birthDateField');
+  const ageField = document.getElementById('ageField');
+  function calcAge(dob) {
+    if (!dob) return '';
+    const today = new Date(), birth = new Date(dob);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  }
+  if (bdField && bdField.value) ageField.value = calcAge(bdField.value);
+  if (bdField) bdField.addEventListener('change', () => { ageField.value = calcAge(bdField.value); });
+
+  // Init validation on load if GWA already set
+  const gwaInput = document.getElementById('gwaInput');
+  if (gwaInput && gwaInput.value) validateGWA(gwaInput.value);
+
+  function validateGWA(val) {
+    const gwa = parseFloat(val);
+    const result = document.getElementById('validationResult');
+    const text = document.getElementById('classificationText');
+    const r1 = document.getElementById('rule1');
+    const r2 = document.getElementById('rule2');
+    if (isNaN(gwa)) return;
+    if (gwa <= 1.29) {
+      text.textContent = 'University Scholar'; text.style.color = '#2f9e44';
+      result.style.background = '#f0fdf4';
+      r1.textContent = 'Pass'; r1.className = 'badge badge-success';
+      r2.textContent = 'Pass'; r2.className = 'badge badge-success';
+    } else if (gwa <= 1.50) {
+      text.textContent = 'College Scholar'; text.style.color = '#2f9e44';
+      result.style.background = '#f0fdf4';
+      r1.textContent = 'Fail'; r1.className = 'badge badge-warning';
+      r2.textContent = 'Pass'; r2.className = 'badge badge-success';
+    } else {
+      text.textContent = 'Not Eligible'; text.style.color = '#dc2626';
+      result.style.background = '#fef2f2';
+      r1.textContent = 'Fail'; r1.className = 'badge badge-destructive';
+      r2.textContent = 'Fail'; r2.className = 'badge badge-destructive';
+    }
+  }
+</script>
+{% endblock %}

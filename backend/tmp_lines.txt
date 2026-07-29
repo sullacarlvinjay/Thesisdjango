@@ -1,0 +1,13 @@
+348 '\n'
+349 '\n'
+350 '# ── UniFAST portal pages ─────────────────────────────────────────────────────\n'
+351 '\n'
+352 'def _unifast_required(view_fn):\n'
+353 '    from functools import wraps\n'
+354 '    @wraps(view_fn)\n'
+355 '    def wrapper(request, *args, **kwargs):\n'
+356 "        if not request.user.is_authenticated or request.user.role != 'unifast':\n"
+357 "            return redirect('/login/')\n"
+358 '        return view_fn(request, *args, **kwargs)\n'
+359 '    return wrapper\n'
+360 '\n'

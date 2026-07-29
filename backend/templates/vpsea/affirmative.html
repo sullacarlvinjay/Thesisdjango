@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Affirmative / Staff Applications — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}VPSEA{% endblock %}
+{% block page_title %}Affirmative / Staff Applications{% endblock %}
+{% block page_subtitle %}Verify and confirm Affirmative Action and NSU Staff scholarship applicants{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="affirmative" %}{% endblock %}
+
+{% block content %}
+<!-- Type filter -->
+<div class="flex gap-2 mb-5">
+  <a href="/vpsea/affirmative/" class="btn {% if active_type == '' %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+  <a href="/vpsea/affirmative/?type=Affirmative" class="btn {% if active_type == 'Affirmative' %}btn-primary{% else %}btn-outline{% endif %}">Affirmative Action</a>
+  <a href="/vpsea/affirmative/?type=Staff" class="btn {% if active_type == 'Staff' %}btn-primary{% else %}btn-outline{% endif %}">NSU Staff</a>
+</div>
+
+<div class="card p-6">
+  <div class="flex flex-wrap gap-3 mb-5">
+    <input placeholder="Search by name or email…" style="max-width:20rem;" id="searchInput" oninput="filterTable()" />
+    <select id="statusFilter" onchange="filterTable()" style="width:auto;">
+      <option value="">All Statuses</option>
+      <option>Pending Validation</option>
+      <option>Approved</option>
+      <option>Rejected</option>
+      <option>Needs Revision</option>
+      <option>Draft</option>
+    </select>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+      <thead>
+        <tr style="border-bottom:1px solid #e8ecf0;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Type</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SHS GPA</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SUC Exam</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr style="border-bottom:1px solid #f1f3f9;" class="app-row"
+          data-name="{{ app.full_name|lower }}"
+          data-email="{{ app.email|lower }}"
+          data-status="{{ app.status }}">
+          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">AFF-{{ app.id|stringformat:"05d" }}</td>
+          <td style="padding:0.6rem 0.75rem;">
+            <div class="flex items-center gap-2">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
+                style="background:{% if app.qualified_for == 'Staff' %}#2f9e44{% else %}#f59f00{% endif %};">
+                {{ app.full_name|first }}
+              </div>
+              <div>
+                <p class="font-medium leading-tight">{{ app.full_name }}</p>
+                <p class="text-xs" style="color:#6b7a99;">{{ app.email }}</p>
+              </div>
+            </div>
+          </td>
+          <td style="padding:0.6rem 0.75rem;">
+            {% if app.qualified_for == 'Staff' %}
+            <span class="badge badge-success">NSU Staff</span>
+            {% elif app.qualified_for == 'Affirmative' %}
+            <span class="badge badge-warning">Affirmative</span>
+            {% else %}
+            <span class="badge badge-muted">None</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">{{ app.course }}</td>
+          <td style="padding:0.6rem 0.75rem;">{{ app.year_level }}</td>
+          <td style="padding:0.6rem 0.75rem;">
+            {% if app.shs_gpa %}<span class="badge {% if app.shs_gpa >= 75 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.shs_gpa }}%</span>{% else %}—{% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">
+            {% if app.suc_exam_score %}<span class="badge {% if app.suc_exam_score >= 50 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.suc_exam_score }}%</span>{% else %}—{% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">
+            <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% elif app.status == 'Draft' %}badge-muted{% else %}badge-warning{% endif %}">
+              {{ app.status }}
+            </span>
+          </td>
+          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
+          <td style="padding:0.6rem 0.75rem;">
+            <button onclick="openModal({{ app.id }}, '{{ app.full_name }}', '{{ app.qualified_for }}', '{{ app.course }}', '{{ app.shs_gpa|default:'' }}', '{{ app.suc_exam_score|default:'' }}', '{{ app.status }}', '{{ app.remarks }}')"
+              class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
+              <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" style="padding:2rem;text-align:center;color:#6b7a99;">No applications found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
+  <div class="card" style="width:100%;max-width:38rem;padding:1.5rem;margin:1rem;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold" id="modalTitle">Application Review</h3>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7a99;">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm mb-4" id="modalDetails"></div>
+    <form method="post" action="/vpsea/affirmative/">
+      {% csrf_token %}
+      <input type="hidden" name="app_id" id="modalAppId" />
+      <div class="space-y-1.5 mb-4">
+        <label>Admin Remarks</label>
+        <textarea name="remarks" rows="3" id="modalRemarks" placeholder="Add verification notes…"></textarea>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
+        <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Request Revision</button>
+        <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(id, name, type, course, shs, suc, status, remarks) {
+  document.getElementById('modalAppId').value = id;
+  document.getElementById('modalTitle').textContent = name + ' — AFF-' + String(id).padStart(5,'0');
+  document.getElementById('modalRemarks').value = remarks || '';
+  document.getElementById('modalDetails').innerHTML =
+    '<div><p style="font-size:0.7rem;color:#6b7a99;">Scholarship Type</p><p class="font-medium">' + type + '</p></div>' +
+    '<div><p style="font-size:0.7rem;color:#6b7a99;">Course</p><p class="font-medium">' + course + '</p></div>' +
+    '<div><p style="font-size:0.7rem;color:#6b7a99;">SHS GPA</p><p class="font-medium">' + (shs || '—') + '%</p></div>' +
+    '<div><p style="font-size:0.7rem;color:#6b7a99;">SUC Exam Score</p><p class="font-medium">' + (suc || '—') + '%</p></div>' +
+    '<div><p style="font-size:0.7rem;color:#6b7a99;">Current Status</p><p class="font-medium">' + status + '</p></div>';
+  document.getElementById('reviewModal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('reviewModal').style.display = 'none'; }
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const s = document.getElementById('statusFilter').value;
+  document.querySelectorAll('.app-row').forEach(row => {
+    const matchQ = !q || row.dataset.name.includes(q) || row.dataset.email.includes(q);
+    const matchS = !s || row.dataset.status === s;
+    row.style.display = matchQ && matchS ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

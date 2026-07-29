@@ -2,8 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import (
     User, StudentProfile, Scholarship, Application, ApplicationDocument,
-    Notification, Announcement, Renewal, ArchiveRecord, BillingRecord,
-    LiquidationRecord, TDPApplication, Office, ActivityLog, SystemSettings,
+    Notification, Announcement, Renewal, AcademicRenewal, ArchiveRecord,
+    TDPApplication, ActivityLog, SystemSettings,
 )
 
 
@@ -159,21 +159,24 @@ class RenewalSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class AcademicRenewalSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    course = serializers.CharField(source='student.course', read_only=True)
+
+    class Meta:
+        model = AcademicRenewal
+        fields = [
+            'id', 'student', 'student_name', 'student_id', 'course',
+            'certificate_of_grades', 'certificate_of_enrollment',
+            'status', 'remarks', 'submitted_at', 'reviewed_at',
+        ]
+        read_only_fields = ['student', 'submitted_at']
+
+
 class ArchiveRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArchiveRecord
-        fields = '__all__'
-
-
-class BillingRecordSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BillingRecord
-        fields = '__all__'
-
-
-class LiquidationRecordSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LiquidationRecord
         fields = '__all__'
 
 
@@ -183,12 +186,6 @@ class TDPApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TDPApplication
-        fields = '__all__'
-
-
-class OfficeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Office
         fields = '__all__'
 
 

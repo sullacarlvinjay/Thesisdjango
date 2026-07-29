@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Scholarship — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}VPSEA{% endblock %}
+{% block page_title %}{{ action }} Scholarship Program{% endblock %}
+{% block page_subtitle %}{% if action == 'Edit' %}Update program info shown on the landing page{% else %}Add a new scholarship program{% endif %}{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="scholarships" %}{% endblock %}
+
+{% block content %}
+{% if errors %}
+<div class="mb-4 p-3 rounded-lg text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+  {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<div class="card p-6" style="max-width:52rem;">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="text-sm font-medium block mb-1">Scholarship Name <span style="color:#dc2626;">*</span></label>
+        <input name="name" value="{% if s %}{{ s.name }}{% endif %}" placeholder="e.g. Academic Scholarship" required style="width:100%;" />
+      </div>
+      <div>
+        <label class="text-sm font-medium block mb-1">Type <span style="color:#dc2626;">*</span></label>
+        <input name="type" value="{% if s %}{{ s.type }}{% endif %}" placeholder="e.g. Academic, CHED, Custom" required style="width:100%;" />
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label class="text-sm font-medium block mb-1">Group <span style="color:#dc2626;">*</span></label>
+      <select name="group" style="width:100%;padding:0.45rem 0.6rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;">
+        <option value="internal" {% if s.group == 'internal' %}selected{% endif %}>Internal</option>
+        <option value="external" {% if s.group == 'external' %}selected{% endif %}>External</option>
+        <option value="institutional" {% if s.group == 'institutional' %}selected{% endif %}>Institutional</option>
+      </select>
+    </div>
+
+    <div class="mb-4">
+      <label class="text-sm font-medium block mb-1">Short Description <span style="font-size:0.75rem;color:#6b7a99;">(shown on card)</span></label>
+      <textarea name="description" rows="2" placeholder="Brief one-line description for the scholarship card…" style="width:100%;">{% if s %}{{ s.description }}{% endif %}</textarea>
+    </div>
+
+    <div class="mb-4">
+      <label class="text-sm font-medium block mb-1">Background <span style="font-size:0.75rem;color:#6b7a99;">(shown in modal)</span></label>
+      <textarea name="background" rows="4" placeholder="Full background / history of the scholarship program…" style="width:100%;">{% if s %}{{ s.background }}{% endif %}</textarea>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4 mb-6">
+      <div>
+        <label class="text-sm font-medium block mb-1">Eligibility Requirements <span style="font-size:0.75rem;color:#6b7a99;">(one per line)</span></label>
+        <textarea name="eligibility_list" rows="6" placeholder="GWA of 1.50 or better&#10;Must be a regular student&#10;No failing grades" style="width:100%;">{% if s.eligibility_list %}{% for e in s.eligibility_list %}{{ e }}
+{% endfor %}{% endif %}</textarea>
+      </div>
+      <div>
+        <label class="text-sm font-medium block mb-1">Benefits <span style="font-size:0.75rem;color:#6b7a99;">(one per line)</span></label>
+        <textarea name="benefits" rows="6" placeholder="Full tuition fee coverage&#10;Monthly stipend&#10;Book allowance" style="width:100%;">{% if s.benefits %}{% for b in s.benefits %}{{ b }}
+{% endfor %}{% endif %}</textarea>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary">{{ action }} Scholarship</button>
+      <a href="/vpsea/scholarships/" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

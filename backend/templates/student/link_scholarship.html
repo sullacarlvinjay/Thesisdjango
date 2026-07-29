@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Link Scholarship — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}Link Scholarship{% endblock %}
+{% block page_subtitle %}Verify your scholarship and connect it to your account{% endblock %}
+
+{% block nav %}
+  <a href="/student/" class="sidebar-link {% if request.path == '/student/' %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    Dashboard
+  </a>
+  <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>
+    Apply: Academic
+  </a>
+  <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    My Applications
+  </a>
+  <a href="/student/notifications/" class="sidebar-link {% if '/notifications' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+    Notifications
+  </a>
+  <a href="/student/renewal/academic/" class="sidebar-link {% if '/renewal' in request.path %}active{% endif %}">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    Renewal
+  </a>
+  <a href="/student/link-scholarship/" class="sidebar-link active">
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+    Link Scholarship
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  {% if submitted %}
+  <div class="card p-5 flex items-center gap-3" style="border-color:#2f9e44;background:#f0fdf4;">
+    <svg class="h-5 w-5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p class="text-sm font-medium" style="color:#2f9e44;">Your scholarship link request has been submitted. Admin will verify and connect it to your account.</p>
+  </div>
+  {% endif %}
+
+  {% if errors %}
+  <div class="card p-5" style="border-color:#e03131;background:#fff5f5;">
+    {% for e in errors %}
+    <p class="text-sm" style="color:#e03131;">{{ e }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Info Banner -->
+  <div class="card p-5 flex gap-3" style="background:#edf2ff;border-color:#3b5bdb;">
+    <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+      <p class="text-sm font-semibold" style="color:#3b5bdb;">Already a scholar?</p>
+      <p class="text-xs mt-0.5" style="color:#4c6ef5;">If you have an existing scholarship (e.g. DOST, CHED, TDP) and want to connect it to your account, submit a link request with proof of your scholarship below.</p>
+    </div>
+  </div>
+
+  <!-- Link Request Form -->
+  <div class="card p-6">
+    <h3 class="font-semibold mb-1">Scholarship Link Request</h3>
+    <p class="text-xs mb-5" style="color:#6b7a99;">Select your scholarship type and upload proof. Admin will verify and link it to your profile.</p>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-5">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Scholarship Type <span style="color:#e03131;">*</span></label>
+        <select name="scholarship_type" required
+          class="block w-full text-sm rounded-lg border px-3 py-2" style="border-color:#e8ecf0;color:#374151;background:#fff;">
+          <option value="">— Select scholarship —</option>
+          {% for stype in scholarship_types %}
+          <option value="{{ stype }}">{{ stype }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Proof Document <span style="color:#e03131;">*</span></label>
+        <p class="text-xs mb-2" style="color:#6b7a99;">Upload your scholarship award letter, certificate, or any official document proving your scholarship.</p>
+        <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png"
+          class="block w-full text-sm rounded-lg border px-3 py-2" style="border-color:#e8ecf0;color:#374151;" required />
+        <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Additional Notes <span class="font-normal" style="color:#6b7a99;">(optional)</span></label>
+        <textarea name="notes" rows="3" placeholder="Any additional information for the admin..."
+          class="block w-full text-sm rounded-lg border px-3 py-2 resize-none" style="border-color:#e8ecf0;color:#374151;"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full">Submit Link Request</button>
+    </form>
+  </div>
+
+  <!-- Previous Requests -->
+  {% if link_requests %}
+  <div class="card p-6">
+    <h3 class="font-semibold mb-4">Previous Requests</h3>
+    <div class="space-y-3">
+      {% for r in link_requests %}
+      <div class="flex items-center justify-between p-4 rounded-xl" style="background:#f6f8fc;">
+        <div>
+          <p class="text-sm font-medium" style="color:#1e2a3a;">{{ r.scholarship_type }} Scholarship</p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">Submitted {{ r.submitted_at|date:"M d, Y" }}</p>
+          {% if r.notes %}<p class="text-xs mt-1" style="color:#6b7a99;">{{ r.notes }}</p>{% endif %}
+        </div>
+        <span class="badge {% if r.status == 'Approved' %}bg-green-100 text-green-700{% elif r.status == 'Rejected' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+          {{ r.status }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

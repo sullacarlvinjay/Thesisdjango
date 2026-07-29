@@ -39,18 +39,22 @@ class StudentProfile(models.Model):
 
 
 class Scholarship(models.Model):
-    TYPES = [
-        ('Academic', 'Academic'), ('TDP', 'TDP'), ('DOST', 'DOST'),
-        ('CHED', 'CHED'), ('CoScho', 'CoScho'), ('Sports', 'Sports'),
-        ('Affirmative', 'Affirmative'), ('Staff', 'Staff'), ('GSIS', 'GSIS'),
-    ]
     CATEGORIES = [('application', 'Application'), ('recommendation', 'Recommendation')]
+    GROUPS = [
+        ('internal', 'Internal'),
+        ('external', 'External'),
+        ('institutional', 'Institutional'),
+    ]
 
     name = models.CharField(max_length=100)
-    type = models.CharField(max_length=20, choices=TYPES)
+    type = models.CharField(max_length=50)
     category = models.CharField(max_length=20, choices=CATEGORIES)
+    group = models.CharField(max_length=20, choices=GROUPS, default='internal')
     description = models.TextField()
     eligibility = models.TextField()
+    background = models.TextField(blank=True)
+    eligibility_list = models.JSONField(default=list, blank=True)
+    benefits = models.JSONField(default=list, blank=True)
     requirements = models.JSONField(default=list)
     is_active = models.BooleanField(default=True)
 
@@ -146,30 +150,6 @@ class ArchiveRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class BillingRecord(models.Model):
-    STATUSES = [
-        ('Approved', 'Approved'),
-        ('Pending Validation', 'Pending Validation'),
-        ('Needs Revision', 'Needs Revision'),
-    ]
-    semester = models.CharField(max_length=20)
-    amount = models.FloatField()
-    submitted_at = models.DateField()
-    status = models.CharField(max_length=30, choices=STATUSES, default='Pending Validation')
-
-
-class LiquidationRecord(models.Model):
-    STATUSES = [
-        ('Approved', 'Approved'),
-        ('Pending Validation', 'Pending Validation'),
-        ('Needs Revision', 'Needs Revision'),
-    ]
-    batch = models.CharField(max_length=50)
-    amount = models.FloatField()
-    submitted_at = models.DateField()
-    status = models.CharField(max_length=30, choices=STATUSES, default='Pending Validation')
-
-
 class TDPApplication(models.Model):
     STATUSES = [
         ('Pending Validation', 'Pending Validation'),
@@ -181,15 +161,6 @@ class TDPApplication(models.Model):
     subsidy_amount = models.FloatField(default=20000)
     status = models.CharField(max_length=30, choices=STATUSES, default='Pending Validation')
     created_at = models.DateField(auto_now_add=True)
-
-
-class Office(models.Model):
-    name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
-    manages = models.JSONField(default=list)
-
-    def __str__(self):
-        return self.name
 
 
 class AffirmativeNSUApplication(models.Model):
@@ -264,16 +235,54 @@ class AffirmativeNSUApplication(models.Model):
         return 'None'
 
 
+class AcademicRenewal(models.Model):
+    STATUSES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='academic_renewals')
+    certificate_of_grades = models.FileField(upload_to='renewals/academic/')
+    certificate_of_enrollment = models.FileField(upload_to='renewals/academic/')
+    status = models.CharField(max_length=20, choices=STATUSES, default='Pending')
+    remarks = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.student} — Renewal ({self.status})"
+
+
+class ScholarshipLinkRequest(models.Model):
+    STATUSES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='link_requests')
+    scholarship_type = models.CharField(max_length=50)
+    proof_document = models.FileField(upload_to='link_requests/')
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUSES, default='Pending')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.student} — Link {self.scholarship_type} ({self.status})"
+
+
 class ScholarshipRollover(models.Model):
+    SEMESTERS = [('1st Semester', '1st Semester'), ('2nd Semester', '2nd Semester')]
     scholarship_type = models.CharField(max_length=20)
-    school_year = models.CharField(max_length=20)  # e.g. '2024-2025'
+    school_year = models.CharField(max_length=20)
+    semester = models.CharField(max_length=20, choices=SEMESTERS, default='1st Semester')
+    label = models.CharField(max_length=20, blank=True)  # e.g. '25-2'
     scholar_count = models.IntegerField(default=0)
     excel_file = models.FileField(upload_to='rollovers/')
     rolled_over_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.scholarship_type} — {self.school_year} ({self.scholar_count} scholars)'
+        return f'{self.scholarship_type} — {self.label or self.school_year} {self.semester} ({self.scholar_count} scholars)'
 
 
 class ActivityLog(models.Model):
@@ -286,6 +295,7 @@ class ActivityLog(models.Model):
 
 
 class SystemSettings(models.Model):
+
     academic_year = models.CharField(max_length=20, default='2025-2026')
     active_semester = models.CharField(max_length=20, default='1st Semester')
     email_notifications = models.BooleanField(default=True)
@@ -297,3 +307,25 @@ class SystemSettings(models.Model):
 
     class Meta:
         verbose_name_plural = 'System Settings'
+
+    @staticmethod
+    def parse_label(label):
+        """Parse '26-1' → {'sy': '2025-2026', 'semester': '1st Semester',
+                           'sy_start': 2025, 'sy_end': 2026}"""
+        try:
+            yy, s = label.split('-')
+            start = 2000 + int(yy)
+            end = start + 1
+            sem = '1st Semester' if s == '1' else '2nd Semester'
+            return {'sy': f'{start}-{end}', 'semester': sem, 'sy_start': start, 'sy_end': end}
+        except Exception:
+            return {'sy': label, 'semester': '1st Semester', 'sy_start': None, 'sy_end': None}
+
+    def next_label(self):
+        """Return the next semester label after the current one."""
+        p = self.parse_label(self.academic_year)
+        yy, s = self.academic_year.split('-')
+        if s == '1':
+            return f'{yy}-2'
+        else:
+            return f'{int(yy)+1}-1'

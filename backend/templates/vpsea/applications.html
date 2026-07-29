@@ -1,29 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Academic Applications — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
 {% block brand %}VPSEA{% endblock %}
 {% block page_title %}Academic Applications{% endblock %}
 {% block page_subtitle %}Validate and manage student applications{% endblock %}
-
-{% block nav %}
-  <a href="/vpsea/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dashboard</a>
-  <a href="/vpsea/applications/" class="sidebar-link active">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Academic Applications</a>
-  <a href="/vpsea/renewals/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal Applications</a>
-  <a href="/vpsea/archives/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>Scholarship Archives</a>
-  <a href="/vpsea/uploads/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Excel Uploads</a>
-  <a href="/vpsea/analytics/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Analytics</a>
-  <a href="/vpsea/announcements/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>Announcements</a>
-  <a href="/vpsea/reports/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Reports</a>
-  <a href="/vpsea/ranking/" class="sidebar-link">
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>Student Ranking</a>
-{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="applications" %}{% endblock %}
 
 {% block content %}
 <div class="card p-6">
@@ -56,7 +37,26 @@
       </thead>
       <tbody>
         {% for app in applications %}
-        <tr style="border-bottom:1px solid #f1f3f9;" class="app-row" data-name="{{ app.student.user.get_full_name|lower }}" data-id="{{ app.student.student_id|lower }}" data-status="{{ app.status }}">
+        <tr style="border-bottom:1px solid #f1f3f9;" class="app-row"
+          data-name="{{ app.student.user.get_full_name|lower }}"
+          data-id="{{ app.student.student_id|lower }}"
+          data-status="{{ app.status }}"
+          data-appid="{{ app.id }}"
+          data-firstname="{{ app.student.user.first_name|escapejs }}"
+          data-lastname="{{ app.student.user.last_name|escapejs }}"
+          data-studentid="{{ app.student.student_id|escapejs }}"
+          data-email="{{ app.student.user.email|escapejs }}"
+          data-course="{{ app.student.course|escapejs }}"
+          data-year="{{ app.student.year_level }}"
+          data-gwa="{{ app.student.gwa }}"
+          data-gender="{{ app.student.gender|escapejs }}"
+          data-dob="{{ app.student.date_of_birth|default:'' }}"
+          data-contact="{{ app.student.contact_number|escapejs }}"
+          data-address="{{ app.student.address|escapejs }}"
+          data-scholarship="{{ app.scholarship.name|escapejs }}"
+          data-submittedat="{{ app.submitted_at }}"
+          data-docs="{% for doc in app.documents.all %}{{ doc.name }}::{{ doc.file.url }}{% if not forloop.last %}||{% endif %}{% endfor %}"
+          data-formdata-id="{{ app.id }}">
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">APP-{{ app.id|stringformat:"07d" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <div class="flex items-center gap-2">
@@ -77,57 +77,160 @@
           </td>
           <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ app.submitted_at }}</td>
           <td style="padding:0.6rem 0.75rem;">
-            <button onclick="openModal({{ app.id }}, '{{ app.student.user.get_full_name }}', '{{ app.student.course }}', '{{ app.student.gwa }}', '{{ app.scholarship.name }}', '{{ app.status }}')" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
+            <button onclick="openModal(this.closest('tr'))" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
               <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              View
             </button>
           </td>
         </tr>
         {% empty %}
         <tr><td colspan="9" style="padding:2rem;text-align:center;color:#6b7a99;">No applications found.</td></tr>
         {% endfor %}
+        {% for app in applications %}{{ app.form_data|json_script:app.id }}{% endfor %}
       </tbody>
     </table>
   </div>
 </div>
 
 <!-- Review Modal -->
-<div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
-  <div class="card" style="width:100%;max-width:36rem;padding:1.5rem;margin:1rem;">
+<div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
+  <div class="card" style="width:100%;max-width:44rem;max-height:90vh;overflow-y:auto;padding:1.5rem;">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold" id="modalTitle">Application Review</h3>
-      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7a99;">✕</button>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7a99;font-size:1.2rem;">✕</button>
     </div>
-    <div class="grid grid-cols-2 gap-3 text-sm mb-4" id="modalDetails"></div>
-    <form method="post" action="/vpsea/applications/">
-      {% csrf_token %}
-      <input type="hidden" name="app_id" id="modalAppId" />
-      <div class="space-y-1.5 mb-4">
-        <label>Admin Remarks</label>
-        <textarea name="remarks" rows="3" placeholder="Add notes for the applicant…"></textarea>
-      </div>
-      <div class="flex gap-2">
-        <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
-        <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Request Revision</button>
-        <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
-      </div>
-    </form>
+
+    <!-- Personal Info -->
+    <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Personal Information</p>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="modalPersonal"></div>
+
+    <!-- Educational Background -->
+    <div id="modalEduSection">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Educational Background</p>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="modalEdu"></div>
+    </div>
+
+    <!-- Family Background -->
+    <div id="modalFamSection">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Family Background</p>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="modalFam"></div>
+    </div>
+
+    <!-- Academic Info -->
+    <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Academic Information</p>
+    <div class="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-4" id="modalAcad"></div>
+
+    <!-- Documents -->
+    <div id="modalDocsSection">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Submitted Documents</p>
+      <div id="modalDocs" class="space-y-2 mb-4"></div>
+    </div>
+
+    <!-- Action Form -->
+    <div style="border-top:1px solid #e8ecf0;padding-top:1rem;margin-top:0.5rem;">
+      <form method="post" action="/vpsea/applications/">
+        {% csrf_token %}
+        <input type="hidden" name="tab" value="academic" />
+        <input type="hidden" name="app_id" id="modalAppId" />
+        <div class="space-y-1.5 mb-4">
+          <label>Admin Remarks</label>
+          <textarea name="remarks" rows="3" placeholder="Add notes for the applicant…"></textarea>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
+          <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Request Revision</button>
+          <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function openModal(id, name, course, gwa, type, status) {
-  document.getElementById('modalAppId').value = id;
-  document.getElementById('modalTitle').textContent = name + ' — APP-' + String(id).padStart(7,'0');
-  document.getElementById('modalDetails').innerHTML =
-    '<div><p style="font-size:0.7rem;color:#6b7a99;">Course</p><p class="font-medium">' + course + '</p></div>' +
-    '<div><p style="font-size:0.7rem;color:#6b7a99;">GWA</p><p class="font-medium">' + gwa + '</p></div>' +
-    '<div><p style="font-size:0.7rem;color:#6b7a99;">Type</p><p class="font-medium">' + type + '</p></div>' +
-    '<div><p style="font-size:0.7rem;color:#6b7a99;">Status</p><p class="font-medium">' + status + '</p></div>';
+function field(label, value) {
+  if (!value) return '';
+  return '<div><p style="font-size:0.7rem;color:#6b7a99;margin-bottom:0.1rem;">' + label + '</p><p class="font-medium" style="word-break:break-word;">' + value + '</p></div>';
+}
+
+function openModal(row) {
+  const d = row.dataset;
+  const scriptEl = document.getElementById(d.formdataId);
+  const fd = scriptEl ? JSON.parse(scriptEl.textContent) : {};
+
+  document.getElementById('modalAppId').value = d.appid;
+  document.getElementById('modalTitle').textContent =
+    d.firstname + ' ' + d.lastname + ' — APP-' + String(d.appid).padStart(7, '0');
+
+  // Personal
+  document.getElementById('modalPersonal').innerHTML =
+    field('First Name', d.firstname) +
+    field('Last Name', d.lastname) +
+    field('Student ID', d.studentid) +
+    field('Email', d.email) +
+    field('Gender', d.gender) +
+    field('Date of Birth', d.dob) +
+    field('Contact Number', d.contact) +
+    field('Address', d.address);
+
+  // Educational Background
+  const eduHtml =
+    field('Elementary School', fd.elementary) +
+    field('High School', fd.highschool) +
+    field('Last School Attended', fd.last_school);
+  if (eduHtml) {
+    document.getElementById('modalEdu').innerHTML = eduHtml;
+    document.getElementById('modalEduSection').style.display = '';
+  } else {
+    document.getElementById('modalEduSection').style.display = 'none';
+  }
+
+  // Family Background
+  const famHtml =
+    field("Father's Name", fd.father_name) +
+    field("Father's Occupation", fd.father_occupation) +
+    field("Mother's Name", fd.mother_name) +
+    field("Mother's Occupation", fd.mother_occupation);
+  if (famHtml) {
+    document.getElementById('modalFam').innerHTML = famHtml;
+    document.getElementById('modalFamSection').style.display = '';
+  } else {
+    document.getElementById('modalFamSection').style.display = 'none';
+  }
+
+  // Academic
+  document.getElementById('modalAcad').innerHTML =
+    field('GWA', d.gwa) +
+    field('Course', d.course) +
+    field('Year Level', d.year) +
+    field('Scholarship', d.scholarship) +
+    field('Semester', fd.semester || fd.active_semester) +
+    field('School Year', fd.academic_year || fd.school_year) +
+    field('Award Number', fd.award_number) +
+    field('Congress District', fd.congress_district);
+
+  // Documents
+  const docsEl = document.getElementById('modalDocs');
+  const docsSec = document.getElementById('modalDocsSection');
+  if (d.docs) {
+    const pairs = d.docs.split('||');
+    docsEl.innerHTML = pairs.map(p => {
+      const [name, url] = p.split('::');
+      return '<a href="' + url + '" target="_blank" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#1971c2;text-decoration:none;background:#f8faff;">' +
+        '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
+        name + '</a>';
+    }).join('');
+    docsSec.style.display = '';
+  } else {
+    docsSec.style.display = 'none';
+  }
+
   document.getElementById('reviewModal').style.display = 'flex';
 }
+
 function closeModal() { document.getElementById('reviewModal').style.display = 'none'; }
+
 function filterTable() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const s = document.getElementById('statusFilter').value;

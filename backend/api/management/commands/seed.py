@@ -2,8 +2,9 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from api.models import (
     StudentProfile, Scholarship, Application, Notification,
-    Announcement, BillingRecord, LiquidationRecord, TDPApplication,
-    Office, ActivityLog, SystemSettings, Renewal, ArchiveRecord,
+    Announcement, TDPApplication,
+    ActivityLog, SystemSettings, Renewal, ArchiveRecord,
+    AffirmativeNSUApplication,
 )
 from rest_framework.authtoken.models import Token
 import datetime
@@ -143,38 +144,6 @@ class Command(BaseCommand):
         for a in ann_data:
             Announcement.objects.get_or_create(title=a['title'], defaults={**a, 'published_by': super_user})
 
-        # Billing records
-        billing_data = [
-            {'semester': '1st 2025', 'amount': 1240000, 'submitted_at': datetime.date(2025, 4, 12), 'status': 'Approved'},
-            {'semester': '1st 2025', 'amount': 840000, 'submitted_at': datetime.date(2025, 4, 18), 'status': 'Pending Validation'},
-            {'semester': '1st 2025', 'amount': 660000, 'submitted_at': datetime.date(2025, 4, 22), 'status': 'Approved'},
-            {'semester': '1st 2025', 'amount': 320000, 'submitted_at': datetime.date(2025, 4, 28), 'status': 'Needs Revision'},
-            {'semester': '2nd 2024', 'amount': 980000, 'submitted_at': datetime.date(2025, 3, 15), 'status': 'Approved'},
-        ]
-        for b in billing_data:
-            BillingRecord.objects.get_or_create(semester=b['semester'], amount=b['amount'], defaults=b)
-
-        # Liquidation records
-        liq_data = [
-            {'batch': 'Batch 1', 'amount': 420000, 'submitted_at': datetime.date(2025, 4, 25), 'status': 'Approved'},
-            {'batch': 'Batch 1', 'amount': 380000, 'submitted_at': datetime.date(2025, 4, 28), 'status': 'Approved'},
-            {'batch': 'Batch 2', 'amount': 290000, 'submitted_at': datetime.date(2025, 5, 6), 'status': 'Pending Validation'},
-            {'batch': 'Batch 2', 'amount': 240000, 'submitted_at': datetime.date(2025, 5, 9), 'status': 'Needs Revision'},
-            {'batch': 'Batch 2', 'amount': 195000, 'submitted_at': datetime.date(2025, 5, 12), 'status': 'Pending Validation'},
-        ]
-        for l in liq_data:
-            LiquidationRecord.objects.get_or_create(batch=l['batch'], amount=l['amount'], defaults=l)
-
-        # Offices
-        offices_data = [
-            {'name': 'VPSEA Office', 'code': 'VPSEA', 'manages': ['Academic', 'Renewals']},
-            {'name': 'UniFAST Office', 'code': 'UFA', 'manages': ['TES', 'TDP', 'FHE']},
-            {'name': "Registrar's Office", 'code': 'REG', 'manages': ['Records']},
-            {'name': 'Sports Office', 'code': 'SPO', 'manages': ['Sports']},
-        ]
-        for o in offices_data:
-            Office.objects.get_or_create(code=o['code'], defaults=o)
-
         # Activity logs
         logs_data = [
             (vpsea_user, 'Approved application APP-2025-0021'),
@@ -185,9 +154,70 @@ class Command(BaseCommand):
         for user, action in logs_data:
             ActivityLog.objects.get_or_create(user=user, action=action)
 
+        # ── Archive test users (one per scholarship type) ──
+        archive_students = [
+            # (email, first, last, student_id, course, year, gwa, gender, address, income, extra_profile)
+            ('maria.santos@bipsu.edu.ph', 'Maria', 'Santos', '2022-00101', 'BS Education', 2, 1.25, 'Female', 'Caibiran, Biliran', 150000, {}),
+            ('jose.reyes@bipsu.edu.ph', 'Jose', 'Reyes', '2022-00102', 'BS Agriculture', 3, 1.75, 'Male', 'Almeria, Biliran', 90000, {'family_income': 90000}),
+            ('ana.garcia@bipsu.edu.ph', 'Ana', 'Garcia', '2022-00103', 'BS Biology', 2, 1.40, 'Female', 'Naval, Biliran', 200000, {}),
+            ('pedro.lim@bipsu.edu.ph', 'Pedro', 'Lim', '2022-00104', 'BS Nursing', 3, 1.60, 'Male', 'Kawayan, Biliran', 250000, {}),
+            ('rosa.cruz@bipsu.edu.ph', 'Rosa', 'Cruz', '2022-00105', 'BS Forestry', 1, 1.80, 'Female', 'Culaba, Biliran', 120000, {'is_coconut_farmer_family': True}),
+            ('carlo.mendoza@bipsu.edu.ph', 'Carlo', 'Mendoza', '2022-00106', 'BS Physical Education', 2, 2.00, 'Male', 'Biliran, Biliran', 180000, {'is_athlete': True}),
+            ('liza.torres@bipsu.edu.ph', 'Liza', 'Torres', '2022-00107', 'BS Criminology', 4, 1.55, 'Female', 'Maripipi, Biliran', 160000, {}),
+        ]
+        scholarship_types = ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'GSIS']
+        for (email, first, last, sid, course, yr, gwa, gender, addr, income, extra), stype in zip(archive_students, scholarship_types):
+            u, _ = User.objects.get_or_create(
+                email=email,
+                defaults={'username': email, 'first_name': first, 'last_name': last, 'role': 'student'}
+            )
+            u.set_password('demo1234')
+            u.save()
+            profile_defaults = {
+                'course': course, 'year_level': yr, 'gwa': gwa,
+                'gender': gender, 'address': addr, 'family_income': income,
+            }
+            profile_defaults.update(extra)
+            sp, _ = StudentProfile.objects.get_or_create(user=u, defaults={'student_id': sid, **profile_defaults})
+            scholarship = Scholarship.objects.filter(type=stype).first()
+            if scholarship and not Application.objects.filter(student=sp, scholarship=scholarship, status='Approved').exists():
+                Application.objects.create(
+                    student=sp, scholarship=scholarship,
+                    status='Approved', remarks='Seeded test scholar',
+                    submitted_at=datetime.date(2025, 1, 10),
+                )
+
+        # ── Affirmative & Staff archive test applicants ──
+        aff_test = [
+            {
+                'full_name': 'Nena Villanueva', 'email': 'nena.villanueva@test.com',
+                'contact_number': '09171234567', 'address': 'Naval, Biliran',
+                'date_of_birth': datetime.date(2003, 3, 10), 'gender': 'Female',
+                'course': 'BS Social Work', 'year_level': 2, 'school_id': '2022-00201',
+                'shs_gpa': 88.0, 'suc_exam_score': 72.0, 'is_tes_beneficiary': False,
+                'qualified_for': 'Affirmative', 'status': 'Approved',
+            },
+            {
+                'full_name': 'Ramon Dela Pena', 'email': 'ramon.delapena@test.com',
+                'contact_number': '09181234567', 'address': 'Caibiran, Biliran',
+                'date_of_birth': datetime.date(2002, 7, 22), 'gender': 'Male',
+                'course': 'BS Accountancy', 'year_level': 3, 'school_id': '2022-00202',
+                'is_nsu_staff': False, 'is_nsu_dependent': True,
+                'staff_name': 'Ernesto Dela Pena', 'staff_employee_id': 'EMP-0042',
+                'relationship_to_staff': 'Son', 'has_baccalaureate': False,
+                'qualified_for': 'Staff', 'status': 'Approved',
+            },
+        ]
+        for data in aff_test:
+            if not AffirmativeNSUApplication.objects.filter(email=data['email']).exists():
+                obj = AffirmativeNSUApplication(**data)
+                obj.set_password('demo1234')
+                obj.save()
+
         self.stdout.write(self.style.SUCCESS('Database seeded successfully!'))
         self.stdout.write('\nLogin credentials:')
         self.stdout.write('  Student:   juan.delacruz@bipsu.edu.ph / demo1234')
         self.stdout.write('  VPSEA:     vpsea@bipsu.edu.ph / vpsea1234')
         self.stdout.write('  UniFAST:   unifast@bipsu.edu.ph / unifast1234')
         self.stdout.write('  Super:     it@bipsu.edu.ph / admin1234')
+        self.stdout.write('\nArchive test scholars seeded for: Academic, TDP, DOST, CHED, CoScho, Sports, GSIS, Affirmative, Staff')

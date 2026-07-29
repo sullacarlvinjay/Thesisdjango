@@ -55,11 +55,11 @@
   <!-- Sidebar -->
   <aside class="hidden lg:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar" style="background:#fafafa;border-right:1px solid #e8ecf0;">
     <div class="flex items-center gap-2 px-6 py-5" style="border-bottom:1px solid #e8ecf0;">
-      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white" style="background:#3b5bdb;">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>
+      <div class="h-9 w-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style="background:#f1f3f9;">
+        <img src="{% block logo_src %}/media/logos/BiPSU.png{% endblock %}" alt="logo" class="h-9 w-9 object-contain" />
       </div>
       <div>
-        <p class="text-sm font-semibold" style="color:#1e2a3a;">BiPSU SRMS</p>
+        <p class="text-sm font-semibold" style="color:#1e2a3a;">{% block brand_name %}BiPSU SRMS{% endblock %}</p>
         <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">{% block brand %}Portal{% endblock %}</p>
       </div>
     </div>
@@ -83,6 +83,12 @@
         <p class="text-xs truncate" style="color:#6b7a99;">{% block page_subtitle %}{% endblock %}</p>
       </div>
       <div class="flex items-center gap-3">
+        {% if academic_year %}
+        <div class="hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1" style="background:#edf2ff;border:1px solid #c5d0f5;">
+          <svg class="h-3.5 w-3.5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span class="text-xs font-semibold" style="color:#3b5bdb;">{{ active_semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
+        </div>
+        {% endif %}
         <div class="relative hidden md:block">
           <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
           <input placeholder="Search…" style="width:16rem;padding-left:2.25rem;" />
