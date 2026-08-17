@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}TES Applications — UniFAST{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}TES Applications{% endblock %}
+{% block page_subtitle %}Review and approve Tertiary Education Subsidy applications{% endblock %}
+
+{% block nav %}{% include "unifast/_nav.html" with active="tes_applications" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .badge-pending { background:#fff7ed;color:#c2410c;border:1px solid #fed7aa; }
+  .badge-approved { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
+  .badge-rejected { background:#fff1f2;color:#e03131;border:1px solid #fecaca; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if request.GET.saved %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Application updated successfully.</div>
+{% endif %}
+
+<!-- Stats -->
+<div class="grid sm:grid-cols-3 gap-4 mb-6">
+  <div class="card p-5">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Total</p>
+    <p class="text-3xl font-bold mt-1">{{ total }}</p>
+  </div>
+  <div class="card p-5">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Pending</p>
+    <p class="text-3xl font-bold mt-1" style="color:#c2410c;">{{ pending_count }}</p>
+  </div>
+  <div class="card p-5">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Approved</p>
+    <p class="text-3xl font-bold mt-1" style="color:#15803d;">{{ approved_count }}</p>
+  </div>
+</div>
+
+<div class="card p-6">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <h3 class="font-semibold">TES Applications</h3>
+    <input placeholder="Search name or student ID…" id="tesSearch" oninput="filterTes()" style="width:14rem;" />
+  </div>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+      <thead>
+        <tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student ID</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Program</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Submitted</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Status</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr style="border-bottom:1px solid #f1f3f9;" class="tes-row"
+          data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
+          data-id="{{ app.student.student_id|lower }}">
+          <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+          <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
+          <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
+          <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
+          <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.complete_program|default:app.student.course }}</td>
+          <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
+          <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.submitted_at|date:"M d, Y" }}</td>
+          <td style="padding:0.55rem 0.75rem;">
+            <span class="badge badge-{{ app.status|lower }}">{{ app.status }}</span>
+          </td>
+          <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
+            <button type="button" onclick="openView({{ app.pk }})" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">View</button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">No TES applications yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- View / Review Modal -->
+{% for app in applications %}
+<div id="viewModal-{{ app.pk }}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:flex-start;justify-content:center;padding:1.5rem;overflow-y:auto;">
+  <div class="card p-6" style="width:100%;max-width:44rem;margin:auto;">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-semibold">TES Application — {{ app.student.user.last_name }}, {{ app.student.user.first_name }}</h3>
+      <button type="button" onclick="document.getElementById('viewModal-{{ app.pk }}').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+    </div>
+
+    <!-- Full form data display -->
+    <div class="space-y-5 text-sm">
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Personal Information</p>
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5" style="background:#f6f8fc;border-radius:0.5rem;padding:0.75rem;">
+          <div><span style="color:#6b7a99;">Student ID:</span> <span class="font-medium">{{ app.student.student_id }}</span></div>
+          <div><span style="color:#6b7a99;">LRN:</span> <span class="font-medium">{{ app.lrn|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Last Name:</span> <span class="font-medium">{{ app.student.user.last_name }}</span></div>
+          <div><span style="color:#6b7a99;">Given Name:</span> <span class="font-medium">{{ app.student.user.first_name }}</span></div>
+          <div><span style="color:#6b7a99;">Middle Name:</span> <span class="font-medium">{{ app.middle_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Sex:</span> <span class="font-medium">{{ app.student.gender }}</span></div>
+          <div><span style="color:#6b7a99;">Birthdate:</span> <span class="font-medium">{{ app.birthdate|date:"Y-m-d"|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Year Level:</span> <span class="font-medium">{{ app.student.year_level }}</span></div>
+          <div class="sm:col-span-2"><span style="color:#6b7a99;">Complete Program:</span> <span class="font-medium">{{ app.complete_program|default:app.student.course }}</span></div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Family Background</p>
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5" style="background:#f6f8fc;border-radius:0.5rem;padding:0.75rem;">
+          <div><span style="color:#6b7a99;">Father's Last Name:</span> <span class="font-medium">{{ app.father_last_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Father's Given Name:</span> <span class="font-medium">{{ app.father_first_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Father's Middle Name:</span> <span class="font-medium">{{ app.father_middle_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Mother's Last Name:</span> <span class="font-medium">{{ app.mother_last_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Mother's Given Name:</span> <span class="font-medium">{{ app.mother_first_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Mother's Middle Name:</span> <span class="font-medium">{{ app.mother_middle_name|default:"—" }}</span></div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Address & Contact</p>
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5" style="background:#f6f8fc;border-radius:0.5rem;padding:0.75rem;">
+          <div class="sm:col-span-2"><span style="color:#6b7a99;">Street & Barangay:</span> <span class="font-medium">{{ app.street_barangay|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">City/Municipality:</span> <span class="font-medium">{{ app.city_municipality|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Province:</span> <span class="font-medium">{{ app.province|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Region:</span> <span class="font-medium">{{ app.region|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">ZIP Code:</span> <span class="font-medium">{{ app.zip_code|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Contact Number:</span> <span class="font-medium">{{ app.contact_number|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Email:</span> <span class="font-medium">{{ app.email_address|default:"—" }}</span></div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Additional Information</p>
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5" style="background:#f6f8fc;border-radius:0.5rem;padding:0.75rem;">
+          <div><span style="color:#6b7a99;">Disability Type:</span> <span class="font-medium">{{ app.disability_type|default:"N/A" }}</span></div>
+          <div><span style="color:#6b7a99;">Solo Parent Dependent:</span> <span class="font-medium">{% if app.is_solo_parent_dependent %}Yes (1){% else %}No (0){% endif %}</span></div>
+          <div><span style="color:#6b7a99;">First-Gen College:</span> <span class="font-medium">{% if app.is_first_gen_college %}Yes (1){% else %}No (0){% endif %}</span></div>
+          <div><span style="color:#6b7a99;">Indigenous People Group:</span> <span class="font-medium">{{ app.indigenous_people_group|default:"Not Applicable" }}</span></div>
+        </div>
+      </div>
+
+      <!-- Review form -->
+      <form method="post" action="/unifast/tes-applications/{{ app.pk }}/review/">
+        {% csrf_token %}
+        <div style="border-top:1px solid #e8ecf0;padding-top:1rem;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#3b5bdb;">Review Decision</p>
+          <div class="space-y-3">
+            <div>
+              <label class="text-sm font-medium">Status</label>
+              <select name="status" style="margin-top:0.25rem;width:100%;">
+                <option value="Pending" {% if app.status == 'Pending' %}selected{% endif %}>Pending</option>
+                <option value="Approved" {% if app.status == 'Approved' %}selected{% endif %}>Approved</option>
+                <option value="Rejected" {% if app.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Remarks</label>
+              <textarea name="remarks" rows="2" style="margin-top:0.25rem;width:100%;resize:vertical;">{{ app.remarks }}</textarea>
+            </div>
+          </div>
+          <div class="flex gap-2 justify-end mt-4">
+            <button type="button" onclick="document.getElementById('viewModal-{{ app.pk }}').style.display='none'" class="btn btn-outline">Close</button>
+            <button type="submit" class="btn btn-primary">Save Decision</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterTes() {
+  const q = document.getElementById('tesSearch').value.toLowerCase();
+  document.querySelectorAll('.tes-row').forEach(row => {
+    row.style.display = (!q || row.dataset.name.includes(q) || row.dataset.id.includes(q)) ? '' : 'none';
+  });
+}
+function openView(pk) {
+  document.getElementById('viewModal-' + pk).style.display = 'flex';
+}
+</script>
+{% endblock %}

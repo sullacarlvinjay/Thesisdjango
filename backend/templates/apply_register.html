@@ -14,6 +14,26 @@
     .card { background:#fff; border-radius:0.75rem; border:1px solid #e8ecf0; padding:1.5rem; }
     .section-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#3b5bdb; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid #edf2ff; }
   </style>
+  <script>
+  var BIPSU_COURSES = {
+    "School of Technologies and Computer Studies": ["BSCS","BSIS","BSIT - Automotive Technology","BSIT - Architectural Drafting","BSIT - Electrical Technology","BSIT - Electronics Technology","BSIT - Culinary Technology","BSIT - Apparel and Fashion Design Technology","BSIT - HVAC-R Technology"],
+    "School of Engineering": ["BSCE","BSEE","BSCpE","BSME"],
+    "School of Nursing and Health Sciences": ["BSN"],
+    "School of Criminal Justice Education": ["BSCrim","BSISM"],
+    "School of Tourism and Hospitality Management": ["BSHM","BSTM"],
+    "School of Arts and Sciences": ["BAComm","BAEcon"],
+    "School of Teacher Education": ["BSEd - Mathematics","BSEd - Science","BSEd - English","BSEd - Filipino","BSEd - Social Studies","BEEd","BTLEd","BPEd","BECEd","BSNEd"],
+    "School of Business and Management": ["BSBA - Financial Management","BSBA - Marketing Management"]
+  };
+  function updateCourses() {
+    var school = document.getElementById('schoolSelect').value;
+    var sel = document.getElementById('courseSelect');
+    sel.innerHTML = '<option value="">Select course</option>';
+    (BIPSU_COURSES[school] || []).forEach(function(c) {
+      var o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
+    });
+  }
+  </script>
 </head>
 <body class="py-8 px-4">
 <div class="max-w-2xl mx-auto">
@@ -49,8 +69,28 @@
             <option value="Female" {% if form_data.gender == 'Female' %}selected{% endif %}>Female</option>
           </select>
         </div>
-        <div class="sm:col-span-2"><label>Address *</label><input name="address" required value="{{ form_data.address|default:'' }}" /></div>
-        <div><label>Course / Program *</label><input name="course" required value="{{ form_data.course|default:'' }}" /></div>
+        <div class="sm:col-span-2"><label>Address *</label>
+          <div class="grid sm:grid-cols-3 gap-2">
+            <div><label style="font-size:0.7rem;color:#6b7a99;">Barangay / Street</label><input name="barangay" required value="{{ form_data.barangay|default:'' }}" placeholder="e.g. Brgy. Larrazabal" /></div>
+            <div><label style="font-size:0.7rem;color:#6b7a99;">Municipality</label><input name="municipality" required value="{{ form_data.municipality|default:'' }}" placeholder="e.g. Naval" /></div>
+            <div><label style="font-size:0.7rem;color:#6b7a99;">Province</label><input name="province" required value="{{ form_data.province|default:'' }}" placeholder="e.g. Biliran" /></div>
+          </div>
+        </div>
+        <div>
+          <label>School *</label>
+          <select name="school" id="schoolSelect" onchange="updateCourses()" required>
+            <option value="">Select school</option>
+            {% for val, label in bipsu_schools %}
+            <option value="{{ val }}" {% if form_data.school == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Course / Program *</label>
+          <select name="course" id="courseSelect" required>
+            <option value="">Select course</option>
+          </select>
+        </div>
         <div><label>Year Level *</label>
           <select name="year_level" required>
             <option value="1" {% if form_data.year_level == '1' %}selected{% endif %}>1st Year</option>

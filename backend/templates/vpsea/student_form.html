@@ -53,8 +53,19 @@
             <input name="student_id" required value="{{ v_student_id }}" placeholder="e.g. 2024-00001" />
           </div>
           <div class="space-y-1.5">
+            <label>School <span style="color:#e03131;">*</span></label>
+            <select name="school" id="schoolSelect" onchange="updateCourseDropdown()" required>
+              <option value="">— Select School —</option>
+              {% for val, label in bipsu_schools %}
+              <option value="{{ val }}" {% if v_school == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5">
             <label>Course <span style="color:#e03131;">*</span></label>
-            <input name="course" required value="{{ v_course }}" placeholder="e.g. BSIT" />
+            <select name="course" id="courseSelect" required>
+              <option value="">— Select Course —</option>
+            </select>
           </div>
           <div class="space-y-1.5">
             <label>Birth Date</label>
@@ -76,9 +87,17 @@
             <label>Contact Number</label>
             <input name="contact_number" value="{{ v_contact_number }}" placeholder="e.g. 09XX-XXX-XXXX" />
           </div>
-          <div class="space-y-1.5 sm:col-span-2">
-            <label>Address</label>
-            <input name="address" value="{{ v_address }}" placeholder="Brgy., Municipality, Province" />
+          <div class="space-y-1.5">
+            <label>Barangay / Street</label>
+            <input name="barangay" value="{{ v_barangay }}" placeholder="e.g. Brgy. Larrazabal" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Municipality</label>
+            <input name="municipality" value="{{ v_municipality }}" placeholder="e.g. Naval" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Province</label>
+            <input name="province" value="{{ v_province }}" placeholder="e.g. Biliran" />
           </div>
           <div class="space-y-1.5">
             <label>Year Level <span style="color:#e03131;">*</span></label>
@@ -219,6 +238,38 @@
 
 {% block extra_js %}
 <script>
+  var BIPSU_COURSES = {{ bipsu_courses_json|safe }};
+  var currentCourse = "{{ v_course|escapejs }}";
+
+  function updateCourseDropdown() {
+    var school = document.getElementById('schoolSelect').value;
+    var sel = document.getElementById('courseSelect');
+    sel.innerHTML = '<option value="">\u2014 Select Course \u2014</option>';
+    var courses = BIPSU_COURSES[school] || [];
+    courses.forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      if (c === currentCourse) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Init on load
+  document.addEventListener('DOMContentLoaded', function() {
+    var schoolSel = document.getElementById('schoolSelect');
+    if (schoolSel && schoolSel.value) updateCourseDropdown();
+    // If no school selected but course exists, find the school
+    if (schoolSel && !schoolSel.value && currentCourse) {
+      for (var school in BIPSU_COURSES) {
+        if (BIPSU_COURSES[school].indexOf(currentCourse) !== -1) {
+          schoolSel.value = school;
+          updateCourseDropdown();
+          break;
+        }
+      }
+    }
+  });
+
   const bdField = document.getElementById('birthDateField');
   const ageField = document.getElementById('ageField');
   function calcAge(dob) {

@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Apply: TES — BiPSU SRMS{% endblock %}
+{% block brand %}Student{% endblock %}
+{% block page_title %}TES Application{% endblock %}
+{% block page_subtitle %}Tertiary Education Subsidy — UniFAST{% endblock %}
+
+{% block nav %}
+  <a href="/student/profile/" class="sidebar-link {% if '/profile' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>My Profile</a>
+  {% if not enrolled %}
+  <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>Apply: Academic</a>
+  <a href="/student/apply/staff/" class="sidebar-link {% if '/apply/staff' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Apply: Staff</a>
+  <a href="/student/apply/tes/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
+  {% endif %}
+  <a href="/student/link-scholarship/" class="sidebar-link {% if '/link-scholarship' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
+  <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
+  <a href="/student/notifications/" class="sidebar-link {% if '/notifications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
+  <a href="/student/renewal/academic/" class="sidebar-link {% if '/renewal' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal</a>
+{% endblock %}
+
+{% block content %}
+{% if submitted %}
+<div class="mb-5 rounded-xl px-5 py-4 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+  ✓ Your TES application has been submitted successfully. UniFAST will review your application.
+</div>
+{% endif %}
+
+{% if existing %}
+<div class="mb-5 rounded-xl px-5 py-4 text-sm" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">
+  You already have a TES application with status: <strong>{{ existing.status }}</strong>.
+  {% if existing.remarks %}<br>Remarks: {{ existing.remarks }}{% endif %}
+</div>
+{% endif %}
+
+{% if errors %}
+<div class="mb-5 rounded-xl px-5 py-4 text-sm" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">
+  {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Personal Information -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>Student ID</label>
+            <input name="student_id" value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+          </div>
+          <div class="space-y-1.5">
+            <label>LRN <span style="color:#e03131;">*</span></label>
+            <input name="lrn" value="{{ post.lrn|default:'' }}" required placeholder="Learner Reference Number" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Last Name</label>
+            <input name="last_name" value="{{ profile.user.last_name }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Given Name</label>
+            <input name="first_name" value="{{ profile.user.first_name }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Middle Name <span style="color:#e03131;">*</span></label>
+            <input name="middle_name" value="{{ post.middle_name|default:'' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Sex</label>
+            <input name="sex" value="{{ profile.gender }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Birthdate (YYYY-MM-DD) <span style="color:#e03131;">*</span></label>
+            <input name="birthdate" type="date" value="{{ post.birthdate|default:profile.date_of_birth|date:'Y-m-d' }}" required />
+          </div>
+          <div class="space-y-1.5 sm:col-span-2">
+            <label>Complete Program <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(Should be consistent with your HEI Registry)</span></label>
+            <input name="complete_program" value="{{ post.complete_program|default:profile.course }}" required placeholder="e.g. Bachelor of Science in Computer Science" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Year Level</label>
+            <input name="year_level" value="{{ profile.year_level }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Family Background -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <p class="text-xs font-semibold mb-2" style="color:#6b7a99;">Father's Name</p>
+          </div>
+          <div class="space-y-1.5">
+            <label>Last Name <span style="color:#e03131;">*</span></label>
+            <input name="father_last_name" value="{{ post.father_last_name|default:'' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Given Name <span style="color:#e03131;">*</span></label>
+            <input name="father_first_name" value="{{ post.father_first_name|default:'' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Middle Name <span style="color:#e03131;">*</span></label>
+            <input name="father_middle_name" value="{{ post.father_middle_name|default:'' }}" required />
+          </div>
+          <div class="sm:col-span-2" style="border-top:1px solid #f1f3f9;padding-top:1rem;margin-top:0.5rem;">
+            <p class="text-xs font-semibold mb-2" style="color:#6b7a99;">Mother's Name</p>
+          </div>
+          <div class="space-y-1.5">
+            <label>Last Name <span style="color:#e03131;">*</span></label>
+            <input name="mother_last_name" value="{{ post.mother_last_name|default:'' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Given Name <span style="color:#e03131;">*</span></label>
+            <input name="mother_first_name" value="{{ post.mother_first_name|default:'' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Middle Name <span style="color:#e03131;">*</span></label>
+            <input name="mother_middle_name" value="{{ post.mother_middle_name|default:'' }}" required />
+          </div>
+        </div>
+      </div>
+
+      <!-- Address & Contact -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Address & Contact</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5 sm:col-span-2">
+            <label>Street &amp; Barangay <span style="color:#e03131;">*</span></label>
+            <input name="street_barangay" value="{{ post.street_barangay|default:profile.barangay }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>City/Municipality <span style="color:#e03131;">*</span></label>
+            <input name="city_municipality" value="{{ post.city_municipality|default:profile.municipality }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Province <span style="color:#e03131;">*</span></label>
+            <input name="province" value="{{ post.province|default:profile.province }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Region <span style="color:#e03131;">*</span></label>
+            <input name="region" value="{{ post.region|default:'' }}" required placeholder="e.g. Region VIII" />
+          </div>
+          <div class="space-y-1.5">
+            <label>ZIP CODE <span style="color:#e03131;">*</span></label>
+            <input name="zip_code" value="{{ post.zip_code|default:'' }}" required maxlength="10" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Contact Number <span style="color:#e03131;">*</span></label>
+            <input name="contact_number" value="{{ post.contact_number|default:profile.contact_number }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Email Address <span style="color:#e03131;">*</span></label>
+            <input name="email_address" type="email" value="{{ post.email_address|default:profile.user.email }}" required />
+          </div>
+        </div>
+      </div>
+
+      <!-- Additional Information -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Additional Information</h3>
+        <div class="space-y-4">
+          <div class="space-y-1.5">
+            <label>Disability Type <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">Put N/A if not applicable</span></label>
+            <input name="disability_type" value="{{ post.disability_type|default:'N/A' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Dependent/child of solo parent <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">0=No, 1=Yes</span></label>
+            <div class="flex gap-4 mt-1">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="is_solo_parent_dependent" value="0" {% if not post.is_solo_parent_dependent or post.is_solo_parent_dependent == '0' %}checked{% endif %} />
+                <span class="text-sm">0 — No</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="is_solo_parent_dependent" value="1" {% if post.is_solo_parent_dependent == '1' %}checked{% endif %} />
+                <span class="text-sm">1 — Yes</span>
+              </label>
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label>Are you a first-generation college student? <span style="color:#e03131;">*</span></label>
+            <p class="text-xs" style="color:#6b7a99;">Neither of your parents or legal guardians attended college or completed a college program</p>
+            <div class="flex gap-4 mt-1">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="is_first_gen_college" value="0" {% if not post.is_first_gen_college or post.is_first_gen_college == '0' %}checked{% endif %} />
+                <span class="text-sm">0 — No</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="is_first_gen_college" value="1" {% if post.is_first_gen_college == '1' %}checked{% endif %} />
+                <span class="text-sm">1 — Yes</span>
+              </label>
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label>Indigenous People Group <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(Indicate the specific IP. If not applicable, leave unchanged.)</span></label>
+            <input name="indigenous_people_group" value="{{ post.indigenous_people_group|default:'Not Applicable' }}" />
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar summary -->
+    <div>
+      <div class="card p-6 sticky top-24">
+        <h3 class="font-semibold mb-2">TES Application</h3>
+        <p class="text-xs mb-4" style="color:#6b7a99;">Tertiary Education Subsidy processed by UniFAST. Fill in all required fields before submitting.</p>
+        <div class="space-y-2 text-sm mb-5">
+          <div class="flex justify-between"><span style="color:#6b7a99;">Scholarship</span><span class="font-medium">TES / TDP</span></div>
+          <div class="flex justify-between"><span style="color:#6b7a99;">Processed by</span><span class="font-medium">UniFAST</span></div>
+          <div class="flex justify-between"><span style="color:#6b7a99;">Student</span><span class="font-medium">{{ profile.user.get_full_name }}</span></div>
+        </div>
+        {% if not existing %}
+        <button type="submit" class="btn btn-primary w-full">Submit Application</button>
+        {% else %}
+        <p class="text-xs text-center" style="color:#6b7a99;">Application already submitted.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

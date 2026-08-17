@@ -24,6 +24,10 @@
       <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       New Semester
     </button>
+    <button onclick="document.getElementById('undoSemModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;color:#f59f00;border-color:#f59f00;">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+      Undo Semester
+    </button>
   </div>
 </div>
 
@@ -65,8 +69,27 @@
             </select>
           </div>
           <div><label>Contact Number</label><input name="contact_number" style="margin-top:0.25rem;" /></div>
-          <div class="col-span-2"><label>Address</label><input name="address" style="margin-top:0.25rem;" /></div>
-          <div><label>Course</label><input name="course" required style="margin-top:0.25rem;" /></div>
+          <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
+          <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
+          <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
+          <div><label>School</label>
+            <select name="school" id="addSchoolSelect" onchange="updateAddCourse()" style="margin-top:0.25rem;">
+              <option value="">— Select School —</option>
+              <option value="School of Technologies and Computer Studies">School of Technologies and Computer Studies</option>
+              <option value="School of Engineering">School of Engineering</option>
+              <option value="School of Nursing and Health Sciences">School of Nursing and Health Sciences</option>
+              <option value="School of Criminal Justice Education">School of Criminal Justice Education</option>
+              <option value="School of Tourism and Hospitality Management">School of Tourism and Hospitality Management</option>
+              <option value="School of Arts and Sciences">School of Arts and Sciences</option>
+              <option value="School of Teacher Education">School of Teacher Education</option>
+              <option value="School of Business and Management">School of Business and Management</option>
+            </select>
+          </div>
+          <div><label>Course</label>
+            <select name="course" id="addCourseSelect" required style="margin-top:0.25rem;">
+              <option value="">— Select Course —</option>
+            </select>
+          </div>
           <div><label>Year Level</label>
             <select name="year_level" style="margin-top:0.25rem;">
               {% for y in "1234" %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
@@ -135,7 +158,27 @@
         <div><label>Award Number</label><input name="award_number" style="margin-top:0.25rem;" /></div>
         <div><label>Congress District</label><input name="congress_district" style="margin-top:0.25rem;" /></div>
         {% endif %}
-        <div class="col-span-2"><label>Address</label><input name="address" style="margin-top:0.25rem;" /></div>
+        <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
+        <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
+        <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
+        <div class="col-span-2"><label>School</label>
+          <select name="school" id="addSchoolSelectOther" onchange="updateAddCourseOther()" style="margin-top:0.25rem;">
+            <option value="">— Select School —</option>
+              <option value="School of Technologies and Computer Studies">School of Technologies and Computer Studies</option>
+              <option value="School of Engineering">School of Engineering</option>
+              <option value="School of Nursing and Health Sciences">School of Nursing and Health Sciences</option>
+              <option value="School of Criminal Justice Education">School of Criminal Justice Education</option>
+              <option value="School of Tourism and Hospitality Management">School of Tourism and Hospitality Management</option>
+              <option value="School of Arts and Sciences">School of Arts and Sciences</option>
+              <option value="School of Teacher Education">School of Teacher Education</option>
+              <option value="School of Business and Management">School of Business and Management</option>
+          </select>
+        </div>
+        <div class="col-span-2"><label>Course</label>
+          <select name="course" id="addCourseSelectOther" required style="margin-top:0.25rem;">
+            <option value="">— Select Course —</option>
+          </select>
+        </div>
         {% if active_type in 'Affirmative Staff' %}
         <div><label>Date of Birth</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
         <div><label>Contact Number</label><input name="contact_number" style="margin-top:0.25rem;" /></div>
@@ -220,6 +263,23 @@
   </div>
 </div>
 
+<!-- Undo Semester Modal -->
+<div id="undoSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+  <div class="card p-6" style="width:100%;max-width:26rem;">
+    <h3 class="font-semibold mb-2">Undo to Previous Semester</h3>
+    <p class="text-sm mb-4" style="color:#6b7a99;">Current active semester: <strong>{{ active_sy_display }}</strong><br>This will switch the active semester back to <strong>{{ prev_sy_display }}</strong>. No data will be deleted.</p>
+    <form method="post" action="/vpsea/archives/undo-semester/">
+      {% csrf_token %}
+      <input type="hidden" name="type" value="{{ active_type }}">
+      <input type="hidden" name="prev_label" value="{{ prev_sy }}">
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="document.getElementById('undoSemModal').style.display='none'" class="btn btn-outline">Cancel</button>
+        <button type="submit" class="btn" style="background:#f59f00;color:#fff;border:none;">Confirm Undo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div>
 
   <div class="space-y-4">
@@ -289,7 +349,9 @@
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address: Brgy/St., Muni, Prov</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">GWA</th>
@@ -307,7 +369,9 @@
               <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.address }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;"><span class="badge badge-success">{{ app.student.gwa }}</span></td>
@@ -318,12 +382,36 @@
               </td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.address|escapejs }}','{{ app.student.gwa }}','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','{{ app.student.gwa }}','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
             {% empty %}
+            {% if not imported_rows %}
             <tr><td colspan="12" style="padding:3rem;text-align:center;color:#6b7a99;">No approved Academic scholars yet.</td></tr>
+            {% endif %}
+            {% endfor %}
+            {% for row in imported_rows %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+              data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+              data-id="{{ row.student_number|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;"><span class="badge badge-success">{{ row.gwa }}</span></td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">
+                {% if row.gwa > 0 %}{% if row.gwa <= 1.29 %}University Scholar{% elif row.gwa <= 1.50 %}College Scholar{% else %}—{% endif %}{% else %}—{% endif %}
+              </td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Academic Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -359,12 +447,31 @@
               <td style="padding:0.55rem 0.75rem;">{% if app.is_nsu_staff %}100%{% else %}75%{% endif %}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">NSU Staff Scholarship</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.barangay|escapejs }}','{{ app.municipality|escapejs }}','{{ app.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.full_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
             {% empty %}
+            {% if not imported_rows %}
             <tr><td colspan="11" style="padding:3rem;text-align:center;color:#6b7a99;">No approved Staff scholars yet.</td></tr>
+            {% endif %}
+            {% endfor %}
+            {% for row in imported_rows %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+              data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+              data-id="{{ row.student_number|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+              <td style="padding:0.55rem 0.75rem;">—</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">NSU Staff Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -382,7 +489,9 @@
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address: Brgy/St., Mun. Prov</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Congress District</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr.</th>
@@ -400,19 +509,39 @@
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.address }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
                 <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.address|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                   <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
                 </td>
               </tr>
-              {% empty %}
-              <tr><td colspan="12" style="padding:1.5rem;text-align:center;color:#6b7a99;">No full merit scholars.</td></tr>
-              {% endfor %}
+              {% empty %}{% endfor %}
+              {% if active_type == 'CHED' %}{% for row in imported_rows %}
+              <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+                data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+                data-id="{{ row.student_number|lower }}">
+                <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.award_number|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+                <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+                <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ row.congress_district|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+                <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">CHED Scholarship</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              </tr>
+              {% endfor %}{% endif %}
             </tbody>
           </table>
         </div>
@@ -427,7 +556,9 @@
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address: Brgy/St., Mun. Prov</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Congress District</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
               <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr.</th>
@@ -445,13 +576,15 @@
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.address }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
                 <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.address|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                   <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
                 </td>
               </tr>
@@ -472,7 +605,9 @@
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address: Brgy/St., Mun. Prov</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Congress District</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr.</th>
@@ -490,18 +625,42 @@
               <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.address }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.address|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
             {% empty %}
+            {% if not imported_rows %}
             <tr><td colspan="12" style="padding:3rem;text-align:center;color:#6b7a99;">No approved {{ active_type }} scholars yet.</td></tr>
+            {% endif %}
+            {% endfor %}
+            {% for row in imported_rows %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+              data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+              data-id="{{ row.student_number|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.award_number|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ row.congress_district|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -514,7 +673,9 @@
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Initial</th>
-            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address: Brgy/ St. Municipality, Province</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year Level</th>
@@ -531,19 +692,42 @@
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.address }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
             {% empty %}
+            {% if not imported_rows %}
             <tr><td colspan="11" style="padding:3rem;text-align:center;color:#6b7a99;">No approved GSIS scholars yet.</td></tr>
+            {% endif %}
+            {% endfor %}
+            {% for row in imported_rows %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+              data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+              data-id="{{ row.student_number|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">GSIS Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -557,7 +741,9 @@
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr.</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship Program</th>
@@ -572,17 +758,39 @@
               <td style="padding:0.55rem 0.75rem;"></td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.gender }}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.address }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Affirmative Action Scholarship</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.barangay|escapejs }}','{{ app.municipality|escapejs }}','{{ app.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.full_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
             {% empty %}
+            {% if not imported_rows %}
             <tr><td colspan="10" style="padding:3rem;text-align:center;color:#6b7a99;">No approved Affirmative scholars yet.</td></tr>
+            {% endif %}
+            {% endfor %}
+            {% for row in imported_rows %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+              data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+              data-id="{{ row.student_number|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Affirmative Action Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -596,7 +804,9 @@
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Initial</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+              <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year Level</th>
             <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student No.</th>
@@ -613,18 +823,41 @@
               <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.address }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
             {% empty %}
+            {% if not imported_rows %}
             <tr><td colspan="11" style="padding:3rem;text-align:center;color:#6b7a99;">No approved {{ active_type }} scholars yet.</td></tr>
+            {% endif %}
+            {% endfor %}
+            {% for row in imported_rows %}
+            <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+              data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+              data-id="{{ row.student_number|lower }}">
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -640,6 +873,32 @@
 {% endblock %}
 
 {% block extra_js %}
+
+<script>
+var BIPSU_COURSES_ARCH = {
+    "School of Technologies and Computer Studies": ["BSCS","BSIS","BSIT - Automotive Technology","BSIT - Architectural Drafting","BSIT - Electrical Technology","BSIT - Electronics Technology","BSIT - Culinary Technology","BSIT - Apparel and Fashion Design Technology","BSIT - HVAC-R Technology"],
+    "School of Engineering": ["BSCE","BSEE","BSCpE","BSME"],
+    "School of Nursing and Health Sciences": ["BSN"],
+    "School of Criminal Justice Education": ["BSCrim","BSISM"],
+    "School of Tourism and Hospitality Management": ["BSHM","BSTM"],
+    "School of Arts and Sciences": ["BAComm","BAEcon"],
+    "School of Teacher Education": ["BSEd - Mathematics","BSEd - Science","BSEd - English","BSEd - Filipino","BSEd - Social Studies","BEEd","BTLEd","BPEd","BECEd","BSNEd"],
+    "School of Business and Management": ["BSBA - Financial Management","BSBA - Marketing Management"]
+  };
+function updateAddCourse() {
+  var s = document.getElementById('addSchoolSelect').value;
+  var sel = document.getElementById('addCourseSelect');
+  sel.innerHTML = '<option value="">— Select Course —</option>';
+  (BIPSU_COURSES_ARCH[s]||[]).forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+}
+function updateAddCourseOther() {
+  var s = document.getElementById('addSchoolSelectOther').value;
+  var sel = document.getElementById('addCourseSelectOther');
+  sel.innerHTML = '<option value="">— Select Course —</option>';
+  (BIPSU_COURSES_ARCH[s]||[]).forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+}
+</script>
+
 <script>
 function filterArch() {
   const q = document.getElementById('archSearch').value.toLowerCase();
@@ -660,7 +919,7 @@ document.addEventListener('click', function(e) {
     if (m) m.style.display = 'none';
   }
 });
-function openEdit(pk, first, last, sid, gender, course, year, address, gwa, award, congress) {
+function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress) {
   document.getElementById('editPk').value = pk;
   document.getElementById('editFirst').value = first;
   document.getElementById('editLast').value = last;
@@ -668,7 +927,9 @@ function openEdit(pk, first, last, sid, gender, course, year, address, gwa, awar
   document.getElementById('editGender').value = gender;
   document.getElementById('editCourse').value = course;
   document.getElementById('editYear').value = year;
-  document.getElementById('editAddress').value = address;
+  if (document.getElementById('editBarangay')) document.getElementById('editBarangay').value = barangay;
+  if (document.getElementById('editMunicipality')) document.getElementById('editMunicipality').value = municipality;
+  if (document.getElementById('editProvince')) document.getElementById('editProvince').value = province;
   if (document.getElementById('editGwa')) document.getElementById('editGwa').value = gwa;
   if (document.getElementById('editAward')) document.getElementById('editAward').value = award;
   if (document.getElementById('editCongress')) document.getElementById('editCongress').value = congress;
@@ -739,9 +1000,17 @@ function openDelete(pk, name) {
           <input id="editCongress" name="congress_district" style="margin-top:0.25rem;" />
         </div>
         {% endif %}
-        <div class="col-span-2">
-          <label>Address</label>
-          <input id="editAddress" name="address" style="margin-top:0.25rem;" />
+        <div>
+          <label>Barangay / Street</label>
+          <input id="editBarangay" name="barangay" style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Municipality</label>
+          <input id="editMunicipality" name="municipality" style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Province</label>
+          <input id="editProvince" name="province" style="margin-top:0.25rem;" />
         </div>
       </div>
       <div class="flex gap-2 justify-end mt-5">

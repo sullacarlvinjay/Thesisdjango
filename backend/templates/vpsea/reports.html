@@ -3,46 +3,227 @@
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
 {% block brand %}VPSEA{% endblock %}
 {% block page_title %}Reports{% endblock %}
-{% block page_subtitle %}Generate institutional scholarship reports{% endblock %}
+{% block page_subtitle %}Scholarship Master List{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="reports" %}{% endblock %}
 
 {% block content %}
-<div class="grid md:grid-cols-2 gap-4">
-  {% for r in reports %}
-  <div class="card p-5 flex items-start gap-4">
-    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#edf2ff;">
-      <svg class="h-5 w-5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+
+<!-- Toolbar -->
+<div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+  <p class="text-sm" style="color:#6b7a99;">
+    Live masterlist based on your uploaded template. Edit cells directly, then download.
+  </p>
+  <div class="flex gap-2">
+    <a href="/vpsea/reports/download/excel/"
+       class="btn btn-outline flex items-center gap-1"
+       style="font-size:0.8rem;padding:0.4rem 0.8rem;color:#217346;border-color:#217346;">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
       </svg>
-    </div>
-    <div class="flex-1">
-      <p class="font-medium">{{ r.name }}</p>
-      <p class="text-xs mt-1" style="color:#6b7a99;">{{ r.desc }}</p>
-      <p class="text-xs mt-2" style="color:#6b7a99;">DOCX &amp; XLSX</p>
-    </div>
-    <div class="flex gap-2">
-      <!-- DOCX download -->
-      <a href="/vpsea/reports/download/"
-         class="btn btn-outline flex items-center gap-1"
-         style="padding:0.4rem 0.7rem; font-size:0.75rem;"
-         title="Download as Word (.docx)">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-        </svg>
-        DOCX
-      </a>
-      <!-- Excel download -->
-      <a href="/vpsea/reports/download/excel/"
-         class="btn btn-outline flex items-center gap-1"
-         style="padding:0.4rem 0.7rem; font-size:0.75rem; color:#217346; border-color:#217346;"
-         title="Download as Excel (.xlsx)">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-        </svg>
-        XLSX
-      </a>
-    </div>
+      Download XLSX
+    </a>
+    <a href="/vpsea/reports/download/"
+       class="btn btn-outline flex items-center gap-1"
+       style="font-size:0.8rem;padding:0.4rem 0.8rem;">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      Download DOCX
+    </a>
+  </div>
+</div>
+
+<!-- Document -->
+<div class="card p-6" style="overflow-x:auto;">
+
+  <!-- Header -->
+  <div style="text-align:center;margin-bottom:1.5rem;line-height:1.6;">
+    <p style="font-size:0.8rem;font-style:italic;">Legend: @ - Internal &nbsp;&nbsp; * - External</p>
+    <p style="font-size:0.85rem;">Republic of the Philippines</p>
+    <p style="font-size:1rem;font-weight:700;">BILIRAN PROVINCE STATE UNIVERSITY</p>
+    <p style="font-size:0.85rem;">Naval, Biliran</p>
+    <p style="font-size:1.05rem;font-weight:700;margin-top:0.4rem;">
+      LIST OF SCHOLARS FOR {{ semester }} SY: {{ ay }}
+    </p>
+  </div>
+
+  {% for title, headers, female_rows, male_rows, has_gender, key in sections %}
+  <div class="report-section" id="section-{{ key }}">
+
+    <!-- Section title -->
+    <div class="section-title">{{ title }} SCHOLARSHIP GRANT — {{ semester }} SY: {{ ay }}</div>
+
+    {% if has_gender %}
+
+      <!-- FEMALE -->
+      <div class="gender-label">FEMALE</div>
+      <div style="overflow-x:auto;">
+        <table class="report-table" id="tbl-{{ key }}-f">
+          <thead>
+            <tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% if female_rows %}
+              {% for row in female_rows %}
+              <tr>
+                <td contenteditable="true">{{ forloop.counter }}</td>
+                {% if 'AWARD' in headers.1 %}<td contenteditable="true">{{ row.award }}</td>{% endif %}
+                <td contenteditable="true">{{ row.last }}</td>
+                <td contenteditable="true">{{ row.first }}</td>
+                <td contenteditable="true">{{ row.mi }}</td>
+                <td contenteditable="true">{{ row.sex }}</td>
+                {% if 'BRGY' in headers|join:"," %}
+                  <td contenteditable="true">{{ row.brgy }}</td>
+                  <td contenteditable="true">{{ row.mun }}</td>
+                  <td contenteditable="true">{{ row.prov }}</td>
+                {% endif %}
+                {% if 'CONG' in headers|join:"," %}<td contenteditable="true">{{ row.cong }}</td>{% endif %}
+                <td contenteditable="true">{{ row.course }}</td>
+                <td contenteditable="true">{{ row.yr }}</td>
+                {% if 'GWA' in headers|join:"," %}<td contenteditable="true">{{ row.gwa }}</td>{% endif %}
+                {% if 'STUDENT' in headers|join:"," %}<td contenteditable="true">{{ row.student_no }}</td>{% endif %}
+                <td contenteditable="true">{{ row.pct }}</td>
+                <td contenteditable="true">{{ row.scholarship }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="{{ headers|length }}" style="color:#aaa;text-align:center;font-style:italic;">No records</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- MALE -->
+      <div class="gender-label" style="margin-top:0.6rem;">MALE</div>
+      <div style="overflow-x:auto;">
+        <table class="report-table" id="tbl-{{ key }}-m">
+          <thead>
+            <tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% if male_rows %}
+              {% for row in male_rows %}
+              <tr>
+                <td contenteditable="true">{{ forloop.counter }}</td>
+                {% if 'AWARD' in headers.1 %}<td contenteditable="true">{{ row.award }}</td>{% endif %}
+                <td contenteditable="true">{{ row.last }}</td>
+                <td contenteditable="true">{{ row.first }}</td>
+                <td contenteditable="true">{{ row.mi }}</td>
+                <td contenteditable="true">{{ row.sex }}</td>
+                {% if 'BRGY' in headers|join:"," %}
+                  <td contenteditable="true">{{ row.brgy }}</td>
+                  <td contenteditable="true">{{ row.mun }}</td>
+                  <td contenteditable="true">{{ row.prov }}</td>
+                {% endif %}
+                {% if 'CONG' in headers|join:"," %}<td contenteditable="true">{{ row.cong }}</td>{% endif %}
+                <td contenteditable="true">{{ row.course }}</td>
+                <td contenteditable="true">{{ row.yr }}</td>
+                {% if 'GWA' in headers|join:"," %}<td contenteditable="true">{{ row.gwa }}</td>{% endif %}
+                {% if 'STUDENT' in headers|join:"," %}<td contenteditable="true">{{ row.student_no }}</td>{% endif %}
+                <td contenteditable="true">{{ row.pct }}</td>
+                <td contenteditable="true">{{ row.scholarship }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="{{ headers|length }}" style="color:#aaa;text-align:center;font-style:italic;">No records</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+    {% else %}
+      <!-- No gender split (e.g. NSU Staff) -->
+      <div style="overflow-x:auto;">
+        <table class="report-table" id="tbl-{{ key }}">
+          <thead>
+            <tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% if female_rows %}
+              {% for row in female_rows %}
+              <tr>
+                <td contenteditable="true">{{ forloop.counter }}</td>
+                <td contenteditable="true">{{ row.last }}</td>
+                <td contenteditable="true">{{ row.first }}</td>
+                <td contenteditable="true">{{ row.mi }}</td>
+                <td contenteditable="true">{{ row.sex }}</td>
+                <td contenteditable="true">{{ row.course }}</td>
+                <td contenteditable="true">{{ row.yr }}</td>
+                <td contenteditable="true">{{ row.student_no }}</td>
+                <td contenteditable="true">{{ row.pct }}</td>
+                <td contenteditable="true">{{ row.scholarship }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="{{ headers|length }}" style="color:#aaa;text-align:center;font-style:italic;">No records</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
   </div>
   {% endfor %}
+
+  <!-- Signatories -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:3rem;text-align:center;font-size:0.75rem;">
+    <div>
+      <p style="color:#6b7a99;">Prepared by:</p>
+      <p style="font-weight:700;margin-top:2rem;">MARICEL S. SAULAN</p>
+      <p>Scholarship in charge</p>
+    </div>
+    <div>
+      <p style="color:#6b7a99;">Noted:</p>
+      <p style="font-weight:700;margin-top:2rem;">NORMA M. DUALLO, Ph.D.TM</p>
+      <p>SDSO Director</p>
+    </div>
+    <div>
+      <p style="color:#6b7a99;">Recommending approval:</p>
+      <p style="font-weight:700;margin-top:2rem;">ERWIN G. SALVATIERRA, Ph. D.</p>
+      <p>VP for Extension Services, Student and External Affairs</p>
+    </div>
+    <div>
+      <p style="color:#6b7a99;">Approved:</p>
+      <p style="font-weight:700;margin-top:2rem;">VICTOR C. CAÑEZO, JR., Ed. D.</p>
+      <p>University President</p>
+    </div>
+  </div>
+
 </div>
+
+<style>
+.report-section { margin-bottom: 2.5rem; }
+.section-title {
+  font-weight: 700; font-size: 0.82rem; text-align: center;
+  background: #BDD7EE; padding: 0.35rem 0.75rem;
+  border-radius: 4px; margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+.gender-label {
+  font-weight: 700; font-size: 0.78rem;
+  margin: 0.4rem 0 0.15rem; color: #374151;
+  padding-left: 2px;
+}
+.report-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.7rem; margin-bottom: 0.3rem;
+  min-width: 600px;
+}
+.report-table th {
+  background: #D9E1F2; font-weight: 700;
+  border: 1px solid #b0b8d0; padding: 4px 5px;
+  text-align: center; white-space: nowrap;
+}
+.report-table td {
+  border: 1px solid #d1d5db; padding: 3px 5px;
+  text-align: center; vertical-align: middle;
+  min-width: 40px;
+}
+.report-table td[contenteditable="true"]:focus {
+  outline: 2px solid #3b5bdb;
+  background: #edf2ff;
+}
+.report-table tbody tr:nth-child(even) { background: #f5f7ff; }
+.report-table tbody tr:hover { background: #edf2ff; }
+</style>
 {% endblock %}

@@ -1,0 +1,52 @@
+
+
+@_unifast_required
+def unifast_archives(request):
+    from .models import ScholarshipRollover, SystemSettings, ArchiveRecord
+    UNIFAST_TYPES = ['TDP', 'TES']
+    db_types = list(Scholarship.objects.values_list('type', flat=True).distinct())
+    archive_types = UNIFAST_TYPES + [t for t in db_types if t not in UNIFAST_TYPES and t not in ['Academic','DOST','CHED','CoScho','Sports','Affirmative','Staff','GSIS']]
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    active_label = settings_obj.academic_year
+    parsed = SystemSettings.parse_label(active_label)
+    active_sy = parsed['sy']
+    active_semester = parsed['semester']
+    stype = request.GET.get('type', 'TDP')
+    if stype not in archive_types:
+        stype = archive_types[0]
+    history = ScholarshipRollover.objects.filter(scholarship_type=stype).order_by('-created_at')
+    all_labels = list(ScholarshipRollover.objects.filter(scholarship_type=stype).values_list('label', flat=True).distinct().order_by('-label'))
+    ar_labels = list(ArchiveRecord.objects.exclude(rollover_label='').filter(scholarship_type=stype).values_list('rollover_label', flat=True).distinct())
+    for lbl in ar_labels:
+        if lbl not in all_labels:
+            all_labels.append(lbl)
+    all_labels = sorted(set(all_labels), reverse=True)
+    if active_label not in all_labels:
+        all_labels.insert(0, active_label)
+    all_sy_display = [(lbl, SystemSettings.parse_label(lbl)['sy'] + ' - ' + SystemSettings.parse_label(lbl)['semester']) for lbl in all_labels]
+    selected_label = request.GET.get('sy', active_label)
+    if selected_label not in all_labels:
+        selected_label = active_label
+    yy, s = active_label.split('-')
+    prev_label = f'{yy}-1' if s == '2' else f'{int(yy)-1}-2'
+    prev_parsed = SystemSettings.parse_label(prev_label)
+    next_label = settings_obj.next_label()
+    imported_rows = ArchiveRecord.objects.filter(scholarship_type=stype, rollover_label=selected_label).order_by('last_name', 'first_name')
+    scholars = Application.objects.filter(status='Approved', scholarship__type=stype).select_related('student__user', 'scholarship').order_by('student__user__last_name').distinct()
+    return render(request, 'unifast/archives.html', {
+        'archive_types': archive_types,
+        'active_type': stype,
+        'scholars': scholars,
+        'imported_rows': imported_rows,
+        'total': scholars.count() + imported_rows.count(),
+        'history': history,
+        'all_sy_display': all_sy_display,
+        'selected_sy': selected_label,
+        'active_sy': active_label,
+        'active_sy_display': active_sy + ' - ' + active_semester,
+        'active_semester': active_semester,
+        'next_sy': next_label,
+        'prev_sy': prev_label,
+        'prev_sy_display': prev_parsed['sy'] + ' - ' + prev_parsed['semester'],
+    })
+

@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+﻿from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -18,7 +18,7 @@ from .serializers import (
 )
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -49,7 +49,7 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# ── Student ───────────────────────────────────────────────────────────────────
+# â”€â”€ Student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = StudentProfileSerializer
@@ -116,7 +116,7 @@ class StudentDashboardView(APIView):
         })
 
 
-# ── VPSEA ─────────────────────────────────────────────────────────────────────
+# â”€â”€ VPSEA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class VPSEAStudentRankingView(APIView):
     def get(self, request):
@@ -266,200 +266,12 @@ class VPSEADashboardView(APIView):
         })
 
 
-# ── UniFAST ───────────────────────────────────────────────────────────────────
-
-class UniFASTTDPListView(generics.ListAPIView):
-    serializer_class = TDPApplicationSerializer
-    queryset = TDPApplication.objects.select_related('student__user').all()
-
-
-class UniFASTTDPDetailView(generics.RetrieveUpdateAPIView):
-    serializer_class = TDPApplicationSerializer
-    queryset = TDPApplication.objects.all()
-
-    def perform_update(self, serializer):
-        tdp = serializer.save()
-        ActivityLog.objects.create(
-            user=self.request.user,
-            action=f"Updated TDP application {tdp.id} to {tdp.status}"
-        )
-
-
-class UniFASTTESView(APIView):
-    def get(self, request):
-        return Response([
-            {'title': 'Continuing TES Grantees', 'desc': f"{Application.objects.filter(status='Approved').count()} grantees rolled over.", 'status': 'done'},
-            {'title': 'TES Regular Applicants', 'desc': f"{Application.objects.filter(status='Pending Validation').count()} new applicants screened.", 'status': 'done'},
-            {'title': 'Validation Process', 'desc': 'Document & eligibility verification.', 'status': 'active'},
-            {'title': 'Billing Preparation', 'desc': 'Generating billing templates.', 'status': 'upcoming'},
-            {'title': 'Distribution', 'desc': 'Fund release to grantees.', 'status': 'upcoming'},
-            {'title': 'Liquidation', 'desc': 'Final liquidation submitted to UniFAST.', 'status': 'upcoming'},
-        ])
-
-
-class UniFASTContinuingView(generics.ListAPIView):
-    serializer_class = TDPApplicationSerializer
-
-    def get_queryset(self):
-        return TDPApplication.objects.filter(status='Approved').select_related('student__user')
-
-
-class UniFASTBillingListView(generics.ListAPIView):
-    pass  # BillingRecord removed
-
-
-class UniFASTDistributionView(APIView):
-    def get(self, request):
-        return Response({
-            'released_funds': '₱3.45M',
-            'liquidated': '₱2.86M',
-            'pending': '₱590K',
-            'schedule': [
-                {'batch': 'Batch 1 — Apr 15', 'count': 412, 'status': 'Released', 'pct': 100},
-                {'batch': 'Batch 2 — May 03', 'count': 286, 'status': 'Claiming', 'pct': 78},
-                {'batch': 'Batch 3 — May 20', 'count': 318, 'status': 'Scheduled', 'pct': 0},
-            ],
-        })
-
-
-class UniFASTLiquidationListView(generics.ListAPIView):
-    pass  # LiquidationRecord removed
-
-
-class UniFASTFHEView(APIView):
-    def get(self, request):
-        from .models import StudentProfile
-        enrolled = StudentProfile.objects.count()
-        return Response({
-            'fhe_eligible': enrolled,
-            'enrolled': round(enrolled * 0.91),
-            'pending_billing': round(enrolled * 0.09),
-            'enrollment_by_course': list(
-                StudentProfile.objects.values('course').annotate(count=Count('id'))
-            ),
-        })
-
-
-class UniFASTFHEUploadView(APIView):
-    def post(self, request):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'error': 'No file provided'}, status=400)
-        ActivityLog.objects.create(user=request.user, action=f"Uploaded FHE template: {file.name}")
-        return Response({'status': 'Imported', 'file': file.name})
-
-
-class UniFASTAnalyticsView(APIView):
-    def get(self, request):
-        return Response({
-            'tes_disbursement': [
-                {'semester': '1st 2023', 'amount': 2400000},
-                {'semester': '2nd 2023', 'amount': 2650000},
-                {'semester': '1st 2024', 'amount': 2890000},
-                {'semester': '2nd 2024', 'amount': 3120000},
-                {'semester': '1st 2025', 'amount': 3450000},
-            ],
-        })
-
-
-class UniFASTReportsView(APIView):
-    def get(self, request):
-        return Response([
-            {'name': 'TES Disbursement Summary', 'desc': 'Per-semester TES release breakdown.', 'size': '1.2 MB'},
-            {'name': 'TDP Compliance Report', 'desc': 'Compliance with UniFAST guidelines.', 'size': '920 KB'},
-            {'name': 'FHE Utilization Report', 'desc': 'Free Higher Education enrollment metrics.', 'size': '740 KB'},
-        ])
-
 
 class UniFASTDashboardView(APIView):
     def get(self, request):
+        from .models import TDPApplication
         return Response({
             'tes_beneficiaries': TDPApplication.objects.filter(status='Approved').count(),
             'tdp_scholars': TDPApplication.objects.count(),
-            'billing_approved_pct': 92,
-            'pending_liquidation': 0,
         })
 
-
-# ── Super Admin ───────────────────────────────────────────────────────────────
-
-class SuperUserListCreateView(generics.ListCreateAPIView):
-    serializer_class = AdminUserSerializer
-    queryset = User.objects.all()
-
-    def perform_create(self, serializer):
-        user = serializer.save()
-        ActivityLog.objects.create(user=self.request.user, action=f"Created user {user.email}")
-
-
-class SuperUserDetailView(generics.RetrieveUpdateAPIView):
-    serializer_class = AdminUserSerializer
-    queryset = User.objects.all()
-
-
-class SuperOfficeListView(generics.ListAPIView):
-    queryset = []
-    serializer_class = AdminUserSerializer  # placeholder, Office removed
-
-
-class SuperCategoryListView(generics.ListAPIView):
-    serializer_class = ScholarshipSerializer
-    queryset = Scholarship.objects.all()
-
-    def get_serializer_context(self):
-        return {'request': self.request}
-
-
-class SuperAnnouncementListCreateView(generics.ListCreateAPIView):
-    serializer_class = AnnouncementSerializer
-    queryset = Announcement.objects.all().order_by('-created_at')
-
-    def perform_create(self, serializer):
-        ann = serializer.save(published_by=self.request.user)
-        ActivityLog.objects.create(user=self.request.user, action=f"Published system-wide announcement: {ann.title}")
-
-
-class SuperLogsView(generics.ListAPIView):
-    serializer_class = ActivityLogSerializer
-    queryset = ActivityLog.objects.all()
-
-
-class SuperSettingsView(APIView):
-    def get(self, request):
-        settings, _ = SystemSettings.objects.get_or_create(pk=1)
-        return Response(SystemSettingsSerializer(settings).data)
-
-    def patch(self, request):
-        settings, _ = SystemSettings.objects.get_or_create(pk=1)
-        serializer = SystemSettingsSerializer(settings, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        ActivityLog.objects.create(user=request.user, action="Updated system settings")
-        return Response(serializer.data)
-
-
-class SuperDashboardView(APIView):
-    def get(self, request):
-        return Response({
-            'total_users': User.objects.count(),
-            'office_accounts': Office.objects.count(),
-            'scholarship_programs': Scholarship.objects.filter(is_active=True).count(),
-            'activity_24h': ActivityLog.objects.count(),
-            'recent_users': AdminUserSerializer(User.objects.order_by('-date_joined')[:5], many=True).data,
-        })
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _approval_trend():
-    from django.utils import timezone
-    import calendar
-    months = []
-    now = timezone.now()
-    for i in range(5, -1, -1):
-        m = (now.month - i - 1) % 12 + 1
-        y = now.year if now.month - i > 0 else now.year - 1
-        approved = Application.objects.filter(submitted_at__month=m, submitted_at__year=y, status='Approved').count()
-        rejected = Application.objects.filter(submitted_at__month=m, submitted_at__year=y, status='Rejected').count()
-        months.append({'month': calendar.month_abbr[m], 'approved': approved, 'rejected': rejected})
-    return months

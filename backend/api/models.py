@@ -16,14 +16,52 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username']
 
 
+BIPSU_SCHOOLS = [
+    ('School of Technologies and Computer Studies', 'School of Technologies and Computer Studies'),
+    ('School of Engineering', 'School of Engineering'),
+    ('School of Nursing and Health Sciences', 'School of Nursing and Health Sciences'),
+    ('School of Criminal Justice Education', 'School of Criminal Justice Education'),
+    ('School of Tourism and Hospitality Management', 'School of Tourism and Hospitality Management'),
+    ('School of Arts and Sciences', 'School of Arts and Sciences'),
+    ('School of Teacher Education', 'School of Teacher Education'),
+    ('School of Business and Management', 'School of Business and Management'),
+]
+
+BIPSU_COURSES = {
+    'School of Technologies and Computer Studies': [
+        'BSCS', 'BSIS',
+        'BSIT - Automotive Technology', 'BSIT - Architectural Drafting',
+        'BSIT - Electrical Technology', 'BSIT - Electronics Technology',
+        'BSIT - Culinary Technology', 'BSIT - Apparel and Fashion Design Technology',
+        'BSIT - HVAC-R Technology',
+    ],
+    'School of Engineering': ['BSCE', 'BSEE', 'BSCpE', 'BSME'],
+    'School of Nursing and Health Sciences': ['BSN'],
+    'School of Criminal Justice Education': ['BSCrim', 'BSISM'],
+    'School of Tourism and Hospitality Management': ['BSHM', 'BSTM'],
+    'School of Arts and Sciences': ['BAComm', 'BAEcon'],
+    'School of Teacher Education': [
+        'BSEd - Mathematics', 'BSEd - Science', 'BSEd - English',
+        'BSEd - Filipino', 'BSEd - Social Studies',
+        'BEEd', 'BTLEd', 'BPEd', 'BECEd', 'BSNEd',
+    ],
+    'School of Business and Management': [
+        'BSBA - Financial Management', 'BSBA - Marketing Management',
+    ],
+}
+
+
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     student_id = models.CharField(max_length=20, unique=True)
+    school = models.CharField(max_length=100, blank=True)
     course = models.CharField(max_length=100)
     year_level = models.IntegerField(default=1)
     gwa = models.FloatField(default=0.0)
     contact_number = models.CharField(max_length=20, blank=True)
-    address = models.CharField(max_length=200, blank=True)
+    barangay = models.CharField(max_length=100, blank=True)
+    municipality = models.CharField(max_length=100, blank=True)
+    province = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, blank=True)
     family_income = models.FloatField(default=0.0)
@@ -33,6 +71,20 @@ class StudentProfile(models.Model):
     is_athlete = models.BooleanField(default=False)
     is_coconut_farmer_family = models.BooleanField(default=False)
     has_other_scholarship = models.BooleanField(default=False)
+    # Educational background
+    elementary = models.CharField(max_length=200, blank=True)
+    highschool = models.CharField(max_length=200, blank=True)
+    last_school = models.CharField(max_length=200, blank=True)
+    # Family background
+    father_name = models.CharField(max_length=200, blank=True)
+    father_occupation = models.CharField(max_length=200, blank=True)
+    mother_name = models.CharField(max_length=200, blank=True)
+    mother_occupation = models.CharField(max_length=200, blank=True)
+
+    @property
+    def address(self):
+        parts = [p for p in [self.barangay, self.municipality, self.province] if p]
+        return ', '.join(parts)
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.student_id})"
@@ -141,10 +193,21 @@ class Renewal(models.Model):
 
 class ArchiveRecord(models.Model):
     scholarship_type = models.CharField(max_length=20)
-    scholar_name = models.CharField(max_length=100)
-    course = models.CharField(max_length=50)
-    gwa = models.FloatField(default=0.0)
+    rollover_label = models.CharField(max_length=20, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    first_name = models.CharField(max_length=100, blank=True)
+    middle_name = models.CharField(max_length=100, blank=True)
+    scholar_name = models.CharField(max_length=200, blank=True)  # kept for legacy
+    gender = models.CharField(max_length=10, blank=True)
+    course = models.CharField(max_length=100, blank=True)
     year = models.IntegerField(default=0)
+    gwa = models.FloatField(default=0.0)
+    barangay = models.CharField(max_length=100, blank=True)
+    municipality = models.CharField(max_length=100, blank=True)
+    province = models.CharField(max_length=100, blank=True)
+    student_number = models.CharField(max_length=50, blank=True)
+    award_number = models.CharField(max_length=50, blank=True)
+    congress_district = models.CharField(max_length=100, blank=True)
     imported_from = models.CharField(max_length=100, blank=True)
     extra_data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -180,9 +243,12 @@ class AffirmativeNSUApplication(models.Model):
     full_name = models.CharField(max_length=200)
     email = models.EmailField(unique=True)
     contact_number = models.CharField(max_length=20)
-    address = models.TextField()
+    barangay = models.CharField(max_length=100, blank=True)
+    municipality = models.CharField(max_length=100, blank=True)
+    province = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10)
+    school = models.CharField(max_length=100, blank=True)
     course = models.CharField(max_length=100)
     year_level = models.IntegerField(default=1)
     school_id = models.CharField(max_length=30, blank=True)
@@ -210,6 +276,11 @@ class AffirmativeNSUApplication(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def address(self):
+        parts = [p for p in [self.barangay, self.municipality, self.province] if p]
+        return ', '.join(parts)
+
     def __str__(self):
         return f"{self.full_name} — {self.qualified_for}"
 
@@ -222,12 +293,10 @@ class AffirmativeNSUApplication(models.Model):
         return check_password(raw_password, self.password)
 
     def determine_qualification(self):
-        # NSU Staff check
         if self.has_baccalaureate:
-            pass  # disqualified from NSU Staff
+            pass
         elif self.is_nsu_staff or (self.is_nsu_dependent and self.staff_employee_id):
             return 'Staff'
-        # Affirmative check
         if (self.shs_gpa is not None and self.shs_gpa >= 75 and
                 self.suc_exam_score is not None and self.suc_exam_score >= 50 and
                 not self.is_tes_beneficiary):
@@ -275,7 +344,7 @@ class ScholarshipRollover(models.Model):
     scholarship_type = models.CharField(max_length=20)
     school_year = models.CharField(max_length=20)
     semester = models.CharField(max_length=20, choices=SEMESTERS, default='1st Semester')
-    label = models.CharField(max_length=20, blank=True)  # e.g. '25-2'
+    label = models.CharField(max_length=20, blank=True)
     scholar_count = models.IntegerField(default=0)
     excel_file = models.FileField(upload_to='rollovers/')
     rolled_over_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -283,6 +352,48 @@ class ScholarshipRollover(models.Model):
 
     def __str__(self):
         return f'{self.scholarship_type} — {self.label or self.school_year} {self.semester} ({self.scholar_count} scholars)'
+
+
+class TESApplication(models.Model):
+    STATUSES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='tes_applications')
+    # Personal
+    lrn = models.CharField(max_length=30, blank=True)
+    middle_name = models.CharField(max_length=100, blank=True)
+    birthdate = models.DateField(null=True, blank=True)
+    complete_program = models.CharField(max_length=200, blank=True)
+    # Family background
+    father_last_name = models.CharField(max_length=100, blank=True)
+    father_first_name = models.CharField(max_length=100, blank=True)
+    father_middle_name = models.CharField(max_length=100, blank=True)
+    mother_last_name = models.CharField(max_length=100, blank=True)
+    mother_first_name = models.CharField(max_length=100, blank=True)
+    mother_middle_name = models.CharField(max_length=100, blank=True)
+    # Address
+    street_barangay = models.CharField(max_length=200, blank=True)
+    city_municipality = models.CharField(max_length=100, blank=True)
+    province = models.CharField(max_length=100, blank=True)
+    region = models.CharField(max_length=100, blank=True)
+    zip_code = models.CharField(max_length=10, blank=True)
+    contact_number = models.CharField(max_length=20, blank=True)
+    email_address = models.EmailField(blank=True)
+    # Additional
+    disability_type = models.CharField(max_length=100, blank=True)
+    is_solo_parent_dependent = models.BooleanField(default=False)
+    is_first_gen_college = models.BooleanField(default=False)
+    indigenous_people_group = models.CharField(max_length=100, blank=True)
+    # Status
+    status = models.CharField(max_length=20, choices=STATUSES, default='Pending')
+    remarks = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.student} — TES ({self.status})"
 
 
 class ActivityLog(models.Model):
@@ -310,8 +421,6 @@ class SystemSettings(models.Model):
 
     @staticmethod
     def parse_label(label):
-        """Parse '26-1' → {'sy': '2025-2026', 'semester': '1st Semester',
-                           'sy_start': 2025, 'sy_end': 2026}"""
         try:
             yy, s = label.split('-')
             start = 2000 + int(yy)
@@ -322,8 +431,6 @@ class SystemSettings(models.Model):
             return {'sy': label, 'semester': '1st Semester', 'sy_start': None, 'sy_end': None}
 
     def next_label(self):
-        """Return the next semester label after the current one."""
-        p = self.parse_label(self.academic_year)
         yy, s = self.academic_year.split('-')
         if s == '1':
             return f'{yy}-2'

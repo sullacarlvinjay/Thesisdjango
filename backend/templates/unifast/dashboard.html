@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}UniFAST Dashboard — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/UniFAST.png{% endblock %}
 {% block brand %}UniFAST{% endblock %}
@@ -19,67 +19,7 @@
     <p class="text-3xl font-bold mt-2" style="color:#1971c2;">{{ tdp_scholars }}</p>
     <p class="text-xs mt-1" style="color:#6b7a99;">Currently enrolled</p>
   </div>
-  <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Billing Status</p>
-    <p class="text-3xl font-bold mt-2" style="color:#2f9e44;">{{ billing_approved_pct }}%</p>
-    <p class="text-xs mt-1" style="color:#6b7a99;">Approved this sem</p>
-  </div>
-  <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Pending Liquidation</p>
-    <p class="text-3xl font-bold mt-2" style="color:#f59f00;">{{ pending_liquidation }}</p>
-    <p class="text-xs mt-1" style="color:#6b7a99;">Batches pending</p>
-  </div>
-  <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Released Funds</p>
-    <p class="text-3xl font-bold mt-2" style="color:#3b5bdb;">{{ released_funds }}</p>
-    <p class="text-xs mt-1" style="color:#6b7a99;">1st Sem A.Y. 2025</p>
-  </div>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-6">
-  <div class="card p-6">
-    <h3 class="font-semibold mb-4">Quick Actions</h3>
-    <div class="space-y-2">
-      <a href="/unifast/tdp/" class="btn btn-outline w-full justify-start gap-2">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Review TDP Applications
-      </a>
-      <a href="/unifast/tes/" class="btn btn-outline w-full justify-start gap-2">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        TES Processing Pipeline
-      </a>
-      <a href="/unifast/scholarships/" class="btn btn-outline w-full justify-start gap-2">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-        Scholarship Records
-      </a>
-      <a href="/unifast/reports/" class="btn btn-outline w-full justify-start gap-2">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Reports
-      </a>
-    </div>
-  </div>
-  <div class="card p-6">
-    <h3 class="font-semibold mb-4">TES Disbursement Trend</h3>
-    <canvas id="disbChart" height="180"></canvas>
-  </div>
-</div>
-{% endblock %}
 
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-<script>
-const labels = ['1st 2023','2nd 2023','1st 2024','2nd 2024','1st 2025'];
-const amounts = [2400000,2650000,2890000,3120000,3450000];
-new Chart(document.getElementById('disbChart'), {
-  type: 'bar',
-  data: { labels, datasets: [{ label: 'Disbursement (₱)', data: amounts, backgroundColor: '#3b5bdb', borderRadius: 6 }] },
-  options: {
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { ticks: { callback: v => '₱' + (v/1000000).toFixed(1) + 'M' }, grid: { color: '#e8ecf0' } },
-      x: { grid: { display: false } }
-    }
-  }
-});
-</script>
 {% endblock %}

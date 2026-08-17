@@ -1,0 +1,628 @@
+﻿{% extends "base.html" %}
+{% block title %}Scholarship Archives — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}Scholarship Archives{% endblock %}
+
+{% block nav %}{% include "unifast/_nav.html" with active="archives" %}{% endblock %}
+
+{% block content %}
+<!-- Type Tabs -->
+<div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+  <div class="flex flex-wrap gap-2">
+    {% for t in archive_types %}
+    <a href="/unifast/archives/?type={{ t }}" class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">{{ t }}</a>
+    {% endfor %}
+  </div>
+  <div class="flex gap-2">
+    <button onclick="document.getElementById('uploadExcelModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+      Upload Excel
+    </button>
+  </div>
+</div>
+
+{% if request.GET.added %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Scholar added successfully.</div>
+{% endif %}
+{% if request.GET.edited %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">Scholar updated successfully.</div>
+{% endif %}
+{% if request.GET.deleted %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Scholar deleted.</div>
+{% endif %}
+
+<!-- Add Scholar Modal -->
+<div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
+  <div class="card p-6" style="width:100%;max-width:38rem;max-height:90vh;overflow-y:auto;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">Add Scholar — {{ active_type }}</h3>
+      <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+    </div>
+
+    <form method="post" action="/unifast/archives/add/" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+
+      {% if active_type == 'Academic' %}
+      {# ── Academic: full form matching student apply_academic ── #}
+      <div class="space-y-4">
+        <p class="text-xs font-semibold uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
+          <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
+          <div><label>Student Number</label><input name="student_id" style="margin-top:0.25rem;" /></div>
+          <div><label>Email</label><input name="email" type="email" style="margin-top:0.25rem;" /></div>
+          <div><label>Birth Date</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
+          <div><label>Gender</label>
+            <select name="gender" style="margin-top:0.25rem;">
+              <option value="">—</option><option value="Male">Male</option><option value="Female">Female</option>
+            </select>
+          </div>
+          <div><label>Contact Number</label><input name="contact_number" style="margin-top:0.25rem;" /></div>
+          <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
+          <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
+          <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
+          <div><label>School</label>
+            <select name="school" id="addSchoolSelect" onchange="updateAddCourse()" style="margin-top:0.25rem;">
+              <option value="">— Select School —</option>
+              <option value="School of Technologies and Computer Studies">School of Technologies and Computer Studies</option>
+              <option value="School of Engineering">School of Engineering</option>
+              <option value="School of Nursing and Health Sciences">School of Nursing and Health Sciences</option>
+              <option value="School of Criminal Justice Education">School of Criminal Justice Education</option>
+              <option value="School of Tourism and Hospitality Management">School of Tourism and Hospitality Management</option>
+              <option value="School of Arts and Sciences">School of Arts and Sciences</option>
+              <option value="School of Teacher Education">School of Teacher Education</option>
+              <option value="School of Business and Management">School of Business and Management</option>
+            </select>
+          </div>
+          <div><label>Course</label>
+            <select name="course" id="addCourseSelect" required style="margin-top:0.25rem;">
+              <option value="">— Select Course —</option>
+            </select>
+          </div>
+          <div><label>Year Level</label>
+            <select name="year_level" style="margin-top:0.25rem;">
+              {% for y in "1234" %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Educational Background</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label>Elementary School</label><input name="elementary" style="margin-top:0.25rem;" /></div>
+          <div><label>High School</label><input name="highschool" style="margin-top:0.25rem;" /></div>
+          <div class="col-span-2"><label>Last School Attended</label><input name="last_school" style="margin-top:0.25rem;" /></div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Family Background</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label>Father's Name</label><input name="father_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Father's Occupation</label><input name="father_occupation" style="margin-top:0.25rem;" /></div>
+          <div><label>Mother's Name</label><input name="mother_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Academic Information</p>
+        <div class="grid grid-cols-3 gap-3">
+          <div><label>GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" required style="margin-top:0.25rem;" /></div>
+          <div><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
+          <div><label>School Year</label><input name="school_year" value="{{ active_sy }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Document Upload <span style="color:#6b7a99;font-weight:400;text-transform:none;letter-spacing:0;">PDF, JPG, PNG · Max 5MB each</span></p>
+        <div class="space-y-3">
+          {% for num, label, hint, fname in add_docs %}
+          <div class="rounded-xl border p-3" style="border-color:#e8ecf0;">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">{{ num }}</span>
+              <label class="text-sm font-medium" style="color:#374151;">{{ label }} <span style="color:#e03131;">*</span></label>
+            </div>
+            <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">{{ hint }}</p>
+            <input type="file" name="{{ fname }}" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% else %}
+      {# ── Other scholarships: basic info + one proof doc ── #}
+      <div class="grid grid-cols-2 gap-3">
+        <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
+        <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
+        <div><label>Student ID / School ID</label><input name="student_id" style="margin-top:0.25rem;" /></div>
+        {% if active_type not in 'Affirmative Staff' %}
+        <div><label>Email</label><input name="email" type="email" style="margin-top:0.25rem;" /></div>
+        {% endif %}
+        <div><label>Gender</label>
+          <select name="gender" style="margin-top:0.25rem;">
+            <option value="">—</option><option value="Male">Male</option><option value="Female">Female</option>
+          </select>
+        </div>
+        <div><label>Course</label><input name="course" required style="margin-top:0.25rem;" /></div>
+        <div><label>Year Level</label>
+          <select name="year_level" style="margin-top:0.25rem;">
+            {% for y in "1234" %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+          </select>
+        </div>
+        {% if active_type in 'TDP DOST CHED Affirmative' %}
+        <div><label>Award Number</label><input name="award_number" style="margin-top:0.25rem;" /></div>
+        <div><label>Congress District</label><input name="congress_district" style="margin-top:0.25rem;" /></div>
+        {% endif %}
+        <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
+        <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
+        <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
+        <div class="col-span-2"><label>School</label>
+          <select name="school" id="addSchoolSelectOther" onchange="updateAddCourseOther()" style="margin-top:0.25rem;">
+            <option value="">— Select School —</option>
+              <option value="School of Technologies and Computer Studies">School of Technologies and Computer Studies</option>
+              <option value="School of Engineering">School of Engineering</option>
+              <option value="School of Nursing and Health Sciences">School of Nursing and Health Sciences</option>
+              <option value="School of Criminal Justice Education">School of Criminal Justice Education</option>
+              <option value="School of Tourism and Hospitality Management">School of Tourism and Hospitality Management</option>
+              <option value="School of Arts and Sciences">School of Arts and Sciences</option>
+              <option value="School of Teacher Education">School of Teacher Education</option>
+              <option value="School of Business and Management">School of Business and Management</option>
+          </select>
+        </div>
+        <div class="col-span-2"><label>Course</label>
+          <select name="course" id="addCourseSelectOther" required style="margin-top:0.25rem;">
+            <option value="">— Select Course —</option>
+          </select>
+        </div>
+        {% if active_type in 'Affirmative Staff' %}
+        <div><label>Date of Birth</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
+        <div><label>Contact Number</label><input name="contact_number" style="margin-top:0.25rem;" /></div>
+        {% endif %}
+        <div class="col-span-2">
+          <div class="rounded-xl border p-3 mt-1" style="border-color:#e8ecf0;">
+            <label class="text-sm font-medium" style="color:#374151;">Proof of Enrollment / Program Membership <span style="color:#e03131;">*</span></label>
+            <p class="text-xs mt-1 mb-2" style="color:#6b7a99;">Upload any document proving the scholar is enrolled in this program (e.g. award letter, COE, endorsement). PDF, JPG, PNG.</p>
+            <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="flex gap-2 justify-end mt-5">
+        <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="btn btn-outline">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Scholar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Upload Excel Modal -->
+<div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+  <div class="card p-6" style="width:100%;max-width:30rem;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">Upload Excel — {{ active_type }}</h3>
+      <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+    </div>
+    {% if import_message %}
+    <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">✓ {{ import_message }}</div>
+    {% endif %}
+    {% if import_error %}
+    <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;">✗ {{ import_error }}</div>
+    {% endif %}
+    <form method="post" action="/unifast/archives/import/" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="type" value="{{ active_type }}">
+      <div class="space-y-3">
+        <div>
+          <label class="text-sm font-medium">Excel File <span style="color:#e03131;">*</span></label>
+          <input type="file" name="file" accept=".xlsx" required style="margin-top:0.25rem;width:100%;" />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Rollover Name <span style="color:#e03131;">*</span> <span style="color:#6b7a99;font-weight:400;">(e.g. 26-1)</span></label>
+          <input name="rollover_label" placeholder="e.g. 26-1" required style="margin-top:0.25rem;width:100%;" />
+          <p class="text-xs mt-1" style="color:#6b7a99;">This names the rollover list saved in the Download Excel history.</p>
+        </div>
+        <div class="p-3 rounded-lg" style="background:#f0f4ff;border:1px solid #c7d2fe;">
+          <p class="text-xs font-semibold mb-1" style="color:#3b5bdb;">Expected columns for {{ active_type }}:</p>
+          <p class="text-xs font-mono" style="color:#374151;">{{ col_hint }}</p>
+        </div>
+      </div>
+      <div class="flex gap-2 justify-end mt-5">
+        <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" class="btn btn-outline">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="gap:0.4rem;">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          Import & Save Rollover
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div>
+
+  <div class="space-y-4">
+    <div class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold">{{ active_type }} Scholars</h3>
+            <select id="syFilter" onchange="location.href='/unifast/archives/?type={{ active_type }}&sy='+this.value"
+              style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#1971c2;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">
+              {% for lbl, display in all_sy_display %}
+              <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ total }} active scholar{{ total|pluralize }} with Approved status</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input placeholder="Search…" id="archSearch" oninput="filterArch()" style="width:11rem;" />
+          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary" style="gap:0.4rem;white-space:nowrap;">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add Scholar
+          </button>
+          <div style="position:relative;">
+            <button onclick="toggleDlMenu()" class="btn btn-outline" style="gap:0.4rem;white-space:nowrap;">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Download Excel
+              <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="dlMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e8ecf0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.10);min-width:220px;z-index:100;padding:0.4rem 0;">
+              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Current Semester</div>
+              <a href="/unifast/archives/download/?type={{ active_type }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
+                <svg class="h-3.5 w-3.5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                {{ active_sy_display }}
+              </a>
+              {% if history %}
+              <div style="border-top:1px solid #e8ecf0;margin:0.3rem 0;"></div>
+              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Previous Semesters</div>
+              {% for h in history %}
+              <div class="flex items-center" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
+                <a href="{{ h.excel_file.url }}" download class="flex items-center gap-2 flex-1" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;">
+                  <svg class="h-3.5 w-3.5 shrink-0" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  {{ h.label|default:h.school_year }}
+                  <span style="font-size:0.72rem;color:#6b7a99;">{{ h.scholar_count }} scholars</span>
+                </a>
+                <form method="post" action="/unifast/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" onsubmit="return confirm('Delete {{ h.label|default:h.school_year }} rollover? This cannot be undone.');">
+                  {% csrf_token %}
+                  <input type="hidden" name="type" value="{{ active_type }}">
+                  <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:#e03131;padding:0.2rem;line-height:1;">✕</button>
+                </form>
+              </div>
+              {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+
+  
+
+      {# ── TDP ── #}
+{% if active_type == 'TDP' %}
+<table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
+  <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Award No.</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Congress District</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr.</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship Program</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+  </tr></thead>
+  <tbody>
+    {% for app in scholars %}
+    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+      data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
+      data-id="{{ app.student.student_id|lower }}">
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.form_data.award_number|default:'—' }}</td>
+      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
+      <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
+        <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+        <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
+      </td>
+    </tr>
+    {% empty %}
+    {% if not imported_rows %}
+    <tr><td colspan="12" style="padding:3rem;text-align:center;color:#6b7a99;">No approved {{ active_type }} scholars yet.</td></tr>
+    {% endif %}
+    {% endfor %}
+    {% for row in imported_rows %}
+    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+      data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+      data-id="{{ row.student_number|lower }}">
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.award_number|default:'—' }}</td>
+      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ row.congress_district|default:'—' }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{# ── Fallback: any type not TDP ── #}
+{% else %}
+<table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
+  <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Initial</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year Level</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student No.</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship Program</th>
+    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+  </tr></thead>
+  <tbody>
+    {% for app in scholars %}
+    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+      data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
+      data-id="{{ app.student.student_id|lower }}">
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
+      <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
+      <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
+        <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+        <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
+      </td>
+    </tr>
+    {% empty %}
+    {% if not imported_rows %}
+    <tr><td colspan="11" style="padding:3rem;text-align:center;color:#6b7a99;">No approved {{ active_type }} scholars yet.</td></tr>
+    {% endif %}
+    {% endfor %}
+    {% for row in imported_rows %}
+    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
+      data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
+      data-id="{{ row.student_number|lower }}">
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
+      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
+      <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+      <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
+      <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+  
+
+      </div>
+    </div>
+
+
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+var BIPSU_COURSES_ARCH = {
+    "School of Technologies and Computer Studies": ["BSCS","BSIS","BSIT - Automotive Technology","BSIT - Architectural Drafting","BSIT - Electrical Technology","BSIT - Electronics Technology","BSIT - Culinary Technology","BSIT - Apparel and Fashion Design Technology","BSIT - HVAC-R Technology"],
+    "School of Engineering": ["BSCE","BSEE","BSCpE","BSME"],
+    "School of Nursing and Health Sciences": ["BSN"],
+    "School of Criminal Justice Education": ["BSCrim","BSISM"],
+    "School of Tourism and Hospitality Management": ["BSHM","BSTM"],
+    "School of Arts and Sciences": ["BAComm","BAEcon"],
+    "School of Teacher Education": ["BSEd - Mathematics","BSEd - Science","BSEd - English","BSEd - Filipino","BSEd - Social Studies","BEEd","BTLEd","BPEd","BECEd","BSNEd"],
+    "School of Business and Management": ["BSBA - Financial Management","BSBA - Marketing Management"]
+  };
+function updateAddCourse() {
+  var s = document.getElementById('addSchoolSelect').value;
+  var sel = document.getElementById('addCourseSelect');
+  sel.innerHTML = '<option value="">— Select Course —</option>';
+  (BIPSU_COURSES_ARCH[s]||[]).forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+}
+function updateAddCourseOther() {
+  var s = document.getElementById('addSchoolSelectOther').value;
+  var sel = document.getElementById('addCourseSelectOther');
+  sel.innerHTML = '<option value="">— Select Course —</option>';
+  (BIPSU_COURSES_ARCH[s]||[]).forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+}
+</script>
+
+<script>
+function filterArch() {
+  const q = document.getElementById('archSearch').value.toLowerCase();
+  document.querySelectorAll('.arch-row').forEach(row => {
+    row.style.display = (!q || row.dataset.name.includes(q) || row.dataset.id.includes(q)) ? '' : 'none';
+  });
+}
+{% if import_message or import_error %}
+document.getElementById('uploadExcelModal').style.display = 'flex';
+{% endif %}
+function toggleDlMenu() {
+  const m = document.getElementById('dlMenu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#dlMenu') && !e.target.closest('[onclick="toggleDlMenu()"]')) {
+    const m = document.getElementById('dlMenu');
+    if (m) m.style.display = 'none';
+  }
+});
+function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress) {
+  document.getElementById('editPk').value = pk;
+  document.getElementById('editFirst').value = first;
+  document.getElementById('editLast').value = last;
+  document.getElementById('editSid').value = sid;
+  document.getElementById('editGender').value = gender;
+  document.getElementById('editCourse').value = course;
+  document.getElementById('editYear').value = year;
+  if (document.getElementById('editBarangay')) document.getElementById('editBarangay').value = barangay;
+  if (document.getElementById('editMunicipality')) document.getElementById('editMunicipality').value = municipality;
+  if (document.getElementById('editProvince')) document.getElementById('editProvince').value = province;
+  if (document.getElementById('editGwa')) document.getElementById('editGwa').value = gwa;
+  if (document.getElementById('editAward')) document.getElementById('editAward').value = award;
+  if (document.getElementById('editCongress')) document.getElementById('editCongress').value = congress;
+  document.getElementById('editModal').style.display = 'flex';
+}
+function openDelete(pk, name) {
+  document.getElementById('deletePk').value = pk;
+  document.getElementById('deleteNameLabel').textContent = name;
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+</script>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
+  <div class="card p-6" style="width:100%;max-width:32rem;max-height:90vh;overflow-y:auto;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">Edit Scholar</h3>
+      <button type="button" onclick="document.getElementById('editModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+    </div>
+    <form method="post" action=""  id="editForm">
+      {% csrf_token %}
+      <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+      <input type="hidden" name="pk" id="editPk">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label>First Name</label>
+          <input id="editFirst" name="first_name" required style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Last Name</label>
+          <input id="editLast" name="last_name" required style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Student ID</label>
+          <input id="editSid" name="student_id" style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Gender</label>
+          <select id="editGender" name="gender" style="margin-top:0.25rem;">
+            <option value="">—</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+        </div>
+        <div>
+          <label>Course</label>
+          <input id="editCourse" name="course" required style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Year Level</label>
+          <select id="editYear" name="year_level" style="margin-top:0.25rem;">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          </select>
+        </div>
+        {% if active_type == 'Academic' %}
+        <div>
+          <label>GWA</label>
+          <input id="editGwa" name="gwa" type="number" step="0.01" min="1" max="5" style="margin-top:0.25rem;" />
+        </div>
+        {% endif %}
+        {% if active_type in 'TDP DOST CHED' %}
+        <div>
+          <label>Award Number</label>
+          <input id="editAward" name="award_number" style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Congress District</label>
+          <input id="editCongress" name="congress_district" style="margin-top:0.25rem;" />
+        </div>
+        {% endif %}
+        <div>
+          <label>Barangay / Street</label>
+          <input id="editBarangay" name="barangay" style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Municipality</label>
+          <input id="editMunicipality" name="municipality" style="margin-top:0.25rem;" />
+        </div>
+        <div>
+          <label>Province</label>
+          <input id="editProvince" name="province" style="margin-top:0.25rem;" />
+        </div>
+      </div>
+      <div class="flex gap-2 justify-end mt-5">
+        <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="btn btn-outline">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+  <div class="card p-6" style="width:100%;max-width:24rem;">
+    <h3 class="font-semibold mb-2">Delete Scholar</h3>
+    <p class="text-sm mb-4" style="color:#6b7a99;">Remove <strong id="deleteNameLabel"></strong> from the archives? This cannot be undone.</p>
+    <form method="post" action=""  id="deleteForm">
+      {% csrf_token %}
+      <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+      <input type="hidden" name="pk" id="deletePk">
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn btn-outline">Cancel</button>
+        <button type="submit" class="btn" style="background:#e03131;color:#fff;border:none;">Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('editForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const pk = document.getElementById('editPk').value;
+  this.action = '/unifast/archives/' + pk + '/edit/';
+  this.submit();
+});
+document.getElementById('deleteForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const pk = document.getElementById('deletePk').value;
+  this.action = '/unifast/archives/' + pk + '/delete/';
+  this.submit();
+});
+</script>
+{% endblock %}

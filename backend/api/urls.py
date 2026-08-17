@@ -1,30 +1,29 @@
 from django.urls import path
 from . import views
 from . import student_views
+from django.conf import settings
+from django.conf.urls.static import static
+from django.shortcuts import redirect
 
 urlpatterns = [
-    # Public landing & apply routes
+    # Public landing
     path('', student_views.landing_view),
-    path('apply/register/', student_views.apply_register_view),
-    path('apply/login/', student_views.apply_login_view),
-    path('apply/portal/', student_views.apply_portal_view),
-    path('apply/submit/', student_views.apply_submit_view),
-    path('apply/logout/', student_views.apply_logout_view),
-    path('apply/result/', student_views.apply_result_view),
-    path('apply/submitted/', student_views.apply_submitted_view),
 
     # Auth
     path('login/', student_views.login_view),
     path('logout/', student_views.logout_view),
     path('register/', student_views.register_view),
 
-    # Academic student pages only
-    path('student/', student_views.student_dashboard),
+    # Student portal — /student/ redirects straight to applications
+    path('student/', lambda r: redirect('/student/applications/')),
+    path('student/apply/tes/', student_views.student_apply_tes),
     path('student/apply/academic/', student_views.student_apply_academic),
+    path('student/apply/staff/', student_views.student_apply_staff),
     path('student/applications/', student_views.student_applications),
     path('student/notifications/', student_views.student_notifications),
     path('student/renewal/academic/', student_views.student_renewal_academic),
     path('student/link-scholarship/', student_views.student_link_scholarship),
+    path('student/profile/', student_views.student_profile),
 
     # REST API
     path('api/auth/register/', views.RegisterView.as_view()),
@@ -58,12 +57,14 @@ urlpatterns = [
     path('vpsea/archives/rollover/<int:pk>/delete/', student_views.vpsea_rollover_delete),
     path('vpsea/archives/import/', student_views.vpsea_archive_import),
     path('vpsea/archives/new-semester/', student_views.vpsea_new_semester),
+    path('vpsea/archives/undo-semester/', student_views.vpsea_undo_semester),
     path('vpsea/archives/download/', student_views.vpsea_archive_download),
     path('vpsea/archives/<int:pk>/edit/', student_views.vpsea_archive_edit),
     path('vpsea/archives/<int:pk>/delete/', student_views.vpsea_archive_delete),
     path('vpsea/analytics/', student_views.vpsea_analytics),
     path('vpsea/announcements/', student_views.vpsea_announcements),
     path('vpsea/reports/', student_views.vpsea_reports),
+    path('vpsea/reports/preview/', student_views.vpsea_report_preview_pdf),
     path('vpsea/reports/download/', student_views.vpsea_report_download),
     path('vpsea/reports/download/excel/', student_views.vpsea_report_download_excel),
     path('vpsea/scholarships/', student_views.vpsea_scholarships),
@@ -77,30 +78,17 @@ urlpatterns = [
     path('vpsea/students/<int:pk>/delete/', student_views.vpsea_student_delete),
     # UniFAST portal pages
     path('unifast/', student_views.unifast_dashboard),
-    path('unifast/tdp/', student_views.unifast_tdp),
-    path('unifast/tes/', student_views.unifast_tes),
-    path('unifast/continuing/', student_views.unifast_continuing),
-    path('unifast/scholarships/', student_views.unifast_scholarships),
-    path('unifast/scholarships/rollover/', student_views.unifast_scholarship_rollover),
-    path('unifast/reports/', student_views.unifast_reports),
+    path('unifast/archives/', student_views.unifast_archives),
+    path('unifast/archives/add/', student_views.unifast_archive_add),
+    path('unifast/archives/import/', student_views.unifast_archive_import),
+    path('unifast/archives/rollover/<int:pk>/delete/', student_views.unifast_rollover_delete),
+    path('unifast/archives/download/', student_views.unifast_archive_download),
+    path('unifast/archives/<int:pk>/edit/', student_views.unifast_archive_edit),
+    path('unifast/archives/<int:pk>/delete/', student_views.unifast_archive_delete),
+    path('unifast/tes-applications/', student_views.unifast_tes_applications),
+    path('unifast/tes-applications/<int:pk>/review/', student_views.unifast_tes_review),
     path('api/unifast/dashboard/', views.UniFASTDashboardView.as_view()),
-    path('api/unifast/tdp/', views.UniFASTTDPListView.as_view()),
-    path('api/unifast/tdp/<int:pk>/', views.UniFASTTDPDetailView.as_view()),
-    path('api/unifast/tes/', views.UniFASTTESView.as_view()),
-    path('api/unifast/continuing/', views.UniFASTContinuingView.as_view()),
-    path('api/unifast/billing/', views.UniFASTBillingListView.as_view()),
-    path('api/unifast/distribution/', views.UniFASTDistributionView.as_view()),
-    path('api/unifast/liquidation/', views.UniFASTLiquidationListView.as_view()),
-    path('api/unifast/fhe/', views.UniFASTFHEView.as_view()),
-    path('api/unifast/fhe/upload/', views.UniFASTFHEUploadView.as_view()),
-    path('api/unifast/analytics/', views.UniFASTAnalyticsView.as_view()),
-    path('api/unifast/reports/', views.UniFASTReportsView.as_view()),
-    path('api/super/dashboard/', views.SuperDashboardView.as_view()),
-    path('api/super/users/', views.SuperUserListCreateView.as_view()),
-    path('api/super/users/<int:pk>/', views.SuperUserDetailView.as_view()),
-    path('api/super/offices/', views.SuperOfficeListView.as_view()),
-    path('api/super/categories/', views.SuperCategoryListView.as_view()),
-    path('api/super/announcements/', views.SuperAnnouncementListCreateView.as_view()),
-    path('api/super/logs/', views.SuperLogsView.as_view()),
-    path('api/super/settings/', views.SuperSettingsView.as_view()),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

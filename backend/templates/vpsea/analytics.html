@@ -9,27 +9,73 @@
 {% block content %}
 <div class="space-y-6">
 
-  <!-- Approval vs Rejection Trend — Line Chart -->
+  <!-- Filters -->
+  <div class="card p-4 flex flex-wrap items-center gap-4">
+    <span class="text-sm font-medium" style="color:#374151;">Viewing: <strong>{{ selected_sy_display }}</strong></span>
+    <form method="get" class="flex flex-wrap items-center gap-3 ml-auto">
+      <div class="flex items-center gap-2">
+        <label class="text-sm" style="color:#6b7a99;">Semester:</label>
+        <select name="sy" onchange="this.form.submit()" style="border:1px solid #e8ecf0;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.8rem;">
+          {% for lbl, display in all_sy_display %}
+          <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ display }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm" style="color:#6b7a99;">Program:</label>
+        <select name="stype" onchange="this.form.submit()" style="border:1px solid #e8ecf0;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.8rem;">
+          <option value="" {% if not selected_type %}selected{% endif %}>All Programs</option>
+          {% for t in all_types %}
+          <option value="{{ t }}" {% if t == selected_type %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+
+  <!-- Scholars per Scholarship Program -->
   <div class="card p-6">
-    <h3 class="font-semibold mb-4">Approval vs Rejection Trend</h3>
-    <canvas id="trendChart" height="100"></canvas>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+      {% if selected_type %}
+      <h3 class="font-semibold">{{ selected_type }} — Scholar Distribution by Course</h3>
+      {% else %}
+      <h3 class="font-semibold">Scholars per Scholarship Program</h3>
+      {% endif %}
+      <div class="flex gap-1" id="programChartToggle"></div>
+    </div>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Based on rollover list{% if not selected_type %}s{% endif %} for {{ selected_sy_display }}</p>
+    {% if selected_type %}
+    <div style="max-width:420px;margin:0 auto;">
+      <canvas id="programChart"></canvas>
+    </div>
+    {% else %}
+    <canvas id="programChart" height="90"></canvas>
+    {% endif %}
   </div>
 
   <div class="grid lg:grid-cols-2 gap-6">
 
-    <!-- GWA Distribution — Bar Chart -->
+    <!-- GWA Distribution (Academic only) -->
     <div class="card p-6">
-      <h3 class="font-semibold mb-4">GWA Distribution</h3>
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-semibold">GWA Distribution</h3>
+        <div class="flex gap-1" id="gwaChartToggle"></div>
+      </div>
+      <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
       <canvas id="gwaChart" height="180"></canvas>
     </div>
 
-    <!-- Scholars by Course — Horizontal Bar Chart -->
+    <!-- Scholars by Course -->
     <div class="card p-6">
-      <h3 class="font-semibold mb-4">Scholars by Course</h3>
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-semibold">Scholars by Course</h3>
+        {% if course_dist %}<div class="flex gap-1" id="courseChartToggle"></div>{% endif %}
+      </div>
+      <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
       {% if course_dist %}
       <canvas id="courseChart" height="180"></canvas>
       {% else %}
-      <p style="color:#6b7a99;font-size:0.875rem;">No approved scholars yet.</p>
+      <p style="color:#6b7a99;font-size:0.875rem;">No rollover data available for this selection.</p>
       {% endif %}
     </div>
 
@@ -39,87 +85,194 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.chart-toggle-btn {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
+  border: 1px solid #e8ecf0;
+  border-radius: 5px;
+  background: #f6f8fc;
+  color: #6b7a99;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.chart-toggle-btn.active {
+  background: #3b5bdb;
+  color: #fff;
+  border-color: #3b5bdb;
+}
+</style>
 <script>
 const gridColor = '#e8ecf0';
-const defaults = { font: { family: 'inherit', size: 12 }, color: '#6b7a99' };
-Chart.defaults.font = defaults.font;
-Chart.defaults.color = defaults.color;
+Chart.defaults.font = { family: 'inherit', size: 12 };
+Chart.defaults.color = '#6b7a99';
+const PIE_COLORS = [
+  '#3b5bdb','#1971c2','#2f9e44','#f59f00','#e64980',
+  '#7048e8','#0ca678','#f76707','#c2255c','#6b7a99',
+];
 
-// ── Trend Line Chart ──────────────────────────────────────────────────────────
-new Chart(document.getElementById('trendChart'), {
-  type: 'line',
-  data: {
-    labels: [{% for t in trend %}'{{ t.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-    datasets: [
-      {
-        label: 'Approved',
-        data: [{% for t in trend %}{{ t.approved }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        borderColor: '#2f9e44', backgroundColor: 'rgba(47,158,68,0.1)',
-        tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6,
-      },
-      {
-        label: 'Rejected',
-        data: [{% for t in trend %}{{ t.rejected }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)',
-        tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6,
-      },
-    ],
-  },
-  options: {
-    responsive: true,
-    plugins: { legend: { position: 'top' } },
-    scales: {
-      x: { grid: { color: gridColor } },
-      y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+// ── Helper: build toggle buttons and re-render chart on click ─────────────────
+function makeToggle(containerId, chartRef, types, buildFn) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  types.forEach(type => {
+    const btn = document.createElement('button');
+    btn.className = 'chart-toggle-btn' + (type === types[0] ? ' active' : '');
+    btn.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+    btn.onclick = () => {
+      container.querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      chartRef.chart.destroy();
+      chartRef.chart = buildFn(type);
+    };
+    container.appendChild(btn);
+  });
+}
+
+// ── Program Chart ─────────────────────────────────────────────────────────────
+{% if selected_type %}
+const programLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const programData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const programRef = {};
+function buildProgramChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('programChart'), {
+    type,
+    data: {
+      labels: programLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: programData,
+        backgroundColor: PIE_COLORS,
+        borderWidth: 1,
+        borderRadius: isPie ? 0 : 6,
+      }],
     },
-  },
-});
-
-// ── GWA Distribution Bar Chart ────────────────────────────────────────────────
-new Chart(document.getElementById('gwaChart'), {
-  type: 'bar',
-  data: {
-    labels: [{% for g in gpa_ranges %}'{{ g.range }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-    datasets: [{
-      label: 'Students',
-      data: [{% for g in gpa_ranges %}{{ g.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-      backgroundColor: ['#3b5bdb','#4c6ef5','#748ffc','#91a7ff','#bac8ff'],
-      borderRadius: 6,
-    }],
-  },
-  options: {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { color: gridColor } },
-      y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: isPie ? 'right' : 'top', labels: { boxWidth: 12, font: { size: 11 } }, display: isPie },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} scholars` } },
+      },
+      scales: isPie ? {} : {
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+      },
     },
-  },
-});
+  });
+}
+programRef.chart = buildProgramChart('pie');
+makeToggle('programChartToggle', programRef, ['pie','doughnut','bar','line'], buildProgramChart);
 
-// ── Scholars by Course Horizontal Bar ─────────────────────────────────────────
+{% else %}
+const rcMap = { {% for t, cnt in rollover_counts.items %}'{{ t }}': {{ cnt }}{% if not forloop.last %},{% endif %}{% endfor %} };
+const allLabels = [{% for t in all_types %}'{{ t }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const allCounts = allLabels.map(t => rcMap[t] || 0);
+const filteredLabels = allLabels.filter((_, i) => allCounts[i] > 0);
+const filteredCounts = allCounts.filter(v => v > 0);
+const chartLabels = filteredLabels.length ? filteredLabels : allLabels;
+const chartCounts = filteredLabels.length ? filteredCounts : allCounts;
+const programRef = {};
+function buildProgramChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('programChart'), {
+    type,
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: chartCounts,
+        backgroundColor: PIE_COLORS,
+        borderWidth: 1,
+        borderRadius: isPie ? 0 : 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: isPie, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+      },
+      scales: isPie ? {} : {
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+      },
+    },
+  });
+}
+programRef.chart = buildProgramChart('bar');
+makeToggle('programChartToggle', programRef, ['bar','pie','doughnut','line'], buildProgramChart);
+{% endif %}
+
+// ── GWA Chart ─────────────────────────────────────────────────────────────────
+const gwaLabels = [{% for g in gpa_ranges %}'{{ g.range }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const gwaData   = [{% for g in gpa_ranges %}{{ g.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const gwaRef = {};
+function buildGwaChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('gwaChart'), {
+    type,
+    data: {
+      labels: gwaLabels,
+      datasets: [{
+        label: 'Students',
+        data: gwaData,
+        backgroundColor: ['#3b5bdb','#4c6ef5','#748ffc','#91a7ff','#bac8ff'],
+        borderColor: '#3b5bdb',
+        borderWidth: isPie ? 1 : 2,
+        borderRadius: isPie ? 0 : 6,
+        fill: type === 'line',
+        tension: 0.4,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: isPie } },
+      scales: isPie ? {} : {
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+      },
+    },
+  });
+}
+gwaRef.chart = buildGwaChart('bar');
+makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
+
+// ── Course Chart ──────────────────────────────────────────────────────────────
 {% if course_dist %}
-new Chart(document.getElementById('courseChart'), {
-  type: 'bar',
-  data: {
-    labels: [{% for c in course_dist %}'{{ c.course }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-    datasets: [{
-      label: 'Scholars',
-      data: [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}],
-      backgroundColor: '#1971c2',
-      borderRadius: 6,
-    }],
-  },
-  options: {
-    indexAxis: 'y',
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
-      y: { grid: { color: gridColor } },
+const cLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const cData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const courseRef = {};
+function buildCourseChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  const isHBar = type === 'bar';
+  return new Chart(document.getElementById('courseChart'), {
+    type: isPie ? type : 'bar',
+    data: {
+      labels: cLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: cData,
+        backgroundColor: isPie ? PIE_COLORS : '#1971c2',
+        borderColor: '#1971c2',
+        borderWidth: isPie ? 1 : 2,
+        borderRadius: isPie ? 0 : 6,
+        fill: type === 'line',
+        tension: 0.4,
+      }],
     },
-  },
-});
+    options: {
+      indexAxis: (!isPie && type !== 'line') ? 'y' : 'x',
+      responsive: true,
+      plugins: { legend: { display: isPie } },
+      scales: isPie ? {} : {
+        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+        y: { grid: { color: gridColor } },
+      },
+    },
+  });
+}
+courseRef.chart = buildCourseChart('bar');
+makeToggle('courseChartToggle', courseRef, ['bar','pie','doughnut','line'], buildCourseChart);
 {% endif %}
 </script>
 {% endblock %}
