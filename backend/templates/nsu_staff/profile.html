@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}My Profile — NSU Staff Portal{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block brand %}NSU Staff{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block page_subtitle %}Your personal and scholarship information{% endblock %}
+{% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
+
+{% block content %}
+
+{% if saved %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+  ✓ Profile saved successfully.
+</div>
+{% endif %}
+
+{% for e in errors %}
+<div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ e }}</div>
+{% endfor %}
+
+<form method="post" enctype="multipart/form-data" class="space-y-6">
+  {% csrf_token %}
+
+  {# ── Account Information ──────────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Account Information</p>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Email is managed by the administrator and cannot be changed here.</p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label>First Name</label>
+        <input name="first_name" value="{{ user.first_name }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Last Name</label>
+        <input name="last_name" value="{{ user.last_name }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Email</label>
+        <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Role</label>
+        <input value="NSU Staff" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+    </div>
+  </div>
+
+  {# ── Scholarship Record ───────────────────────────────────────────────────── #}
+  {% if aff_app %}
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">NSU Staff Scholarship Record</p>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Details from your approved scholarship application. Contact VPSEA to update restricted fields.</p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label>Full Name (on record)</label>
+        <input value="{{ aff_app.full_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+      <div class="space-y-1.5">
+        <label>School ID</label>
+        <input value="{{ aff_app.school_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Course</label>
+        <input name="course" value="{{ aff_app.course }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Year Level</label>
+        <select name="year_level">
+          {% for y in "1234" %}
+          <option value="{{ y }}" {% if aff_app.year_level == y|add:0 %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label>Gender</label>
+        <input value="{{ aff_app.gender }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Date of Birth</label>
+        <input value="{{ aff_app.date_of_birth|date:'Y-m-d' }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Contact Number</label>
+        <input name="contact_number" value="{{ aff_app.contact_number }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>School</label>
+        <input value="{{ aff_app.school }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+    </div>
+
+    {# Address #}
+    <div class="grid sm:grid-cols-3 gap-4 mt-4">
+      <div class="space-y-1.5">
+        <label>Barangay / Street</label>
+        <input name="barangay" value="{{ aff_app.barangay }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Municipality</label>
+        <input name="municipality" value="{{ aff_app.municipality }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Province</label>
+        <input name="province" value="{{ aff_app.province }}" />
+      </div>
+    </div>
+
+    {# Staff eligibility details — read only #}
+    <div class="mt-6 pt-4" style="border-top:1px solid #e8ecf0;">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#6b7a99;">Staff Eligibility Details</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="space-y-1.5">
+          <label>Staff / Dependent</label>
+          <input value="{% if aff_app.is_nsu_staff %}NSU Staff (Direct){% else %}NSU Staff Dependent{% endif %}"
+                 readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        </div>
+        {% if aff_app.is_nsu_dependent %}
+        <div class="space-y-1.5">
+          <label>Staff Name</label>
+          <input value="{{ aff_app.staff_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        </div>
+        <div class="space-y-1.5">
+          <label>Employee ID</label>
+          <input value="{{ aff_app.staff_employee_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        </div>
+        <div class="space-y-1.5">
+          <label>Relationship</label>
+          <input value="{{ aff_app.relationship_to_staff }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        </div>
+        {% endif %}
+        <div class="space-y-1.5">
+          <label>Application Status</label>
+          <input value="{{ aff_app.status }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card p-6" style="background:#fffbeb;border-color:#fde68a;">
+    <p class="text-sm font-medium" style="color:#92400e;">No approved NSU Staff scholarship record is linked to this account.</p>
+    <p class="text-xs mt-1" style="color:#92400e;">Contact the VPSEA office if you believe this is an error.</p>
+  </div>
+  {% endif %}
+
+  <div class="flex justify-end">
+    <button type="submit" class="btn btn-primary">Save Profile</button>
+  </div>
+</form>
+{% endblock %}

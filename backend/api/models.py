@@ -5,6 +5,7 @@ from django.db import models
 class User(AbstractUser):
     ROLES = [
         ('student', 'Student'),
+        ('nsu_staff', 'NSU Staff'),
         ('vpsea', 'VPSEA Admin'),
         ('unifast', 'UniFAST Admin'),
         ('super', 'Super Admin'),
@@ -71,6 +72,13 @@ class StudentProfile(models.Model):
     is_athlete = models.BooleanField(default=False)
     is_coconut_farmer_family = models.BooleanField(default=False)
     has_other_scholarship = models.BooleanField(default=False)
+    # Affirmative scholarship eligibility inputs
+    shs_gpa = models.FloatField(null=True, blank=True)
+    shs_gpa_cert = models.FileField(upload_to='profile/shs_cert/', null=True, blank=True)
+    suc_exam_score = models.FloatField(null=True, blank=True)
+    suc_exam_cert = models.FileField(upload_to='profile/suc_cert/', null=True, blank=True)
+    is_tes_beneficiary = models.BooleanField(default=False)
+
     # Educational background
     elementary = models.CharField(max_length=200, blank=True)
     highschool = models.CharField(max_length=200, blank=True)
@@ -436,3 +444,124 @@ class SystemSettings(models.Model):
             return f'{yy}-2'
         else:
             return f'{int(yy)+1}-1'
+
+
+class AffirmativeRecommendation(models.Model):
+    STATUSES = [
+        ('Recommended', 'Recommended'),
+        ('Endorsed', 'Endorsed'),       # VPSEA formally endorses the student
+        ('Disqualified', 'Disqualified'),
+    ]
+
+    student = models.OneToOneField(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name='affirmative_recommendation',
+    )
+    # Snapshot of the values at the time the recommendation was generated
+    shs_gpa_snapshot = models.FloatField()
+    suc_exam_score_snapshot = models.FloatField()
+    # Passing threshold used (stored so historical records stay consistent)
+    shs_gpa_passing = models.FloatField(default=75.0)
+    # Computed fit score (0-100)
+    fit_score = models.FloatField(default=0.0)
+
+    status = models.CharField(max_length=20, choices=STATUSES, default='Recommended')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-fit_score', 'student__user__last_name']
+
+    def __str__(self):
+        return f"{self.student} — {self.status} ({self.fit_score}%)"
+
+    @staticmethod
+    def compute_fit_score(shs_gpa, suc_exam_score):
+        """Weighted: 50 pts from GPA (out of 100), 50 pts from exam (out of 100)."""
+        s = 0.0
+        if shs_gpa is not None:
+            s += min((shs_gpa / 100.0) * 50.0, 50.0)
+        if suc_exam_score is not None:
+            s += min((suc_exam_score / 100.0) * 50.0, 50.0)
+        return round(s, 2)
+
+    @classmethod
+    def evaluate_and_sync(cls, passing_threshold=75.0):
+        """
+        Re-evaluate ALL enrolled StudentProfile records against the three rules.
+        - Creates a recommendation if all rules pass and none exists yet.
+        - Disqualifies existing recommendations if rules no longer pass.
+        Returns (created_count, disqualified_count).
+        """
+        created = 0
+        disqualified = 0
+        for profile in StudentProfile.objects.all():
+            gpa = profile.shs_gpa
+            exam = profile.suc_exam_score
+            tes = profile.is_tes_beneficiary
+
+            passes = (
+                gpa is not None and gpa >= passing_threshold and
+                exam is not None and exam >= 50.0 and
+                not tes
+            )
+
+            try:
+                rec = cls.objects.get(student=profile)
+                if not passes and rec.status != 'Disqualified':
+                    rec.status = 'Disqualified'
+                    rec.shs_gpa_snapshot = gpa or rec.shs_gpa_snapshot
+                    rec.suc_exam_score_snapshot = exam or rec.suc_exam_score_snapshot
+                    rec.fit_score = cls.compute_fit_score(gpa, exam)
+                    rec.save()
+                    disqualified += 1
+                elif passes:
+                    # Keep snapshot/score up to date
+                    rec.shs_gpa_snapshot = gpa
+                    rec.suc_exam_score_snapshot = exam
+                    rec.fit_score = cls.compute_fit_score(gpa, exam)
+                    rec.shs_gpa_passing = passing_threshold
+                    if rec.status == 'Disqualified':
+                        rec.status = 'Recommended'
+                    rec.save()
+            except cls.DoesNotExist:
+                if passes:
+                    cls.objects.create(
+                        student=profile,
+                        shs_gpa_snapshot=gpa,
+                        suc_exam_score_snapshot=exam,
+                        shs_gpa_passing=passing_threshold,
+                        fit_score=cls.compute_fit_score(gpa, exam),
+                    )
+                    created += 1
+        return created, disqualified
+
+
+class StaffRenewal(models.Model):
+    """NSU Staff scholarship renewal submission."""
+    STATUSES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+    staff_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='staff_renewals',
+        limit_choices_to={'role': 'nsu_staff'},
+    )
+    # Single supporting document (employment cert, clearance, etc.)
+    supporting_document = models.FileField(upload_to='renewals/staff/', null=True, blank=True)
+
+    status = models.CharField(max_length=20, choices=STATUSES, default='Pending')
+    remarks = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.staff_user.get_full_name()} — Staff Renewal ({self.status})"

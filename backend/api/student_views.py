@@ -114,6 +114,8 @@ def login_view(request):
                 return redirect('/vpsea/')
             elif user.role == 'unifast':
                 return redirect('/unifast/')
+            elif user.role == 'nsu_staff':
+                return redirect('/nsu-staff/')
         return render(request, 'login.html', {'error': 'Invalid credentials'})
     return render(request, 'login.html')
 
@@ -127,45 +129,80 @@ def register_view(request):
     if request.method == 'POST':
         p = request.POST
         errors = []
+        account_type = p.get('account_type', 'student')
+
         if p.get('password') != p.get('confirm_password'):
             errors.append('Passwords do not match.')
         if User.objects.filter(email=p.get('email')).exists():
             errors.append('Email already registered.')
-        if StudentProfile.objects.filter(student_id=p.get('student_id')).exists():
-            errors.append('Student ID already registered.')
+
+        if account_type == 'student':
+            if not p.get('student_id'):
+                errors.append('Student ID is required.')
+            elif StudentProfile.objects.filter(student_id=p.get('student_id')).exists():
+                errors.append('Student ID already registered.')
+
         if errors:
             return render(request, 'register.html', {'errors': errors, 'post': p})
+
+        # ── Create the Django user ──────────────────────────────────────────
         user = User.objects.create_user(
             username=p.get('email'),
             email=p.get('email'),
             password=p.get('password'),
-            first_name=p.get('first_name', ''),
-            last_name=p.get('last_name', ''),
-            role='student',
+            first_name=p.get('first_name', '').strip(),
+            last_name=p.get('last_name', '').strip(),
+            role=account_type,
         )
-        StudentProfile.objects.create(
-            user=user,
-            student_id=p.get('student_id'),
-            course=p.get('course', ''),
-            year_level=int(p.get('year_level', 1)),
-            contact_number=p.get('contact_number', ''),
-            date_of_birth=p.get('date_of_birth') or None,
-            gender=p.get('gender', ''),
-        )
-        login(request, user)
-        return redirect('/student/profile/')
+
+        if account_type == 'student':
+            # ── Student: create a StudentProfile ───────────────────────────
+            StudentProfile.objects.create(
+                user=user,
+                student_id=p.get('student_id'),
+                course=p.get('course', ''),
+                year_level=int(p.get('year_level', 1) or 1),
+                contact_number=p.get('contact_number', ''),
+                date_of_birth=p.get('date_of_birth') or None,
+                gender=p.get('gender', ''),
+            )
+            login(request, user)
+            return redirect('/student/profile/')
+
+        else:
+            # ── NSU Staff: no StudentProfile needed — store extra info on
+            #    the User directly (first/last name already set above).
+            #    employee_id, department, position are stored in a light
+            #    JSON blob on ActivityLog as an audit entry so no new model
+            #    is required. The VPSEA office links the account to their
+            #    AffirmativeNSUApplication record.
+            from .models import ActivityLog
+            ActivityLog.objects.create(
+                user=user,
+                action=(
+                    f"Staff account created — "
+                    f"Employee ID: {p.get('employee_id','—')} | "
+                    f"Department: {p.get('department','—')} | "
+                    f"Position: {p.get('position','—')} | "
+                    f"Contact: {p.get('contact_number','—')}"
+                ),
+            )
+            login(request, user)
+            return redirect('/nsu-staff/')
+
     return render(request, 'register.html', {'post': {}})
 
 
 # — Academic student pages ——————————————————————————
 
 def _is_enrolled(profile):
-    """True if the student has an active application or approved linked scholarship."""
+    """True only when the student has an APPROVED application or approved linked scholarship.
+    Pending/Needs Revision applications do not count as enrolled — the student
+    should still be able to see their other apply options while waiting for a decision.
+    """
     if not profile:
         return False
-    if Application.objects.filter(
-        student=profile, status__in=['Pending Validation', 'Approved', 'Needs Revision']
-    ).exists():
+    if Application.objects.filter(student=profile, status='Approved').exists():
         return True
     return ScholarshipLinkRequest.objects.filter(student=profile, status='Approved').exists()
 
@@ -366,6 +403,7 @@ def student_renewal_academic(request):
 
 
 @login_required(login_url='/login/')
+@login_required(login_url='/login/')
 def student_profile(request):
     profile = StudentProfile.objects.filter(user=request.user).first()
     errors = []
@@ -387,6 +425,20 @@ def student_profile(request):
         profile.father_occupation = p.get('father_occupation', profile.father_occupation)
         profile.mother_name = p.get('mother_name', profile.mother_name)
         profile.mother_occupation = p.get('mother_occupation', profile.mother_occupation)
+        # Affirmative eligibility
+        raw_shs = p.get('shs_gpa', '').strip()
+        if raw_shs:
+            try: profile.shs_gpa = float(raw_shs)
+            except ValueError: pass
+        raw_suc = p.get('suc_exam_score', '').strip()
+        if raw_suc:
+            try: profile.suc_exam_score = float(raw_suc)
+            except ValueError: pass
+        profile.is_tes_beneficiary = 'is_tes_beneficiary' in p
+        if request.FILES.get('shs_gpa_cert'):
+            profile.shs_gpa_cert = request.FILES['shs_gpa_cert']
+        if request.FILES.get('suc_exam_cert'):
+            profile.suc_exam_cert = request.FILES['suc_exam_cert']
         # Address: only update if not yet locked (all three empty)
         if not (profile.barangay and profile.municipality and profile.province):
             profile.barangay = p.get('barangay', profile.barangay)
@@ -915,6 +967,10 @@ def vpsea_archive_edit(request, pk):
             obj.contact_number = p.get('contact_number')
         if p.get('date_of_birth'):
             obj.date_of_birth = p.get('date_of_birth')
+        # Password reset for AffirmativeNSUApplication scholars
+        new_pw = p.get('new_password', '').strip()
+        if new_pw:
+            obj.set_password(new_pw)
         obj.save()
     else:
         try:
@@ -925,6 +981,10 @@ def vpsea_archive_edit(request, pk):
         user = profile.user
         user.first_name = p.get('first_name', user.first_name)
         user.last_name = p.get('last_name', user.last_name)
+        # Password reset for enrolled students (Django User)
+        new_pw = p.get('new_password', '').strip()
+        if new_pw:
+            user.set_password(new_pw)
         user.save()
         profile.course = p.get('course', profile.course)
         profile.year_level = int(p.get('year_level', profile.year_level) or profile.year_level)
@@ -1443,6 +1503,82 @@ def vpsea_analytics(request):
                 except Exception:
                     pass
 
+    # ── Scholars-over-time trend ──────────────────────────────────────────────
+    # Build a chronological list of (label, display, total_scholars) covering
+    # every known semester so the line chart spans the full history.
+    # Labels use the compact format "YY-S" (e.g. "25-1") — sort numerically.
+    def _label_sort_key(lbl):
+        try:
+            yy, s = lbl.split('-')
+            return int(yy) * 10 + int(s)
+        except Exception:
+            return 0
+
+    trend_labels_sorted = sorted(set(all_labels), key=_label_sort_key)
+
+    trend_data = []
+    for lbl in trend_labels_sorted:
+        parsed = SystemSettings.parse_label(lbl)
+        display = f"{parsed['sy']}\n{parsed['semester']}"   # two-line label for x-axis
+        short   = f"{parsed['sy']} S{parsed['sy_start'] and lbl.split('-')[1] or '?'}"
+
+        total = 0
+        for t in ALL_TYPES:
+            if lbl == active_label:
+                if t in ('Affirmative', 'Staff'):
+                    from .models import AffirmativeNSUApplication
+                    total += AffirmativeNSUApplication.objects.filter(
+                        status='Approved', qualified_for=t
+                    ).count()
+                else:
+                    total += Application.objects.filter(
+                        status='Approved', scholarship__type=t
+                    ).count()
+            else:
+                # Prefer ArchiveRecord row count, fall back to rollover snapshot
+                cnt = ArchiveRecord.objects.filter(
+                    scholarship_type=t, rollover_label=lbl
+                ).count()
+                if not cnt:
+                    r = ScholarshipRollover.objects.filter(
+                        scholarship_type=t, label=lbl
+                    ).first()
+                    cnt = r.scholar_count if r else 0
+                total += cnt
+
+        # Build a per-type breakdown for the tooltip
+        per_type = {}
+        for t in ALL_TYPES:
+            if lbl == active_label:
+                if t in ('Affirmative', 'Staff'):
+                    from .models import AffirmativeNSUApplication
+                    c = AffirmativeNSUApplication.objects.filter(
+                        status='Approved', qualified_for=t
+                    ).count()
+                else:
+                    c = Application.objects.filter(
+                        status='Approved', scholarship__type=t
+                    ).count()
+            else:
+                c = ArchiveRecord.objects.filter(
+                    scholarship_type=t, rollover_label=lbl
+                ).count()
+                if not c:
+                    r = ScholarshipRollover.objects.filter(
+                        scholarship_type=t, label=lbl
+                    ).first()
+                    c = r.scholar_count if r else 0
+            if c:
+                per_type[t] = c
+
+        parsed_display = f"{parsed['sy']} — {parsed['semester']}"
+        trend_data.append({
+            'label': lbl,
+            'display': parsed_display,
+            'total': total,
+            'per_type': per_type,
+        })
+
     return render(request, 'vpsea/analytics.html', {
         'rollover_counts': rollover_counts,
         'all_types': ALL_TYPES,
@@ -1453,6 +1589,7 @@ def vpsea_analytics(request):
         'selected_type': selected_type,
         'selected_sy_display': f"{selected_sy} — {selected_semester}",
         'active_sy': active_label,
+        'trend_data': trend_data,
     })
 
 
@@ -2939,34 +3076,137 @@ def vpsea_scholarship_toggle(request, pk):
 
 @_vpsea_required
 def vpsea_ranking(request):
+    from .models import AffirmativeRecommendation, SystemSettings
+
     scholarship_type = request.GET.get('type', 'Affirmative')
     scholarship_types = ['Affirmative', 'Staff']
     if scholarship_type not in scholarship_types:
         scholarship_type = 'Affirmative'
 
-    # Exclude already approved applicants
-    applicants = AffirmativeNSUApplication.objects.exclude(status='Approved').filter(
+    # Recommended tab is Affirmative-only — Staff always stays on applicants
+    tab = request.GET.get('tab', 'applicants')   # 'applicants' | 'recommended'
+    if scholarship_type == 'Staff':
+        tab = 'applicants'
+
+    # ── Passing threshold (can be tweaked via GET param for VPSEA, default 75) ──
+    try:
+        passing_threshold = float(request.GET.get('passing', 75.0))
+    except (TypeError, ValueError):
+        passing_threshold = 75.0
+
+    # ── Handle POST: endorse / disqualify a recommendation ───────────────────
+    if request.method == 'POST':
+        rec_id = request.POST.get('rec_id')
+        action = request.POST.get('action')
+        if rec_id and action in ('endorse', 'disqualify'):
+            try:
+                rec = AffirmativeRecommendation.objects.get(pk=rec_id)
+                rec.status = 'Endorsed' if action == 'endorse' else 'Disqualified'
+                rec.notes = request.POST.get('notes', rec.notes)
+                rec.save()
+            except AffirmativeRecommendation.DoesNotExist:
+                pass
+        # Re-sync all profiles when admin clicks "Re-evaluate"
+        elif action == 'resync':
+            AffirmativeRecommendation.evaluate_and_sync(passing_threshold)
+        return redirect(f'/vpsea/ranking/?tab={tab}&type={scholarship_type}&passing={passing_threshold}')
+
+    # ── TAB 1: Applicants (AffirmativeNSUApplication) ────────────────────────
+    def _aff_score(a):
+        s = 0.0
+        if a.shs_gpa is not None:
+            s += min((a.shs_gpa / 100.0) * 50.0, 50.0)
+        if a.suc_exam_score is not None:
+            s += min((a.suc_exam_score / 100.0) * 50.0, 50.0)
+        return round(s)
+
+    def _staff_score(a):
+        return 100 if a.is_nsu_staff else 75
+
+    applicants_qs = AffirmativeNSUApplication.objects.exclude(status='Approved').filter(
         qualified_for=scholarship_type
     )
 
-    def score(a):
-        if scholarship_type == 'Affirmative':
-            s = 0
-            if a.shs_gpa is not None:
-                s += min((a.shs_gpa / 100) * 50, 50)  # up to 50 pts
-            if a.suc_exam_score is not None:
-                s += min((a.suc_exam_score / 100) * 50, 50)  # up to 50 pts
-            return round(s)
-        else:  # Staff
-            # NSU staff themselves rank higher than dependents
-            return 100 if a.is_nsu_staff else 75
+    def _applicant_rules(a):
+        """Return per-rule pass/fail dict for Affirmative applicants."""
+        if scholarship_type != 'Affirmative':
+            return None
+        return {
+            'gpa_pass': a.shs_gpa is not None and a.shs_gpa >= passing_threshold,
+            'exam_pass': a.suc_exam_score is not None and a.suc_exam_score >= 50.0,
+            'not_tes': not a.is_tes_beneficiary,
+            'eligible': (
+                a.shs_gpa is not None and a.shs_gpa >= passing_threshold and
+                a.suc_exam_score is not None and a.suc_exam_score >= 50.0 and
+                not a.is_tes_beneficiary
+            ),
+        }
 
-    ranked = sorted(applicants, key=score, reverse=True)
-    students = [{'rank': i + 1, 'applicant': a, 'score': score(a)} for i, a in enumerate(ranked)]
+    raw_score = _aff_score if scholarship_type == 'Affirmative' else _staff_score
+    ranked_applicants = sorted(applicants_qs, key=raw_score, reverse=True)
+    applicant_rows = [
+        {
+            'rank': i + 1,
+            'applicant': a,
+            'score': raw_score(a),
+            'rules': _applicant_rules(a),
+        }
+        for i, a in enumerate(ranked_applicants)
+    ]
+
+    # ── TAB 2: Enrolled students evaluated by rule-based engine ──────────────
+    # Sync first so the table is always current
+    if scholarship_type == 'Affirmative':
+        AffirmativeRecommendation.evaluate_and_sync(passing_threshold)
+
+    recommendations = (
+        AffirmativeRecommendation.objects
+        .select_related('student__user')
+        .order_by('-fit_score', 'student__user__last_name')
+    )
+
+    # Build per-row rule breakdown from live profile data
+    rec_rows = []
+    for i, rec in enumerate(recommendations):
+        p = rec.student
+        gpa_pass   = p.shs_gpa is not None and p.shs_gpa >= passing_threshold
+        exam_pass  = p.suc_exam_score is not None and p.suc_exam_score >= 50.0
+        not_tes    = not p.is_tes_beneficiary
+        eligible   = gpa_pass and exam_pass and not_tes
+        rec_rows.append({
+            'rank': i + 1 if eligible else None,
+            'rec': rec,
+            'profile': p,
+            'gpa_pass': gpa_pass,
+            'exam_pass': exam_pass,
+            'not_tes': not_tes,
+            'eligible': eligible,
+        })
+
+    # Sort: eligible first (by fit_score desc), then ineligible
+    rec_rows.sort(key=lambda r: (0 if r['eligible'] else 1, -r['rec'].fit_score))
+    # Re-assign ranks only to eligible rows
+    rank_counter = 1
+    for row in rec_rows:
+        if row['eligible']:
+            row['rank'] = rank_counter
+            rank_counter += 1
+        else:
+            row['rank'] = None
+
+    eligible_count   = sum(1 for r in rec_rows if r['eligible'])
+    ineligible_count = sum(1 for r in rec_rows if not r['eligible'])
+
     return render(request, 'vpsea/ranking.html', {
-        'students': students,
+        'applicant_rows': applicant_rows,
+        'rec_rows': rec_rows,
         'scholarship_types': scholarship_types,
         'active_type': scholarship_type,
+        'tab': tab,
+        'passing_threshold': passing_threshold,
+        'eligible_count': eligible_count,
+        'ineligible_count': ineligible_count,
+        'total_applicants': len(ranked_applicants),
     })
 
 
@@ -3432,3 +3672,124 @@ def unifast_archive_download(request):
     response = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# ── NSU Staff portal ─────────────────────────────────────────────────────────
+
+def _nsu_staff_required(view_fn):
+    from functools import wraps
+    @wraps(view_fn)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or request.user.role != 'nsu_staff':
+            return redirect('/login/')
+        return view_fn(request, *args, **kwargs)
+    return wrapper
+
+
+@_nsu_staff_required
+def nsu_staff_dashboard(request):
+    from .models import StaffRenewal, Notification, Announcement, AffirmativeNSUApplication
+    user = request.user
+    # Try to find the matching AffirmativeNSUApplication record for this staff member
+    aff_app = AffirmativeNSUApplication.objects.filter(
+        email=user.email, qualified_for='Staff', status='Approved'
+    ).first()
+    renewals = StaffRenewal.objects.filter(staff_user=user).order_by('-submitted_at')
+    announcements = Announcement.objects.order_by('-created_at')[:3]
+    unread_count = Notification.objects.filter(
+        student__user=user, is_read=False
+    ).count() if hasattr(user, 'profile') else 0
+    return render(request, 'nsu_staff/dashboard.html', {
+        'aff_app': aff_app,
+        'renewals': renewals,
+        'announcements': announcements,
+        'unread_count': unread_count,
+        'pending_renewals': renewals.filter(status='Pending').count(),
+        'approved_renewals': renewals.filter(status='Approved').count(),
+    })
+
+
+@_nsu_staff_required
+def nsu_staff_profile(request):
+    from .models import AffirmativeNSUApplication
+    user = request.user
+    aff_app = AffirmativeNSUApplication.objects.filter(
+        email=user.email, qualified_for='Staff', status='Approved'
+    ).first()
+    saved = False
+    errors = []
+    if request.method == 'POST':
+        p = request.POST
+        # Update Django user name fields
+        user.first_name = p.get('first_name', user.first_name).strip()
+        user.last_name  = p.get('last_name',  user.last_name).strip()
+        user.save()
+        # Update the AffirmativeNSUApplication record if linked
+        if aff_app:
+            aff_app.contact_number = p.get('contact_number', aff_app.contact_number)
+            aff_app.barangay       = p.get('barangay', aff_app.barangay)
+            aff_app.municipality   = p.get('municipality', aff_app.municipality)
+            aff_app.province       = p.get('province', aff_app.province)
+            aff_app.course         = p.get('course', aff_app.course)
+            try:
+                aff_app.year_level = int(p.get('year_level', aff_app.year_level) or aff_app.year_level)
+            except (ValueError, TypeError):
+                pass
+            aff_app.save()
+        saved = True
+    return render(request, 'nsu_staff/profile.html', {
+        'aff_app': aff_app,
+        'saved': saved,
+        'errors': errors,
+        'bipsu_schools': BIPSU_SCHOOLS,
+    })
+
+
+@_nsu_staff_required
+def nsu_staff_notifications(request):
+    from .models import Notification
+    user = request.user
+    # Notifications are tied to StudentProfile; staff may not have one — guard gracefully
+    notifications = []
+    if hasattr(user, 'profile'):
+        notifications = Notification.objects.filter(
+            student=user.profile
+        ).order_by('-created_at')
+        if request.method == 'POST' and request.POST.get('mark_all_read'):
+            notifications.update(is_read=True)
+            return redirect('/nsu-staff/notifications/')
+    return render(request, 'nsu_staff/notifications.html', {
+        'notifications': notifications,
+    })
+
+
+@_nsu_staff_required
+def nsu_staff_renewal(request):
+    from .models import StaffRenewal, SystemSettings
+    user = request.user
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    renewals = StaffRenewal.objects.filter(staff_user=user).order_by('-submitted_at')
+    errors = []
+    submitted = False
+
+    if request.method == 'POST':
+        sup = request.FILES.get('supporting_document')
+        if not errors:
+            StaffRenewal.objects.create(
+                staff_user=user,
+                supporting_document=sup or None,
+            )
+            return redirect('/nsu-staff/renewal/?submitted=1')
+        return render(request, 'nsu_staff/renewal.html', {
+            'renewals': renewals, 'errors': errors,
+            'semester': parsed['semester'], 'academic_year': parsed['sy'],
+        })
+
+    return render(request, 'nsu_staff/renewal.html', {
+        'renewals': renewals,
+        'submitted': request.GET.get('submitted'),
+        'semester': parsed['semester'],
+        'academic_year': parsed['sy'],
+        'errors': errors,
+    })

@@ -32,7 +32,6 @@
     </a>
   </div>
 </div>
-
 <!-- Document -->
 <div class="card p-6" style="overflow-x:auto;">
 
@@ -46,15 +45,11 @@
       LIST OF SCHOLARS FOR {{ semester }} SY: {{ ay }}
     </p>
   </div>
-
   {% for title, headers, female_rows, male_rows, has_gender, key in sections %}
   <div class="report-section" id="section-{{ key }}">
-
     <!-- Section title -->
     <div class="section-title">{{ title }} SCHOLARSHIP GRANT — {{ semester }} SY: {{ ay }}</div>
-
     {% if has_gender %}
-
       <!-- FEMALE -->
       <div class="gender-label">FEMALE</div>
       <div style="overflow-x:auto;">
@@ -92,7 +87,6 @@
           </tbody>
         </table>
       </div>
-
       <!-- MALE -->
       <div class="gender-label" style="margin-top:0.6rem;">MALE</div>
       <div style="overflow-x:auto;">
@@ -130,7 +124,6 @@
           </tbody>
         </table>
       </div>
-
     {% else %}
       <!-- No gender split (e.g. NSU Staff) -->
       <div style="overflow-x:auto;">
@@ -161,10 +154,8 @@
         </table>
       </div>
     {% endif %}
-
   </div>
   {% endfor %}
-
   <!-- Signatories -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:3rem;text-align:center;font-size:0.75rem;">
     <div>
@@ -188,7 +179,6 @@
       <p>University President</p>
     </div>
   </div>
-
 </div>
 
 <style>

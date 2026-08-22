@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Renewal — NSU Staff Portal{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block brand %}NSU Staff{% endblock %}
+{% block page_title %}Scholarship Renewal{% endblock %}
+{% block page_subtitle %}{{ semester }} — SY {{ academic_year }}{% endblock %}
+{% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
+
+{% block content %}
+
+{% if submitted %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+  ✓ Renewal submitted successfully. VPSEA will review your documents.
+</div>
+{% endif %}
+
+{% for e in errors %}
+<div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ e }}</div>
+{% endfor %}
+
+<div class="grid lg:grid-cols-2 gap-6">
+
+  {# ── Submission form ──────────────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <h3 class="font-semibold mb-1">Submit Renewal Documents</h3>
+    <p class="text-xs mb-5" style="color:#6b7a99;">Upload your documents for {{ semester }} SY {{ academic_year }}. All documents must be certified official copies.</p>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
+      {% csrf_token %}
+
+      <div class="space-y-1.5">
+        <label>Supporting Document <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>
+        <p class="text-xs" style="color:#6b7a99;">Employment certificate, clearance, or any document required by VPSEA for renewal.</p>
+        <input name="supporting_document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+      </div>
+
+      <div class="pt-2">
+        <button type="submit" class="btn btn-primary w-full">Submit Renewal</button>
+      </div>
+    </form>
+  </div>
+
+  {# ── Renewal history ──────────────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <h3 class="font-semibold mb-4">Renewal History</h3>
+    {% if renewals %}
+    <div class="space-y-0" style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <thead>
+          <tr style="border-bottom:1px solid #e8ecf0;">
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">#</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Submitted</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in renewals %}
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+            <td style="padding:0.6rem 0.75rem;font-size:0.85rem;">{{ r.submitted_at|date:"M d, Y" }}</td>
+            <td style="padding:0.6rem 0.75rem;">
+              <span class="badge {% if r.status == 'Approved' %}badge-success{% elif r.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %}">
+                {{ r.status }}
+              </span>
+            </td>
+            <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ r.remarks|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

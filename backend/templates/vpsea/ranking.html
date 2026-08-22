@@ -3,26 +3,67 @@
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
 {% block brand %}VPSEA{% endblock %}
 {% block page_title %}Student Ranking{% endblock %}
-{% block page_subtitle %}Best-fit applicants — excludes already approved scholars{% endblock %}
+{% block page_subtitle %}Rule-based eligibility ranking for the Affirmative Action scholarship{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="ranking" %}{% endblock %}
 
 {% block content %}
-<div class="card p-4 mb-5 flex items-start gap-3" style="background:#edf2ff;border-color:#c5d0e6;">
-  <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-  <p class="text-sm" style="color:#3b5bdb;">
-    Applicants who are already <strong>Approved</strong> are excluded. Rankings are based on eligibility scores from submitted application data.
-  </p>
-</div>
 
+
+
+
+{# Staff type is only relevant in the Applicants tab; hide it on Recommended #}
 <div class="flex gap-2 mb-5">
   {% for t in scholarship_types %}
-  <a href="/vpsea/ranking/?type={{ t }}"
-    class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">
+  {% if t != 'Staff' or tab != 'recommended' %}
+  <a href="/vpsea/ranking/?tab={% if t == 'Staff' %}applicants{% else %}{{ tab }}{% endif %}&type={{ t }}&passing={{ passing_threshold }}"
+     class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">
     {% if t == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %}
   </a>
+  {% endif %}
   {% endfor %}
 </div>
 
+{% if active_type == 'Affirmative' %}
+{# ── Passing-threshold + Re-evaluate controls ─────────────────────────── #}
+<form method="get" action="/vpsea/ranking/" class="card p-4 mb-5 flex flex-wrap items-end gap-4">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <input type="hidden" name="type" value="{{ active_type }}">
+  <div class="space-y-1">
+    <label class="text-xs font-medium" style="color:#6b7a99;">Passing GPA threshold (%)</label>
+    <input name="passing" type="number" step="0.5" min="50" max="100"
+           value="{{ passing_threshold }}" style="width:8rem;" />
+  </div>
+  <button type="submit" class="btn btn-outline">Apply</button>
+</form>
+
+{# ── Page-level tabs: Applicants | Recommended Students ───────────────── #}
+<div class="flex gap-0 mb-5 border-b" style="border-color:#e8ecf0;">
+  <a href="/vpsea/ranking/?tab=applicants&type={{ active_type }}&passing={{ passing_threshold }}"
+     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px
+            {% if tab == 'applicants' %}border-blue-600" style="color:#3b5bdb;border-color:#3b5bdb;
+            {% else %}border-transparent" style="color:#6b7a99;
+            {% endif %}">
+    Applicants
+    <span class="ml-1 rounded-full px-2 py-0.5 text-xs" style="background:#e8ecf0;">{{ total_applicants }}</span>
+  </a>
+  {# Recommended tab only shown for Affirmative type #}
+  {% if active_type == 'Affirmative' %}
+  <a href="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}"
+     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px
+            {% if tab == 'recommended' %}border-blue-600{% else %}border-transparent{% endif %}"
+     style="{% if tab == 'recommended' %}color:#3b5bdb;border-color:#3b5bdb;{% else %}color:#6b7a99;{% endif %}">
+    Recommended Students
+    <span class="ml-1 rounded-full px-2 py-0.5 text-xs"
+          style="background:{% if eligible_count %}#bbf7d0;color:#2f9e44;{% else %}#e8ecf0;color:#6b7a99;{% endif %}">
+      {{ eligible_count }}
+    </span>
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ═══════════════════ TAB: APPLICANTS ════════════════════════════════════ #}
+{% if tab == 'applicants' or active_type == 'Staff' %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4">
     <div>
@@ -30,88 +71,100 @@
         {% if active_type == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %} — Applicant Rankings
       </h3>
       <p class="text-xs mt-0.5" style="color:#6b7a99;">
-        {{ students|length }} eligible applicant{{ students|length|pluralize }} · sorted by fit score
+        {{ applicant_rows|length }} pending applicant{{ applicant_rows|length|pluralize }} · excludes already-approved
       </p>
     </div>
-    <input placeholder="Search name or email…" style="width:14rem;" id="rankSearch" oninput="filterRank()" />
+    <input id="appSearch" placeholder="Search name…" style="width:14rem;" oninput="filterTable('appSearch','appTable','data-name')" />
   </div>
 
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="rankTable">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
       <thead>
         <tr style="border-bottom:1px solid #e8ecf0;">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;width:3rem;">Rank</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
+          <th class="th-cell" style="width:3rem;">Rank</th>
+          <th class="th-cell">Name</th>
+          <th class="th-cell">Course / Year</th>
           {% if active_type == 'Affirmative' %}
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SHS GPA</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SUC Exam</th>
+          <th class="th-cell">SHS GPA</th>
+          <th class="th-cell">SUC Exam</th>
+          <th class="th-cell">TES?</th>
+          <th class="th-cell">Eligible</th>
           {% else %}
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Type</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Staff Name</th>
+          <th class="th-cell">Type</th>
+          <th class="th-cell">Staff Name</th>
           {% endif %}
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Fit Score</th>
+          <th class="th-cell">Status</th>
+          <th class="th-cell">Fit Score</th>
         </tr>
       </thead>
       <tbody>
-        {% for s in students %}
-        <tr style="border-bottom:1px solid #f1f3f9;" class="rank-row"
-          data-name="{{ s.applicant.full_name|lower }}"
-          data-email="{{ s.applicant.email|lower }}">
-          <td style="padding:0.6rem 0.75rem;">
+        {% for s in applicant_rows %}
+        <tr class="trow" data-name="{{ s.applicant.full_name|lower }}"
+            style="border-bottom:1px solid #f1f3f9;{% if active_type == 'Affirmative' and s.rules and not s.rules.eligible %}opacity:.65;{% endif %}">
+          <td class="td-cell">
             {% if s.rank == 1 %}<span style="font-size:1.1rem;">🥇</span>
             {% elif s.rank == 2 %}<span style="font-size:1.1rem;">🥈</span>
             {% elif s.rank == 3 %}<span style="font-size:1.1rem;">🥉</span>
             {% else %}<span class="font-mono text-sm" style="color:#6b7a99;">#{{ s.rank }}</span>
             {% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="td-cell">
             <div class="flex items-center gap-2">
               <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-                style="background:{% if active_type == 'Affirmative' %}#f59f00{% else %}#2f9e44{% endif %}">
-                {{ s.applicant.full_name|first }}
-              </div>
+                   style="background:#f59f00;">{{ s.applicant.full_name|first }}</div>
               <div>
                 <p class="font-medium leading-tight">{{ s.applicant.full_name }}</p>
                 <p class="text-xs" style="color:#6b7a99;">{{ s.applicant.email }}</p>
               </div>
             </div>
           </td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.applicant.course }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.applicant.year_level }}</td>
+          <td class="td-cell">{{ s.applicant.course }}<br><span class="text-xs" style="color:#6b7a99;">Year {{ s.applicant.year_level }}</span></td>
           {% if active_type == 'Affirmative' %}
-          <td style="padding:0.6rem 0.75rem;">
-            {% if s.applicant.shs_gpa %}
-            <span class="badge {% if s.applicant.shs_gpa >= 90 %}badge-success{% elif s.applicant.shs_gpa >= 75 %}badge-info{% else %}badge-warning{% endif %}">
-              {{ s.applicant.shs_gpa }}%
-            </span>
-            {% else %}—{% endif %}
+          <td class="td-cell">
+            {% if s.applicant.shs_gpa is not None %}
+              <span class="badge {% if s.rules.gpa_pass %}badge-success{% else %}badge-danger{% endif %}">
+                {{ s.applicant.shs_gpa }}%
+              </span>
+            {% else %}<span style="color:#aaa;">—</span>{% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;">
-            {% if s.applicant.suc_exam_score %}
-            <span class="badge {% if s.applicant.suc_exam_score >= 75 %}badge-success{% elif s.applicant.suc_exam_score >= 50 %}badge-info{% else %}badge-warning{% endif %}">
-              {{ s.applicant.suc_exam_score }}%
-            </span>
-            {% else %}—{% endif %}
+          <td class="td-cell">
+            {% if s.applicant.suc_exam_score is not None %}
+              <span class="badge {% if s.rules.exam_pass %}badge-success{% else %}badge-danger{% endif %}">
+                {{ s.applicant.suc_exam_score }}%
+              </span>
+            {% else %}<span style="color:#aaa;">—</span>{% endif %}
+          </td>
+          <td class="td-cell">
+            {% if s.applicant.is_tes_beneficiary %}
+              <span class="badge badge-danger">Yes</span>
+            {% else %}
+              <span class="badge badge-success">No</span>
+            {% endif %}
+          </td>
+          <td class="td-cell">
+            {% if s.rules.eligible %}
+              <span class="badge badge-success">✓ Yes</span>
+            {% else %}
+              <span class="badge badge-danger">✗ No</span>
+            {% endif %}
           </td>
           {% else %}
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="td-cell">
             {% if s.applicant.is_nsu_staff %}<span class="badge badge-success">NSU Staff</span>
             {% else %}<span class="badge badge-info">Dependent</span>{% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.applicant.staff_name|default:"—" }}</td>
+          <td class="td-cell">{{ s.applicant.staff_name|default:"—" }}</td>
           {% endif %}
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="td-cell">
             <span class="badge {% if s.applicant.status == 'Pending Validation' %}badge-warning{% elif s.applicant.status == 'Draft' %}badge-muted{% else %}badge-info{% endif %}">
               {{ s.applicant.status }}
             </span>
           </td>
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="td-cell">
             <div class="flex items-center gap-2">
               <div style="width:5rem;background:#e8ecf0;border-radius:9999px;height:0.5rem;">
-                <div class="score-bar" data-score="{{ s.score }}" style="height:0.5rem;border-radius:9999px;width:{{ s.score }}%;"></div>
+                <div style="height:0.5rem;border-radius:9999px;width:{{ s.score }}%;
+                     background:{% if s.score >= 80 %}#2f9e44{% elif s.score >= 50 %}#f59f00{% else %}#dc2626{% endif %};"></div>
               </div>
               <span class="font-semibold text-sm">{{ s.score }}%</span>
             </div>
@@ -119,8 +172,8 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="8" style="padding:3rem;text-align:center;color:#6b7a99;">
-            No eligible applicants found for {% if active_type == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %} scholarship.
+          <td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">
+            No pending applicants found.
           </td>
         </tr>
         {% endfor %}
@@ -128,19 +181,222 @@
     </table>
   </div>
 </div>
+{% endif %}
+
+{# ═══════════════════ TAB: RECOMMENDED STUDENTS ══════════════════════════ #}
+{% if tab == 'recommended' and active_type == 'Affirmative' %}
+<div class="card p-6">
+  <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+    <div>
+      <h3 class="font-semibold">Enrolled Students — Rule-Based Recommendation</h3>
+      <p class="text-xs mt-0.5" style="color:#6b7a99;">
+        <span style="color:#2f9e44;font-weight:600;">{{ eligible_count }}</span> eligible ·
+        <span style="color:#dc2626;">{{ ineligible_count }}</span> not meeting all rules ·
+        students are not shown this evaluation
+      </p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <input id="recSearch" placeholder="Search name or ID…" style="width:14rem;"
+             oninput="filterTable('recSearch','recTable','data-name')" />
+      {# Re-evaluate button #}
+      <form method="post" action="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="resync">
+        <button type="submit" class="btn btn-outline text-xs">↻ Re-evaluate</button>
+      </form>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="recTable">
+      <thead>
+        <tr style="border-bottom:1px solid #e8ecf0;">
+          <th class="th-cell" style="width:3rem;">Rank</th>
+          <th class="th-cell">Student</th>
+          <th class="th-cell">Course / Year</th>
+          <th class="th-cell" title="Rule 1: SHS GPA ≥ {{ passing_threshold }}%">
+            SHS GPA
+            <span class="text-xs font-normal" style="color:#6b7a99;">&ge;{{ passing_threshold }}%</span>
+          </th>
+          <th class="th-cell" title="Rule 2: SUC Exam ≥ 50%">
+            SUC Exam
+            <span class="text-xs font-normal" style="color:#6b7a99;">&ge;50%</span>
+          </th>
+          <th class="th-cell" title="Rule 3: Not a TES beneficiary">
+            Not TES
+          </th>
+          <th class="th-cell">Fit Score</th>
+          <th class="th-cell">Status</th>
+          <th class="th-cell">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rec_rows %}
+        <tr class="trow" data-name="{{ r.profile.user.get_full_name|lower }} {{ r.profile.student_id|lower }}"
+            style="border-bottom:1px solid #f1f3f9;{% if not r.eligible %}opacity:.6;{% endif %}">
+          <td class="td-cell">
+            {% if r.eligible %}
+              {% if r.rank == 1 %}<span style="font-size:1.1rem;">🥇</span>
+              {% elif r.rank == 2 %}<span style="font-size:1.1rem;">🥈</span>
+              {% elif r.rank == 3 %}<span style="font-size:1.1rem;">🥉</span>
+              {% else %}<span class="font-mono text-sm" style="color:#6b7a99;">#{{ r.rank }}</span>
+              {% endif %}
+            {% else %}
+              <span class="font-mono text-sm" style="color:#aaa;">—</span>
+            {% endif %}
+          </td>
+          <td class="td-cell">
+            <div class="flex items-center gap-2">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
+                   style="background:{% if r.rec.status == 'Qualified' %}#2f9e44{% elif r.rec.status == 'Not Qualified' %}#dc2626{% else %}#3b5bdb{% endif %};">
+                {{ r.profile.user.first_name|first }}
+              </div>
+              <div>
+                <p class="font-medium leading-tight">{{ r.profile.user.get_full_name }}</p>
+                <p class="text-xs" style="color:#6b7a99;">{{ r.profile.student_id }}</p>
+              </div>
+            </div>
+          </td>
+          <td class="td-cell">
+            {{ r.profile.course }}<br>
+            <span class="text-xs" style="color:#6b7a99;">Year {{ r.profile.year_level }}</span>
+          </td>
+
+          {# Rule 1 — SHS GPA #}
+          <td class="td-cell">
+            <div class="flex flex-col gap-0.5">
+              {% if r.profile.shs_gpa is not None %}
+                <span class="badge {% if r.gpa_pass %}badge-success{% else %}badge-danger{% endif %}">
+                  {{ r.profile.shs_gpa }}%
+                </span>
+                {% if r.profile.shs_gpa_cert %}
+                  <a href="{{ r.profile.shs_gpa_cert.url }}" target="_blank"
+                     class="text-xs" style="color:#3b5bdb;">📄 cert</a>
+                {% else %}
+                  <span class="text-xs" style="color:#f59f00;">no cert</span>
+                {% endif %}
+              {% else %}
+                <span style="color:#aaa;">—</span>
+              {% endif %}
+            </div>
+          </td>
+
+          {# Rule 2 — SUC Exam #}
+          <td class="td-cell">
+            <div class="flex flex-col gap-0.5">
+              {% if r.profile.suc_exam_score is not None %}
+                <span class="badge {% if r.exam_pass %}badge-success{% else %}badge-danger{% endif %}">
+                  {{ r.profile.suc_exam_score }}%
+                </span>
+                {% if r.profile.suc_exam_cert %}
+                  <a href="{{ r.profile.suc_exam_cert.url }}" target="_blank"
+                     class="text-xs" style="color:#3b5bdb;">📄 cert</a>
+                {% else %}
+                  <span class="text-xs" style="color:#f59f00;">no cert</span>
+                {% endif %}
+              {% else %}
+                <span style="color:#aaa;">—</span>
+              {% endif %}
+            </div>
+          </td>
+          {# Rule 3 — Not TES #}
+          <td class="td-cell">
+            {% if r.not_tes %}
+              <span class="badge badge-success">✓</span>
+            {% else %}
+              <span class="badge badge-danger">✗ TES</span>
+            {% endif %}
+          </td>
+
+          {# Fit score #}
+          <td class="td-cell">
+            {% if r.eligible %}
+            <div class="flex items-center gap-2">
+              <div style="width:5rem;background:#e8ecf0;border-radius:9999px;height:0.5rem;">
+                <div style="height:0.5rem;border-radius:9999px;width:{{ r.rec.fit_score }}%;
+                     background:{% if r.rec.fit_score >= 80 %}#2f9e44{% elif r.rec.fit_score >= 50 %}#f59f00{% else %}#dc2626{% endif %};"></div>
+              </div>
+              <span class="font-semibold text-sm">{{ r.rec.fit_score }}%</span>
+            </div>
+            {% else %}
+              <span style="color:#aaa;">—</span>
+            {% endif %}
+          </td>
+          {# Recommendation status #}
+          <td class="td-cell">
+            {% if r.rec.status == 'Endorsed' %}
+              <span class="badge badge-success">Endorsed</span>
+            {% elif r.rec.status == 'Disqualified' %}
+              <span class="badge badge-danger">Disqualified</span>
+            {% elif r.eligible %}
+              <span class="badge badge-info">Recommended</span>
+            {% else %}
+              <span class="badge badge-muted">Not Eligible</span>
+            {% endif %}
+          </td>
+
+          {# Actions (only shown to VPSEA — never to student) #}
+          <td class="td-cell">
+            {% if r.eligible and r.rec.status != 'Endorsed' %}
+            <form method="post"
+                  action="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}"
+                  style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="rec_id" value="{{ r.rec.id }}">
+              <input type="hidden" name="action" value="endorse">
+              <button type="submit" class="btn btn-outline text-xs"
+                      style="color:#2f9e44;border-color:#2f9e44;"
+                      onclick="return confirm('Endorse {{ r.profile.user.get_full_name }} for Affirmative Action scholarship?')">
+                Endorse
+              </button>
+            </form>
+            {% endif %}
+            {% if r.rec.status != 'Disqualified' %}
+            <form method="post"
+                  action="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}"
+                  style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="rec_id" value="{{ r.rec.id }}">
+              <input type="hidden" name="action" value="disqualify">
+              <button type="submit" class="btn btn-outline text-xs"
+                      style="color:#dc2626;border-color:#dc2626;"
+                      onclick="return confirm('Mark as disqualified?')">
+                Disqualify
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">
+            No enrolled students have submitted eligibility data yet.<br>
+            <span class="text-xs">Students must fill in SHS GPA and SUC Exam Score in their profile.</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
+<style>
+  .th-cell { text-align:left; padding:0.5rem 0.75rem; font-size:0.75rem; color:#6b7a99; font-weight:500; }
+  .td-cell { padding:0.6rem 0.75rem; vertical-align:top; }
+  .badge-danger  { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:9999px; padding:0.15rem 0.5rem; font-size:0.75rem; }
+  .badge-muted   { background:#f1f3f9; color:#6b7a99; border:1px solid #e8ecf0; border-radius:9999px; padding:0.15rem 0.5rem; font-size:0.75rem; }
+</style>
 <script>
-function filterRank() {
-  const q = document.getElementById('rankSearch').value.toLowerCase();
-  document.querySelectorAll('.rank-row').forEach(row => {
-    row.style.display = (!q || row.dataset.name.includes(q) || row.dataset.email.includes(q)) ? '' : 'none';
+function filterTable(inputId, tableId, attr) {
+  const q = document.getElementById(inputId).value.toLowerCase();
+  document.querySelectorAll('#' + tableId + ' .trow').forEach(row => {
+    const val = (row.getAttribute(attr) || row.getAttribute('data-name') || '').toLowerCase();
+    row.style.display = (!q || val.includes(q)) ? '' : 'none';
   });
 }
-document.querySelectorAll('.score-bar').forEach(el => {
-  const s = parseInt(el.dataset.score, 10);
-  el.style.background = s >= 80 ? '#2f9e44' : s >= 50 ? '#f59f00' : '#dc2626';
-});
 </script>
 {% endblock %}

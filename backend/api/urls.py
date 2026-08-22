@@ -18,7 +18,6 @@ urlpatterns = [
     path('student/', lambda r: redirect('/student/applications/')),
     path('student/apply/tes/', student_views.student_apply_tes),
     path('student/apply/academic/', student_views.student_apply_academic),
-    path('student/apply/staff/', student_views.student_apply_staff),
     path('student/applications/', student_views.student_applications),
     path('student/notifications/', student_views.student_notifications),
     path('student/renewal/academic/', student_views.student_renewal_academic),
@@ -76,6 +75,12 @@ urlpatterns = [
     path('vpsea/students/add/', student_views.vpsea_student_add),
     path('vpsea/students/<int:pk>/edit/', student_views.vpsea_student_edit),
     path('vpsea/students/<int:pk>/delete/', student_views.vpsea_student_delete),
+    # NSU Staff portal pages
+    path('nsu-staff/', student_views.nsu_staff_dashboard),
+    path('nsu-staff/profile/', student_views.nsu_staff_profile),
+    path('nsu-staff/notifications/', student_views.nsu_staff_notifications),
+    path('nsu-staff/renewal/', student_views.nsu_staff_renewal),
+
     # UniFAST portal pages
     path('unifast/', student_views.unifast_dashboard),
     path('unifast/archives/', student_views.unifast_archives),

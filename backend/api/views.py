@@ -120,26 +120,63 @@ class StudentDashboardView(APIView):
 
 class VPSEAStudentRankingView(APIView):
     def get(self, request):
-        from .models import AffirmativeNSUApplication
+        from .models import AffirmativeNSUApplication, AffirmativeRecommendation
         scholarship_type = request.query_params.get('type', 'Affirmative')
         if scholarship_type not in ('Affirmative', 'Staff'):
             scholarship_type = 'Affirmative'
+        try:
+            passing = float(request.query_params.get('passing', 75.0))
+        except (TypeError, ValueError):
+            passing = 75.0
+
+        # ── Applicants tab ──
         applicants = AffirmativeNSUApplication.objects.exclude(status='Approved').filter(
             qualified_for=scholarship_type
         )
         def score(a):
             if scholarship_type == 'Affirmative':
-                s = 0
+                s = 0.0
                 if a.shs_gpa: s += min((a.shs_gpa / 100) * 50, 50)
                 if a.suc_exam_score: s += min((a.suc_exam_score / 100) * 50, 50)
                 return round(s)
             return 100 if a.is_nsu_staff else 75
+
         ranked = sorted(applicants, key=score, reverse=True)
-        return Response([{
+        applicant_data = [{
             'rank': i + 1, 'name': a.full_name, 'course': a.course,
             'year_level': a.year_level, 'shs_gpa': a.shs_gpa,
             'suc_exam_score': a.suc_exam_score, 'score': score(a),
-        } for i, a in enumerate(ranked)])
+            'eligible': (
+                a.shs_gpa is not None and a.shs_gpa >= passing and
+                a.suc_exam_score is not None and a.suc_exam_score >= 50.0 and
+                not a.is_tes_beneficiary
+            ) if scholarship_type == 'Affirmative' else True,
+        } for i, a in enumerate(ranked)]
+
+        # ── Recommendations tab (enrolled students) ──
+        AffirmativeRecommendation.evaluate_and_sync(passing)
+        recs = AffirmativeRecommendation.objects.select_related('student__user').order_by('-fit_score')
+        rec_data = [{
+            'id': r.id,
+            'student_id': r.student.student_id,
+            'name': r.student.user.get_full_name(),
+            'course': r.student.course,
+            'year_level': r.student.year_level,
+            'shs_gpa': r.student.shs_gpa,
+            'suc_exam_score': r.student.suc_exam_score,
+            'is_tes_beneficiary': r.student.is_tes_beneficiary,
+            'fit_score': r.fit_score,
+            'status': r.status,
+            'gpa_pass': r.student.shs_gpa is not None and r.student.shs_gpa >= passing,
+            'exam_pass': r.student.suc_exam_score is not None and r.student.suc_exam_score >= 50.0,
+            'not_tes': not r.student.is_tes_beneficiary,
+        } for r in recs]
+
+        return Response({
+            'applicants': applicant_data,
+            'recommendations': rec_data,
+            'passing_threshold': passing,
+        })
 
 
 class VPSEAApplicationListView(generics.ListAPIView):
@@ -207,6 +244,24 @@ class VPSEAArchiveUploadView(APIView):
                 created += 1
         ActivityLog.objects.create(user=request.user, action=f"Imported {file.name} ({created} rows) for {type}")
         return Response({'imported': created})
+
+
+def _approval_trend():
+    from django.db.models.functions import TruncMonth
+    from django.utils import timezone
+    import datetime
+    months = []
+    today = timezone.now().date()
+    for i in range(5, -1, -1):
+        month_start = (today.replace(day=1) - datetime.timedelta(days=i * 28)).replace(day=1)
+        month_end = (month_start + datetime.timedelta(days=32)).replace(day=1)
+        count = Application.objects.filter(
+            status='Approved',
+            submitted_at__gte=month_start,
+            submitted_at__lt=month_end,
+        ).count()
+        months.append({'month': month_start.strftime('%b %Y'), 'approvals': count})
+    return months
 
 
 class VPSEAAnalyticsView(APIView):

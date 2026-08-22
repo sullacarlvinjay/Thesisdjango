@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Notifications — NSU Staff Portal{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block brand %}NSU Staff{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block page_subtitle %}Updates from the VPSEA scholarship office{% endblock %}
+{% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
+
+{% block content %}
+
+{% if notifications %}
+<div class="flex justify-end mb-4">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="mark_all_read" value="1">
+    <button type="submit" class="btn btn-outline text-xs">Mark all as read</button>
+  </form>
+</div>
+
+<div class="card divide-y" style="border-color:#e8ecf0;">
+  {% for n in notifications %}
+  <div class="flex items-start gap-4 p-4 {% if not n.is_read %}{% endif %}"
+       style="{% if not n.is_read %}background:#f8faff;{% endif %}">
+    <div class="mt-0.5 h-8 w-8 rounded-full flex items-center justify-center shrink-0"
+         style="background:{% if n.type == 'success' %}#f0fdf4{% elif n.type == 'warning' %}#fffbeb{% else %}#edf2ff{% endif %};">
+      {% if n.type == 'success' %}
+      <svg class="h-4 w-4" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      {% elif n.type == 'warning' %}
+      <svg class="h-4 w-4" style="color:#f59f00;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      {% else %}
+      <svg class="h-4 w-4" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      {% endif %}
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-medium">{{ n.title }}</p>
+        {% if not n.is_read %}
+        <span class="h-2 w-2 rounded-full shrink-0" style="background:#3b5bdb;"></span>
+        {% endif %}
+      </div>
+      <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ n.body }}</p>
+      <p class="text-xs mt-1" style="color:#aaa;">{{ n.created_at|timesince }} ago</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card p-12 text-center">
+  <svg class="h-10 w-10 mx-auto mb-3" style="color:#e8ecf0;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+  <p class="text-sm font-medium" style="color:#6b7a99;">No notifications yet.</p>
+  <p class="text-xs mt-1" style="color:#aaa;">You'll be notified here when VPSEA updates your scholarship status.</p>
+</div>
+{% endif %}
+
+{% endblock %}

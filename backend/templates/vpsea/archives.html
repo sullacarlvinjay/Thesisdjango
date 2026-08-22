@@ -933,7 +933,23 @@ function openEdit(pk, first, last, sid, gender, course, year, barangay, municipa
   if (document.getElementById('editGwa')) document.getElementById('editGwa').value = gwa;
   if (document.getElementById('editAward')) document.getElementById('editAward').value = award;
   if (document.getElementById('editCongress')) document.getElementById('editCongress').value = congress;
+  // Clear password fields every time the modal opens
+  document.getElementById('editPassword').value = '';
+  document.getElementById('editPasswordConfirm').value = '';
+  document.getElementById('editPasswordError').style.display = 'none';
+  document.getElementById('editForm').action = '/vpsea/archives/' + pk + '/edit/';
   document.getElementById('editModal').style.display = 'flex';
+}
+function validateEditPassword() {
+  const pw  = document.getElementById('editPassword').value;
+  const pw2 = document.getElementById('editPasswordConfirm').value;
+  const err = document.getElementById('editPasswordError');
+  if (pw && pw !== pw2) {
+    err.style.display = 'block';
+    return false;
+  }
+  err.style.display = 'none';
+  return true;
 }
 function openDelete(pk, name) {
   document.getElementById('deletePk').value = pk;
@@ -1012,10 +1028,27 @@ function openDelete(pk, name) {
           <label>Province</label>
           <input id="editProvince" name="province" style="margin-top:0.25rem;" />
         </div>
+        <div class="col-span-2" style="border-top:1px solid #e8ecf0;padding-top:0.75rem;margin-top:0.25rem;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Reset Password</p>
+          <p class="text-xs mb-2" style="color:#6b7a99;">Leave blank to keep the current password unchanged.</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label>New Password</label>
+              <input id="editPassword" name="new_password" type="password" autocomplete="new-password"
+                     placeholder="Enter new password" style="margin-top:0.25rem;" />
+            </div>
+            <div>
+              <label>Confirm Password</label>
+              <input id="editPasswordConfirm" name="new_password_confirm" type="password" autocomplete="new-password"
+                     placeholder="Confirm new password" style="margin-top:0.25rem;" />
+            </div>
+          </div>
+          <p id="editPasswordError" class="text-xs mt-1" style="color:#dc2626;display:none;">Passwords do not match.</p>
+        </div>
       </div>
       <div class="flex gap-2 justify-end mt-5">
         <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="submit" class="btn btn-primary" onclick="return validateEditPassword()">Save Changes</button>
       </div>
     </form>
   </div>
