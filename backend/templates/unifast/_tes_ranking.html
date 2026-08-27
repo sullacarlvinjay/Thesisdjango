@@ -1,0 +1,224 @@
+{% comment %}
+  TES rule-based ranking. Every figure here comes from api/tes_ranking.py, which
+  reads the database and never guesses — so a blank column means the office has
+  not collected that information yet, not that the student failed anything.
+{% endcomment %}
+
+<div class="grid sm:grid-cols-5 gap-3 mb-5">
+  <div class="card p-4">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Eligible</p>
+    <p class="text-2xl font-bold" style="color:#2f9e44;">{{ tes_counts.eligible }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">For Verification</p>
+    <p class="text-2xl font-bold" style="color:#f59f00;">{{ tes_counts.verification }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Not Eligible</p>
+    <p class="text-2xl font-bold" style="color:#dc2626;">{{ tes_counts.not_eligible }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Priority 1</p>
+    <p class="text-2xl font-bold" style="color:#3b5bdb;">{{ tes_counts.priority_1 }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Priority 2</p>
+    <p class="text-2xl font-bold" style="color:#1e2a3a;">{{ tes_counts.priority_2 }}</p>
+  </div>
+</div>
+
+<div class="card p-6">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-1">
+    <h3 class="font-semibold">TES — Rule-Based Ranking</h3>
+    <input id="tesSearch" placeholder="Search name or student ID…" oninput="filterTable('tesSearch','tesTable','data-name')"
+           style="max-width:18rem;" />
+  </div>
+  <div class="text-xs mb-4" style="color:#6b7a99;">
+    <p class="mb-1">
+      Only students whose TES application is still awaiting a decision appear here,
+      and only those whose record is complete enough to rank. An approved or rejected
+      application has already been decided and is not ranked.
+      {{ tes_applicant_total }} pending applicant{{ tes_applicant_total|pluralize }} screened.
+    </p>
+    <p class="mb-1"><strong>Order, applied in this sequence:</strong></p>
+    <ol style="margin:0 0 0.5rem 1.1rem;padding:0;list-style:decimal;">
+      <li><strong>Priority group</strong> — Priority 1 before Priority 2. Priority 1 is a
+          Listahanan-listed or 4Ps household; Priority 2 is everyone else who qualifies.</li>
+      <li><strong>Household per capita income</strong>, lowest first — annual family income
+          divided by household size.</li>
+      <li><strong>Number of priority markers</strong>, most first — PWD, solo-parent dependent,
+          indigenous community member.</li>
+      <li><strong>Surname</strong>, alphabetically, to break any remaining tie.</li>
+    </ol>
+    <p>
+      Open <em>Why?</em> on any row for the rule-by-rule reason behind its verdict.
+      <strong>Not Eligible</strong> students are excluded from both lists; their count is in
+      the summary cards above.
+    </p>
+  </div>
+
+  {% if tes_rows %}
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="tesTable">
+      <thead>
+        <tr>
+          <th class="th-cell" style="width:3rem;">Rank</th>
+          <th class="th-cell">Student</th>
+          <th class="th-cell">Student ID</th>
+          <th class="th-cell">Eligibility</th>
+          <th class="th-cell">Priority</th>
+          <th class="th-cell">Per Capita Income</th>
+          <th class="th-cell">Income Ranking</th>
+          <th class="th-cell">Recommendation</th>
+          <th class="th-cell">Missing Information</th>
+          <th class="th-cell"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in tes_rows %}
+        <tr class="trow" data-name="{{ e.student_name }} {{ e.student_id }}"
+            style="border-bottom:1px solid #f1f3f9;">
+          <td style="padding:0.55rem 0.75rem;font-weight:600;">{{ e.rank }}</td>
+          <td style="padding:0.55rem 0.75rem;">{{ e.student_name }}</td>
+          <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ e.student_id }}</td>
+          <td style="padding:0.55rem 0.75rem;">
+            <span class="badge {% if e.status == 'Eligible' %}badge-success{% elif e.status == 'For Verification' %}badge-warning{% else %}badge-destructive{% endif %}">{{ e.status }}</span>
+          </td>
+          <td style="padding:0.55rem 0.75rem;">
+            <span class="badge {% if e.priority == 'Priority 1' %}badge-info{% elif e.priority == 'Priority 2' %}badge-muted{% else %}badge-warning{% endif %}">{{ e.priority }}</span>
+            {% if e.priority_markers %}
+            <br /><span style="font-size:0.7rem;color:#6b7a99;">{{ e.priority_markers|join:" · " }}</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.55rem 0.75rem;">
+            {% if e.per_capita_income %}₱{{ e.per_capita_income|floatformat:2 }}{% else %}<span style="color:#92400e;">Missing</span>{% endif %}
+          </td>
+          <td style="padding:0.55rem 0.75rem;">
+            <span class="badge {% if e.income_rank_state == 'Verified' %}badge-success{% else %}badge-warning{% endif %}">{{ e.income_rank_state }}</span>
+          </td>
+          <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ e.recommendation }}</td>
+          <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#92400e;">
+            {% if e.missing %}{{ e.missing|join:", " }}{% else %}<span style="color:#2f9e44;">None</span>{% endif %}
+          </td>
+          <td style="padding:0.55rem 0.75rem;">
+            <button type="button" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;"
+                    onclick="toggleReason('reason-{{ e.profile.id }}')">Why?</button>
+          </td>
+        </tr>
+
+        {# The audit trail: which rule reached which verdict, off which field. #}
+        <tr id="reason-{{ e.profile.id }}" hidden>
+          <td colspan="10" style="padding:0 0.75rem 1rem;">
+            <div style="background:#f6f8fc;border:1px solid #e8ecf0;border-radius:0.5rem;padding:1rem;">
+              <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">
+                Why {{ e.student_name }} is “{{ e.recommendation }}”
+              </p>
+              <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+                <tbody>
+                  {% for r in e.rules %}
+                  <tr>
+                    <td style="padding:0.3rem 0.5rem 0.3rem 0;width:14rem;vertical-align:top;">{{ r.label }}</td>
+                    <td style="padding:0.3rem 0.5rem;width:11rem;vertical-align:top;">
+                      <span class="badge {% if r.verdict == 'PASS' %}badge-success{% elif r.verdict == 'FAIL' %}badge-destructive{% else %}badge-warning{% endif %}">{{ r.verdict }}</span>
+                    </td>
+                    <td style="padding:0.3rem 0.5rem;color:#374151;">
+                      {{ r.detail }}
+                      <br /><span style="color:#6b7a99;font-size:0.7rem;">Read from {{ r.source }}</span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  <tr>
+                    <td style="padding:0.3rem 0.5rem 0.3rem 0;vertical-align:top;">Priority</td>
+                    <td style="padding:0.3rem 0.5rem;vertical-align:top;">
+                      <span class="badge {% if e.priority == 'Priority 1' %}badge-info{% elif e.priority == 'Priority 2' %}badge-muted{% else %}badge-warning{% endif %}">{{ e.priority }}</span>
+                    </td>
+                    <td style="padding:0.3rem 0.5rem;color:#374151;">
+                      {% if e.priority_markers %}
+                        Qualifying groups on file: {{ e.priority_markers|join:", " }}.
+                      {% elif e.priority == 'Priority 2' %}
+                        No Priority 1 group applies — confirmed, not assumed.
+                      {% else %}
+                        Priority cannot be settled until the Listahanan / 4Ps listing is checked.
+                      {% endif %}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0.3rem 0.5rem 0.3rem 0;vertical-align:top;">Household Per Capita Income</td>
+                    <td style="padding:0.3rem 0.5rem;vertical-align:top;">
+                      <span class="badge {% if e.income_rank_state == 'Verified' %}badge-success{% else %}badge-warning{% endif %}">{{ e.income_rank_state }}</span>
+                    </td>
+                    <td style="padding:0.3rem 0.5rem;color:#374151;">
+                      {% if e.per_capita_income %}
+                        ₱{{ e.per_capita_income|floatformat:2 }} — ₱{{ e.profile.family_income|floatformat:2 }}
+                        across a household of {{ e.profile.household_size }}.
+                      {% else %}
+                        Not computed. Income ranking is left unranked rather than treating an
+                        unrecorded income as ₱0, which would put this student at the top of the list.
+                      {% endif %}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0.3rem 0.5rem 0.3rem 0;vertical-align:top;">Missing Information</td>
+                    <td style="padding:0.3rem 0.5rem;vertical-align:top;">
+                      <span class="badge {% if e.missing %}badge-warning{% else %}badge-success{% endif %}">{% if e.missing %}{{ e.missing|length }}{% else %}None{% endif %}</span>
+                    </td>
+                    <td style="padding:0.3rem 0.5rem;color:#374151;">
+                      {% if e.missing %}{{ e.missing|join:", " }} — collect these before a final decision.
+                      {% else %}Nothing outstanding.{% endif %}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm" style="color:#6b7a99;">No applicant has a record complete enough to rank yet.</p>
+  {% endif %}
+</div>
+
+{% if tes_needs_info %}
+<div class="card p-6 mt-4">
+  <h3 class="font-semibold">Applied, but not yet rankable</h3>
+  <p class="text-xs mb-4" style="color:#6b7a99;">
+    These students applied for TES, but a rule could not be checked against what is on
+    file. They are held out of the ranking rather than given a position their record
+    cannot support. Collect what is listed and they join the ranking on the next load.
+  </p>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+      <thead>
+        <tr>
+          <th class="th-cell">Student</th>
+          <th class="th-cell">Student ID</th>
+          <th class="th-cell">Priority</th>
+          <th class="th-cell">What is missing</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in tes_needs_info %}
+        <tr style="border-bottom:1px solid #f1f3f9;">
+          <td style="padding:0.55rem 0.75rem;">{{ e.student_name }}</td>
+          <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ e.student_id }}</td>
+          <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ e.priority }}</td>
+          <td style="padding:0.55rem 0.75rem;font-size:0.82rem;color:#92400e;">
+            {% for item in e.missing %}{{ item }}{% if not forloop.last %} &middot; {% endif %}{% empty %}&mdash;{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  function toggleReason(id) {
+    const row = document.getElementById(id);
+    row.hidden = !row.hidden;
+  }
+</script>

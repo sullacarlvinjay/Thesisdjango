@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Scholarship Archives — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
 {% block page_subtitle %}Academic, TDP, DOST, CHED, CoScho, Sports, Affirmative, Staff{% endblock %}
 
@@ -368,7 +368,7 @@
           <tbody>
             {% for app in aff_scholars %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-              data-name="{{ app.full_name|lower }}" data-id="{{ app.school_id|lower }}">
+              data-name="{{ app.full_name|lower }}" data-id="{{ app.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.full_name }}</td>
               <td style="padding:0.55rem 0.75rem;"></td>
@@ -376,11 +376,11 @@
               <td style="padding:0.55rem 0.75rem;">{{ app.gender }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.year_level }}</td>
-              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.school_id }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;">{% if app.is_nsu_staff %}100%{% else %}75%{% endif %}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">NSU Staff Scholarship</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.student_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.full_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -587,7 +587,7 @@
           <tbody>
             {% for app in aff_scholars %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-              data-name="{{ app.full_name|lower }}" data-id="{{ app.school_id|lower }}">
+              data-name="{{ app.full_name|lower }}" data-id="{{ app.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.full_name }}</td>
               <td style="padding:0.55rem 0.75rem;"></td>
@@ -598,7 +598,7 @@
               <td style="padding:0.55rem 0.75rem;">{{ app.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Affirmative Action Scholarship</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.student_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.address|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.full_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>

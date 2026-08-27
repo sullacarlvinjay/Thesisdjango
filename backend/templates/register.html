@@ -6,27 +6,39 @@
   <title>Register — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
+  <script>
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
   <style>
-    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #f6f8fc; -webkit-font-smoothing: antialiased; }
-    label { font-size:0.75rem; font-weight:500; color:#374151; }
-    input, select { width:100%; border-radius:0.5rem; border:1px solid #e8ecf0; padding:0.5rem 0.75rem; font-size:0.875rem; font-family:inherit; outline:none; background:#fff; }
-    input:focus, select:focus { border-color:#3b5bdb; box-shadow:0 0 0 2px #edf2ff; }
-    .type-card { border:2px solid #e8ecf0; border-radius:0.75rem; padding:1rem; cursor:pointer; transition:border-color 0.15s, background 0.15s; }
-    .type-card.selected-student { border-color:#3b5bdb; background:#edf2ff; }
-    .type-card.selected-staff  { border-color:#2f9e44; background:#f0fdf4; }
+    /* Page-specific only — fields, buttons and cards come from srms.css. */
+    .type-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+      cursor: pointer;
+      background: var(--surface);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .type-card.selected-student { border-color: var(--brand); background: var(--brand-soft); }
+    .type-card.selected-staff   { border-color: #2f9e44; background: var(--ok-bg); }
   </style>
 </head>
-<body class="flex min-h-screen items-center justify-center p-4 py-10">
-  <div class="w-full max-w-md">
+<body data-portal="student" class="auth-page auth-page--tall">
+  <div class="auth-shell">
 
-    <div class="text-center mb-8">
-      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-4" />
-      <h1 class="text-2xl font-bold" style="letter-spacing:-0.02em;color:#1e2a3a;">BiPSU SRMS</h1>
-      <p class="text-sm mt-1" style="color:#6b7a99;">Scholarship Records Management System</p>
+    <div class="auth-brand">
+      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
+      <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
+      <p class="text-sm mt-1">Create your account</p>
     </div>
 
     {% if errors %}
-    <div class="mb-4 p-3 rounded-lg text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+    <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">
       {% for e in errors %}<p>{{ e }}</p>{% endfor %}
     </div>
     {% endif %}
@@ -35,19 +47,19 @@
       {% csrf_token %}
 
       {# ── Account type selector ─────────────────────────────────────────── #}
-      <div style="background:#fff;border-radius:0.75rem;border:1px solid #e8ecf0;padding:1.5rem;">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#374151;">I am registering as</p>
+      <div class="auth-card mb-4">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:var(--text-soft);">I am registering as</p>
         <div class="grid grid-cols-2 gap-3">
 
           <div class="type-card {% if not post.account_type or post.account_type == 'student' %}selected-student{% endif %}"
                id="card-student" onclick="selectType('student')">
             <div class="flex items-center gap-2 mb-1">
-              <svg class="h-5 w-5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="h-5 w-5" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
               </svg>
-              <span class="text-sm font-semibold" style="color:#1e2a3a;">Student</span>
+              <span class="text-sm font-semibold" style="color:var(--text);">Student</span>
             </div>
-            <p class="text-xs" style="color:#6b7a99;">Scholarship applicant enrolled at BiPSU</p>
+            <p class="text-xs" style="color:var(--text-muted);">Scholarship applicant enrolled at BiPSU</p>
           </div>
 
           <div class="type-card {% if post.account_type == 'nsu_staff' %}selected-staff{% endif %}"
@@ -56,9 +68,9 @@
               <svg class="h-5 w-5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
-              <span class="text-sm font-semibold" style="color:#1e2a3a;">BiPSU / NSU Staff</span>
+              <span class="text-sm font-semibold" style="color:var(--text);">BiPSU Staff</span>
             </div>
-            <p class="text-xs" style="color:#6b7a99;">Faculty, employee, or qualified dependent</p>
+            <p class="text-xs" style="color:var(--text-muted);">Faculty, employee, or qualified dependent</p>
           </div>
 
         </div>
@@ -67,9 +79,9 @@
       </div>
 
       {# ── Shared: name + email + contact + password ─────────────────────── #}
-      <div style="background:#fff;border-radius:0.75rem;border:1px solid #e8ecf0;padding:1.5rem;">
+      <div class="auth-card mb-4">
         <p class="text-xs font-semibold uppercase tracking-wider mb-4" id="section-title"
-           style="color:#3b5bdb;">Personal Information</p>
+           style="color:var(--brand);">Personal Information</p>
         <div class="space-y-3">
 
           <div class="grid grid-cols-2 gap-3">
@@ -80,6 +92,17 @@
             <div class="space-y-1.5">
               <label>Last Name</label>
               <input name="last_name" value="{{ post.last_name }}" placeholder="Dela Cruz" required />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label>Middle Name</label>
+              <input name="middle_name" value="{{ post.middle_name }}" placeholder="Ramirez" />
+            </div>
+            <div class="space-y-1.5">
+              <label>Suffix</label>
+              <input name="suffix" value="{{ post.suffix }}" placeholder="Jr., III — if any" />
             </div>
           </div>
 
@@ -97,9 +120,9 @@
       </div>
 
       {# ── Student-only fields ───────────────────────────────────────────── #}
-      <div id="student-fields" style="background:#fff;border-radius:0.75rem;border:1px solid #e8ecf0;padding:1.5rem;
+      <div id="student-fields" class="card" style="padding:1.5rem;
            {% if post.account_type == 'nsu_staff' %}display:none;{% endif %}">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#3b5bdb;">Academic Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Academic Information</p>
         <div class="space-y-3">
 
           <div class="space-y-1.5">
@@ -122,10 +145,22 @@
             </div>
           </div>
 
+          <div class="space-y-1.5">
+            <label>School</label>
+            <select name="school" id="schoolSelect" onchange="updateCourseDropdown()">
+              <option value="">— Select School —</option>
+              {% for val, label in bipsu_schools %}
+              <option value="{{ val }}" {% if post.school == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Course</label>
-              <input name="course" value="{{ post.course }}" placeholder="e.g. BSIT" />
+              <select name="course" id="courseSelect">
+                <option value="">— Select your school first —</option>
+              </select>
             </div>
             <div class="space-y-1.5">
               <label>Year Level</label>
@@ -141,52 +176,35 @@
         </div>
       </div>
 
-      {# ── Staff-only fields ────────────────────────────────────────────── #}
-      <div id="staff-fields" style="background:#fff;border-radius:0.75rem;border:1px solid #2f9e44;padding:1.5rem;
-           {% if not post.account_type or post.account_type == 'student' %}display:none;{% endif %}">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">Staff / Employment Information</p>
+      {# ── Staff-only fields ─────────────────────────────────────────────── #}
+      <div id="staff-fields" class="card" style="padding:1.5rem;
+           {% if post.account_type != 'nsu_staff' %}display:none;{% endif %}">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Employment Information</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">Saved to your staff profile. You can correct any of it later under My Profile.</p>
         <div class="space-y-3">
 
           <div class="space-y-1.5">
-            <label>Employee ID</label>
-            <input name="employee_id" value="{{ post.employee_id }}" placeholder="e.g. EMP-2024-001" />
-          </div>
-
-          <div class="space-y-1.5">
-            <label>Department</label>
-            <input name="department" value="{{ post.department }}" placeholder="e.g. School of Engineering" />
-          </div>
-
-          <div class="space-y-1.5">
-            <label>Position / Designation</label>
-            <input name="position" value="{{ post.position }}" placeholder="e.g. Instructor I" />
+            <label>School / Employee ID</label>
+            <input name="school_id" value="{{ post.school_id }}" placeholder="e.g. 32-1-213313" />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Date of Birth</label>
-              <input type="date" name="date_of_birth" value="{{ post.date_of_birth }}" />
+              <label>Department</label>
+              <input name="department" value="{{ post.department }}" placeholder="e.g. School of Engineering" />
             </div>
             <div class="space-y-1.5">
-              <label>Gender</label>
-              <select name="gender">
-                <option value="">— Select —</option>
-                <option value="Male"   {% if post.gender == "Male"   %}selected{% endif %}>Male</option>
-                <option value="Female" {% if post.gender == "Female" %}selected{% endif %}>Female</option>
-              </select>
+              <label>Position</label>
+              <input name="position" value="{{ post.position }}" placeholder="e.g. Instructor I" />
             </div>
-          </div>
-
-          <div class="p-3 rounded-lg text-xs" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
-            Your account will need to be linked to your NSU Staff scholarship record by the VPSEA office before you can access renewal features.
           </div>
 
         </div>
       </div>
 
       {# ── Password ──────────────────────────────────────────────────────── #}
-      <div style="background:#fff;border-radius:0.75rem;border:1px solid #e8ecf0;padding:1.5rem;">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#3b5bdb;">Account Security</p>
+      <div class="auth-card mb-4">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Account Security</p>
         <div class="space-y-3">
           <div class="space-y-1.5">
             <label>Password</label>
@@ -200,16 +218,51 @@
       </div>
 
       <button type="submit" id="submit-btn"
-              style="width:100%;background:#3b5bdb;color:#fff;border:none;border-radius:0.5rem;padding:0.6rem 1rem;font-size:0.875rem;font-weight:500;cursor:pointer;font-family:inherit;">
+              class="btn btn-auth">
         Create Account
       </button>
     </form>
 
-    <p class="text-center text-sm mt-4" style="color:#6b7a99;">Already have an account? <a href="/login/" style="color:#3b5bdb;font-weight:500;">Sign in</a></p>
-    <p class="text-center text-sm mt-2"><a href="/" style="color:#6b7a99;">← Back to Scholarships</a></p>
+    <p class="auth-footnote">Already have an account? <a href="/login/">Sign in</a></p>
+    <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Scholarships</a></p>
   </div>
 
 <script>
+// Courses belong to a school, so the Course list follows the School choice.
+// Picking from the canonical list is what lets the masterlist exports and the
+// School column line up — a typed course matches nothing.
+var BIPSU_COURSES = {{ bipsu_courses_json|safe }};
+var chosenCourse = "{{ post.course|escapejs }}";
+
+function updateCourseDropdown() {
+  var school = document.getElementById('schoolSelect').value;
+  var sel = document.getElementById('courseSelect');
+  sel.innerHTML = '';
+  var courses = BIPSU_COURSES[school] || [];
+  if (!courses.length) {
+    sel.appendChild(new Option('— Select your school first —', ''));
+    return;
+  }
+  sel.appendChild(new Option('— Select Course —', ''));
+  courses.forEach(function (c) {
+    var opt = new Option(c, c);
+    if (c === chosenCourse) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// After a failed submit the form comes back filled in; restore both lists.
+(function () {
+  var schoolSel = document.getElementById('schoolSelect');
+  if (!schoolSel) return;
+  if (!schoolSel.value && chosenCourse) {
+    for (var school in BIPSU_COURSES) {
+      if (BIPSU_COURSES[school].indexOf(chosenCourse) !== -1) { schoolSel.value = school; break; }
+    }
+  }
+  updateCourseDropdown();
+})();
+
 function selectType(type) {
   document.getElementById('account_type').value = type;
 
@@ -225,14 +278,18 @@ function selectType(type) {
     cardStaff.className   = 'type-card';
     studentFields.style.display = '';
     staffFields.style.display   = 'none';
-    btn.style.background = '#3b5bdb';
-    title.style.color    = '#3b5bdb';
+    // The button keeps the yellow call-to-action of the landing identity; only
+    // the section heading changes to mark which kind of account is selected.
+    btn.style.background = '';
+    btn.style.color      = '';
+    title.style.color    = 'var(--brand)';
   } else {
     cardStaff.className   = 'type-card selected-staff';
     cardStudent.className = 'type-card';
-    staffFields.style.display   = '';
     studentFields.style.display = 'none';
+    staffFields.style.display   = '';
     btn.style.background = '#2f9e44';
+    btn.style.color      = '#fff';
     title.style.color    = '#2f9e44';
   }
 }

@@ -3,44 +3,74 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login — BiPSU SRMS</title>
+  <title>Sign In — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #f6f8fc; -webkit-font-smoothing: antialiased; }
-  </style>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
+  <script>
+    // Read before first paint so the page never flashes light before switching.
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
 </head>
-<body class="flex min-h-screen items-center justify-center p-4">
-  <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
-      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-4" />
-      <h1 class="text-2xl font-bold" style="letter-spacing:-0.02em;color:#1e2a3a;">BiPSU SRMS</h1>
-      <p class="text-sm mt-1" style="color:#6b7a99;">Scholarship Records Management System</p>
+<body data-portal="student" class="auth-page">
+  <div class="auth-shell">
+
+    <div class="auth-brand">
+      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
+      <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
+      <p class="text-sm mt-1">Scholarship Records Management System</p>
     </div>
 
-    <div style="background:#fff;border-radius:0.75rem;border:1px solid #e8ecf0;padding:1.5rem;">
+    <div class="auth-card">
+      <h2 class="text-lg font-bold mb-1">Sign in</h2>
+      <p class="auth-sub mb-5">Use the email and password you registered with.</p>
+
       {% if error %}
-      <div class="mb-4 p-3 rounded-lg text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ error }}</div>
+      <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">{{ error }}</div>
       {% endif %}
+
+      {% comment %}
+        The password was right, but the account is not cleared to sign in yet.
+        This is the one place a message reaches someone who cannot get in.
+      {% endcomment %}
+      {% if verification_status == 'pending' %}
+      <div class="mb-4 p-3 rounded-lg text-sm badge-warning" style="display:block;border-radius:var(--radius);">
+        <p class="font-semibold mb-1">Your account is waiting for verification.</p>
+        <p>The SDSO reviews new registrations before they can be used. Your details are with them — try signing in again once they have gone through it.</p>
+        <p class="mt-2">If it has been a while, contact the SDSO office and mention the email address you registered with.</p>
+      </div>
+      {% elif verification_status == 'rejected' %}
+      <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">
+        <p class="font-semibold mb-1">Your registration was not accepted.</p>
+        {% if verification_note %}
+        <p><span class="font-medium">Reason from the SDSO:</span> {{ verification_note }}</p>
+        {% endif %}
+        <p class="mt-2">Contact the SDSO office to sort it out — they can verify the account once the details check out.</p>
+      </div>
+      {% endif %}
+
       <form method="post">
         {% csrf_token %}
         <div class="space-y-4">
           <div class="space-y-1.5">
-            <label style="font-size:0.75rem;font-weight:500;color:#374151;">Email</label>
-            <input type="email" name="email" placeholder="you@bipsu.edu.ph" required style="width:100%;border-radius:0.5rem;border:1px solid #e8ecf0;padding:0.5rem 0.75rem;font-size:0.875rem;font-family:inherit;outline:none;" />
+            <label>Email</label>
+            <input type="email" name="email" placeholder="you@bipsu.edu.ph" required autocomplete="email" />
           </div>
           <div class="space-y-1.5">
-            <label style="font-size:0.75rem;font-weight:500;color:#374151;">Password</label>
-            <input type="password" name="password" placeholder="••••••••" required style="width:100%;border-radius:0.5rem;border:1px solid #e8ecf0;padding:0.5rem 0.75rem;font-size:0.875rem;font-family:inherit;outline:none;" />
+            <label>Password</label>
+            <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
           </div>
-          <button type="submit" style="width:100%;background:#3b5bdb;color:#fff;border:none;border-radius:0.5rem;padding:0.6rem 1rem;font-size:0.875rem;font-weight:500;cursor:pointer;font-family:inherit;">
-            Sign In
-          </button>
+          <button type="submit" class="btn btn-auth">Sign In</button>
         </div>
       </form>
     </div>
-    <p class="text-center text-sm mt-4" style="color:#6b7a99;">No account yet? <a href="/register/" style="color:#3b5bdb;font-weight:500;">Register</a></p>
-    <p class="text-center text-sm mt-2"><a href="/" style="color:#6b7a99;">← Back to Scholarships</a></p>
+
+    <p class="auth-footnote">No account yet? <a href="/register/">Register</a></p>
+    <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Scholarships</a></p>
   </div>
 </body>
 </html>

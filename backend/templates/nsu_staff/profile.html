@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}My Profile — NSU Staff Portal{% endblock %}
+{% block title %}My Profile — BiPSU Staff Portal{% endblock %}
 {% block logo_src %}/media/logos/BiPSU.png{% endblock %}
-{% block brand %}NSU Staff{% endblock %}
+{% block brand %}BiPSU Staff{% endblock %}
 {% block page_title %}My Profile{% endblock %}
-{% block page_subtitle %}Your personal and scholarship information{% endblock %}
+{% block page_subtitle %}Your employee record{% endblock %}
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
 
 {% block content %}
@@ -40,105 +40,220 @@
       </div>
       <div class="space-y-1.5">
         <label>Role</label>
-        <input value="NSU Staff" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="BiPSU Staff" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
     </div>
   </div>
 
-  {# ── Scholarship Record ───────────────────────────────────────────────────── #}
+  {# ── Personal Details ─────────────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Personal Details</p>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Kept on your own record, not on any one application. Correcting something here never changes an application the office already reviewed.</p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label>Middle Name</label>
+        <input name="middle_name" value="{{ staff.middle_name }}" placeholder="e.g. Ramirez" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Middle Initial</label>
+        <input value="{{ staff.middle_initial }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <p class="text-xs" style="color:#6b7a99;">Taken from your middle name.</p>
+      </div>
+      <div class="space-y-1.5">
+        <label>Suffix</label>
+        <input name="suffix" value="{{ staff.suffix }}" placeholder="Jr., Sr., III — leave blank if none" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Date of Birth</label>
+        <input name="date_of_birth" type="date" value="{{ staff.date_of_birth|date:'Y-m-d'|default:'' }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Gender</label>
+        <select name="gender">
+          <option value="">— Select —</option>
+          <option value="Male" {% if staff.gender == 'Male' %}selected{% endif %}>Male</option>
+          <option value="Female" {% if staff.gender == 'Female' %}selected{% endif %}>Female</option>
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label>Civil Status</label>
+        <select name="civil_status">
+          <option value="">— Select —</option>
+          {% for value, label in civil_statuses %}
+          <option value="{{ value }}" {% if staff.civil_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label>Contact Number</label>
+        <input name="contact_number" value="{{ staff.contact_number }}" placeholder="09XXXXXXXXX" />
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-3 gap-4 mt-4">
+      <div class="space-y-1.5">
+        <label>Barangay / Street</label>
+        <input name="barangay" value="{{ staff.barangay }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Municipality</label>
+        <input name="municipality" value="{{ staff.municipality }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Province</label>
+        <input name="province" value="{{ staff.province }}" />
+      </div>
+    </div>
+  </div>
+
+  {# ── Employment Details ───────────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Employment Details</p>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Your appointment as it stands today. The Staff Scholarship is open to regular employees, so keep this current.</p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label>School / Employee ID</label>
+        <input name="employee_id" value="{{ staff.employee_id }}" placeholder="e.g. 32-1-213313" />
+      </div>
+      <div class="space-y-1.5">
+        <label>School</label>
+        <select name="school">
+          <option value="">— Select —</option>
+          {% for value, label in bipsu_schools %}
+          <option value="{{ value }}" {% if staff.school == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label>Department</label>
+        <input name="department" value="{{ staff.department }}" placeholder="e.g. School of Engineering" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Position</label>
+        <input name="position" value="{{ staff.position }}" placeholder="e.g. Instructor I" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Employment Status</label>
+        <select name="employment_status">
+          <option value="">— Select —</option>
+          {% for value, label in employment_statuses %}
+          <option value="{{ value }}" {% if staff.employment_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label>Designation</label>
+        <select name="designation">
+          <option value="">— Select —</option>
+          {% for value, label in designations %}
+          <option value="{{ value }}" {% if staff.designation == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label>Date Hired</label>
+        <input name="date_hired" type="date" value="{{ staff.date_hired|date:'Y-m-d'|default:'' }}" />
+        <p class="text-xs" style="color:#6b7a99;">Fill this in and your years of service are counted for you.</p>
+      </div>
+      <div class="space-y-1.5">
+        <label>Years of Service</label>
+        {% if staff.date_hired %}
+        <input value="{{ staff.years_of_service }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <p class="text-xs" style="color:#6b7a99;">Counted from your date hired.</p>
+        {% else %}
+        <input name="years_of_service" type="number" min="0" step="1" placeholder="e.g. 5"
+               value="{{ staff.declared_years_of_service|default_if_none:'' }}" />
+        {% endif %}
+      </div>
+      <div class="space-y-1.5">
+        <label>Date of Regularization</label>
+        <input name="date_of_regularization" type="date"
+               value="{{ staff.date_of_regularization|date:'Y-m-d'|default:'' }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Highest Education Attained</label>
+        <input name="highest_education" value="{{ staff.highest_education }}" placeholder="e.g. Master of Science in Mathematics" />
+      </div>
+      <div class="space-y-1.5">
+        <label>Appointment Paper</label>
+        {% if staff.appointment_paper %}
+        <p class="text-xs mb-1"><a href="{{ staff.appointment_paper.url }}" target="_blank" style="color:#3b5bdb;">View the document on file →</a></p>
+        {% endif %}
+        <input name="appointment_paper" type="file" />
+      </div>
+      <div class="space-y-1.5 flex items-end">
+        <label class="flex items-center gap-2 text-sm" style="color:#3d4b62;">
+          <input type="checkbox" name="has_baccalaureate" {% if staff.has_baccalaureate %}checked{% endif %} />
+          I already hold a baccalaureate degree
+        </label>
+      </div>
+    </div>
+  </div>
+
+  {# ── Scholarship Record — read only ───────────────────────────────────────── #}
   {% if aff_app %}
   <div class="card p-6">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">NSU Staff Scholarship Record</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Details from your approved scholarship application. Contact VPSEA to update restricted fields.</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">BiPSU Staff Scholarship Record</p>
+    <p class="text-xs mb-4" style="color:#6b7a99;">The application the VPSEA office reviewed, as it was submitted. Contact the SDSO to have it corrected — editing your profile above does not change it.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>Full Name (on record)</label>
         <input value="{{ aff_app.full_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
-        <label>School ID</label>
-        <input value="{{ aff_app.school_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <label>Application Status</label>
+        <input value="{{ aff_app.status }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        {% if aff_app.status == 'Draft' %}
+        <a href="/nsu-staff/apply/" class="inline-flex items-center gap-1 text-xs mt-1" style="color:#3b5bdb;">
+          <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          Continue draft application →
+        </a>
+        {% endif %}
       </div>
       <div class="space-y-1.5">
         <label>Course</label>
-        <input name="course" value="{{ aff_app.course }}" />
+        <input value="{{ aff_app.course }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Year Level</label>
-        <select name="year_level">
-          {% for y in "1234" %}
-          <option value="{{ y }}" {% if aff_app.year_level == y|add:0 %}selected{% endif %}>{{ y }}</option>
-          {% endfor %}
-        </select>
+        <input value="{{ aff_app.year_level }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
-        <label>Gender</label>
-        <input value="{{ aff_app.gender }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <label>Staff / Dependent</label>
+        <input value="{% if aff_app.is_nsu_staff %}BiPSU Staff (Direct){% else %}BiPSU Staff Dependent{% endif %}"
+               readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      </div>
+      {% if aff_app.is_nsu_dependent %}
+      <div class="space-y-1.5">
+        <label>Staff Name</label>
+        <input value="{{ aff_app.staff_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
-        <label>Date of Birth</label>
-        <input value="{{ aff_app.date_of_birth|date:'Y-m-d' }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <label>Employee ID</label>
+        <input value="{{ aff_app.staff_employee_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
-        <label>Contact Number</label>
-        <input name="contact_number" value="{{ aff_app.contact_number }}" />
+        <label>Relationship</label>
+        <input value="{{ aff_app.relationship_to_staff }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
       </div>
-      <div class="space-y-1.5">
-        <label>School</label>
-        <input value="{{ aff_app.school }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+      {% endif %}
+      {% if aff_app.remarks %}
+      <div class="space-y-1.5 sm:col-span-2">
+        <label>Remarks from the office</label>
+        <textarea readonly rows="2" style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;">{{ aff_app.remarks }}</textarea>
       </div>
-    </div>
-
-    {# Address #}
-    <div class="grid sm:grid-cols-3 gap-4 mt-4">
-      <div class="space-y-1.5">
-        <label>Barangay / Street</label>
-        <input name="barangay" value="{{ aff_app.barangay }}" />
-      </div>
-      <div class="space-y-1.5">
-        <label>Municipality</label>
-        <input name="municipality" value="{{ aff_app.municipality }}" />
-      </div>
-      <div class="space-y-1.5">
-        <label>Province</label>
-        <input name="province" value="{{ aff_app.province }}" />
-      </div>
-    </div>
-
-    {# Staff eligibility details — read only #}
-    <div class="mt-6 pt-4" style="border-top:1px solid #e8ecf0;">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#6b7a99;">Staff Eligibility Details</p>
-      <div class="grid sm:grid-cols-2 gap-4">
-        <div class="space-y-1.5">
-          <label>Staff / Dependent</label>
-          <input value="{% if aff_app.is_nsu_staff %}NSU Staff (Direct){% else %}NSU Staff Dependent{% endif %}"
-                 readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        </div>
-        {% if aff_app.is_nsu_dependent %}
-        <div class="space-y-1.5">
-          <label>Staff Name</label>
-          <input value="{{ aff_app.staff_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        </div>
-        <div class="space-y-1.5">
-          <label>Employee ID</label>
-          <input value="{{ aff_app.staff_employee_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        </div>
-        <div class="space-y-1.5">
-          <label>Relationship</label>
-          <input value="{{ aff_app.relationship_to_staff }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        </div>
-        {% endif %}
-        <div class="space-y-1.5">
-          <label>Application Status</label>
-          <input value="{{ aff_app.status }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        </div>
-      </div>
+      {% endif %}
     </div>
   </div>
   {% else %}
   <div class="card p-6" style="background:#fffbeb;border-color:#fde68a;">
-    <p class="text-sm font-medium" style="color:#92400e;">No approved NSU Staff scholarship record is linked to this account.</p>
-    <p class="text-xs mt-1" style="color:#92400e;">Contact the VPSEA office if you believe this is an error.</p>
+    <p class="text-sm font-medium" style="color:#92400e;">You have not applied for the BiPSU Staff Scholarship yet.</p>
+    <p class="text-xs mt-1 mb-3" style="color:#92400e;">
+      Your employment details above are saved either way — the apply form reads them,
+      so you only have to fill them in once.
+    </p>
+    <a href="/nsu-staff/apply/" class="btn btn-primary" style="display:inline-flex;">Apply for the Staff Scholarship</a>
+    <p class="text-xs mt-3" style="color:#92400e;">If you believe a record already exists, contact the SDSO — it may be filed under a different email address.</p>
   </div>
   {% endif %}
 

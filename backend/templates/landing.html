@@ -6,71 +6,128 @@
   <title>BiPSU SRMS — Scholarship Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
+  <script>
+    // Same preference the portals honour, read before first paint so the page
+    // never flashes light before switching.
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
   <style>
-    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #f6f8fc; -webkit-font-smoothing: antialiased; }
-    .card { background:#fff; border-radius:0.75rem; border:1px solid #e8ecf0; overflow:hidden; transition: box-shadow 0.2s, transform 0.2s; }
-    .card:hover { box-shadow: 0 8px 32px -8px rgba(59,91,219,0.18); transform: translateY(-3px); }
-    .badge { display:inline-flex; align-items:center; border-radius:9999px; padding:0.2rem 0.75rem; font-size:0.7rem; font-weight:600; letter-spacing:0.04em; }
-    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:50; align-items:center; justify-content:center; padding:1rem; }
-    .modal-overlay.open { display:flex; }
-    .modal { background:#fff; border-radius:1rem; max-width:540px; width:100%; max-height:90vh; overflow-y:auto; }
-    .btn { display:inline-flex; align-items:center; justify-content:center; border-radius:0.5rem; padding:0.55rem 1.25rem; font-size:0.875rem; font-weight:600; cursor:pointer; text-decoration:none; border:none; font-family:inherit; }
-    .btn-primary { background:#3b5bdb; color:#fff; }
-    .btn-primary:hover { background:#3451c7; }
-    .btn-outline { background:#fff; color:#374151; border:1px solid #e8ecf0; }
-    .btn-outline:hover { background:#f6f8fc; }
+    /* Page-specific only — everything shared lives in srms.css. */
+    .card { overflow: hidden; transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; }
+    .card:hover {
+      box-shadow: 0 14px 40px -12px rgba(0, 0, 255, 0.40);
+      transform: translateY(-3px);
+      border-color: var(--accent);
+    }
+    .modal-overlay { align-items: center; padding: 1rem; }
+    .modal { max-width: 540px; max-height: 90vh; overflow-y: auto; border-radius: var(--radius-xl); }
+    .btn { padding: 0.55rem 1.25rem; font-weight: 600; text-decoration: none; }
+    /* The facade fills the first screen: the 4rem navbar plus the hero add up
+       to exactly one viewport, so none of the listing below peeks in before
+       the first scroll. min-height is still only a floor — if the text wraps
+       onto more lines the box grows instead of clipping. dvh keeps this honest
+       on mobile, where the address bar eats into vh. */
+    /* The sticky navbar: its 4rem row plus the 1px hairline under it. */
+    :root { --nav-h: calc(4rem + 1px); }
+    .hero-landing {
+      min-height: calc(100vh - var(--nav-h));
+      min-height: calc(100dvh - var(--nav-h));
+      padding: clamp(3rem, 8vh, 6rem) 1.25rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+    }
+
+    /* One scroll gesture off the hero lands on the scholarship listing instead
+       of stopping halfway. The listing is taller than the viewport, so once you
+       are inside it scrolling is free again; the footer carries a snap point of
+       its own so the bottom of the page stays reachable. scroll-padding-top is
+       the sticky navbar, which would otherwise cover each section's heading. */
+    html {
+      scroll-snap-type: y mandatory;
+      scroll-padding-top: var(--nav-h);
+      scroll-behavior: smooth;
+    }
+    .hero-landing,
+    .section-photo { scroll-snap-align: start; }
+    footer { scroll-snap-align: end; }
+
+    @media (max-width: 640px) {
+      .hero-landing { padding: 3rem 1rem; }
+    }
+    /* A short landscape window has no room for a screen-high hero, and snapping
+       there would fight the user rather than help. */
+    @media (max-height: 560px) {
+      .hero-landing { min-height: 0; }
+      html { scroll-snap-type: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
   </style>
 </head>
-<body>
+<body data-portal="student">
 
 <!-- Navbar -->
-<nav style="background:#fff; border-bottom:1px solid #e8ecf0; position:sticky; top:0; z-index:40;">
+<nav style="background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:40;">
   <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.25rem;width:2.25rem;object-fit:contain;" />
       <div>
-        <p class="text-sm font-bold" style="color:#1e2a3a;">BiPSU SRMS</p>
-        <p class="text-xs" style="color:#6b7a99;">Scholarship Portal</p>
+        <p class="text-sm font-bold" style="color:var(--text);">BiPSU SRMS</p>
+        <p class="text-xs" style="color:var(--text-muted);">Scholarship Portal</p>
       </div>
     </div>
   </div>
 </nav>
 
 <!-- Hero -->
-<div style="background:linear-gradient(135deg,#3b5bdb 0%,#1971c2 100%); padding:4rem 1rem; text-align:center;">
-  <p class="text-sm font-semibold mb-3" style="color:rgba(255,255,255,0.7); letter-spacing:0.1em; text-transform:uppercase;">Biliran Province State University</p>
-  <h1 class="text-4xl font-extrabold text-white mb-4" style="letter-spacing:-0.03em;">Scholarship Programs</h1>
-  <p class="text-lg max-w-xl mx-auto" style="color:rgba(255,255,255,0.8);">Explore available scholarships and find the program that fits you. Click any card to learn more.</p>
-  <div class="flex items-center justify-center gap-3 mt-6 flex-wrap">
-    <a href="/login/" class="btn" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);">Sign in</a>
-    <a href="/register/" class="btn" style="background:#fff;color:#3b5bdb;">Register</a>
+<div class="hero hero-facade hero-landing">
+  <div class="hero-inner">
+    <p class="text-sm hero-eyebrow mb-3">Biliran Province State University</p>
+    <h1 class="text-4xl sm:text-5xl font-extrabold mb-4" style="letter-spacing:-0.03em;">Scholarship Programs</h1>
+    <p class="text-lg max-w-xl mx-auto hero-sub">Explore available scholarships and find the program that fits you. Click any card to learn more.</p>
+    <div class="flex items-center justify-center gap-3 mt-8 flex-wrap">
+      <a href="/register/" class="btn btn-accent">Register</a>
+      <a href="/login/" class="btn" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.55);">Sign in</a>
+    </div>
   </div>
 </div>
+<!-- Scholarship listings, over the campus photograph -->
+<div class="section-photo pt-6 pb-16">
 
 <!-- Internal Scholarships -->
 {% if internal %}
 <div class="max-w-6xl mx-auto px-6 pt-12 pb-2">
-  <h2 class="text-xl font-bold mb-1" style="color:#1e2a3a;">Internal Scholarships</h2>
-  <p class="text-sm mb-6" style="color:#6b7a99;">Scholarships offered directly by Biliran Province State University.</p>
+  <h2 class="text-2xl font-bold mb-1">Internal Scholarships</h2>
+  <p class="text-sm mb-6 section-sub">Scholarships offered directly by Biliran Province State University.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for s in internal %}
     <div class="card cursor-pointer" onclick="openModal({{ s.pk }})">
-      <div style="background:linear-gradient(135deg,#3b5bdb,#4c6ef5); height:8px;"></div>
+      <div style="background:linear-gradient(90deg,#ffff00,#ffd400); height:5px;"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
           <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.5rem;width:2.5rem;object-fit:contain;flex-shrink:0;" />
-          <span class="badge" style="background:#edf2ff;color:#3b5bdb;">{{ s.type }}</span>
+          <span class="badge" style="background:#ffff00;color:#0000ff;border-color:#cccc00;font-weight:600;">{{ s.type }}</span>
         </div>
-        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">{{ s.name }}</h3>
-        <p class="text-sm mb-4" style="color:#6b7a99;">{{ s.description }}</p>
+        <h3 class="font-bold text-lg mb-2" style="color:var(--text);">{{ s.name }}</h3>
+        <p class="text-sm mb-4" style="color:var(--text-muted);">{{ s.description }}</p>
         {% if s.eligibility_list %}
-        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+        <div class="space-y-1 text-xs" style="color:var(--text-muted);">
           {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
-          <span class="text-xs font-medium" style="color:#3b5bdb;">Internal</span>
-          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid var(--border);">
+          <span class="text-xs font-semibold" style="color:var(--brand);">Internal</span>
+          <span class="text-xs" style="color:var(--text-muted);">View Details →</span>
         </div>
       </div>
     </div>
@@ -82,27 +139,27 @@
 <!-- External Scholarships -->
 {% if external %}
 <div class="max-w-6xl mx-auto px-6 pt-10 pb-2">
-  <h2 class="text-xl font-bold mb-1" style="color:#1e2a3a;">External Scholarships</h2>
-  <p class="text-sm mb-6" style="color:#6b7a99;">Government and agency-funded scholarships processed externally.</p>
+  <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
+  <p class="text-sm mb-6 section-sub">Government and agency-funded scholarships processed externally.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for s in external %}
     <div class="card cursor-pointer" onclick="openModal({{ s.pk }})">
-      <div style="background:linear-gradient(135deg,#1971c2,#339af0); height:8px;"></div>
+      <div style="background:linear-gradient(90deg,#0000ff,#4d4dff); height:5px;"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
           <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.5rem;width:2.5rem;object-fit:contain;flex-shrink:0;" />
-          <span class="badge" style="background:#eff6ff;color:#1971c2;">{{ s.type }}</span>
+          <span class="badge" style="background:var(--brand-soft);color:var(--brand);border-color:var(--brand);font-weight:600;">{{ s.type }}</span>
         </div>
-        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">{{ s.name }}</h3>
-        <p class="text-sm mb-4" style="color:#6b7a99;">{{ s.description }}</p>
+        <h3 class="font-bold text-lg mb-2" style="color:var(--text);">{{ s.name }}</h3>
+        <p class="text-sm mb-4" style="color:var(--text-muted);">{{ s.description }}</p>
         {% if s.eligibility_list %}
-        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+        <div class="space-y-1 text-xs" style="color:var(--text-muted);">
           {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
-          <span class="text-xs font-medium" style="color:#1971c2;">External</span>
-          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid var(--border);">
+          <span class="text-xs font-semibold" style="color:var(--brand);">External</span>
+          <span class="text-xs" style="color:var(--text-muted);">View Details →</span>
         </div>
       </div>
     </div>
@@ -114,27 +171,27 @@
 <!-- Institutional Scholarships -->
 {% if institutional %}
 <div class="max-w-6xl mx-auto px-6 pt-10 pb-12">
-  <h2 class="text-xl font-bold mb-1" style="color:#1e2a3a;">Institutional Scholarships</h2>
-  <p class="text-sm mb-6" style="color:#6b7a99;">Scholarships for BiPSU faculty, staff, and their dependents.</p>
+  <h2 class="text-2xl font-bold mb-1">Institutional Scholarships</h2>
+  <p class="text-sm mb-6 section-sub">Scholarships for BiPSU faculty, staff, and their dependents.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for s in institutional %}
     <div class="card cursor-pointer" onclick="openModal({{ s.pk }})">
-      <div style="background:linear-gradient(135deg,#2f9e44,#51cf66); height:8px;"></div>
+      <div style="background:linear-gradient(90deg,#2f9e44,#51cf66); height:5px;"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
           <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.5rem;width:2.5rem;object-fit:contain;flex-shrink:0;" />
           <span class="badge" style="background:#f0fdf4;color:#2f9e44;">{{ s.type }}</span>
         </div>
-        <h3 class="font-bold text-lg mb-2" style="color:#1e2a3a;">{{ s.name }}</h3>
-        <p class="text-sm mb-4" style="color:#6b7a99;">{{ s.description }}</p>
+        <h3 class="font-bold text-lg mb-2" style="color:var(--text);">{{ s.name }}</h3>
+        <p class="text-sm mb-4" style="color:var(--text-muted);">{{ s.description }}</p>
         {% if s.eligibility_list %}
-        <div class="space-y-1 text-xs" style="color:#6b7a99;">
+        <div class="space-y-1 text-xs" style="color:var(--text-muted);">
           {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid #e8ecf0;">
+        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid var(--border);">
           <span class="text-xs font-medium" style="color:#2f9e44;">Institutional</span>
-          <span class="text-xs" style="color:#6b7a99;">View Details →</span>
+          <span class="text-xs" style="color:var(--text-muted);">View Details →</span>
         </div>
       </div>
     </div>
@@ -150,6 +207,8 @@
 </div>
 {% endif %}
 
+</div>
+
 <!-- Footer -->
 <footer class="text-center py-8 text-xs" style="color:#6b7a99;border-top:1px solid #e8ecf0;">
   © 2025 Biliran Province State University · Scholarship Records Management System
@@ -159,13 +218,13 @@
 {% for s in scholarships %}
 <div class="modal-overlay" id="modal-{{ s.pk }}" onclick="if(event.target===this)closeModal({{ s.pk }})">
   <div class="modal">
-    <div style="height:6px;background:{% if s.group == 'external' %}linear-gradient(135deg,#1971c2,#339af0){% elif s.group == 'institutional' %}linear-gradient(135deg,#2f9e44,#51cf66){% else %}linear-gradient(135deg,#3b5bdb,#4c6ef5){% endif %};border-radius:1rem 1rem 0 0;"></div>
+    <div style="height:6px;background:{% if s.group == 'external' %}linear-gradient(90deg,#0000ff,#4d4dff){% elif s.group == 'institutional' %}linear-gradient(90deg,#2f9e44,#51cf66){% else %}linear-gradient(90deg,#ffff00,#ffd400){% endif %};border-radius:1rem 1rem 0 0;"></div>
     <div class="p-6">
       <div class="flex items-start justify-between mb-4">
         <div class="flex items-center gap-3">
           <img src="/media/logos/BiPSU.png" alt="logo" style="height:3rem;width:3rem;object-fit:contain;flex-shrink:0;" />
           <div>
-            <span class="badge mb-1" style="background:#edf2ff;color:#3b5bdb;display:block;">{{ s.type }}</span>
+            <span class="badge mb-1" style="background:#ffff00;color:#0000ff;border-color:#cccc00;display:block;font-weight:600;">{{ s.type }}</span>
             <h2 class="text-xl font-bold" style="color:#1e2a3a;">{{ s.name }}</h2>
           </div>
         </div>
@@ -174,7 +233,7 @@
 
       {% if s.background %}
       <div class="rounded-xl p-4 mb-4" style="background:#f6f8fc;">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Background</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Background</p>
         <p class="text-sm" style="color:#374151;">{{ s.background }}</p>
       </div>
       {% endif %}
@@ -195,7 +254,7 @@
         <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">Benefits</p>
         <ul class="space-y-1">
           {% for b in s.benefits %}
-          <li class="text-sm flex gap-2" style="color:#374151;"><span style="color:#3b5bdb;">•</span> {{ b }}</li>
+          <li class="text-sm flex gap-2" style="color:var(--text-soft);"><span style="color:var(--brand);">•</span> {{ b }}</li>
           {% endfor %}
         </ul>
       </div>

@@ -7,13 +7,7 @@
 
 {% block nav %}{% include "unifast/_nav.html" with active="tes_applications" %}{% endblock %}
 
-{% block extra_head %}
-<style>
-  .badge-pending { background:#fff7ed;color:#c2410c;border:1px solid #fed7aa; }
-  .badge-approved { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
-  .badge-rejected { background:#fff1f2;color:#e03131;border:1px solid #fecaca; }
-</style>
-{% endblock %}
+
 
 {% block content %}
 
@@ -103,7 +97,7 @@
           <div><span style="color:#6b7a99;">LRN:</span> <span class="font-medium">{{ app.lrn|default:"—" }}</span></div>
           <div><span style="color:#6b7a99;">Last Name:</span> <span class="font-medium">{{ app.student.user.last_name }}</span></div>
           <div><span style="color:#6b7a99;">Given Name:</span> <span class="font-medium">{{ app.student.user.first_name }}</span></div>
-          <div><span style="color:#6b7a99;">Middle Name:</span> <span class="font-medium">{{ app.middle_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Middle Name:</span> <span class="font-medium">{{ app.student.middle_name|default:"—" }}</span></div>
           <div><span style="color:#6b7a99;">Sex:</span> <span class="font-medium">{{ app.student.gender }}</span></div>
           <div><span style="color:#6b7a99;">Birthdate:</span> <span class="font-medium">{{ app.birthdate|date:"Y-m-d"|default:"—" }}</span></div>
           <div><span style="color:#6b7a99;">Year Level:</span> <span class="font-medium">{{ app.student.year_level }}</span></div>
@@ -114,12 +108,12 @@
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Family Background</p>
         <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5" style="background:#f6f8fc;border-radius:0.5rem;padding:0.75rem;">
-          <div><span style="color:#6b7a99;">Father's Last Name:</span> <span class="font-medium">{{ app.father_last_name|default:"—" }}</span></div>
-          <div><span style="color:#6b7a99;">Father's Given Name:</span> <span class="font-medium">{{ app.father_first_name|default:"—" }}</span></div>
-          <div><span style="color:#6b7a99;">Father's Middle Name:</span> <span class="font-medium">{{ app.father_middle_name|default:"—" }}</span></div>
-          <div><span style="color:#6b7a99;">Mother's Last Name:</span> <span class="font-medium">{{ app.mother_last_name|default:"—" }}</span></div>
-          <div><span style="color:#6b7a99;">Mother's Given Name:</span> <span class="font-medium">{{ app.mother_first_name|default:"—" }}</span></div>
-          <div><span style="color:#6b7a99;">Mother's Middle Name:</span> <span class="font-medium">{{ app.mother_middle_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Father's Last Name:</span> <span class="font-medium">{{ app.student.father_last_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Father's Given Name:</span> <span class="font-medium">{{ app.student.father_first_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Father's Middle Name:</span> <span class="font-medium">{{ app.student.father_middle_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Mother's Last Name:</span> <span class="font-medium">{{ app.student.mother_last_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Mother's Given Name:</span> <span class="font-medium">{{ app.student.mother_first_name|default:"—" }}</span></div>
+          <div><span style="color:#6b7a99;">Mother's Middle Name:</span> <span class="font-medium">{{ app.student.mother_middle_name|default:"—" }}</span></div>
         </div>
       </div>
 
@@ -143,6 +137,9 @@
           <div><span style="color:#6b7a99;">Solo Parent Dependent:</span> <span class="font-medium">{% if app.is_solo_parent_dependent %}Yes (1){% else %}No (0){% endif %}</span></div>
           <div><span style="color:#6b7a99;">First-Gen College:</span> <span class="font-medium">{% if app.is_first_gen_college %}Yes (1){% else %}No (0){% endif %}</span></div>
           <div><span style="color:#6b7a99;">Indigenous People Group:</span> <span class="font-medium">{{ app.indigenous_people_group|default:"Not Applicable" }}</span></div>
+          {% if app.award_number %}
+          <div><span style="color:#6b7a99;">Award Number:</span> <span class="font-medium" style="color:#2f9e44;">{{ app.award_number }}</span></div>
+          {% endif %}
         </div>
       </div>
 
@@ -152,6 +149,13 @@
         <div style="border-top:1px solid #e8ecf0;padding-top:1rem;">
           <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#3b5bdb;">Review Decision</p>
           <div class="space-y-3">
+            <div>
+              <label class="text-sm font-medium">Award Number</label>
+              <input name="award_number" value="{{ app.award_number }}"
+                     placeholder="e.g. TES-2025-00001"
+                     style="margin-top:0.25rem;width:100%;" />
+              <p class="text-xs mt-1" style="color:#6b7a99;">CHED-assigned award number. Required for the official list and billing report.</p>
+            </div>
             <div>
               <label class="text-sm font-medium">Status</label>
               <select name="status" style="margin-top:0.25rem;width:100%;">

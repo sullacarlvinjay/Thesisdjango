@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Student Ranking — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}Student Ranking{% endblock %}
 {% block page_subtitle %}Rule-based eligibility ranking for the Affirmative Action scholarship{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="ranking" %}{% endblock %}
@@ -17,7 +17,7 @@
   {% if t != 'Staff' or tab != 'recommended' %}
   <a href="/vpsea/ranking/?tab={% if t == 'Staff' %}applicants{% else %}{{ tab }}{% endif %}&type={{ t }}&passing={{ passing_threshold }}"
      class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">
-    {% if t == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %}
+    {% if t == 'Affirmative' %}Affirmative Action{% else %}BiPSU Staff{% endif %}
   </a>
   {% endif %}
   {% endfor %}
@@ -68,7 +68,7 @@
   <div class="flex items-center justify-between mb-4">
     <div>
       <h3 class="font-semibold">
-        {% if active_type == 'Affirmative' %}Affirmative Action{% else %}NSU Staff{% endif %} — Applicant Rankings
+        {% if active_type == 'Affirmative' %}Affirmative Action{% else %}BiPSU Staff{% endif %} — Applicant Rankings
       </h3>
       <p class="text-xs mt-0.5" style="color:#6b7a99;">
         {{ applicant_rows|length }} pending applicant{{ applicant_rows|length|pluralize }} · excludes already-approved
@@ -150,7 +150,7 @@
           </td>
           {% else %}
           <td class="td-cell">
-            {% if s.applicant.is_nsu_staff %}<span class="badge badge-success">NSU Staff</span>
+            {% if s.applicant.is_nsu_staff %}<span class="badge badge-success">BiPSU Staff</span>
             {% else %}<span class="badge badge-info">Dependent</span>{% endif %}
           </td>
           <td class="td-cell">{{ s.applicant.staff_name|default:"—" }}</td>
@@ -270,7 +270,7 @@
                   {{ r.profile.shs_gpa }}%
                 </span>
                 {% if r.profile.shs_gpa_cert %}
-                  <a href="{{ r.profile.shs_gpa_cert.url }}" target="_blank"
+                  <a href="{{ r.profile.shs_gpa_cert.url }}" data-doc="{{ r.profile.user.get_full_name }} — SHS GPA Certificate"
                      class="text-xs" style="color:#3b5bdb;">📄 cert</a>
                 {% else %}
                   <span class="text-xs" style="color:#f59f00;">no cert</span>
@@ -289,7 +289,7 @@
                   {{ r.profile.suc_exam_score }}%
                 </span>
                 {% if r.profile.suc_exam_cert %}
-                  <a href="{{ r.profile.suc_exam_cert.url }}" target="_blank"
+                  <a href="{{ r.profile.suc_exam_cert.url }}" data-doc="{{ r.profile.user.get_full_name }} — SUC Exam Certificate"
                      class="text-xs" style="color:#3b5bdb;">📄 cert</a>
                 {% else %}
                   <span class="text-xs" style="color:#f59f00;">no cert</span>

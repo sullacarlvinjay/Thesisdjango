@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Announcements — UniFAST Portal{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+{% block page_subtitle %}Broadcast TES and TDP updates to students{% endblock %}
+{% block nav %}{% include "unifast/_nav.html" with active="announcements" %}{% endblock %}
+
+{% block content %}
+
+{% if posted %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+  ✓ Announcement published. Students can see it on their dashboard.
+</div>
+{% endif %}
+
+{% for e in errors %}
+<div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ e }}</div>
+{% endfor %}
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-3">
+    <h3 class="font-semibold mb-2">Published</h3>
+    <p class="text-xs -mt-1 mb-2" style="color:#6b7a99;">Every office publishes into the same student feed. Yours are marked below.</p>
+    {% for a in announcements %}
+    <div class="card p-4">
+      <div class="flex items-center justify-between gap-2 text-xs mb-1" style="color:#6b7a99;">
+        <span class="flex items-center gap-2">
+          <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+          {{ a.created_at|date:"M d, Y" }}
+        </span>
+        {% if a.published_by == user %}
+        <span class="badge badge-info">Posted by UniFAST</span>
+        {% elif a.published_by %}
+        <span class="badge badge-muted">{{ a.published_by.get_role_display|default:"Another office" }}</span>
+        {% endif %}
+      </div>
+      <p class="font-medium">{{ a.title }}</p>
+      <p class="text-sm mt-1" style="color:#374151;">{{ a.body }}</p>
+    </div>
+    {% empty %}
+    <div class="card p-6 text-center" style="color:#6b7a99;">No announcements yet.</div>
+    {% endfor %}
+  </div>
+
+  <div class="card p-6" style="align-self:start;">
+    <h3 class="font-semibold mb-4">New Announcement</h3>
+    <form method="post" class="space-y-3">
+      {% csrf_token %}
+      <div class="space-y-1.5">
+        <label>Title</label>
+        <input name="title" value="{{ post.title|default:'' }}" placeholder="e.g. TES payout schedule" required />
+      </div>
+      <div class="space-y-1.5">
+        <label>Message</label>
+        <textarea name="body" rows="5" placeholder="Message body…" required>{{ post.body|default:'' }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary w-full">Publish</button>
+    </form>
+    <p class="text-xs mt-3" style="color:#6b7a99;">This reaches every student, not only TES and TDP scholars.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ action }} Student — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}{{ action }} Student{% endblock %}
 {% block page_subtitle %}{% if action == 'Add' %}Create a new student account and application{% else %}Update student information and application{% endif %}{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
@@ -16,10 +16,11 @@
 
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
-  <div class="grid lg:grid-cols-3 gap-6">
+  {# Edit uses a wider 4-column grid so the right sidebar has room for the profile panel #}
+  <div class="grid {% if action == 'Edit' %}xl:grid-cols-4 lg:grid-cols-3{% else %}lg:grid-cols-3{% endif %} gap-6">
 
     <!-- LEFT: main sections -->
-    <div class="lg:col-span-2 space-y-6">
+    <div class="{% if action == 'Edit' %}xl:col-span-3 lg:col-span-2{% else %}lg:col-span-2{% endif %} space-y-6">
 
       <!-- Account Credentials -->
       <div class="card p-6">
@@ -32,6 +33,14 @@
           <div class="space-y-1.5">
             <label>Last Name <span style="color:#e03131;">*</span></label>
             <input name="last_name" required value="{{ v_last_name }}" placeholder="e.g. Dela Cruz" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Middle Name</label>
+            <input name="middle_name" value="{{ v_middle_name }}" placeholder="e.g. Ramirez" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Suffix</label>
+            <input name="suffix" value="{{ v_suffix }}" placeholder="Jr., III — if any" />
           </div>
           <div class="space-y-1.5">
             <label>Email <span style="color:#e03131;">*</span></label>
@@ -157,7 +166,8 @@
         </div>
       </div>
 
-      <!-- Academic Information -->
+      <!-- Academic Information — only meaningful alongside an application -->
+      {% if show_application_fields %}
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Academic Information</h3>
         <div class="grid sm:grid-cols-3 gap-4">
@@ -177,7 +187,10 @@
         </div>
       </div>
 
-      <!-- Document Upload -->
+      {% endif %}
+
+      <!-- Document Upload — an application's requirements, not a student's -->
+      {% if show_application_fields %}
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#3b5bdb;">Document Upload</h3>
         <p class="text-xs mb-5" style="color:#6b7a99;">
@@ -195,7 +208,7 @@
               {% for d in app.documents.all %}{% if d.name == doc_label %}
               <div class="flex items-center gap-2 mb-2 ml-7">
                 <svg class="h-4 w-4 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                <a href="{{ d.file.url }}" target="_blank" class="text-xs" style="color:#1971c2;">Current file on record</a>
+                <a href="{{ d.file.url }}" data-doc="{{ d.name }}" class="text-xs" style="color:#1971c2;">Current file on record</a>
               </div>
               {% endif %}{% endfor %}
             {% endif %}
@@ -205,12 +218,77 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
 
     </div>
 
-    <!-- RIGHT: Validation sidebar -->
-    <div>
+    <!-- RIGHT: Validation sidebar + (Edit only) read-only profile info -->
+    <div class="space-y-6">
+
+      {% if action == 'Edit' %}
+      <!-- Read-only Personal Info panel — student-entered data the SDSO can see but only the student edits -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#6b7a99;">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h3>
+        <p class="text-xs mb-4" style="color:#6b7a99;">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
+
+        <div class="space-y-3">
+          <div class="section-title" style="margin-top:0;">Identity &amp; Status</div>
+          <div class="detail-grid">
+            <div class="detail-field"><label>Civil Status</label><span>{{ v_civil_status|default:"—" }}</span></div>
+            <div class="detail-field"><label>Citizenship</label><span>{{ v_citizenship|default:"—" }}</span></div>
+            <div class="detail-field"><label>Indigenous Group</label><span>{{ v_indigenous_group|default:"—" }}</span></div>
+          </div>
+
+          <div class="section-title">Socioeconomic</div>
+          <div class="detail-grid">
+            <div class="detail-field"><label>Family Income (Annual)</label><span>{% if v_family_income and v_family_income != '0.0' %}₱{{ v_family_income }}{% else %}—{% endif %}</span></div>
+            <div class="detail-field"><label>Household Size</label><span>{{ v_household_size|default:"—" }}</span></div>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-1">
+            {% if v_is_pwd %}<span class="badge badge-info">PWD</span>{% endif %}
+            {% if v_is_athlete %}<span class="badge badge-info">Athlete</span>{% endif %}
+            {% if v_is_coconut_farmer %}<span class="badge badge-info">Coconut Farmer Family</span>{% endif %}
+            {% if v_has_other_scholarship %}<span class="badge badge-warning">Has Other Scholarship</span>{% endif %}
+            {% if not v_is_pwd and not v_is_athlete and not v_is_coconut_farmer and not v_has_other_scholarship %}
+            <span class="text-xs" style="color:#6b7a99;">None on record</span>
+            {% endif %}
+          </div>
+
+          <div class="section-title">TES Eligibility</div>
+          <div class="detail-grid">
+            <div class="detail-field"><label>Year First Enrolled</label><span>{{ v_year_first_enrolled|default:"—" }}</span></div>
+            <div class="detail-field"><label>Listahanan</label>
+              <span>{% if v_is_listahanan is None %}—{% elif v_is_listahanan %}Yes{% else %}No{% endif %}</span>
+            </div>
+            <div class="detail-field"><label>4Ps Beneficiary</label>
+              <span>{% if v_is_4ps is None %}—{% elif v_is_4ps %}Yes{% else %}No{% endif %}</span>
+            </div>
+            <div class="detail-field"><label>Previous Degree</label>
+              <span>{% if v_has_previous_degree is None %}—{% elif v_has_previous_degree %}Yes{% else %}No{% endif %}</span>
+            </div>
+            <div class="detail-field"><label>TES Beneficiary</label><span>{% if v_is_tes_beneficiary %}Yes{% else %}No{% endif %}</span></div>
+          </div>
+
+          <div class="section-title">Scholarship Eligibility</div>
+          <div class="detail-grid">
+            <div class="detail-field"><label>SHS GPA (%)</label><span>{% if v_shs_gpa %}{{ v_shs_gpa }}{% else %}—{% endif %}</span></div>
+            <div class="detail-field"><label>SUC Exam Score (%)</label><span>{% if v_suc_exam_score %}{{ v_suc_exam_score }}{% else %}—{% endif %}</span></div>
+          </div>
+          {% if profile.shs_gpa_cert or profile.suc_exam_cert %}
+          <div class="flex flex-wrap gap-2 mt-1">
+            {% if profile.shs_gpa_cert %}<a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" class="btn btn-outline" style="font-size:0.72rem;padding:0.2rem 0.6rem;">SHS GPA Cert</a>{% endif %}
+            {% if profile.suc_exam_cert %}<a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" class="btn btn-outline" style="font-size:0.72rem;padding:0.2rem 0.6rem;">SUC Exam Cert</a>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Auto-Validation card. The Save and Cancel buttons live in here, so
+           only the validation content is conditional: GWA eligibility means
+           nothing for a student who is not applying for anything. -->
       <div class="card p-6 sticky top-24">
+        {% if show_application_fields %}
         <div class="flex items-center gap-2 mb-3">
           <svg class="h-4 w-4" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
           <h3 class="font-semibold">Auto-Validation</h3>
@@ -224,12 +302,14 @@
           <div class="flex justify-between"><span>Rule: GWA ≤ 1.29</span><span class="badge badge-muted" id="rule1">—</span></div>
           <div class="flex justify-between"><span>Rule: GWA ≤ 1.50</span><span class="badge badge-muted" id="rule2">—</span></div>
         </div>
+        {% endif %}
 
         <button type="submit" class="btn btn-primary w-full mt-6">
           {% if action == 'Add' %}Add Student{% else %}Save Changes{% endif %}
         </button>
-        <a href="/vpsea/students/" class="btn btn-outline w-full mt-2" style="text-align:center;">Cancel</a>
+        <a href="{{ cancel_url }}" class="btn btn-outline w-full mt-2" style="text-align:center;">Cancel</a>
       </div>
+
     </div>
 
   </div>

@@ -1,0 +1,124 @@
+<div class="space-y-6">
+
+  <!-- Filters -->
+  <div class="card p-4 flex flex-wrap items-center gap-4">
+    <span class="text-sm font-medium" style="color:#374151;">Viewing: <strong>{{ selected_sy_display }}</strong></span>
+    <form method="get" class="flex flex-wrap items-center gap-3 ml-auto">
+      <div class="flex items-center gap-2">
+        <label class="text-sm" style="color:#6b7a99;">Semester:</label>
+        <select name="sy" onchange="this.form.submit()" style="border:1px solid #e8ecf0;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.8rem;">
+          {% for lbl, display in all_sy_display %}
+          <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ display }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm" style="color:#6b7a99;">Program:</label>
+        <select name="stype" onchange="this.form.submit()" style="border:1px solid #e8ecf0;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.8rem;">
+          <option value="" {% if not selected_type %}selected{% endif %}>All Programs</option>
+          {% for t in all_types %}
+          <option value="{{ t }}" {% if t == selected_type %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+
+  <!-- Scholars Over Time -->
+  <div class="card p-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+      <div>
+        <h3 class="font-semibold">Scholars Over Time</h3>
+        <p class="text-xs mt-0.5" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one line per scholarship program{% endif %}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1" id="trendChartToggle"></div>
+        {% if trend_data|length > 1 %}
+        <button class="chart-toggle-btn" onclick="downloadChart('trendChart','scholars-over-time')">&#8681; PNG</button>
+        {% endif %}
+      </div>
+    </div>
+    {% if trend_data|length > 1 %}
+    <canvas id="trendChart" height="80"></canvas>
+    {% else %}
+    <p class="text-sm mt-4" style="color:#6b7a99;">Not enough semester data yet to show a trend. Import at least two semesters of rollover records.</p>
+    {% endif %}
+  </div>
+
+  <!-- Scholars per Scholarship Program -->
+  <div class="card p-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+      {% if selected_type %}
+      <h3 class="font-semibold">{{ selected_type }} — Scholar Distribution by Course</h3>
+      {% else %}
+      <h3 class="font-semibold">Scholars per Scholarship Program</h3>
+      {% endif %}
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1" id="programChartToggle"></div>
+        <button class="chart-toggle-btn" onclick="downloadChart('programChart','scholars-per-program')">&#8681; PNG</button>
+      </div>
+    </div>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Based on rollover list{% if not selected_type %}s{% endif %} for {{ selected_sy_display }}</p>
+    {% if selected_type %}
+    <div style="max-width:420px;margin:0 auto;">
+      <canvas id="programChart"></canvas>
+    </div>
+    {% else %}
+    <canvas id="programChart" height="90"></canvas>
+    {% endif %}
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+
+    {% if gpa_ranges and not selected_type or gpa_ranges and selected_type == 'Academic' %}
+    <!-- GWA Distribution — merit-based programmes only -->
+    <div class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-semibold">GWA Distribution</h3>
+        <div class="flex items-center gap-2">
+          <div class="flex gap-1" id="gwaChartToggle"></div>
+          <button class="chart-toggle-btn" onclick="downloadChart('gwaChart','gwa-distribution')">&#8681; PNG</button>
+        </div>
+      </div>
+      <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
+      <canvas id="gwaChart" height="180"></canvas>
+    </div>
+    {% endif %}
+
+
+    {% if tes_status %}
+    <!-- TES Application Queue — UniFAST portal only -->
+    <div class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-semibold">TES Application Queue</h3>
+        <button class="chart-toggle-btn" onclick="downloadChart('tesChart','tes-application-queue')">&#8681; PNG</button>
+      </div>
+      <p class="text-xs mb-4" style="color:#6b7a99;">{{ tes_total }} application{{ tes_total|pluralize }} reviewed in this portal, all semesters</p>
+      {% if tes_total %}
+      <canvas id="tesChart" height="180"></canvas>
+      {% else %}
+      <p style="color:#6b7a99;font-size:0.875rem;">No TES applications have been submitted yet.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Scholars by Course -->
+    <div class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-semibold">Scholars by Course</h3>
+        <div class="flex items-center gap-2">
+          {% if course_dist %}<div class="flex gap-1" id="courseChartToggle"></div>{% endif %}
+          {% if course_dist %}<button class="chart-toggle-btn" onclick="downloadChart('courseChart','scholars-by-course')">&#8681; PNG</button>{% endif %}
+        </div>
+      </div>
+      <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
+      {% if course_dist %}
+      <canvas id="courseChart" height="180"></canvas>
+      {% else %}
+      <p style="color:#6b7a99;font-size:0.875rem;">No rollover data available for this selection.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+</div>

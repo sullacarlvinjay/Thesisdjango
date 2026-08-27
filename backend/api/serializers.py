@@ -2,8 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import (
     User, StudentProfile, Scholarship, Application, ApplicationDocument,
-    Notification, Announcement, Renewal, AcademicRenewal, ArchiveRecord,
-    TDPApplication, ActivityLog, SystemSettings,
+    Notification, Announcement, AcademicRenewal, ImportedScholar,
+    ActivityLog, SystemSettings,
 )
 
 
@@ -14,7 +14,15 @@ class RegisterSerializer(serializers.ModelSerializer):
     year_level = serializers.IntegerField()
     gwa = serializers.FloatField()
     contact_number = serializers.CharField(required=False, allow_blank=True)
-    address = serializers.CharField(required=False, allow_blank=True)
+    # The address is three columns, not one. A single 'address' field was
+    # declared here and passed straight to StudentProfile.objects.create(),
+    # where it hit the read-only property of that name and raised
+    # AttributeError — after the User row had already been created.
+    barangay = serializers.CharField(required=False, allow_blank=True)
+    municipality = serializers.CharField(required=False, allow_blank=True)
+    province = serializers.CharField(required=False, allow_blank=True)
+    middle_name = serializers.CharField(required=False, allow_blank=True)
+    suffix = serializers.CharField(required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     gender = serializers.CharField(required=False, allow_blank=True)
     family_income = serializers.FloatField(required=False, default=0.0)
@@ -30,7 +38,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'password', 'first_name', 'last_name',
             'student_id', 'course', 'year_level', 'gwa',
-            'contact_number', 'address', 'date_of_birth', 'gender',
+            'contact_number', 'barangay', 'municipality', 'province',
+            'middle_name', 'suffix',
+            'date_of_birth', 'gender',
             'family_income', 'indigenous_group', 'parent_employment',
             'is_pwd', 'is_athlete', 'is_coconut_farmer_family', 'has_other_scholarship',
         ]
@@ -38,13 +48,17 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         profile_fields = [
             'student_id', 'course', 'year_level', 'gwa', 'contact_number',
-            'address', 'date_of_birth', 'gender', 'family_income',
+            'barangay', 'municipality', 'province',
+            'middle_name', 'suffix', 'date_of_birth', 'gender', 'family_income',
             'indigenous_group', 'parent_employment', 'is_pwd',
             'is_athlete', 'is_coconut_farmer_family', 'has_other_scholarship',
         ]
         profile_data = {f: validated_data.pop(f, None) for f in profile_fields}
         password = validated_data.pop('password')
         validated_data['username'] = validated_data['email']
+        # The same gate as the web form: registering yourself never releases the
+        # account, whichever door it came through.
+        validated_data['verification_status'] = 'pending'
         user = User(**validated_data)
         user.set_password(password)
         user.save()
@@ -95,22 +109,17 @@ class ScholarshipSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_match(self, obj):
+        """Delegates to Scholarship.match_score, so the API and the web portal
+        agree.
+
+        This method used to carry a second, different formula. For a student
+        with GWA 1.28 on the Academic scholarship the portal showed 80 and this
+        returned 89 — same student, same scholarship, two numbers.
+        """
         request = self.context.get('request')
         if not request or not hasattr(request.user, 'profile'):
             return 0
-        profile = request.user.profile
-        score = 50
-        if obj.type == 'Academic' and profile.gwa <= 1.50:
-            score = round(100 - (profile.gwa - 1.0) * 40)
-        elif obj.type == 'TDP' and profile.family_income < 300000:
-            score = round(100 - (profile.family_income / 300000) * 30)
-        elif obj.type == 'Sports' and profile.is_athlete:
-            score = 85
-        elif obj.type == 'Affirmative' and (profile.is_pwd or profile.indigenous_group):
-            score = 80
-        elif obj.type == 'CoScho' and profile.is_coconut_farmer_family:
-            score = 75
-        return min(max(score, 0), 100)
+        return obj.match_score(request.user.profile)
 
 
 class ApplicationDocumentSerializer(serializers.ModelSerializer):
@@ -150,15 +159,6 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'body', 'date']
 
 
-class RenewalSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source='student.user.get_full_name', read_only=True)
-    scholarship_name = serializers.CharField(source='scholarship.name', read_only=True)
-
-    class Meta:
-        model = Renewal
-        fields = '__all__'
-
-
 class AcademicRenewalSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
     student_id = serializers.CharField(source='student.student_id', read_only=True)
@@ -174,19 +174,11 @@ class AcademicRenewalSerializer(serializers.ModelSerializer):
         read_only_fields = ['student', 'submitted_at']
 
 
-class ArchiveRecordSerializer(serializers.ModelSerializer):
+class ImportedScholarSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ArchiveRecord
+        model = ImportedScholar
         fields = '__all__'
 
-
-class TDPApplicationSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source='student.user.get_full_name', read_only=True)
-    course = serializers.CharField(source='student.course', read_only=True)
-
-    class Meta:
-        model = TDPApplication
-        fields = '__all__'
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):

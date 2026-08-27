@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Renewal Applications — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}Renewal Applications{% endblock %}
 {% block page_subtitle %}Review continuing scholar renewals{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="renewals" %}{% endblock %}
@@ -36,10 +36,10 @@
           <td style="padding:0.6rem 0.75rem;font-weight:500;">{{ r.student.user.get_full_name }}</td>
           <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ r.student.student_id }}</td>
           <td style="padding:0.6rem 0.75rem;">
-            {% if r.certificate_of_grades %}<a href="{{ r.certificate_of_grades.url }}" target="_blank" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:#6b7a99;">—</span>{% endif %}
+            {% if r.certificate_of_grades %}<a href="{{ r.certificate_of_grades.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Grades" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:#6b7a99;">—</span>{% endif %}
           </td>
           <td style="padding:0.6rem 0.75rem;">
-            {% if r.certificate_of_enrollment %}<a href="{{ r.certificate_of_enrollment.url }}" target="_blank" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:#6b7a99;">—</span>{% endif %}
+            {% if r.certificate_of_enrollment %}<a href="{{ r.certificate_of_enrollment.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Enrollment" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:#6b7a99;">—</span>{% endif %}
           </td>
           <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ r.submitted_at|date:"M d, Y" }}</td>
           <td style="padding:0.6rem 0.75rem;">

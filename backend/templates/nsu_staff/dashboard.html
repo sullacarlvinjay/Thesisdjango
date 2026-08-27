@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — NSU Staff Portal{% endblock %}
+{% block title %}Dashboard — BiPSU Staff Portal{% endblock %}
 {% block logo_src %}/media/logos/BiPSU.png{% endblock %}
-{% block brand %}NSU Staff{% endblock %}
+{% block brand %}BiPSU Staff{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}Welcome back, {{ user.get_full_name|default:user.email }}{% endblock %}
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
@@ -17,7 +17,7 @@
     <div>
       <p class="text-xs" style="color:#6b7a99;">Scholarship Status</p>
       {% if aff_app %}
-        <p class="font-semibold text-sm" style="color:#2f9e44;">Approved — NSU Staff</p>
+        <p class="font-semibold text-sm" style="color:#2f9e44;">Approved — BiPSU Staff</p>
       {% else %}
         <p class="font-semibold text-sm" style="color:#f59f00;">No active scholarship</p>
       {% endif %}

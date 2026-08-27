@@ -6,14 +6,14 @@ from rest_framework.authtoken.models import Token
 from django.db.models import Count
 from .models import (
     User, StudentProfile, Scholarship, Application, Notification,
-    Announcement, Renewal, AcademicRenewal, ArchiveRecord,
-    TDPApplication, ActivityLog, SystemSettings,
+    Announcement, AcademicRenewal, ImportedScholar,
+    ActivityLog, SystemSettings,
 )
 from .serializers import (
     RegisterSerializer, LoginSerializer, StudentProfileSerializer,
     ScholarshipSerializer, ApplicationSerializer, NotificationSerializer,
-    AnnouncementSerializer, RenewalSerializer, AcademicRenewalSerializer,
-    ArchiveRecordSerializer, TDPApplicationSerializer,
+    AnnouncementSerializer, AcademicRenewalSerializer,
+    ImportedScholarSerializer,
     ActivityLogSerializer, SystemSettingsSerializer, AdminUserSerializer,
 )
 
@@ -27,8 +27,14 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key, 'role': user.role}, status=status.HTTP_201_CREATED)
+        # No token: the account is not usable until the SDSO verifies it, and
+        # handing one out here would walk straight around that.
+        return Response({
+            'role': user.role,
+            'verification_status': user.verification_status,
+            'detail': 'Registration received. The SDSO has to verify this account '
+                      'before it can be used.',
+        }, status=status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -38,6 +44,14 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
+        # Same gate as the web login, checked after the password so the answer
+        # is only ever about the caller's own account.
+        if not user.can_sign_in:
+            return Response({
+                'verification_status': user.verification_status,
+                'detail': user.verification_note or (
+                    'This account is waiting for SDSO verification.'),
+            }, status=status.HTTP_403_FORBIDDEN)
         token, _ = Token.objects.get_or_create(user=user)
         ActivityLog.objects.create(user=user, action=f"Logged in")
         return Response({'token': token.key, 'role': user.role})
@@ -120,7 +134,7 @@ class StudentDashboardView(APIView):
 
 class VPSEAStudentRankingView(APIView):
     def get(self, request):
-        from .models import AffirmativeNSUApplication, AffirmativeRecommendation
+        from .models import AffirmativeStaffApplication, AffirmativeRecommendation
         scholarship_type = request.query_params.get('type', 'Affirmative')
         if scholarship_type not in ('Affirmative', 'Staff'):
             scholarship_type = 'Affirmative'
@@ -130,7 +144,7 @@ class VPSEAStudentRankingView(APIView):
             passing = 75.0
 
         # ── Applicants tab ──
-        applicants = AffirmativeNSUApplication.objects.exclude(status='Approved').filter(
+        applicants = AffirmativeStaffApplication.objects.exclude(status='Approved').filter(
             qualified_for=scholarship_type
         )
         def score(a):
@@ -216,10 +230,10 @@ class VPSEARenewalDetailView(generics.RetrieveUpdateAPIView):
 
 
 class VPSEAArchiveListView(generics.ListAPIView):
-    serializer_class = ArchiveRecordSerializer
+    serializer_class = ImportedScholarSerializer
 
     def get_queryset(self):
-        return ArchiveRecord.objects.filter(scholarship_type=self.kwargs['type'])
+        return ImportedScholar.objects.filter(scholarship_type=self.kwargs['type'])
 
 
 class VPSEAArchiveUploadView(APIView):
@@ -233,12 +247,11 @@ class VPSEAArchiveUploadView(APIView):
         created = 0
         for row in ws.iter_rows(min_row=2, values_only=True):
             if row[0]:
-                ArchiveRecord.objects.create(
+                ImportedScholar.objects.create(
                     scholarship_type=type,
-                    scholar_name=str(row[0]),
                     course=str(row[1]) if row[1] else '',
                     gwa=float(row[2]) if row[2] else 0.0,
-                    year=int(row[3]) if row[3] else 2024,
+                    year_level=int(row[3]) if row[3] else 2024,
                     imported_from=file.name,
                 )
                 created += 1
@@ -317,16 +330,17 @@ class VPSEADashboardView(APIView):
             'approved': apps.filter(status='Approved').count(),
             'rejected': apps.filter(status='Rejected').count(),
             'pending': apps.filter(status='Pending Validation').count(),
-            'renewals': Renewal.objects.filter(status='Renewal Pending').count(),
+            'renewals': AcademicRenewal.objects.filter(status='Pending').count(),
         })
 
 
 
 class UniFASTDashboardView(APIView):
     def get(self, request):
-        from .models import TDPApplication
+        from .models import TESApplication
         return Response({
-            'tes_beneficiaries': TDPApplication.objects.filter(status='Approved').count(),
-            'tdp_scholars': TDPApplication.objects.count(),
+            'tes_beneficiaries': TESApplication.objects.filter(status='Approved').count(),
+            'tdp_scholars': Application.objects.filter(
+                status='Approved', scholarship__type='TDP').count(),
         })
 

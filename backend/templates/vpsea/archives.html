@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Scholarship Archives — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
 {% block page_subtitle %}Academic, TDP, DOST, CHED, CoScho, Sports, Affirmative, Staff{% endblock %}
 
@@ -322,10 +322,10 @@
               <div class="flex items-center" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
                 <a href="{{ h.excel_file.url }}" download class="flex items-center gap-2 flex-1" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;">
                   <svg class="h-3.5 w-3.5 shrink-0" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  {{ h.label|default:h.school_year }}
+                  {{ h.term_label|default:h.school_year }}
                   <span style="font-size:0.72rem;color:#6b7a99;">{{ h.scholar_count }} scholars</span>
                 </a>
-                <form method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" onsubmit="return confirm('Delete {{ h.label|default:h.school_year }} rollover? This cannot be undone.');">
+                <form method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" onsubmit="return confirm('Delete {{ h.term_label|default:h.school_year }} rollover? This cannot be undone.');">
                   {% csrf_token %}
                   <input type="hidden" name="type" value="{{ active_type }}">
                   <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:#e03131;padding:0.2rem;line-height:1;">✕</button>
@@ -382,7 +382,7 @@
               </td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','{{ app.student.gwa }}','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','{{ app.student.gwa }}','','','{{ app.student.contact_number|escapejs }}','{{ app.student.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -394,7 +394,7 @@
             {% for row in imported_rows %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
               data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-              data-id="{{ row.student_number|lower }}">
+              data-id="{{ row.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
@@ -404,7 +404,7 @@
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;"><span class="badge badge-success">{{ row.gwa }}</span></td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">
                 {% if row.gwa > 0 %}{% if row.gwa <= 1.29 %}University Scholar{% elif row.gwa <= 1.50 %}College Scholar{% else %}—{% endif %}{% else %}—{% endif %}
@@ -416,7 +416,7 @@
           </tbody>
         </table>
 
-        {# ── NSU Staff ── #}
+        {# ── BiPSU Staff ── #}
         {% elif active_type == 'Staff' %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -435,19 +435,19 @@
           <tbody>
             {% for app in aff_scholars %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-              data-name="{{ app.full_name|lower }}" data-id="{{ app.school_id|lower }}">
+              data-name="{{ app.full_name|lower }}" data-id="{{ app.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.full_name }}</td>
-              <td style="padding:0.55rem 0.75rem;"></td>
-              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ app.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ app.middle_initial|default:"—" }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.gender }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.year_level }}</td>
-              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.school_id }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;">{% if app.is_nsu_staff %}100%{% else %}75%{% endif %}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">NSU Staff Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">BiPSU Staff Scholarship</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.barangay|escapejs }}','{{ app.municipality|escapejs }}','{{ app.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.student_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.barangay|escapejs }}','{{ app.municipality|escapejs }}','{{ app.province|escapejs }}','','','','{{ app.contact_number|escapejs }}','{{ app.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.full_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -459,17 +459,17 @@
             {% for row in imported_rows %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
               data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-              data-id="{{ row.student_number|lower }}">
+              data-id="{{ row.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
-              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;">—</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">NSU Staff Scholarship</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">BiPSU Staff Scholarship</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
             </tr>
             {% endfor %}
@@ -504,7 +504,7 @@
                 data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
                 data-id="{{ app.student.student_id|lower }}">
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.form_data.award_number|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.award_number|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
@@ -512,12 +512,12 @@
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.congress_district|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
                 <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.award_number|default:''|escapejs }}','{{ app.congress_district|default:''|escapejs }}','{{ app.student.contact_number|escapejs }}','{{ app.student.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                   <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
                 </td>
               </tr>
@@ -525,7 +525,7 @@
               {% if active_type == 'CHED' %}{% for row in imported_rows %}
               <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
                 data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-                data-id="{{ row.student_number|lower }}">
+                data-id="{{ row.student_id|lower }}">
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.award_number|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
@@ -537,7 +537,7 @@
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ row.congress_district|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-                <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+                <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">CHED Scholarship</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
               </tr>
@@ -571,7 +571,7 @@
                 data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
                 data-id="{{ app.student.student_id|lower }}">
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.form_data.award_number|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.award_number|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
                 <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
@@ -579,12 +579,12 @@
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.congress_district|default:'—' }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
                 <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                  <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.award_number|default:''|escapejs }}','{{ app.congress_district|default:''|escapejs }}','{{ app.student.contact_number|escapejs }}','{{ app.student.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                   <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
                 </td>
               </tr>
@@ -620,7 +620,7 @@
               data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
               data-id="{{ app.student.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.form_data.award_number|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.award_number|default:'—' }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
@@ -628,12 +628,12 @@
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.form_data.congress_district|default:'—' }}</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.congress_district|default:'—' }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.form_data.award_number|default:''|escapejs }}','{{ app.form_data.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.award_number|default:''|escapejs }}','{{ app.congress_district|default:''|escapejs }}','{{ app.student.contact_number|escapejs }}','{{ app.student.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -645,7 +645,7 @@
             {% for row in imported_rows %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
               data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-              data-id="{{ row.student_number|lower }}">
+              data-id="{{ row.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.award_number|default:'—' }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
@@ -657,7 +657,7 @@
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ row.congress_district|default:'—' }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
             </tr>
@@ -701,7 +701,7 @@
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','','{{ app.student.contact_number|escapejs }}','{{ app.student.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -713,7 +713,7 @@
             {% for row in imported_rows %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
               data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-              data-id="{{ row.student_number|lower }}">
+              data-id="{{ row.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
@@ -723,8 +723,8 @@
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
-              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">GSIS Scholarship</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
             </tr>
@@ -752,11 +752,11 @@
           <tbody>
             {% for app in aff_scholars %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-              data-name="{{ app.full_name|lower }}" data-id="{{ app.school_id|lower }}">
+              data-name="{{ app.full_name|lower }}" data-id="{{ app.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.full_name }}</td>
-              <td style="padding:0.55rem 0.75rem;"></td>
-              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
+              <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.last_name }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ app.first_name }}</td>
+              <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ app.middle_initial|default:"—" }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ app.gender }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.barangay }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.municipality }}</td>
@@ -765,7 +765,7 @@
               <td style="padding:0.55rem 0.75rem;">{{ app.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Affirmative Action Scholarship</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.school_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.barangay|escapejs }}','{{ app.municipality|escapejs }}','{{ app.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.full_name|escapejs }}','','{{ app.student_id|escapejs }}','{{ app.gender|escapejs }}','{{ app.course|escapejs }}','{{ app.year_level }}','{{ app.barangay|escapejs }}','{{ app.municipality|escapejs }}','{{ app.province|escapejs }}','','','','{{ app.contact_number|escapejs }}','{{ app.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.full_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -777,7 +777,7 @@
             {% for row in imported_rows %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
               data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-              data-id="{{ row.student_number|lower }}">
+              data-id="{{ row.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
@@ -787,7 +787,7 @@
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Affirmative Action Scholarship</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
             </tr>
@@ -831,7 +831,7 @@
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
               <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
+                <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','','','{{ app.student.contact_number|escapejs }}','{{ app.student.school|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
                 <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
               </td>
             </tr>
@@ -843,7 +843,7 @@
             {% for row in imported_rows %}
             <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
               data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-              data-id="{{ row.student_number|lower }}">
+              data-id="{{ row.student_id|lower }}">
               <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
               <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
@@ -853,8 +853,8 @@
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-              <td style="padding:0.55rem 0.75rem;">{{ row.year }}</td>
-              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_number }}</td>
+              <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
+              <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
             </tr>
@@ -873,6 +873,46 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+  // Course options follow the chosen school, using the same BiPSU mapping the
+  // student form uses. Course was a free-text box until now, which is how a
+  // record ended up reading "Batchelor of Science in Computer Science ".
+  var ARCH_COURSES = {{ bipsu_courses_json|safe }};
+
+  function archFillCourses(schoolSelId, courseSelId, wanted) {
+    var school = document.getElementById(schoolSelId).value;
+    var sel = document.getElementById(courseSelId);
+    sel.innerHTML = '<option value="">\u2014 Select Course \u2014</option>';
+    (ARCH_COURSES[school] || []).forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      if (c === wanted) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // A course typed in before these were dropdowns may match no school. Keep
+    // it selectable rather than silently blanking the field on save.
+    if (wanted && sel.value !== wanted) {
+      var keep = document.createElement('option');
+      keep.value = wanted;
+      keep.textContent = wanted + ' \u2014 not in the BiPSU list';
+      keep.selected = true;
+      sel.appendChild(keep);
+    }
+  }
+
+  function archSchoolFor(course) {
+    for (var s in ARCH_COURSES) {
+      if (ARCH_COURSES[s].indexOf(course) !== -1) return s;
+    }
+    return '';
+  }
+
+  function archInitSchoolCourse(schoolSelId, courseSelId, school, course) {
+    document.getElementById(schoolSelId).value = school || archSchoolFor(course) || '';
+    archFillCourses(schoolSelId, courseSelId, course);
+  }
+</script>
+
 
 <script>
 var BIPSU_COURSES_ARCH = {
@@ -919,18 +959,19 @@ document.addEventListener('click', function(e) {
     if (m) m.style.display = 'none';
   }
 });
-function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress) {
+function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress, contact, school) {
   document.getElementById('editPk').value = pk;
   document.getElementById('editFirst').value = first;
   document.getElementById('editLast').value = last;
   document.getElementById('editSid').value = sid;
   document.getElementById('editGender').value = gender;
-  document.getElementById('editCourse').value = course;
+  archInitSchoolCourse('editSchool', 'editCourse', school, course);
   document.getElementById('editYear').value = year;
   if (document.getElementById('editBarangay')) document.getElementById('editBarangay').value = barangay;
   if (document.getElementById('editMunicipality')) document.getElementById('editMunicipality').value = municipality;
   if (document.getElementById('editProvince')) document.getElementById('editProvince').value = province;
-  if (document.getElementById('editGwa')) document.getElementById('editGwa').value = gwa;
+  if (document.getElementById('editGwa')) document.getElementById('editGwa').value = (gwa && parseFloat(gwa) > 0) ? gwa : '';
+  if (document.getElementById('editContact')) document.getElementById('editContact').value = contact || '';
   if (document.getElementById('editAward')) document.getElementById('editAward').value = award;
   if (document.getElementById('editCongress')) document.getElementById('editCongress').value = congress;
   // Clear password fields every time the modal opens
@@ -991,8 +1032,20 @@ function openDelete(pk, name) {
           </select>
         </div>
         <div>
+          <label>School</label>
+          <select id="editSchool" name="school" style="margin-top:0.25rem;"
+                  onchange="archFillCourses('editSchool','editCourse','')">
+            <option value="">&#8212; Select School &#8212;</option>
+            {% for val, label in bipsu_schools %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
           <label>Course</label>
-          <input id="editCourse" name="course" required style="margin-top:0.25rem;" />
+          <select id="editCourse" name="course" required style="margin-top:0.25rem;">
+            <option value="">&#8212; Select Course &#8212;</option>
+          </select>
         </div>
         <div>
           <label>Year Level</label>
@@ -1000,7 +1053,11 @@ function openDelete(pk, name) {
             <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
           </select>
         </div>
-        {% if active_type == 'Academic' %}
+        <div>
+          <label>Contact Number</label>
+          <input id="editContact" name="contact_number" style="margin-top:0.25rem;" />
+        </div>
+        {% if active_type not in 'Affirmative Staff' %}
         <div>
           <label>GWA</label>
           <input id="editGwa" name="gwa" type="number" step="0.01" min="1" max="5" style="margin-top:0.25rem;" />
@@ -1044,6 +1101,62 @@ function openDelete(pk, name) {
             </div>
           </div>
           <p id="editPasswordError" class="text-xs mt-1" style="color:#dc2626;display:none;">Passwords do not match.</p>
+        </div>
+      </div>
+      <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
+        <p class="text-xs font-semibold mb-1" style="color:#6b7a99;">Student-locked details</p>
+        <p class="text-xs mb-3" style="color:#6b7a99;font-weight:400;">
+          The student can set these only once. Type over one to correct it; leave blank to keep current.
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Civil Status</label>
+            <input id="edit_civil_status" name="civil_status" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Elementary School</label>
+            <input id="edit_elementary" name="elementary" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">High School</label>
+            <input id="edit_highschool" name="highschool" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Last School Attended</label>
+            <input id="edit_last_school" name="last_school" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Last Name</label>
+            <input id="edit_father_last_name" name="father_last_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Given Name</label>
+            <input id="edit_father_first_name" name="father_first_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Middle Name</label>
+            <input id="edit_father_middle_name" name="father_middle_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Occupation</label>
+            <input id="edit_father_occupation" name="father_occupation" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Last Name</label>
+            <input id="edit_mother_last_name" name="mother_last_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Given Name</label>
+            <input id="edit_mother_first_name" name="mother_first_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Middle Name</label>
+            <input id="edit_mother_middle_name" name="mother_middle_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Occupation</label>
+            <input id="edit_mother_occupation" name="mother_occupation" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
         </div>
       </div>
       <div class="flex gap-2 justify-end mt-5">

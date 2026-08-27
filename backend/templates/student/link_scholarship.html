@@ -11,6 +11,7 @@
   <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>Apply: Academic</a>
 
   <a href="/student/apply/tes/" class="sidebar-link {% if '/apply/tes' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
+
   {% endif %}
   <a href="/student/link-scholarship/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
   <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
@@ -24,7 +25,7 @@
   {% if submitted %}
   <div class="card p-5 flex items-center gap-3" style="border-color:#2f9e44;background:#f0fdf4;">
     <svg class="h-5 w-5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <p class="text-sm font-medium" style="color:#2f9e44;">Your scholarship link request has been submitted. Admin will verify and connect it to your account.</p>
+    <p class="text-sm font-medium" style="color:#2f9e44;">Your scholarship link request has been submitted. The SDSO will verify it and connect it to your account — you'll get a notification either way.</p>
   </div>
   {% endif %}
 
@@ -51,42 +52,60 @@
       </div>
       <div>
         <span class="text-xs" style="color:#6b7a99;">Course</span>
-        <p class="font-medium">{{ profile.course }}</p>
+        <p class="font-medium">{{ profile.course|default:"—" }}</p>
       </div>
       <div>
         <span class="text-xs" style="color:#6b7a99;">Year Level</span>
         <p class="font-medium">{{ profile.year_level }}</p>
       </div>
     </div>
+    <p class="text-xs mt-3" style="color:#6b7a99;">The office matches your request against their records using your name and Student ID — make sure both are correct in <a href="/student/profile/" style="color:#3b5bdb;">My Profile</a>.</p>
   </div>
   {% endif %}
+
+  <!-- Link Request Form, or why it is unavailable -->
+  {% if blocked_reason %}
+  <div class="card p-6 flex gap-3" style="background:#fffbeb;border-color:#f59f00;">
+    <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#92400e;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+      <p class="text-sm font-semibold" style="color:#92400e;">No new link request needed</p>
+      <p class="text-xs mt-0.5" style="color:#92400e;">{{ blocked_reason }}</p>
+    </div>
+  </div>
+  {% else %}
 
   <!-- Info Banner -->
   <div class="card p-5 flex gap-3" style="background:#edf2ff;border-color:#3b5bdb;">
     <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <div>
       <p class="text-sm font-semibold" style="color:#3b5bdb;">Already a scholar?</p>
-      <p class="text-xs mt-0.5" style="color:#4c6ef5;">If you have an existing scholarship (e.g. DOST, CHED, TDP) and want to connect it to your account, submit a link request with proof of your scholarship below.</p>
+      <p class="text-xs mt-0.5" style="color:#4c6ef5;">If you already hold a scholarship (e.g. DOST, CHED, TDP), link it here instead of applying again. Once verified it is recorded for <strong>{{ academic_year }} — {{ semester }}</strong> and appears under My Applications.</p>
     </div>
   </div>
 
-  <!-- Link Request Form -->
   <div class="card p-6">
     <h3 class="font-semibold mb-1">Scholarship Link Request</h3>
-    <p class="text-xs mb-5" style="color:#6b7a99;">Select your scholarship type and upload proof. Admin will verify and link it to your profile.</p>
+    <p class="text-xs mb-5" style="color:#6b7a99;">Select your scholarship and upload proof. The SDSO will verify it against their records and link it to your profile.</p>
 
     <form method="post" enctype="multipart/form-data" class="space-y-5">
       {% csrf_token %}
 
       <div>
-        <label class="block text-sm font-medium mb-1" style="color:#374151;">Scholarship Type <span style="color:#e03131;">*</span></label>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Scholarship <span style="color:#e03131;">*</span></label>
         <select name="scholarship_type" required
           class="block w-full text-sm rounded-lg border px-3 py-2" style="border-color:#e8ecf0;color:#374151;background:#fff;">
           <option value="">— Select scholarship —</option>
-          {% for stype in scholarship_types %}
-          <option value="{{ stype }}">{{ stype }}</option>
+          {% for value, label in scholarship_types %}
+          <option value="{{ value }}" {% if post.scholarship_type == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Award / Scholar Number <span class="font-normal" style="color:#6b7a99;">(optional)</span></label>
+        <p class="text-xs mb-2" style="color:#6b7a99;">If your award letter has a scholar or award number, enter it — it lets the office match you to their records automatically.</p>
+        <input type="text" name="award_number" value="{{ post.award_number|default:'' }}" placeholder="e.g. 2026-DOST-00194"
+          class="block w-full text-sm rounded-lg border px-3 py-2 font-mono" style="border-color:#e8ecf0;color:#374151;" />
       </div>
 
       <div>
@@ -94,35 +113,53 @@
         <p class="text-xs mb-2" style="color:#6b7a99;">Upload your scholarship award letter, certificate, or any official document proving your scholarship.</p>
         <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png"
           class="block w-full text-sm rounded-lg border px-3 py-2" style="border-color:#e8ecf0;color:#374151;" required />
-        <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG</p>
+        <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG &nbsp;·&nbsp; maximum {{ max_upload_mb }} MB</p>
       </div>
 
       <div>
         <label class="block text-sm font-medium mb-1" style="color:#374151;">Additional Notes <span class="font-normal" style="color:#6b7a99;">(optional)</span></label>
         <textarea name="notes" rows="3" placeholder="Any additional information for the admin..."
-          class="block w-full text-sm rounded-lg border px-3 py-2 resize-none" style="border-color:#e8ecf0;color:#374151;"></textarea>
+          class="block w-full text-sm rounded-lg border px-3 py-2 resize-none" style="border-color:#e8ecf0;color:#374151;">{{ post.notes|default:'' }}</textarea>
       </div>
 
       <button type="submit" class="btn btn-primary w-full">Submit Link Request</button>
     </form>
   </div>
+  {% endif %}
 
   <!-- Previous Requests -->
   {% if link_requests %}
   <div class="card p-6">
-    <h3 class="font-semibold mb-4">Previous Requests</h3>
+    <h3 class="font-semibold mb-4">Your Link Requests</h3>
     <div class="space-y-3">
       {% for r in link_requests %}
-      <div class="flex items-center justify-between p-4 rounded-xl" style="background:#f6f8fc;">
-        <div>
-          <p class="text-sm font-medium" style="color:#1e2a3a;">{{ r.scholarship_type }} Scholarship</p>
-          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ r.student.user.get_full_name }} &nbsp;·&nbsp; {{ r.student.student_id }} &nbsp;·&nbsp; {{ r.student.course }}</p>
-          <p class="text-xs" style="color:#6b7a99;">Submitted {{ r.submitted_at|date:"M d, Y" }}</p>
-          {% if r.notes %}<p class="text-xs mt-1" style="color:#6b7a99;">{{ r.notes }}</p>{% endif %}
+      <div class="p-4 rounded-xl" style="background:#f6f8fc;">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-medium" style="color:#1e2a3a;">{{ r.get_scholarship_type_display }}</p>
+            <p class="text-xs mt-0.5" style="color:#6b7a99;">
+              Submitted {{ r.submitted_at|date:"M d, Y" }}
+              {% if r.school_year %}&nbsp;·&nbsp; for {{ r.school_year }}{% endif %}
+              {% if r.award_number %}&nbsp;·&nbsp; Award No. <span class="font-mono">{{ r.award_number }}</span>{% endif %}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            {% if r.proof_document %}
+            <a href="{{ r.proof_document.url }}" data-doc="{{ r.get_scholarship_type_display }} — proof" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">Proof</a>
+            {% endif %}
+            <span class="badge {% if r.status == 'Approved' %}badge-success{% elif r.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %}">{{ r.status }}</span>
+          </div>
         </div>
-        <span class="badge {% if r.status == 'Approved' %}bg-green-100 text-green-700{% elif r.status == 'Rejected' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
-          {{ r.status }}
-        </span>
+
+        {% if r.notes %}<p class="text-xs mt-2" style="color:#6b7a99;"><strong>Your note:</strong> {{ r.notes }}</p>{% endif %}
+
+        {% if r.status == 'Rejected' and r.remarks %}
+        <p class="text-xs mt-2 p-3 rounded-lg" style="background:#fff5f5;color:#e03131;"><strong>Why it was rejected:</strong> {{ r.remarks }}<br />You can submit a new request with clearer proof.</p>
+        {% elif r.status == 'Approved' %}
+        <p class="text-xs mt-2 p-3 rounded-lg" style="background:#f0fdf4;color:#2f9e44;">Verified by the SDSO{% if r.reviewed_at %} on {{ r.reviewed_at|date:"M d, Y" }}{% endif %}. It now shows under <a href="/student/applications/" style="color:#2f9e44;text-decoration:underline;">My Applications</a>.</p>
+        {% elif r.status == 'Pending' %}
+        <p class="text-xs mt-2" style="color:#92400e;">Waiting for the SDSO to verify your proof.</p>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Account Verification — BiPSU SRMS{% endblock %}
+{% block brand %}VPSEA / SDSO{% endblock %}
+{% block page_title %}Account Verification{% endblock %}
+{% block page_subtitle %}Registrations waiting to be released{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" %}{% endblock %}
+
+{% block content %}
+
+{% if approved %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+  ✓ Account verified. They can sign in now.
+</div>
+{% endif %}
+{% if rejected %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+  Account rejected. Your reason is what they will read when they try to sign in.
+</div>
+{% endif %}
+{% if error %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ error }}</div>
+{% endif %}
+
+<div class="card p-6 mb-6">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#3b5bdb;">Waiting for you</p>
+  <p class="text-xs mb-4" style="color:#6b7a99;">
+    Someone who registers on the public form cannot sign in until you decide here. Check what they entered
+    against your records — an unverified account is the only thing standing between a stranger and a student portal.
+  </p>
+
+  {% if pending %}
+  <div class="space-y-4">
+    {% for account in pending %}
+    <div style="border:1px solid #e8ecf0;border-radius:0.75rem;padding:1rem;">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div class="min-w-0">
+          <p class="font-semibold text-sm" style="color:#1e2a3a;">
+            {{ account.get_full_name|default:account.email }}
+            <span class="badge {% if account.role == 'nsu_staff' %}badge-success{% else %}badge-info{% endif %}" style="margin-left:0.35rem;">{{ account.get_role_display }}</span>
+          </p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}</p>
+        </div>
+      </div>
+
+      {# What they claimed about themselves, so it can be checked without leaving the page. #}
+      <div class="grid sm:grid-cols-3 gap-3 mb-3 text-xs" style="color:#374151;">
+        {% if account.student_profile %}
+        <div><span style="color:#6b7a99;">Student ID</span><br />{{ account.student_profile.student_id|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">School</span><br />{{ account.student_profile.school|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Course / Year</span><br />{{ account.student_profile.course|default:"—" }} · {{ account.student_profile.year_level }}</div>
+        <div><span style="color:#6b7a99;">Contact</span><br />{{ account.student_profile.contact_number|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Date of Birth</span><br />{{ account.student_profile.date_of_birth|date:"M j, Y"|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Middle Name</span><br />{{ account.student_profile.middle_name|default:"—" }}</div>
+        {% elif account.employee_profile %}
+        <div><span style="color:#6b7a99;">Employee ID</span><br />{{ account.employee_profile.employee_id|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Department</span><br />{{ account.employee_profile.department|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Position</span><br />{{ account.employee_profile.position|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Contact</span><br />{{ account.employee_profile.contact_number|default:"—" }}</div>
+        {% else %}
+        <div class="sm:col-span-3" style="color:#92400e;">No profile was created with this account — worth asking why before verifying it.</div>
+        {% endif %}
+      </div>
+
+      <form method="post" class="flex flex-wrap items-end gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="user_id" value="{{ account.id }}" />
+        <div class="space-y-1.5" style="flex:1 1 20rem;min-width:14rem;">
+          <label>Message to them <span style="color:#6b7a99;font-weight:400;">(required to reject)</span></label>
+          <input name="message" placeholder="e.g. Student ID does not match our enrolment list for this semester." />
+        </div>
+        <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
+        <button type="submit" name="action" value="reject" class="btn btn-outline" style="color:#dc2626;border-color:#fecaca;">Reject</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm" style="color:#6b7a99;">Nothing waiting. New registrations land here.</p>
+  {% endif %}
+</div>
+
+<div class="card p-6">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#3b5bdb;">Recently decided</p>
+  <p class="text-xs mb-4" style="color:#6b7a99;">The last 25 decisions. Verifying a rejected account here lets them straight in.</p>
+
+  {% if decided %}
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Name</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Role</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Decision</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Message they see</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">By</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in decided %}
+        <tr>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
+            {{ account.get_full_name|default:account.email }}
+            <br /><span style="color:#6b7a99;font-size:0.75rem;">{{ account.email }}</span>
+          </td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.get_role_display }}</td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
+            <span class="badge {% if account.verification_status == 'approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ account.get_verification_status_display }}</span>
+          </td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.verification_note|default:"—" }}</td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">
+            {{ account.verified_by.get_full_name|default:"—" }}<br />
+            <span style="font-size:0.75rem;">{{ account.verified_at|date:"M j, Y" }}</span>
+          </td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
+            {% if account.verification_status == 'rejected' %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="user_id" value="{{ account.id }}" />
+              <button type="submit" name="action" value="approve" class="btn btn-outline" style="padding:0.3rem 0.7rem;font-size:0.75rem;">Verify anyway</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm" style="color:#6b7a99;">No decisions yet.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

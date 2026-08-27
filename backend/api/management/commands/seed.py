@@ -2,9 +2,9 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from api.models import (
     StudentProfile, Scholarship, Application, Notification,
-    Announcement, TDPApplication,
-    ActivityLog, SystemSettings, Renewal, ArchiveRecord,
-    AffirmativeNSUApplication,
+    Announcement,
+    ActivityLog, SystemSettings, ImportedScholar,
+    AffirmativeStaffApplication,
 )
 from rest_framework.authtoken.models import Token
 import datetime
@@ -65,7 +65,8 @@ class Command(BaseCommand):
                 'year_level': 3,
                 'gwa': 1.28,
                 'contact_number': '+63 917 555 0142',
-                'address': 'Naval, Biliran',
+                'municipality': 'Naval',
+                'province': 'Biliran',
                 'date_of_birth': datetime.date(2003, 8, 14),
                 'gender': 'Male',
                 'family_income': 180000,
@@ -108,6 +109,15 @@ class Command(BaseCommand):
              'description': 'Tuition support for dependents of BiPSU employees.',
              'requirements': ['HR Certification'],
              'eligibility': 'Dependent of BiPSU employee'},
+            # Approving a TES application looks this row up by type to create the
+            # award (see unifast_tes_applications). Without it the approval
+            # silently produces no Application and the scholar never reaches the
+            # masterlist.
+            {'name': 'Tertiary Education Subsidy', 'type': 'TES', 'category': 'application',
+             'group': 'external',
+             'description': 'CHED Tertiary Education Subsidy, administered by the UniFAST office.',
+             'requirements': ['Certificate of Registration', 'Certificate of Indigency'],
+             'eligibility': 'Enrolled BiPSU student meeting CHED TES criteria'},
         ]
         for s in scholarships_data:
             Scholarship.objects.get_or_create(name=s['name'], defaults=s)
@@ -156,17 +166,17 @@ class Command(BaseCommand):
 
         # ── Archive test users (one per scholarship type) ──
         archive_students = [
-            # (email, first, last, student_id, course, year, gwa, gender, address, income, extra_profile)
-            ('maria.santos@bipsu.edu.ph', 'Maria', 'Santos', '2022-00101', 'BS Education', 2, 1.25, 'Female', 'Caibiran, Biliran', 150000, {}),
-            ('jose.reyes@bipsu.edu.ph', 'Jose', 'Reyes', '2022-00102', 'BS Agriculture', 3, 1.75, 'Male', 'Almeria, Biliran', 90000, {'family_income': 90000}),
-            ('ana.garcia@bipsu.edu.ph', 'Ana', 'Garcia', '2022-00103', 'BS Biology', 2, 1.40, 'Female', 'Naval, Biliran', 200000, {}),
-            ('pedro.lim@bipsu.edu.ph', 'Pedro', 'Lim', '2022-00104', 'BS Nursing', 3, 1.60, 'Male', 'Kawayan, Biliran', 250000, {}),
-            ('rosa.cruz@bipsu.edu.ph', 'Rosa', 'Cruz', '2022-00105', 'BS Forestry', 1, 1.80, 'Female', 'Culaba, Biliran', 120000, {'is_coconut_farmer_family': True}),
-            ('carlo.mendoza@bipsu.edu.ph', 'Carlo', 'Mendoza', '2022-00106', 'BS Physical Education', 2, 2.00, 'Male', 'Biliran, Biliran', 180000, {'is_athlete': True}),
-            ('liza.torres@bipsu.edu.ph', 'Liza', 'Torres', '2022-00107', 'BS Criminology', 4, 1.55, 'Female', 'Maripipi, Biliran', 160000, {}),
+            # (email, first, last, student_id, course, year, gwa, gender, municipality, province, income, extra_profile)
+            ('maria.santos@bipsu.edu.ph', 'Maria', 'Santos', '2022-00101', 'BS Education', 2, 1.25, 'Female', 'Caibiran', 'Biliran', 150000, {}),
+            ('jose.reyes@bipsu.edu.ph', 'Jose', 'Reyes', '2022-00102', 'BS Agriculture', 3, 1.75, 'Male', 'Almeria', 'Biliran', 90000, {'family_income': 90000}),
+            ('ana.garcia@bipsu.edu.ph', 'Ana', 'Garcia', '2022-00103', 'BS Biology', 2, 1.40, 'Female', 'Naval', 'Biliran', 200000, {}),
+            ('pedro.lim@bipsu.edu.ph', 'Pedro', 'Lim', '2022-00104', 'BS Nursing', 3, 1.60, 'Male', 'Kawayan', 'Biliran', 250000, {}),
+            ('rosa.cruz@bipsu.edu.ph', 'Rosa', 'Cruz', '2022-00105', 'BS Forestry', 1, 1.80, 'Female', 'Culaba', 'Biliran', 120000, {'is_coconut_farmer_family': True}),
+            ('carlo.mendoza@bipsu.edu.ph', 'Carlo', 'Mendoza', '2022-00106', 'BS Physical Education', 2, 2.00, 'Male', 'Biliran', 'Biliran', 180000, {'is_athlete': True}),
+            ('liza.torres@bipsu.edu.ph', 'Liza', 'Torres', '2022-00107', 'BS Criminology', 4, 1.55, 'Female', 'Maripipi', 'Biliran', 160000, {}),
         ]
         scholarship_types = ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'GSIS']
-        for (email, first, last, sid, course, yr, gwa, gender, addr, income, extra), stype in zip(archive_students, scholarship_types):
+        for (email, first, last, sid, course, yr, gwa, gender, mun, prov, income, extra), stype in zip(archive_students, scholarship_types):
             u, _ = User.objects.get_or_create(
                 email=email,
                 defaults={'username': email, 'first_name': first, 'last_name': last, 'role': 'student'}
@@ -175,7 +185,8 @@ class Command(BaseCommand):
             u.save()
             profile_defaults = {
                 'course': course, 'year_level': yr, 'gwa': gwa,
-                'gender': gender, 'address': addr, 'family_income': income,
+                'gender': gender, 'municipality': mun, 'province': prov,
+                'family_income': income,
             }
             profile_defaults.update(extra)
             sp, _ = StudentProfile.objects.get_or_create(user=u, defaults={'student_id': sid, **profile_defaults})
@@ -191,17 +202,17 @@ class Command(BaseCommand):
         aff_test = [
             {
                 'full_name': 'Nena Villanueva', 'email': 'nena.villanueva@test.com',
-                'contact_number': '09171234567', 'address': 'Naval, Biliran',
+                'contact_number': '09171234567', 'municipality': 'Naval', 'province': 'Biliran',
                 'date_of_birth': datetime.date(2003, 3, 10), 'gender': 'Female',
-                'course': 'BS Social Work', 'year_level': 2, 'school_id': '2022-00201',
+                'course': 'BS Social Work', 'year_level': 2, 'student_id': '2022-00201',
                 'shs_gpa': 88.0, 'suc_exam_score': 72.0, 'is_tes_beneficiary': False,
                 'qualified_for': 'Affirmative', 'status': 'Approved',
             },
             {
                 'full_name': 'Ramon Dela Pena', 'email': 'ramon.delapena@test.com',
-                'contact_number': '09181234567', 'address': 'Caibiran, Biliran',
+                'contact_number': '09181234567', 'municipality': 'Caibiran', 'province': 'Biliran',
                 'date_of_birth': datetime.date(2002, 7, 22), 'gender': 'Male',
-                'course': 'BS Accountancy', 'year_level': 3, 'school_id': '2022-00202',
+                'course': 'BS Accountancy', 'year_level': 3, 'student_id': '2022-00202',
                 'is_nsu_staff': False, 'is_nsu_dependent': True,
                 'staff_name': 'Ernesto Dela Pena', 'staff_employee_id': 'EMP-0042',
                 'relationship_to_staff': 'Son', 'has_baccalaureate': False,
@@ -209,8 +220,8 @@ class Command(BaseCommand):
             },
         ]
         for data in aff_test:
-            if not AffirmativeNSUApplication.objects.filter(email=data['email']).exists():
-                obj = AffirmativeNSUApplication(**data)
+            if not AffirmativeStaffApplication.objects.filter(email=data['email']).exists():
+                obj = AffirmativeStaffApplication(**data)
                 obj.set_password('demo1234')
                 obj.save()
 

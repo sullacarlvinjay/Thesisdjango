@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  {% if waiting %}
+  {% comment %}
+    Reload every 15s. Each reload runs the middleware, which signs the visitor
+    in the moment the SDSO releases the account — so leaving this page open is
+    all they have to do. No polling endpoint, no JavaScript.
+  {% endcomment %}
+  <meta http-equiv="refresh" content="15" />
+  {% endif %}
+  <title>{% if rejected %}Registration Not Accepted{% else %}Registration Received{% endif %} — BiPSU SRMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
+  <script>
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+  <style>
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .waiting-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+  </style>
+</head>
+<body data-portal="student" class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
+      <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
+      <p class="text-sm mt-1">Scholarship Records Management System</p>
+    </div>
+
+    <div class="auth-card">
+
+      {% if rejected %}
+      {# The office turned it down while they were waiting here. #}
+      <div class="flex items-start gap-3 mb-4">
+        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style="background:#fef2f2;">
+          <svg class="h-5 w-5" style="color:#dc2626;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </div>
+        <div>
+          <p class="font-semibold" style="color:var(--text);">Your registration was not accepted</p>
+          {% if email %}
+          <p class="text-sm mt-0.5" style="color:var(--text-muted);">{{ email }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if note %}
+      <div class="p-3 rounded-lg text-sm mb-4" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+        <span class="font-medium">Reason from the SDSO:</span> {{ note }}
+      </div>
+      {% endif %}
+
+      <p class="text-sm" style="color:var(--text-soft);">
+        Contact the SDSO office to sort it out. Once the details check out they can verify
+        the account, and this same email and password will get you in.
+      </p>
+
+      <a href="/login/" class="mt-5 block text-center" class="btn btn-auth">
+        Go to Sign In
+      </a>
+
+      {% else %}
+      <div class="flex items-start gap-3 mb-4">
+        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style="background:#f0fdf4;">
+          <svg class="h-5 w-5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+          <p class="font-semibold" style="color:var(--text);">Registration received</p>
+          {% if email %}
+          <p class="text-sm mt-0.5" style="color:var(--text-muted);">Registered as <span class="font-medium" style="color:var(--text-soft);">{{ email }}</span></p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if waiting %}
+      <div class="p-3 rounded-lg text-sm mb-4 flex items-start gap-2" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+        <span class="waiting-dot h-2 w-2 rounded-full shrink-0 mt-1.5" style="background:#f59f00;"></span>
+        <span>
+          <span class="font-semibold">Waiting for the SDSO to verify your account.</span><br />
+          Keep this page open — it checks every few seconds and takes you straight into your
+          portal the moment they release it. You will not have to sign in again.
+        </span>
+      </div>
+
+      <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:var(--brand);">If you would rather not wait here</p>
+      <ol class="space-y-3 text-sm" style="color:var(--text-soft);">
+        <li class="flex gap-3">
+          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">1</span>
+          <span>Close the page and come back to this site later, on this same browser.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">2</span>
+          <span>If you have been verified by then, you are signed in already — nothing to type.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">3</span>
+          <span>On another device, or after a few days, sign in with the email and password you just chose. That page tells you where your account stands.</span>
+        </li>
+      </ol>
+      {% else %}
+      <div class="p-3 rounded-lg text-sm mb-4" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+        We could not find a registration on this browser. Sign in with the email and
+        password you registered with — that page will tell you where your account stands.
+      </div>
+      {% endif %}
+
+      <a href="/login/" class="mt-5 block text-center" class="btn btn-outline" style="padding:0.6rem 1rem;">
+        Go to Sign In
+      </a>
+      {% endif %}
+
+    </div>
+
+    <p class="auth-footnote">Something wrong in your details? Contact the SDSO office.</p>
+    <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Scholarships</a></p>
+  </div>
+</body>
+</html>

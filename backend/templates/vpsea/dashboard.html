@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}VPSEA Dashboard — BiPSU SRMS{% endblock %}
+{% block title %}SDSO Dashboard — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
-{% block page_title %}VPSEA Dashboard{% endblock %}
-{% block page_subtitle %}Office of the Vice President for Student & External Affairs{% endblock %}
+{% block brand %}SDSO{% endblock %}
+{% block page_title %}SDSO Dashboard{% endblock %}
+{% block page_subtitle %}School Development and Service Office{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="dashboard" %}{% endblock %}
 
 {% block content %}
@@ -38,10 +38,6 @@
   <div class="card p-6">
     <h3 class="font-semibold mb-4">Quick Actions</h3>
     <div class="space-y-2">
-      <a href="/vpsea/applications/" class="btn btn-outline w-full justify-start gap-2">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Review Pending Applications ({{ pending }})
-      </a>
       <a href="/vpsea/affirmative/" class="btn btn-outline w-full justify-start gap-2">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         Verify Affirmative / Staff Applications

@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Students Without a Scholarship — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}SDSO{% endblock %}
+{% block page_title %}Scholarship Archives{% endblock %}
+{% block page_subtitle %}Students holding no award this term{% endblock %}
+
+{% block nav %}{% include "vpsea/_nav.html" with active="archives" %}{% endblock %}
+
+{% block content %}
+<!-- Type Tabs -->
+<div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+  <div class="flex flex-wrap gap-2">
+    {% for t in archive_types %}
+    <a href="/vpsea/archives/?type={{ t }}" class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">{{ t }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if request.GET.edited %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Student details updated.</div>
+{% endif %}
+{% if request.GET.error %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">{{ request.GET.error }}</div>
+{% endif %}
+
+<div class="space-y-4">
+  <div class="card p-6">
+
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <div class="flex items-center gap-2">
+          <h3 class="font-semibold">Students Without a Scholarship</h3>
+          <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type|urlencode }}&sy='+this.value"
+            style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#1971c2;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">
+            {% for lbl, display in all_sy_display %}
+            <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <p class="text-xs mt-0.5" style="color:#6b7a99;">
+          {{ total }} student{{ total|pluralize }} with no Approved award for this term
+        </p>
+      </div>
+      <input type="text" id="unawardedSearch" placeholder="Search name or student no."
+        style="padding:0.4rem 0.75rem;font-size:0.82rem;border:1px solid #e8ecf0;border-radius:8px;min-width:15rem;" />
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="unawardedTable">
+        <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student No.</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">GWA</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Would Qualify As</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Contact</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Standing</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+        </tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr style="border-bottom:1px solid #f1f3f9;" class="unawarded-row"
+            data-name="{{ row.profile.user.last_name|lower }} {{ row.profile.user.first_name|lower }}"
+            data-id="{{ row.profile.student_id|lower }}">
+            <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+            <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.profile.user.last_name }}</td>
+            <td style="padding:0.55rem 0.75rem;">{{ row.profile.user.first_name }}</td>
+            <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.profile.student_id }}</td>
+            <td style="padding:0.55rem 0.75rem;">{{ row.profile.course|default:"—" }}</td>
+            <td style="padding:0.55rem 0.75rem;">{{ row.profile.year_level }}</td>
+            <td style="padding:0.55rem 0.75rem;">
+              {% if row.profile.gwa %}{{ row.profile.gwa }}{% else %}<span style="color:#6b7a99;">not set</span>{% endif %}
+            </td>
+            <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">
+              {% if row.classification and row.classification != 'Not Eligible' %}
+              <span style="color:#2f9e44;font-weight:600;">{{ row.classification }}</span>
+              {% else %}<span style="color:#6b7a99;">—</span>{% endif %}
+            </td>
+            <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.profile.contact_number|default:"—" }}</td>
+            <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">
+              {% if row.state == 'never' %}
+                <span style="color:#6b7a99;">Never applied</span>
+              {% elif row.state == 'draft' %}
+                <span style="color:#b45309;font-weight:600;">Draft</span>
+                <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
+              {% elif row.state == 'rejected' %}
+                <span style="color:#e03131;font-weight:600;">Rejected</span>
+                <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
+              {% else %}
+                <span style="color:#1971c2;font-weight:600;">{{ row.latest.status }}</span>
+                <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
+              {% endif %}
+            </td>
+            <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
+              <button type="button" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;"
+                onclick="openStudentEdit({{ row.profile.pk }},'{{ row.profile.user.first_name|escapejs }}','{{ row.profile.user.last_name|escapejs }}','{{ row.profile.student_id|escapejs }}','{{ row.profile.gender|escapejs }}','{{ row.profile.course|escapejs }}','{{ row.profile.year_level }}','{{ row.profile.gwa }}','{{ row.profile.contact_number|escapejs }}','{{ row.profile.barangay|escapejs }}','{{ row.profile.municipality|escapejs }}','{{ row.profile.province|escapejs }}','{{ row.profile.school|escapejs }}')">Edit</button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="11" style="padding:3rem;text-align:center;color:#6b7a99;">
+            Every student on file holds an approved scholarship for {{ selected_sy }}.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-xs mt-4" style="color:#6b7a99;">
+      Counted against approved awards for the selected term only. A student who held a
+      scholarship in an earlier semester and has not been renewed for this one appears here.
+    </p>
+
+  </div>
+</div>
+
+<script>
+  // Course options follow the chosen school, using the same BiPSU mapping the
+  // student form uses. Course was a free-text box until now, which is how a
+  // record ended up reading "Batchelor of Science in Computer Science ".
+  var ARCH_COURSES = {{ bipsu_courses_json|safe }};
+
+  function archFillCourses(schoolSelId, courseSelId, wanted) {
+    var school = document.getElementById(schoolSelId).value;
+    var sel = document.getElementById(courseSelId);
+    sel.innerHTML = '<option value="">\u2014 Select Course \u2014</option>';
+    (ARCH_COURSES[school] || []).forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      if (c === wanted) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // A course typed in before these were dropdowns may match no school. Keep
+    // it selectable rather than silently blanking the field on save.
+    if (wanted && sel.value !== wanted) {
+      var keep = document.createElement('option');
+      keep.value = wanted;
+      keep.textContent = wanted + ' \u2014 not in the BiPSU list';
+      keep.selected = true;
+      sel.appendChild(keep);
+    }
+  }
+
+  function archSchoolFor(course) {
+    for (var s in ARCH_COURSES) {
+      if (ARCH_COURSES[s].indexOf(course) !== -1) return s;
+    }
+    return '';
+  }
+
+  function archInitSchoolCourse(schoolSelId, courseSelId, school, course) {
+    document.getElementById(schoolSelId).value = school || archSchoolFor(course) || '';
+    archFillCourses(schoolSelId, courseSelId, course);
+  }
+</script>
+
+<!-- Edit Student Modal -->
+<div id="studentEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
+  <div class="card p-6" style="width:100%;max-width:32rem;max-height:90vh;overflow-y:auto;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">Edit Student</h3>
+      <button type="button" onclick="document.getElementById('studentEditModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">&#10005;</button>
+    </div>
+    <form method="post" id="studentEditForm" onsubmit="return validateStudentPassword()">
+      {% csrf_token %}
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">First Name</label>
+          <input id="seFirst" name="first_name" required style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Last Name</label>
+          <input id="seLast" name="last_name" required style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Student No.</label>
+          <input id="seSid" name="student_id" style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Sex</label>
+          <select id="seGender" name="gender" style="margin-top:0.25rem;">
+            <option value="">&mdash;</option><option value="Male">Male</option><option value="Female">Female</option>
+          </select></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">School</label>
+          <select id="seSchool" name="school" style="margin-top:0.25rem;"
+                  onchange="archFillCourses('seSchool','seCourse','')">
+            <option value="">&#8212; Select School &#8212;</option>
+            {% for val, label in bipsu_schools %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Course</label>
+          <select id="seCourse" name="course" required style="margin-top:0.25rem;">
+            <option value="">&#8212; Select Course &#8212;</option>
+          </select></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Year Level</label>
+          <select id="seYear" name="year_level" style="margin-top:0.25rem;">
+            <option value="1">1st Year</option><option value="2">2nd Year</option>
+            <option value="3">3rd Year</option><option value="4">4th Year</option>
+          </select></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">GWA</label>
+          <input id="seGwa" name="gwa" type="number" step="0.01" min="1" max="5" style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Contact Number</label>
+          <input id="seContact" name="contact_number" style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Barangay</label>
+          <input id="seBarangay" name="barangay" style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Municipality</label>
+          <input id="seMunicipality" name="municipality" style="margin-top:0.25rem;" /></div>
+        <div><label class="text-xs font-medium" style="color:#6b7a99;">Province</label>
+          <input id="seProvince" name="province" style="margin-top:0.25rem;" /></div>
+      </div>
+
+      <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
+        <p class="text-xs font-semibold mb-2" style="color:#6b7a99;">Reset Password <span style="font-weight:400;">(leave blank to keep the current one)</span></p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div><input id="sePassword" name="new_password" type="password" placeholder="New password" /></div>
+          <div><input id="sePasswordConfirm" type="password" placeholder="Confirm password" /></div>
+        </div>
+        <p id="sePasswordError" style="display:none;color:#e03131;font-size:0.75rem;margin-top:0.35rem;">Passwords do not match.</p>
+      </div>
+
+      <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
+        <p class="text-xs font-semibold mb-1" style="color:#6b7a99;">Student-locked details</p>
+        <p class="text-xs mb-3" style="color:#6b7a99;font-weight:400;">
+          The student can set these only once. Type over one to correct it; leave blank to keep current.
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Civil Status</label>
+            <input id="se_civil_status" name="civil_status" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Elementary School</label>
+            <input id="se_elementary" name="elementary" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">High School</label>
+            <input id="se_highschool" name="highschool" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Last School Attended</label>
+            <input id="se_last_school" name="last_school" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Last Name</label>
+            <input id="se_father_last_name" name="father_last_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Given Name</label>
+            <input id="se_father_first_name" name="father_first_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Middle Name</label>
+            <input id="se_father_middle_name" name="father_middle_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Father's Occupation</label>
+            <input id="se_father_occupation" name="father_occupation" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Last Name</label>
+            <input id="se_mother_last_name" name="mother_last_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Given Name</label>
+            <input id="se_mother_first_name" name="mother_first_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Middle Name</label>
+            <input id="se_mother_middle_name" name="mother_middle_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color:#6b7a99;">Mother's Occupation</label>
+            <input id="se_mother_occupation" name="mother_occupation" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button type="button" onclick="document.getElementById('studentEditModal').style.display='none'" class="btn btn-outline">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openStudentEdit(pk, first, last, sid, gender, course, year, gwa, contact, barangay, municipality, province, school) {
+    document.getElementById('seFirst').value = first;
+    document.getElementById('seLast').value = last;
+    document.getElementById('seSid').value = sid;
+    document.getElementById('seGender').value = gender || '';
+    archInitSchoolCourse('seSchool', 'seCourse', school, course);
+    document.getElementById('seYear').value = year;
+    // A GWA of 0 means nobody has entered one; show it empty rather than as a mark.
+    document.getElementById('seGwa').value = (gwa && parseFloat(gwa) > 0) ? gwa : '';
+    document.getElementById('seContact').value = contact;
+    document.getElementById('seBarangay').value = barangay;
+    document.getElementById('seMunicipality').value = municipality;
+    document.getElementById('seProvince').value = province;
+    document.getElementById('sePassword').value = '';
+    document.getElementById('sePasswordConfirm').value = '';
+    document.getElementById('sePasswordError').style.display = 'none';
+    document.getElementById('studentEditForm').action = '/vpsea/archives/student/' + pk + '/edit/';
+    document.getElementById('studentEditModal').style.display = 'flex';
+  }
+  function validateStudentPassword() {
+    var pw = document.getElementById('sePassword').value;
+    var cf = document.getElementById('sePasswordConfirm').value;
+    if (pw !== cf) {
+      document.getElementById('sePasswordError').style.display = 'block';
+      return false;
+    }
+    return true;
+  }
+</script>
+
+<script>
+  (function () {
+    var box = document.getElementById('unawardedSearch');
+    if (!box) return;
+    box.addEventListener('input', function () {
+      var q = this.value.trim().toLowerCase();
+      document.querySelectorAll('.unawarded-row').forEach(function (row) {
+        var hit = !q
+          || (row.dataset.name || '').indexOf(q) !== -1
+          || (row.dataset.id || '').indexOf(q) !== -1;
+        row.style.display = hit ? '' : 'none';
+      });
+    });
+  })();
+</script>
+{% endblock %}

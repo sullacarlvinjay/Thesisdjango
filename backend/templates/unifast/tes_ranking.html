@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}TES Ranking — UniFAST{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}TES Ranking &amp; Recommendation{% endblock %}
+{% block page_subtitle %}Rule-based eligibility and priority, with the reason behind every result{% endblock %}
+
+{% block nav %}{% include "unifast/_nav.html" with active="tes_ranking" %}{% endblock %}
+
+{% block content %}
+{% include "unifast/_tes_ranking.html" %}
+{% endblock %}

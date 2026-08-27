@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Apply: Staff Scholarship — BiPSU Staff Portal{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block brand %}BiPSU Staff{% endblock %}
+{% block page_title %}BiPSU Staff Scholarship Application{% endblock %}
+{% block page_subtitle %}For permanent faculty and employees of Biliran Province State University{% endblock %}
+{% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
+
+{% block content %}
+
+{% if blocked %}
+<div class="card p-5 flex items-start gap-3 mb-6" style="border-color:#e03131;background:#fff5f5;">
+  <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+  <div>
+    <p class="text-sm font-semibold" style="color:#e03131;">Application Not Allowed</p>
+    <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
+    {% if existing %}
+    <a href="/nsu-staff/profile/" class="text-xs mt-2 inline-block" style="color:#3b5bdb;">View your scholarship record →</a>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+
+{% if submitted %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+  ✓ Your Staff Scholarship application has been submitted and is pending validation.
+</div>
+{% endif %}
+
+{% if drafted %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;">
+</div>
+{% endif %}
+
+{% if existing and existing.status == 'Draft' %}
+{% endif %}
+
+{% if errors %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+  <p class="font-semibold mb-1">Please fix the following:</p>
+  <ul class="list-disc list-inside space-y-0.5">
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+
+      {# ── Personal Information ───────────────────────────────────────────── #}
+      <div class="card p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">Personal Information</p>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>First Name <span style="color:#e03131;">*</span></label>
+            <input name="first_name" value="{{ prefill.first_name }}" placeholder="First name" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Last Name <span style="color:#e03131;">*</span></label>
+            <input name="last_name" value="{{ prefill.last_name }}" placeholder="Last name" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Date of Birth <span style="color:#e03131;">*</span></label>
+            <input name="date_of_birth" type="date" id="birthDateField"
+                   value="{{ prefill.date_of_birth }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Age</label>
+            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Gender <span style="color:#e03131;">*</span></label>
+            <select name="gender" required>
+              <option value="">— Select —</option>
+              <option value="Male"   {% if prefill.gender == 'Male' %}selected{% endif %}>Male</option>
+              <option value="Female" {% if prefill.gender == 'Female' %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Contact Number</label>
+            <input name="contact_number" type="tel" placeholder="09XXXXXXXXX"
+                   value="{{ prefill.contact_number }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Email</label>
+            <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-4 mt-4">
+          <div class="space-y-1.5">
+            <label>Barangay / Street</label>
+            <input name="barangay" placeholder="Barangay" value="{{ prefill.barangay }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Municipality</label>
+            <input name="municipality" placeholder="Municipality" value="{{ prefill.municipality }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Province</label>
+            <input name="province" placeholder="Province" value="{{ prefill.province }}" />
+          </div>
+        </div>
+      </div>
+
+      {# ── Academic Information ───────────────────────────────────────────── #}
+      <div class="card p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">Academic Information</p>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>Employee Number <span style="color:#e03131;">*</span></label>
+            <input name="student_number" placeholder="e.g. 2021-00001"
+                   value="{{ prefill.student_number }}" required />
+          </div>
+          <div class="space-y-1.5 sm:col-span-2">
+            <label>Course / Program <span style="color:#e03131;">*</span></label>
+            <input name="course" placeholder="e.g. BSCS"
+                   value="{{ prefill.course }}" required />
+          </div>
+        </div>
+      </div>
+
+      {# ── Employment Information ─────────────────────────────────────────── #}
+      <div class="card p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">Employment Information</p>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>Employment Status <span style="color:#e03131;">*</span></label>
+            <select name="employment_status" required>
+              <option value="">— Select —</option>
+              <option value="Regular"      {% if prefill.employment_status == 'Regular' %}selected{% endif %}>Regular</option>
+              <option value="Contractual"  {% if prefill.employment_status == 'Contractual' %}selected{% endif %}>Contractual</option>
+              <option value="Part-time"    {% if prefill.employment_status == 'Part-time' %}selected{% endif %}>Part-time</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Designation <span style="color:#e03131;">*</span></label>
+            <select name="designation" required>
+              <option value="">— Select —</option>
+              <option value="Teaching"     {% if prefill.designation == 'Teaching' %}selected{% endif %}>Teaching</option>
+              <option value="Non-Teaching" {% if prefill.designation == 'Non-Teaching' %}selected{% endif %}>Non-Teaching</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Years of Service <span style="color:#e03131;">*</span></label>
+            <input name="years_of_service" type="number" min="0" step="1" placeholder="e.g. 5"
+                   value="{{ prefill.years_of_service }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Date of Regularization <span style="color:#e03131;">*</span></label>
+            <input name="date_of_regularization" type="date"
+                   value="{{ prefill.date_of_regularization }}" required />
+          </div>
+        </div>
+      </div>
+
+      {# ── Document Upload ────────────────────────────────────────────────── #}
+      <div class="card p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Document Upload</p>
+        <p class="text-xs mb-5" style="color:#6b7a99;">Accepted formats: PDF, JPG, PNG · Max 5 MB.</p>
+        <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#f0fdf4;color:#2f9e44;">1</span>
+            <label class="text-sm font-medium" style="color:#374151;">
+              Appointment Paper <span style="color:#e03131;">*</span>
+            </label>
+          </div>
+          <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Official appointment document issued by the university.</p>
+          {% if existing.appointment_paper %}
+          <p class="text-xs mb-2 ml-7" style="color:#2f9e44;">
+            ✓ Previously uploaded —
+            <a href="{{ existing.appointment_paper.url }}" data-doc="Appointment Paper" style="color:#3b5bdb;">view file</a>.
+            Upload a new one below to replace it.
+          </p>
+          {% endif %}
+          <input type="file" name="appointment_paper"
+                 accept=".pdf,.jpg,.jpeg,.png"
+                 {% if not existing %}required{% endif %}
+                 style="width:100%;" />
+        </div>
+      </div>
+
+    </div>{# /col-span-2 #}
+
+    {# ── Sidebar ───────────────────────────────────────────────────────────── #}
+    <div>
+      <div class="card p-6 sticky top-24 space-y-5">
+
+        {# Eligibility checklist #}
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="h-4 w-4" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <h3 class="font-semibold text-sm">Eligibility</h3>
+          </div>
+          <p class="text-xs mb-3" style="color:#6b7a99;">The BiPSU Staff Scholarship is open to permanent faculty and employees and their qualified dependents enrolled at BiPSU.</p>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-start gap-2">
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>Permanent BiPSU faculty or employee</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>Currently enrolled at BiPSU</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>Has not yet earned a baccalaureate degree</span>
+            </div>
+          </div>
+        </div>
+
+        <hr style="border-color:#e8ecf0;" />
+
+        {# What happens next #}
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">What Happens Next</p>
+          <ol class="space-y-2 text-xs" style="color:#6b7a99;">
+            <li class="flex items-start gap-2">
+              <span class="font-bold shrink-0" style="color:#2f9e44;">1.</span>
+              <span>Your application is reviewed by the SDSO.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="font-bold shrink-0" style="color:#2f9e44;">2.</span>
+              <span>You will be notified once a decision is made.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="font-bold shrink-0" style="color:#2f9e44;">3.</span>
+              <span>If approved, your scholarship record will appear on your profile.</span>
+            </li>
+          </ol>
+        </div>
+
+        <hr style="border-color:#e8ecf0;" />
+
+        <button type="submit" name="action" value="submit" class="btn btn-primary w-full">Submit Application</button>
+        <a href="/nsu-staff/" class="btn btn-outline w-full text-center block mt-2">Cancel</a>
+      </div>
+    </div>
+
+  </div>{# /grid #}
+</form>
+
+{% endif %}{# /blocked #}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function calcAge(dob) {
+    if (!dob) return '';
+    const today = new Date();
+    const birth = new Date(dob);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 0 ? age : '';
+  }
+  const bdField = document.getElementById('birthDateField');
+  const ageField = document.getElementById('ageField');
+  if (bdField) {
+    if (bdField.value) ageField.value = calcAge(bdField.value);
+    bdField.addEventListener('change', () => { ageField.value = calcAge(bdField.value); });
+  }
+</script>
+{% endblock %}

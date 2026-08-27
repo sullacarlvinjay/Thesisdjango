@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Manage Students — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}Manage Students{% endblock %}
 {% block page_subtitle %}Approved scholars for {{ current_sem }} · A.Y. {{ current_sy }}{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
@@ -28,30 +28,69 @@
 {% endif %}
 
 <div class="card p-6">
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-    <form method="get" class="flex gap-2 flex-wrap items-end">
+<div class="card p-6">
+  <!-- Tab bar -->
+  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
+    <div class="tabs-bar">
+      <a href="?tab=scholars{% if q %}&q={{ q }}{% endif %}{% if stype %}&stype={{ stype }}{% endif %}"
+         class="tab-btn {% if tab != 'no_scholarship' %}active{% endif %}">
+        With Scholarship
+        <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
+              style="background:{% if tab != 'no_scholarship' %}#3b5bdb{% else %}#e8ecf0{% endif %};color:{% if tab != 'no_scholarship' %}#fff{% else %}#6b7a99{% endif %};">
+          {{ students|length }}
+        </span>
+      </a>
+      <a href="?tab=no_scholarship{% if q %}&q={{ q }}{% endif %}"
+         class="tab-btn {% if tab == 'no_scholarship' %}active{% endif %}">
+        No Scholarship
+        <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
+              style="background:{% if tab == 'no_scholarship' %}#f59f00{% else %}#e8ecf0{% endif %};color:{% if tab == 'no_scholarship' %}#fff{% else %}#6b7a99{% endif %};">
+          {{ no_scholarship_students|length }}
+        </span>
+      </a>
+    </div>
+
+    <!-- Actions row (only show filter + add on scholars tab) -->
+    {% if tab != 'no_scholarship' %}
+    <div class="flex flex-wrap items-end gap-2">
+      <form method="get" class="flex gap-2 flex-wrap items-end">
+        <input type="hidden" name="tab" value="scholars" />
+        <div class="space-y-1">
+          <label style="font-size:0.7rem;">Search</label>
+          <input name="q" value="{{ q }}" placeholder="Name or student ID…" style="width:14rem;" />
+        </div>
+        <div class="space-y-1">
+          <label style="font-size:0.7rem;">Scholarship</label>
+          <select name="stype" style="width:11rem;">
+            <option value="">All Programs</option>
+            {% for t in scholarship_types %}
+            <option value="{{ t }}" {% if t == stype %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-outline">Filter</button>
+        {% if q or stype %}<a href="/vpsea/students/" class="btn btn-outline">Clear</a>{% endif %}
+      </form>
+      <a href="/vpsea/students/add/" class="btn btn-primary" style="gap:0.4rem;">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add Student
+      </a>
+    </div>
+    {% else %}
+    <form method="get" class="flex gap-2 items-end">
+      <input type="hidden" name="tab" value="no_scholarship" />
       <div class="space-y-1">
         <label style="font-size:0.7rem;">Search</label>
-        <input name="q" value="{{ q }}" placeholder="Name or student ID…" style="width:15rem;" />
+        <input name="q" value="{{ q }}" placeholder="Name or student ID…" style="width:14rem;" />
       </div>
-      <div class="space-y-1">
-        <label style="font-size:0.7rem;">Scholarship Program</label>
-        <select name="stype" style="width:12rem;">
-          <option value="">All Programs</option>
-          {% for t in scholarship_types %}
-          <option value="{{ t }}" {% if t == stype %}selected{% endif %}>{{ t }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn btn-outline">Filter</button>
-      {% if q or stype %}<a href="/vpsea/students/" class="btn btn-outline">Clear</a>{% endif %}
+      <button type="submit" class="btn btn-outline">Search</button>
+      {% if q %}<a href="?tab=no_scholarship" class="btn btn-outline">Clear</a>{% endif %}
     </form>
-    <a href="/vpsea/students/add/" class="btn btn-primary gap-2">
-      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-      Add Student
-    </a>
+    {% endif %}
   </div>
 
+  <!-- ── TAB 1: Approved scholars ─────────────────────────────────── -->
+  {% if tab != 'no_scholarship' %}
   <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
       <thead>
@@ -105,6 +144,77 @@
       </tbody>
     </table>
   </div>
+
+  {% else %}
+  <!-- ── TAB 2: No scholarship ──────────────────────────────────────── -->
+  <p class="text-xs mb-4" style="color:#6b7a99;">
+    Registered student accounts with no approved scholarship application on record.
+    These students may be eligible to apply or may need follow-up from the SDSO.
+  </p>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+      <thead>
+        <tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student ID</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">GWA</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Gender</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Address</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Email</th>
+          <th style="text-align:right;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in no_scholarship_students %}
+        <tr style="border-bottom:1px solid #f1f3f9;">
+          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+          <td style="padding:0.6rem 0.75rem;">
+            <div class="flex items-center gap-2">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#6b7a99;">
+                {{ s.user.first_name|first }}{{ s.user.last_name|first }}
+              </div>
+              <span class="font-medium">{{ s.user.get_full_name }}</span>
+            </div>
+          </td>
+          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.8rem;color:#6b7a99;">{{ s.student_id }}</td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.course|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.year_level }}</td>
+          <td style="padding:0.6rem 0.75rem;">
+            {% if s.gwa %}
+            <span class="badge badge-{% if s.gwa <= 1.29 %}success{% elif s.gwa <= 1.50 %}info{% else %}muted{% endif %}">{{ s.gwa }}</span>
+            {% else %}<span style="color:#6b7a99;">—</span>{% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;">{{ s.gender|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">
+            {% if s.municipality %}{{ s.municipality }}{% if s.province %}, {{ s.province }}{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ s.user.email }}</td>
+          <td style="padding:0.6rem 0.75rem;text-align:right;">
+            <div class="flex items-center justify-end gap-1.5">
+              <a href="/vpsea/students/{{ s.pk }}/edit/" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;">
+                <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Edit
+              </a>
+              <button onclick="confirmDelete({{ s.pk }}, '{{ s.user.get_full_name|escapejs }}')"
+                class="btn" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+                <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" style="padding:3rem;text-align:center;color:#6b7a99;">
+          {% if q %}No students without scholarship matching "{{ q }}".{% else %}All registered students have at least one approved scholarship application.{% endif %}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Delete Confirmation Modal -->

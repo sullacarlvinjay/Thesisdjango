@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}My Applications — BiPSU Staff Portal{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block brand %}BiPSU Staff{% endblock %}
+{% block page_title %}My Applications{% endblock %}
+{% block page_subtitle %}Your scholarship application and renewal history{% endblock %}
+{% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
+
+{% block extra_head %}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  {# ── Scholarship Application ─────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">BiPSU Staff Scholarship Application</p>
+
+    {% if applications %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <thead>
+          <tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">ID</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Submitted</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Status</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Remarks</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Updated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in applications %}
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.7rem 1rem;font-family:monospace;font-size:0.8rem;color:#6b7a99;">APP-{{ a.id|stringformat:"07d" }}</td>
+            <td style="padding:0.7rem 1rem;font-weight:500;">BiPSU Staff Scholarship</td>
+            <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ a.submitted_at|date:"M d, Y" }}</td>
+            <td style="padding:0.7rem 1rem;">
+              {% if a.status == "Approved" or a.status == "Endorsed" %}<span class="badge badge-success">{{ a.status }}</span>
+              {% elif a.status == "Rejected" or a.status == "Disqualified" %}<span class="badge badge-destructive">{{ a.status }}</span>
+              {% elif a.status == "Draft" %}<span class="badge badge-muted">{{ a.status }}</span>
+              {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
+            </td>
+            <td style="padding:0.7rem 1rem;font-size:0.85rem;color:#6b7a99;">{{ a.remarks|default:"—" }}</td>
+            <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ a.updated_at|date:"M d, Y" }}</td>
+            <td style="padding:0.7rem 1rem;">
+              <button class="btn btn-outline" style="padding:0.25rem 0.75rem;font-size:0.75rem;" onclick="openModal('app-{{ a.id }}')">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-6" style="color:#6b7a99;">
+      <p class="text-sm mb-3">No scholarship application yet.</p>
+      <a href="/nsu-staff/apply/" class="btn btn-primary" style="font-size:0.875rem;">Apply for the Staff Scholarship</a>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Renewal History ─────────────────────────────────────────────────────── #}
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">Renewal History</p>
+
+    {% if renewals %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <thead>
+          <tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Submitted</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Status</th>
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Remarks</th>
+            {% if renewals.0.supporting_document %}
+            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Document</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in renewals %}
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.7rem 1rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
+            <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ r.submitted_at|date:"M d, Y" }}</td>
+            <td style="padding:0.7rem 1rem;">
+              <span class="badge {% if r.status == 'Approved' %}badge-success{% elif r.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %}">
+                {{ r.status }}
+              </span>
+            </td>
+            <td style="padding:0.7rem 1rem;font-size:0.85rem;color:#6b7a99;">{{ r.remarks|default:"—" }}</td>
+            {% if r.supporting_document %}
+            <td style="padding:0.7rem 1rem;">
+              <a href="{{ r.supporting_document.url }}" target="_blank" style="color:#2f9e44;font-size:0.8rem;text-decoration:underline;">View</a>
+            </td>
+            {% else %}
+            <td style="padding:0.7rem 1rem;color:#6b7a99;font-size:0.8rem;">—</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:#2f9e44;">Submit a renewal →</a></p>
+    {% endif %}
+  </div>
+
+</div>
+
+{# ── Overlay Modal ──────────────────────────────────────────────────────── #}
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="font-semibold text-base" id="modalTitle"></h2>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7a99;font-size:1.25rem;line-height:1;">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+{# ── Hidden detail templates ─────────────────────────────────────────────── #}
+<div style="display:none;">
+  {% for a in applications %}
+  <div id="app-{{ a.id }}">
+
+    {% if a.remarks %}
+    <div class="rounded-xl px-4 py-3 mb-4 text-sm" style="background:#fff7ed;border:1px solid #fed7aa;color:#92400e;">
+      <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
+    </div>
+    {% endif %}
+
+    <p class="section-title section-title--green">Personal Information</p>
+    <div class="detail-grid">
+      <div class="detail-field"><label>Full Name</label><span>{{ a.full_name }}</span></div>
+      <div class="detail-field"><label>School ID</label><span>{{ a.student_id|default:"—" }}</span></div>
+      <div class="detail-field"><label>Gender</label><span>{{ a.gender|default:"—" }}</span></div>
+      <div class="detail-field"><label>Date of Birth</label><span>{{ a.date_of_birth|date:"M d, Y"|default:"—" }}</span></div>
+      <div class="detail-field"><label>Contact Number</label><span>{{ a.contact_number|default:"—" }}</span></div>
+      <div class="detail-field"><label>Email</label><span>{{ a.email|default:"—" }}</span></div>
+      <div class="detail-field"><label>School</label><span>{{ a.school|default:"—" }}</span></div>
+      <div class="detail-field"><label>Course</label><span>{{ a.course|default:"—" }}</span></div>
+      <div class="detail-field"><label>Year Level</label><span>{{ a.year_level }}</span></div>
+    </div>
+
+    <p class="section-title section-title--green">Address</p>
+    <div class="detail-grid">
+      <div class="detail-field"><label>Barangay / Street</label><span>{{ a.barangay|default:"—" }}</span></div>
+      <div class="detail-field"><label>Municipality</label><span>{{ a.municipality|default:"—" }}</span></div>
+      <div class="detail-field"><label>Province</label><span>{{ a.province|default:"—" }}</span></div>
+    </div>
+
+    <p class="section-title section-title--green">Staff Eligibility</p>
+    <div class="detail-grid">
+      <div class="detail-field"><label>Type</label><span>{% if a.is_nsu_staff %}BiPSU Staff (Direct){% elif a.is_nsu_dependent %}BiPSU Staff Dependent{% else %}—{% endif %}</span></div>
+      {% if a.is_nsu_dependent %}
+      <div class="detail-field"><label>Staff Name</label><span>{{ a.staff_name|default:"—" }}</span></div>
+      <div class="detail-field"><label>Employee ID</label><span>{{ a.staff_employee_id|default:"—" }}</span></div>
+      <div class="detail-field"><label>Relationship</label><span>{{ a.relationship_to_staff|default:"—" }}</span></div>
+      {% endif %}
+      <div class="detail-field"><label>Has Baccalaureate</label><span>{% if a.has_baccalaureate %}Yes{% else %}No{% endif %}</span></div>
+    </div>
+
+    <p class="section-title section-title--green">Employment Details</p>
+    <div class="detail-grid">
+      <div class="detail-field"><label>Employment Status</label><span>{{ a.employment_status|default:"—" }}</span></div>
+      <div class="detail-field"><label>Designation</label><span>{{ a.designation|default:"—" }}</span></div>
+      <div class="detail-field"><label>Years of Service</label><span>{{ a.years_of_service|default:"—" }}</span></div>
+      <div class="detail-field"><label>Date of Regularization</label><span>{{ a.date_of_regularization|date:"M d, Y"|default:"—" }}</span></div>
+    </div>
+
+    {% if a.appointment_paper %}
+    <p class="section-title section-title--green">Submitted Documents</p>
+    <div class="detail-grid">
+      <div class="detail-field">
+        <label>Appointment Paper</label>
+        <span><a href="{{ a.appointment_paper.url }}" target="_blank" style="color:#2f9e44;text-decoration:underline;">View file</a></span>
+      </div>
+    </div>
+    {% endif %}
+
+    <p class="section-title section-title--green">Application Status</p>
+    <div class="detail-grid">
+      <div class="detail-field"><label>Status</label><span>{{ a.status }}</span></div>
+      <div class="detail-field"><label>Qualified For</label><span>{{ a.qualified_for|default:"—" }}</span></div>
+      <div class="detail-field"><label>Submitted</label><span>{{ a.submitted_at|date:"M d, Y" }}</span></div>
+      <div class="detail-field"><label>Last Updated</label><span>{{ a.updated_at|date:"M d, Y" }}</span></div>
+    </div>
+
+    {% if a.status == "Draft" %}
+    <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
+      <a href="/nsu-staff/apply/" class="btn btn-primary" style="font-size:0.875rem;">Continue Draft →</a>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function openModal(id) {
+    const src = document.getElementById(id);
+    const titleMap = {
+      {% for a in applications %}'app-{{ a.id }}': 'BiPSU Staff Scholarship — APP-{{ a.id|stringformat:"07d" }}',{% endfor %}
+    };
+    document.getElementById('modalTitle').textContent = titleMap[id] || 'Application Detail';
+    document.getElementById('modalBody').innerHTML = src ? src.innerHTML : '';
+    document.getElementById('modalOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+{% endblock %}

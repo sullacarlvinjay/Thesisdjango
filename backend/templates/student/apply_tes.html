@@ -10,6 +10,7 @@
   <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>Apply: Academic</a>
 
   <a href="/student/apply/tes/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
+
   {% endif %}
   <a href="/student/link-scholarship/" class="sidebar-link {% if '/link-scholarship' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
   <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
@@ -44,11 +45,11 @@
 
       <!-- Personal Information -->
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h3>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
             <label>Student ID</label>
-            <input name="student_id" value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+            <input name="student_id" value="{{ profile.student_id }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
           </div>
           <div class="space-y-1.5">
             <label>LRN <span style="color:#e03131;">*</span></label>
@@ -56,19 +57,19 @@
           </div>
           <div class="space-y-1.5">
             <label>Last Name</label>
-            <input name="last_name" value="{{ profile.user.last_name }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+            <input name="last_name" value="{{ profile.user.last_name }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
           </div>
           <div class="space-y-1.5">
             <label>Given Name</label>
-            <input name="first_name" value="{{ profile.user.first_name }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+            <input name="first_name" value="{{ profile.user.first_name }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
           </div>
           <div class="space-y-1.5">
-            <label>Middle Name <span style="color:#e03131;">*</span></label>
-            <input name="middle_name" value="{{ post.middle_name|default:'' }}" required />
+            <label>Middle Name</label>
+            <input value="{{ profile.middle_name }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
           </div>
           <div class="space-y-1.5">
             <label>Sex</label>
-            <input name="sex" value="{{ profile.gender }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+            <input name="sex" value="{{ profile.gender }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
           </div>
           <div class="space-y-1.5">
             <label>Birthdate (YYYY-MM-DD) <span style="color:#e03131;">*</span></label>
@@ -80,51 +81,61 @@
           </div>
           <div class="space-y-1.5">
             <label>Year Level</label>
-            <input name="year_level" value="{{ profile.year_level }}" readonly style="background:#f6f8fc;color:#6b7a99;" />
+            <input name="year_level" value="{{ profile.year_level }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
           </div>
         </div>
       </div>
 
-      <!-- Family Background -->
+      <!-- Family Background — read from the profile, not asked again -->
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
+        <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Family Background</h3>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">
+          Taken from your profile so you only enter it once.
+          {% if not profile.father_last_name or not profile.mother_last_name %}
+          <span style="color:#92400e;font-weight:600;">Some of it is missing —</span>
+          <a href="/student/profile/" style="color:var(--brand);font-weight:600;">add it in My Profile</a>
+          before submitting.
+          {% else %}
+          <a href="/student/profile/" style="color:var(--brand);font-weight:600;">Correct it in My Profile</a> if anything is wrong.
+          {% endif %}
+        </p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="sm:col-span-2">
-            <p class="text-xs font-semibold mb-2" style="color:#6b7a99;">Father's Name</p>
+            <p class="text-xs font-semibold mb-2" style="color:var(--text-muted);">Father's Name</p>
           </div>
           <div class="space-y-1.5">
-            <label>Last Name <span style="color:#e03131;">*</span></label>
-            <input name="father_last_name" value="{{ post.father_last_name|default:'' }}" required />
+            <label>Last Name</label>
+            <input value="{{ profile.father_last_name }}" readonly />
           </div>
           <div class="space-y-1.5">
-            <label>Given Name <span style="color:#e03131;">*</span></label>
-            <input name="father_first_name" value="{{ post.father_first_name|default:'' }}" required />
+            <label>Given Name</label>
+            <input value="{{ profile.father_first_name }}" readonly />
           </div>
           <div class="space-y-1.5">
-            <label>Middle Name <span style="color:#e03131;">*</span></label>
-            <input name="father_middle_name" value="{{ post.father_middle_name|default:'' }}" required />
+            <label>Middle Name</label>
+            <input value="{{ profile.father_middle_name }}" readonly />
           </div>
-          <div class="sm:col-span-2" style="border-top:1px solid #f1f3f9;padding-top:1rem;margin-top:0.5rem;">
-            <p class="text-xs font-semibold mb-2" style="color:#6b7a99;">Mother's Name</p>
-          </div>
-          <div class="space-y-1.5">
-            <label>Last Name <span style="color:#e03131;">*</span></label>
-            <input name="mother_last_name" value="{{ post.mother_last_name|default:'' }}" required />
+          <div class="sm:col-span-2" style="border-top:1px solid var(--border);padding-top:1rem;margin-top:0.5rem;">
+            <p class="text-xs font-semibold mb-2" style="color:var(--text-muted);">Mother's Name</p>
           </div>
           <div class="space-y-1.5">
-            <label>Given Name <span style="color:#e03131;">*</span></label>
-            <input name="mother_first_name" value="{{ post.mother_first_name|default:'' }}" required />
+            <label>Last Name</label>
+            <input value="{{ profile.mother_last_name }}" readonly />
           </div>
           <div class="space-y-1.5">
-            <label>Middle Name <span style="color:#e03131;">*</span></label>
-            <input name="mother_middle_name" value="{{ post.mother_middle_name|default:'' }}" required />
+            <label>Given Name</label>
+            <input value="{{ profile.mother_first_name }}" readonly />
+          </div>
+          <div class="space-y-1.5">
+            <label>Middle Name</label>
+            <input value="{{ profile.mother_middle_name }}" readonly />
           </div>
         </div>
       </div>
 
       <!-- Address & Contact -->
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Address & Contact</h3>
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Address & Contact</h3>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5 sm:col-span-2">
             <label>Street &amp; Barangay <span style="color:#e03131;">*</span></label>
@@ -159,7 +170,7 @@
 
       <!-- Additional Information -->
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Additional Information</h3>
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Additional Information</h3>
         <div class="space-y-4">
           <div class="space-y-1.5">
             <label>Disability Type <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">Put N/A if not applicable</span></label>

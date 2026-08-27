@@ -30,8 +30,8 @@
       </div>
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider" style="color:#2f9e44;">Eligible</p>
-        <h2 class="text-xl font-bold" style="color:#1e2a3a;">NSU Staff Scholarship</h2>
-        <p class="text-sm mt-1" style="color:#374151;">Congratulations, <strong>{{ application.full_name }}</strong>! You qualify for the NSU Staff Scholarship. Please complete and submit your application below.</p>
+        <h2 class="text-xl font-bold" style="color:#1e2a3a;">BiPSU Staff Scholarship</h2>
+        <p class="text-sm mt-1" style="color:#374151;">Congratulations, <strong>{{ application.full_name }}</strong>! You qualify for the BiPSU Staff Scholarship. Please complete and submit your application below.</p>
       </div>
     </div>
   </div>
@@ -59,7 +59,7 @@
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider" style="color:#dc2626;">Not Qualified</p>
         <h2 class="text-xl font-bold" style="color:#1e2a3a;">No Scholarship Match Found</h2>
-        <p class="text-sm mt-1" style="color:#374151;">Based on your responses, <strong>{{ application.full_name }}</strong>, you do not currently qualify for the NSU Staff or Affirmative Action scholarship. Please check other available scholarships on the portal.</p>
+        <p class="text-sm mt-1" style="color:#374151;">Based on your responses, <strong>{{ application.full_name }}</strong>, you do not currently qualify for the BiPSU Staff or Affirmative Action scholarship. Please check other available scholarships on the portal.</p>
       </div>
     </div>
     <div class="mt-4 pt-4 flex gap-3" style="border-top:1px solid #fecaca;">
@@ -74,8 +74,8 @@
   <!-- Scholarship Background -->
   <div class="card">
     {% if qualified_for == 'Staff' %}
-    <p class="section-title">About the NSU Staff Scholarship</p>
-    <p class="text-sm mb-3" style="color:#374151;">The NSU Staff Scholarship is an institutional benefit granted by Biliran Province State University (BiPSU) to its permanent faculty and employees, as well as their qualified dependents. It was established to recognize the dedication of university personnel and to support their families in pursuing higher education within the institution.</p>
+    <p class="section-title">About the BiPSU Staff Scholarship</p>
+    <p class="text-sm mb-3" style="color:#374151;">The BiPSU Staff Scholarship is an institutional benefit granted by Biliran Province State University (BiPSU) to its permanent faculty and employees, as well as their qualified dependents. It was established to recognize the dedication of university personnel and to support their families in pursuing higher education within the institution.</p>
     <p class="text-sm" style="color:#374151;">This scholarship covers tuition and miscellaneous fees for one academic year, renewable each semester provided the scholar maintains good academic standing. It reflects the university's commitment to the welfare of its academic community.</p>
     {% else %}
     <p class="section-title">About the Affirmative Action Scholarship</p>
@@ -105,12 +105,12 @@
 
     {% if qualified_for == 'Staff' %}
     <div class="card">
-      <p class="section-title">NSU Staff Details</p>
+      <p class="section-title">BiPSU Staff Details</p>
       <div class="grid sm:grid-cols-2 gap-4">
         {% if application.is_nsu_staff %}
-        <div><label>Status</label><input value="Permanent NSU Faculty/Employee" readonly style="background:#f6f8fc;" /></div>
+        <div><label>Status</label><input value="Permanent BiPSU Faculty/Employee" readonly style="background:#f6f8fc;" /></div>
         {% else %}
-        <div><label>NSU Staff Member</label><input value="{{ application.staff_name }}" readonly style="background:#f6f8fc;" /></div>
+        <div><label>BiPSU Staff Member</label><input value="{{ application.staff_name }}" readonly style="background:#f6f8fc;" /></div>
         <div><label>Employee ID</label><input value="{{ application.staff_employee_id }}" readonly style="background:#f6f8fc;" /></div>
         <div><label>Relationship</label><input value="{{ application.relationship_to_staff }}" readonly style="background:#f6f8fc;" /></div>
         {% endif %}
@@ -153,7 +153,7 @@
         <p>• 2x2 ID Picture</p>
         <p>• Birth Certificate (PSA)</p>
         {% if qualified_for == 'Staff' and not application.is_nsu_staff %}
-        <p>• Employment Certificate of NSU staff member</p>
+        <p>• Employment Certificate of BiPSU staff member</p>
         {% endif %}
         {% if qualified_for == 'Affirmative' %}
         <p>• SHS Certificate (already submitted)</p>

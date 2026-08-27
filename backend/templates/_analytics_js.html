@@ -1,0 +1,297 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.chart-toggle-btn {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
+  border: 1px solid #e8ecf0;
+  border-radius: 5px;
+  background: #f6f8fc;
+  color: #6b7a99;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.chart-toggle-btn.active {
+  background: #3b5bdb;
+  color: #fff;
+  border-color: #3b5bdb;
+}
+</style>
+<script>
+// ── Download chart as PNG ─────────────────────────────────────────────────────
+function downloadChart(canvasId, filename) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const link = document.createElement('a');
+  link.download = filename + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+const gridColor = '#e8ecf0';
+Chart.defaults.font = { family: 'inherit', size: 12 };
+Chart.defaults.color = '#6b7a99';
+const PIE_COLORS = [
+  '#3b5bdb','#1971c2','#2f9e44','#f59f00','#e64980',
+  '#7048e8','#0ca678','#f76707','#c2255c','#6b7a99',
+];
+
+// ── Helper: build toggle buttons and re-render chart on click ─────────────────
+function makeToggle(containerId, chartRef, types, buildFn) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  types.forEach(type => {
+    const btn = document.createElement('button');
+    btn.className = 'chart-toggle-btn' + (type === types[0] ? ' active' : '');
+    btn.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+    btn.onclick = () => {
+      container.querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      chartRef.chart.destroy();
+      chartRef.chart = buildFn(type);
+    };
+    container.appendChild(btn);
+  });
+}
+
+// ── Program Chart ─────────────────────────────────────────────────────────────
+{% if selected_type %}
+const programLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const programData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const programRef = {};
+function buildProgramChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('programChart'), {
+    type,
+    data: {
+      labels: programLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: programData,
+        backgroundColor: PIE_COLORS,
+        borderWidth: 1,
+        borderRadius: isPie ? 0 : 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: isPie ? 'right' : 'top', labels: { boxWidth: 12, font: { size: 11 } }, display: isPie },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} scholars` } },
+      },
+      scales: isPie ? {} : {
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+      },
+    },
+  });
+}
+programRef.chart = buildProgramChart('pie');
+makeToggle('programChartToggle', programRef, ['pie','doughnut','bar','line'], buildProgramChart);
+
+{% else %}
+const rcMap = { {% for t, cnt in rollover_counts.items %}'{{ t }}': {{ cnt }}{% if not forloop.last %},{% endif %}{% endfor %} };
+const allLabels = [{% for t in all_types %}'{{ t }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const allCounts = allLabels.map(t => rcMap[t] || 0);
+const filteredLabels = allLabels.filter((_, i) => allCounts[i] > 0);
+const filteredCounts = allCounts.filter(v => v > 0);
+const chartLabels = filteredLabels.length ? filteredLabels : allLabels;
+const chartCounts = filteredLabels.length ? filteredCounts : allCounts;
+const programRef = {};
+function buildProgramChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('programChart'), {
+    type,
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: chartCounts,
+        backgroundColor: PIE_COLORS,
+        borderWidth: 1,
+        borderRadius: isPie ? 0 : 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: isPie, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+      },
+      scales: isPie ? {} : {
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+      },
+    },
+  });
+}
+programRef.chart = buildProgramChart('bar');
+makeToggle('programChartToggle', programRef, ['bar','pie','doughnut','line'], buildProgramChart);
+{% endif %}
+
+{% if gpa_ranges %}
+// ── GWA Chart ─────────────────────────────────────────────────────────────────
+const gwaLabels = [{% for g in gpa_ranges %}'{{ g.range }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const gwaData   = [{% for g in gpa_ranges %}{{ g.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const gwaRef = {};
+function buildGwaChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('gwaChart'), {
+    type,
+    data: {
+      labels: gwaLabels,
+      datasets: [{
+        label: 'Students',
+        data: gwaData,
+        backgroundColor: ['#3b5bdb','#4c6ef5','#748ffc','#91a7ff','#bac8ff'],
+        borderColor: '#3b5bdb',
+        borderWidth: isPie ? 1 : 2,
+        borderRadius: isPie ? 0 : 6,
+        fill: type === 'line',
+        tension: 0.4,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: isPie } },
+      scales: isPie ? {} : {
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+      },
+    },
+  });
+}
+gwaRef.chart = buildGwaChart('bar');
+makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
+{% endif %}
+
+// ── Course Chart ──────────────────────────────────────────────────────────────
+{% if course_dist %}
+const cLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const cData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const courseRef = {};
+function buildCourseChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  const isHBar = type === 'bar';
+  return new Chart(document.getElementById('courseChart'), {
+    type: isPie ? type : 'bar',
+    data: {
+      labels: cLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: cData,
+        backgroundColor: isPie ? PIE_COLORS : '#1971c2',
+        borderColor: '#1971c2',
+        borderWidth: isPie ? 1 : 2,
+        borderRadius: isPie ? 0 : 6,
+        fill: type === 'line',
+        tension: 0.4,
+      }],
+    },
+    options: {
+      indexAxis: (!isPie && type !== 'line') ? 'y' : 'x',
+      responsive: true,
+      plugins: { legend: { display: isPie } },
+      scales: isPie ? {} : {
+        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+        y: { grid: { color: gridColor } },
+      },
+    },
+  });
+}
+courseRef.chart = buildCourseChart('bar');
+makeToggle('courseChartToggle', courseRef, ['bar','pie','doughnut','line'], buildCourseChart);
+{% endif %}
+
+// ── Scholars Over Time Chart ──────────────────────────────────────────────────
+{% if trend_data|length > 1 %}
+const trendLabels = [{% for t in trend_data %}'{{ t.display|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+
+// One entry per programme. Chart.js index-mode tooltips list every series at a
+// point, so the breakdown that used to be built by hand is now just the tooltip.
+const trendSeries = [
+  {% for s in trend_series %}
+  { name: '{{ s.type|escapejs }}', data: [{% for c in s.counts %}{{ c }}{% if not forloop.last %},{% endif %}{% endfor %}] }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
+
+const trendRef = {};
+
+function buildTrendChart(type) {
+  const isLine = type === 'line';
+  return new Chart(document.getElementById('trendChart'), {
+    type: isLine ? 'line' : 'bar',
+    data: {
+      labels: trendLabels,
+      datasets: trendSeries.map(function (s, i) {
+        const colour = PIE_COLORS[i % PIE_COLORS.length];
+        return {
+          label: s.name,
+          data: s.data,
+          backgroundColor: isLine ? 'transparent' : colour,
+          borderColor: colour,
+          borderWidth: isLine ? 2.5 : 1.5,
+          borderRadius: isLine ? 0 : 6,
+          pointBackgroundColor: colour,
+          pointRadius: isLine ? 4 : 0,
+          pointHoverRadius: isLine ? 6 : 0,
+          fill: false,
+          tension: 0.4,
+        };
+      }),
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        // With one programme selected the legend would just repeat the heading.
+        legend: {
+          display: trendSeries.length > 1,
+          position: 'bottom',
+          labels: { boxWidth: 12, boxHeight: 12, usePointStyle: true, font: { size: 11 } },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0].label.replace('\\n', ' '),
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: gridColor },
+          ticks: { maxRotation: 45, minRotation: 30 },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: gridColor },
+          ticks: { stepSize: 1, precision: 0 },
+          title: { display: true, text: 'Number of Scholars', color: '#6b7a99', font: { size: 11 } },
+        },
+      },
+    },
+  });
+}
+
+trendRef.chart = buildTrendChart('line');
+makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
+
+{% if tes_status and tes_total %}
+(function () {
+  new Chart(document.getElementById('tesChart'), {
+    type: 'doughnut',
+    data: {
+      labels: [{% for s in tes_status %}'{{ s.label|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        data: [{% for s in tes_status %}{{ s.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+        backgroundColor: [{% for s in tes_status %}'{{ s.color }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+    },
+  });
+})();
+{% endif %}
+{% endif %}
+</script>
+

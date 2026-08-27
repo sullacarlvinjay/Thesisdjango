@@ -10,6 +10,7 @@
   <a href="/student/apply/academic/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>Apply: Academic</a>
 
   <a href="/student/apply/tes/" class="sidebar-link {% if '/apply/tes' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
+
   {% endif %}
   <a href="/student/link-scholarship/" class="sidebar-link {% if '/link-scholarship' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
   <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
@@ -27,7 +28,7 @@
   </div>
 </div>
 {% else %}
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" data-cache="apply-academic">
   {% csrf_token %}
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
@@ -69,8 +70,8 @@
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Academic Information</h3>
         <div class="grid sm:grid-cols-3 gap-4 mb-4">
           <div class="space-y-1.5"><label>GWA</label><input name="gwa" type="number" step="0.01" value="{{ profile.gwa }}" id="gwaInput" oninput="validateGWA(this.value)" /></div>
-          <div class="space-y-1.5"><label>Semester</label><input name="semester" value="2nd Semester" /></div>
-          <div class="space-y-1.5"><label>School Year</label><input name="school_year" value="2024-2025" /></div>
+          <div class="space-y-1.5"><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly /></div>
+          <div class="space-y-1.5"><label>School Year</label><input name="school_year" value="{{ active_school_year }}" readonly /></div>
         </div>
       </div>
 
@@ -136,21 +137,28 @@
           <h3 class="font-semibold">Auto-Validation</h3>
         </div>
         <p class="text-xs mb-4" style="color:#6b7a99;">Real-time eligibility evaluation based on submitted data.</p>
+        {% comment %}
+          Every value in this panel is re-rendered by validateGWA() as the
+          applicant types. It used to mix a live classification with a GWA and
+          two rule badges rendered from profile.gwa, so typing 1.4 flipped the
+          heading to College Scholar while the line underneath still read
+          GWA 0.0 and both rules still said Pass.
+        {% endcomment %}
         <div id="validationResult" class="p-4 rounded-xl {% if eligible %}bg-green-50{% else %}bg-red-50{% endif %}">
           <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
-          <p class="text-xl font-bold mt-1 {% if eligible %}text-green-600{% else %}text-red-600{% endif %}" id="classificationText">{{ classification }}</p>
-          <p class="text-xs mt-2">GWA {{ profile.gwa }}</p>
+          <p class="text-xl font-bold mt-1 {% if eligible %}text-green-600{% else %}text-red-600{% endif %}" id="classificationText">{{ classification|default:"Enter your GWA" }}</p>
+          <p class="text-xs mt-2" id="gwaReadout">GWA {{ profile.gwa|floatformat:2 }}</p>
         </div>
         <div class="mt-4 space-y-2 text-xs">
-          <div class="flex justify-between"><span>Rule: GWA ≤ 1.29</span>
-            <span class="badge {% if profile.gwa <= 1.29 %}badge-success{% else %}badge-warning{% endif %}">{% if profile.gwa <= 1.29 %}Pass{% else %}Fail{% endif %}</span>
+          <div class="flex justify-between"><span>Rule: GWA ≤ {{ university_max_gwa }}</span>
+            <span class="badge badge-muted" id="ruleUniversity">—</span>
           </div>
-          <div class="flex justify-between"><span>Rule: GWA ≤ 1.50</span>
-            <span class="badge {% if profile.gwa <= 1.50 %}badge-success{% else %}badge-warning{% endif %}">{% if profile.gwa <= 1.50 %}Pass{% else %}Fail{% endif %}</span>
+          <div class="flex justify-between"><span>Rule: GWA ≤ {{ college_max_gwa }}</span>
+            <span class="badge badge-muted" id="ruleCollege">—</span>
           </div>
         </div>
         <button type="submit" name="action" value="submit" class="btn btn-primary w-full mt-6">Submit Application</button>
-        <button type="submit" name="action" value="draft" class="btn btn-outline w-full mt-2">Save as Draft</button>
+        <p class="text-xs mt-3 text-center" style="color:#6b7a99;" id="cacheStatus"></p>
       </div>
     </div>
   </div>
@@ -159,6 +167,12 @@
 {% endblock %}
 
 {% block extra_js %}
+{% comment %}
+  Only when the form is actually on the page. When the applicant is blocked
+  there are no fields to validate or cache, and the GWA ceilings are not in the
+  context — which would render `const UNIVERSITY_MAX = ;` and kill the block.
+{% endcomment %}
+{% if not blocked %}
 <script>
   function calcAge(dob) {
     if (!dob) return '';
@@ -176,13 +190,53 @@
   // Calculate on load
   if (bdField && bdField.value) ageField.value = calcAge(bdField.value);
 
+  // The same two ceilings the server judges on, handed over by the view so the
+  // rule on screen cannot drift from the rule actually applied.
+  const UNIVERSITY_MAX = {{ university_max_gwa }};
+  const COLLEGE_MAX = {{ college_max_gwa }};
+
   function validateGWA(val) {
     const gwa = parseFloat(val);
     const result = document.getElementById('validationResult');
     const text = document.getElementById('classificationText');
-    if (gwa <= 1.29) { text.textContent = 'University Scholar'; result.className = 'p-4 rounded-xl bg-green-50'; text.className = 'text-xl font-bold mt-1 text-green-600'; }
-    else if (gwa <= 1.50) { text.textContent = 'College Scholar'; result.className = 'p-4 rounded-xl bg-green-50'; text.className = 'text-xl font-bold mt-1 text-green-600'; }
-    else { text.textContent = 'Not Eligible'; result.className = 'p-4 rounded-xl bg-red-50'; text.className = 'text-xl font-bold mt-1 text-red-600'; }
+    const readout = document.getElementById('gwaReadout');
+    const ruleUni = document.getElementById('ruleUniversity');
+    const ruleCollege = document.getElementById('ruleCollege');
+
+    // Nothing typed yet is not the same as a perfect grade — an empty box must
+    // not read as University Scholar.
+    const entered = !isNaN(gwa) && gwa > 0;
+    readout.textContent = entered ? 'GWA ' + gwa.toFixed(2) : 'No GWA entered yet';
+
+    function mark(el, passed) {
+      el.textContent = entered ? (passed ? 'Pass' : 'Fail') : '—';
+      el.className = 'badge ' + (!entered ? 'badge-muted' : passed ? 'badge-success' : 'badge-warning');
+    }
+    mark(ruleUni, entered && gwa <= UNIVERSITY_MAX);
+    mark(ruleCollege, entered && gwa <= COLLEGE_MAX);
+
+    let label, ok;
+    if (!entered) { label = 'Enter your GWA'; ok = null; }
+    else if (gwa <= UNIVERSITY_MAX) { label = 'University Scholar'; ok = true; }
+    else if (gwa <= COLLEGE_MAX) { label = 'College Scholar'; ok = true; }
+    else { label = 'Not Eligible'; ok = false; }
+
+    text.textContent = label;
+    result.className = 'p-4 rounded-xl ' + (ok === null ? 'bg-gray-50' : ok ? 'bg-green-50' : 'bg-red-50');
+    text.className = 'text-xl font-bold mt-1 ' + (ok === null ? 'text-gray-500' : ok ? 'text-green-600' : 'text-red-600');
   }
+
+  // Run once on load so a restored or prefilled GWA is reflected immediately.
+  const gwaField = document.getElementById('gwaInput');
+  if (gwaField) validateGWA(gwaField.value);
+
+  // form-cache.js puts saved answers back after this runs, so recompute then.
+  document.querySelector('form[data-cache]').addEventListener('cache:restored', function () {
+    if (gwaField) validateGWA(gwaField.value);
+    if (bdField && bdField.value) ageField.value = calcAge(bdField.value);
+  });
 </script>
+{% load static %}
+<script src="{% static 'js/form-cache.js' %}"></script>
+{% endif %}
 {% endblock %}

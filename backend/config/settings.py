@@ -49,9 +49,17 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # After AuthenticationMiddleware: it reads request.user to decide whether a
+    # just-registered visitor still needs letting in.
+    'api.middleware.ReleaseVerifiedAccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# The document viewer frames uploaded files (proofs, certificates, appointment
+# papers) from our own /media/. Django's default of DENY blocks that even for
+# same-origin frames; SAMEORIGIN still keeps other sites from framing us.
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 ROOT_URLCONF = 'config.urls'
 
@@ -120,6 +128,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

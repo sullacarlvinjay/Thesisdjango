@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Reports — BiPSU SRMS{% endblock %}
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
-{% block brand %}VPSEA{% endblock %}
+{% block brand %}SDSO{% endblock %}
 {% block page_title %}Reports{% endblock %}
 {% block page_subtitle %}Scholarship Master List{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="reports" %}{% endblock %}
@@ -61,24 +61,7 @@
             {% if female_rows %}
               {% for row in female_rows %}
               <tr>
-                <td contenteditable="true">{{ forloop.counter }}</td>
-                {% if 'AWARD' in headers.1 %}<td contenteditable="true">{{ row.award }}</td>{% endif %}
-                <td contenteditable="true">{{ row.last }}</td>
-                <td contenteditable="true">{{ row.first }}</td>
-                <td contenteditable="true">{{ row.mi }}</td>
-                <td contenteditable="true">{{ row.sex }}</td>
-                {% if 'BRGY' in headers|join:"," %}
-                  <td contenteditable="true">{{ row.brgy }}</td>
-                  <td contenteditable="true">{{ row.mun }}</td>
-                  <td contenteditable="true">{{ row.prov }}</td>
-                {% endif %}
-                {% if 'CONG' in headers|join:"," %}<td contenteditable="true">{{ row.cong }}</td>{% endif %}
-                <td contenteditable="true">{{ row.course }}</td>
-                <td contenteditable="true">{{ row.yr }}</td>
-                {% if 'GWA' in headers|join:"," %}<td contenteditable="true">{{ row.gwa }}</td>{% endif %}
-                {% if 'STUDENT' in headers|join:"," %}<td contenteditable="true">{{ row.student_no }}</td>{% endif %}
-                <td contenteditable="true">{{ row.pct }}</td>
-                <td contenteditable="true">{{ row.scholarship }}</td>
+                {% for cell in row %}<td contenteditable="true">{{ cell }}</td>{% endfor %}
               </tr>
               {% endfor %}
             {% else %}
@@ -98,24 +81,7 @@
             {% if male_rows %}
               {% for row in male_rows %}
               <tr>
-                <td contenteditable="true">{{ forloop.counter }}</td>
-                {% if 'AWARD' in headers.1 %}<td contenteditable="true">{{ row.award }}</td>{% endif %}
-                <td contenteditable="true">{{ row.last }}</td>
-                <td contenteditable="true">{{ row.first }}</td>
-                <td contenteditable="true">{{ row.mi }}</td>
-                <td contenteditable="true">{{ row.sex }}</td>
-                {% if 'BRGY' in headers|join:"," %}
-                  <td contenteditable="true">{{ row.brgy }}</td>
-                  <td contenteditable="true">{{ row.mun }}</td>
-                  <td contenteditable="true">{{ row.prov }}</td>
-                {% endif %}
-                {% if 'CONG' in headers|join:"," %}<td contenteditable="true">{{ row.cong }}</td>{% endif %}
-                <td contenteditable="true">{{ row.course }}</td>
-                <td contenteditable="true">{{ row.yr }}</td>
-                {% if 'GWA' in headers|join:"," %}<td contenteditable="true">{{ row.gwa }}</td>{% endif %}
-                {% if 'STUDENT' in headers|join:"," %}<td contenteditable="true">{{ row.student_no }}</td>{% endif %}
-                <td contenteditable="true">{{ row.pct }}</td>
-                <td contenteditable="true">{{ row.scholarship }}</td>
+                {% for cell in row %}<td contenteditable="true">{{ cell }}</td>{% endfor %}
               </tr>
               {% endfor %}
             {% else %}
@@ -125,7 +91,7 @@
         </table>
       </div>
     {% else %}
-      <!-- No gender split (e.g. NSU Staff) -->
+      <!-- No gender split (e.g. BiPSU Staff) -->
       <div style="overflow-x:auto;">
         <table class="report-table" id="tbl-{{ key }}">
           <thead>
@@ -135,16 +101,7 @@
             {% if female_rows %}
               {% for row in female_rows %}
               <tr>
-                <td contenteditable="true">{{ forloop.counter }}</td>
-                <td contenteditable="true">{{ row.last }}</td>
-                <td contenteditable="true">{{ row.first }}</td>
-                <td contenteditable="true">{{ row.mi }}</td>
-                <td contenteditable="true">{{ row.sex }}</td>
-                <td contenteditable="true">{{ row.course }}</td>
-                <td contenteditable="true">{{ row.yr }}</td>
-                <td contenteditable="true">{{ row.student_no }}</td>
-                <td contenteditable="true">{{ row.pct }}</td>
-                <td contenteditable="true">{{ row.scholarship }}</td>
+                {% for cell in row %}<td contenteditable="true">{{ cell }}</td>{% endfor %}
               </tr>
               {% endfor %}
             {% else %}

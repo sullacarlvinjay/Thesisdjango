@@ -13,6 +13,7 @@ urlpatterns = [
     path('login/', student_views.login_view),
     path('logout/', student_views.logout_view),
     path('register/', student_views.register_view),
+    path('register/received/', student_views.registration_received),
 
     # Student portal — /student/ redirects straight to applications
     path('student/', lambda r: redirect('/student/applications/')),
@@ -49,8 +50,8 @@ urlpatterns = [
     # VPSEA portal pages
     path('vpsea/', student_views.vpsea_dashboard),
     path('vpsea/affirmative/', student_views.vpsea_affirmative_applications),
-    path('vpsea/applications/', student_views.vpsea_applications),
     path('vpsea/renewals/', student_views.vpsea_renewals),
+    path('vpsea/link-requests/', student_views.vpsea_link_requests),
     path('vpsea/archives/', student_views.vpsea_archives),
     path('vpsea/archives/add/', student_views.vpsea_archive_add),
     path('vpsea/archives/rollover/<int:pk>/delete/', student_views.vpsea_rollover_delete),
@@ -58,6 +59,7 @@ urlpatterns = [
     path('vpsea/archives/new-semester/', student_views.vpsea_new_semester),
     path('vpsea/archives/undo-semester/', student_views.vpsea_undo_semester),
     path('vpsea/archives/download/', student_views.vpsea_archive_download),
+    path('vpsea/archives/student/<int:pk>/edit/', student_views.vpsea_student_record_edit),
     path('vpsea/archives/<int:pk>/edit/', student_views.vpsea_archive_edit),
     path('vpsea/archives/<int:pk>/delete/', student_views.vpsea_archive_delete),
     path('vpsea/analytics/', student_views.vpsea_analytics),
@@ -71,12 +73,15 @@ urlpatterns = [
     path('vpsea/scholarships/<int:pk>/edit/', student_views.vpsea_scholarship_edit),
     path('vpsea/scholarships/<int:pk>/toggle/', student_views.vpsea_scholarship_toggle),
     path('vpsea/ranking/', student_views.vpsea_ranking),
+    path('vpsea/accounts/', student_views.vpsea_accounts),
     path('vpsea/students/', student_views.vpsea_students),
     path('vpsea/students/add/', student_views.vpsea_student_add),
     path('vpsea/students/<int:pk>/edit/', student_views.vpsea_student_edit),
     path('vpsea/students/<int:pk>/delete/', student_views.vpsea_student_delete),
-    # NSU Staff portal pages
+    # BiPSU Staff portal pages
     path('nsu-staff/', student_views.nsu_staff_dashboard),
+    path('nsu-staff/apply/', student_views.nsu_staff_apply),
+    path('nsu-staff/applications/', student_views.nsu_staff_applications),
     path('nsu-staff/profile/', student_views.nsu_staff_profile),
     path('nsu-staff/notifications/', student_views.nsu_staff_notifications),
     path('nsu-staff/renewal/', student_views.nsu_staff_renewal),
@@ -91,6 +96,12 @@ urlpatterns = [
     path('unifast/archives/<int:pk>/edit/', student_views.unifast_archive_edit),
     path('unifast/archives/<int:pk>/delete/', student_views.unifast_archive_delete),
     path('unifast/tes-applications/', student_views.unifast_tes_applications),
+    path('unifast/tes-ranking/', student_views.unifast_tes_ranking),
+    path('unifast/announcements/', student_views.unifast_announcements),
+    path('unifast/analytics/', student_views.unifast_analytics),
+    path('unifast/reports/', student_views.unifast_reports),
+    path('unifast/reports/download/excel/', student_views.unifast_report_download_excel),
+    path('unifast/reports/download/tes/', student_views.unifast_report_download_tes),
     path('unifast/tes-applications/<int:pk>/review/', student_views.unifast_tes_review),
     path('api/unifast/dashboard/', views.UniFASTDashboardView.as_view()),
 ]

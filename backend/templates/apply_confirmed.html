@@ -50,8 +50,8 @@
       </div>
       <div class="flex-1">
         <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:#2f9e44;">✓ Scholarship Confirmed</p>
-        <h1 class="text-2xl font-extrabold" style="color:#1e2a3a;letter-spacing:-0.02em;">NSU Staff Scholarship</h1>
-        <p class="text-sm mt-1" style="color:#374151;">Congratulations, <strong>{{ application.full_name }}</strong>! Your scholarship has been officially approved by VPSEA.</p>
+        <h1 class="text-2xl font-extrabold" style="color:#1e2a3a;letter-spacing:-0.02em;">BiPSU Staff Scholarship</h1>
+        <p class="text-sm mt-1" style="color:#374151;">Congratulations, <strong>{{ application.full_name }}</strong>! Your scholarship has been officially approved by the SDSO.</p>
       </div>
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style="background:#dcfce7;color:#166534;">
         <span class="h-1.5 w-1.5 rounded-full bg-green-500 inline-block"></span> Approved
@@ -95,7 +95,7 @@
       <div class="info-row"><span class="info-label">Contact</span><span class="info-value">{{ application.contact_number }}</span></div>
       <div class="info-row"><span class="info-label">Course</span><span class="info-value">{{ application.course }}</span></div>
       <div class="info-row"><span class="info-label">Year Level</span><span class="info-value">Year {{ application.year_level }}</span></div>
-      <div class="info-row"><span class="info-label">School ID</span><span class="info-value">{{ application.school_id|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-label">School ID</span><span class="info-value">{{ application.student_id|default:"—" }}</span></div>
       <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ application.gender }}</span></div>
       <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-value">{{ application.date_of_birth }}</span></div>
     </div>
@@ -104,13 +104,13 @@
     <div class="card">
       <p class="section-title">Scholarship Details</p>
       {% if application.qualified_for == 'Staff' %}
-      <div class="info-row"><span class="info-label">Program</span><span class="info-value">NSU Staff Scholarship</span></div>
+      <div class="info-row"><span class="info-label">Program</span><span class="info-value">BiPSU Staff Scholarship</span></div>
       <div class="info-row"><span class="info-label">Category</span><span class="info-value">Institutional</span></div>
       <div class="info-row"><span class="info-label">Coverage</span><span class="info-value">Full Tuition & Misc. Fees</span></div>
       {% if application.is_nsu_staff %}
-      <div class="info-row"><span class="info-label">Basis</span><span class="info-value">Permanent NSU Employee</span></div>
+      <div class="info-row"><span class="info-label">Basis</span><span class="info-value">Permanent BiPSU Employee</span></div>
       {% else %}
-      <div class="info-row"><span class="info-label">Basis</span><span class="info-value">Dependent of NSU Staff</span></div>
+      <div class="info-row"><span class="info-label">Basis</span><span class="info-value">Dependent of BiPSU Staff</span></div>
       <div class="info-row"><span class="info-label">Staff Member</span><span class="info-value">{{ application.staff_name }}</span></div>
       <div class="info-row"><span class="info-label">Relationship</span><span class="info-value">{{ application.relationship_to_staff }}</span></div>
       {% endif %}
@@ -155,15 +155,15 @@
       <li class="flex items-start gap-3">
         <span class="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white" style="background:#3b5bdb;">1</span>
         <div>
-          <p class="text-sm font-semibold" style="color:#1e2a3a;">Report to the VPSEA Office</p>
-          <p class="text-xs mt-0.5" style="color:#6b7a99;">Bring this confirmation and your original documents to the VPSEA office for final processing.</p>
+          <p class="text-sm font-semibold" style="color:#1e2a3a;">Report to the SDSO</p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">Bring this confirmation and your original documents to the SDSO for final processing.</p>
         </div>
       </li>
       <li class="flex items-start gap-3">
         <span class="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white" style="background:#3b5bdb;">2</span>
         <div>
           <p class="text-sm font-semibold" style="color:#1e2a3a;">Submit Required Documents</p>
-          <p class="text-xs mt-0.5" style="color:#6b7a99;">Certificate of Enrollment, 2×2 ID photo, PSA Birth Certificate{% if application.qualified_for == 'Staff' and not application.is_nsu_staff %}, and Employment Certificate of NSU staff member{% endif %}.</p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">Certificate of Enrollment, 2×2 ID photo, PSA Birth Certificate{% if application.qualified_for == 'Staff' and not application.is_nsu_staff %}, and Employment Certificate of BiPSU staff member{% endif %}.</p>
         </div>
       </li>
       <li class="flex items-start gap-3">
