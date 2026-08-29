@@ -1,23 +1,24 @@
 /* ==========================================================================
    BiPSU SRMS — Main Stylesheet
 
-   One design system, three visual identities. Radius, spacing, shadows,
-   typography and component structure are shared by every page; only colour
-   changes between portals. That happens through the custom properties below,
-   re-declared per portal, so a component is written once and themed by where
-   it is rendered rather than duplicated per office.
+   One design system. Radius, spacing, shadows, typography and component
+   structure are shared by every page, and so is the colour: the university's
+   blue and yellow. That happens through the custom properties below, so a
+   component is written once and themed by where it is rendered.
 
-       data-portal="student"  Landing page + student portal — navy + yellow
-       data-portal="vpsea"    VPSEA / SDSO — the SDSO seal's indigo + gold
-       data-portal="unifast"  UniFAST — the UniFAST seal's orange + charcoal
-       data-portal="staff"    BiPSU Staff portal — its existing green
+       data-portal="student"  Landing page + student portal — blue + yellow
+       data-portal="vpsea"    VPSEA / SDSO — the same blue + yellow
+       data-portal="staff"    BiPSU Staff portal — the same blue + yellow
+       data-portal="unifast"  UniFAST — orange CONTENT, same blue sidebar
+
+   UniFAST is the only office that colours its own pages; its seal is an orange
+   sunburst and the office is a separate agency. Everyone else is BiPSU.
 
    base.html sets the attribute from the signed-in role, so pages inherit the
    right identity without any per-template styling.
 
-   Dark mode is authored, not inverted: each identity keeps its brand colour as
-   an accent and swaps only the surface and text tokens, so the offices stay
-   recognisable in either mode.
+   Dark mode is authored, not inverted: only the surface and text tokens move,
+   so the blue and the yellow stay themselves in either mode.
    ========================================================================== */
 
 
@@ -26,6 +27,12 @@
    -------------------------------------------------------------------------- */
 
 :root {
+  /* Type. BiPSU's face is a plain sans-serif; every rule below and the Tailwind
+     config in base.html read this one token, so the typeface changes in exactly
+     one place. Nothing is fetched over the network — a demo on a bad connection
+     renders in the right face rather than falling back mid-presentation. */
+  --font-sans: 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+
   /* Structure — identical across all identities. */
   --radius-sm: 0.4rem;
   --radius:    0.5rem;
@@ -54,10 +61,26 @@
   --brand-strong: #0000c4;
   --brand-soft:   #e8e8ff;
   --on-brand:     #ffffff;
-  --accent:       #ffff00;
-  --accent-pure:  #ffff00;
+  --accent:       #fde607;
+  --accent-pure:  #fde607;
+  --accent-strong:#e2ce00;   /* the accent pressed or hovered — darker, not paler */
   --on-accent:    #0000ff;
   --ring:         rgba(0, 0, 255, 0.22);
+
+  /* The sidebar. One panel in every portal, in the landing hero's blue — the
+     same #0000ff the photo washes are built from, so the navigation and the
+     hero read as the same surface. Written as literal blues rather than
+     var(--brand) on purpose: UniFAST's brand is orange, and its sidebar must
+     still be this blue. */
+  --sidebar-bg:      #0000ff;
+  --sidebar-bg-2:    #0000c4;
+  --sidebar-border:  rgba(255, 255, 255, 0.20);
+  --sidebar-text:    rgba(255, 255, 255, 0.86);
+  --sidebar-brand:   #ffffff;
+  --sidebar-muted:   rgba(255, 255, 255, 0.62);
+  --sidebar-hover:   #fde607;
+  --sidebar-hover-bg:rgba(253, 230, 7, 0.16);
+  --on-sidebar-hover:#0000ff;
   /* The photo washes. Kept here so the pages that use them stay in step and
      the opacity can be tuned in one place. */
   --wash-strong: rgba(0, 0, 255, 0.84);  
@@ -78,20 +101,17 @@
   --danger-border: #fecaca;
 }
 
-/* VPSEA / SDSO — taken from the SDSO seal: royal indigo ring, gold lettering,
-   deep navy and green in the emblem. Nothing of the landing page's yellow. */
-[data-portal='vpsea'] {
-  --brand:        #2f2ca0;
-  --brand-strong: #23207c;
-  --brand-soft:   #ecebfa;
-  --on-brand:     #ffffff;
-  --accent:       #f0b100;
-  --accent-pure:  #ffc800;
-  --on-accent:    #23207c;
-  --ring:         rgba(47, 44, 160, 0.20);
-}
+/* VPSEA / SDSO and the BiPSU Staff portal both wear the university's own blue
+   and yellow — no per-office identity beyond the seal in the sidebar. They
+   declare nothing here and inherit :root, which is the whole point: the SDSO's
+   indigo and the staff portal's green were the two colours that made the three
+   portals look like three different products.
 
-/* UniFAST — the seal is an orange sunburst on black. */
+   UniFAST below is the exception, and the only one. */
+
+/* UniFAST — the seal is an orange sunburst on black, so its CONTENT stays
+   orange. Its sidebar is the same blue as everyone's and highlights in the
+   same yellow; only the page below the header carries the office's colour. */
 [data-portal='unifast'] {
   --brand:        #e2761b;
   --brand-strong: #c25f10;
@@ -99,20 +119,9 @@
   --on-brand:     #ffffff;
   --accent:       #ef8c34;
   --accent-pure:  #ff9640;
+  --accent-strong:#c25f10;
   --on-accent:    #1a1a1a;
   --ring:         rgba(226, 118, 27, 0.22);
-}
-
-/* BiPSU Staff portal — keeps the green it already had. */
-[data-portal='staff'] {
-  --brand:        #2f9e44;
-  --brand-strong: #268038;
-  --brand-soft:   #e9f7ec;
-  --on-brand:     #ffffff;
-  --accent:       #37b24d;
-  --accent-pure:  #51cf66;
-  --on-accent:    #10361a;
-  --ring:         rgba(47, 158, 68, 0.20);
 }
 
 
@@ -121,11 +130,15 @@
    -------------------------------------------------------------------------- */
 
 body {
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Form controls do not inherit the page font in any browser, so they are told
+   explicitly. Without this a select and the paragraph above it disagree. */
+input, select, textarea, button { font-family: var(--font-sans); }
 
 h1, h2, h3, h4 { letter-spacing: -0.02em; }
 
@@ -143,6 +156,30 @@ button:focus-visible,
    2. Layout — Sidebar
    -------------------------------------------------------------------------- */
 
+/* One blue panel behind every portal's navigation, highlighting in the same
+   university yellow — the offices are told apart by the seal at the top and by
+   what their pages do, not by the colour of the furniture.
+
+   The whole thing is painted from the --sidebar-* tokens, which is why no
+   template carries a style attribute on the aside any more: the sidebar is dark
+   in both light and dark mode, so a rule keyed on .dark would have had to undo
+   the light one rather than adjust it. */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-2));
+  border-right: 1px solid var(--sidebar-border);
+  color: var(--sidebar-text);
+}
+
+.sidebar-head { border-bottom: 1px solid var(--sidebar-border); }
+.sidebar-foot { border-top: 1px solid var(--sidebar-border); }
+
+/* The logo keeps a light tile behind it: the seals are drawn for white paper
+   and lose their outlines against a dark panel. */
+.sidebar-logo { background: rgba(255, 255, 255, 0.94); padding: 2px; }
+
+.sidebar-brand     { color: var(--sidebar-brand); }
+.sidebar-brand-sub { color: var(--sidebar-muted); }
+
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -150,26 +187,51 @@ button:focus-visible,
   border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  transition: background var(--speed), color var(--speed);
-  color: var(--text-soft);
+  transition: background var(--speed), color var(--speed), box-shadow var(--speed);
+  color: var(--sidebar-text);
 }
-.sidebar-link:hover  { background: var(--brand-soft); color: var(--brand); }
+.sidebar-link:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-hover);
+}
+/* The page you are on wears the hover colour outright, so hover and active read
+   as one idea rather than two competing highlights. */
 .sidebar-link.active {
-  background: var(--brand-soft);
-  color: var(--brand);
+  background: var(--sidebar-hover);
+  color: var(--on-sidebar-hover);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--brand);
+  /* A dark notch, not a white one: the row is now a solid yellow or orange
+     pill, and white on either of those is barely a line at all. */
+  box-shadow: inset 3px 0 0 rgba(0, 0, 0, 0.35);
 }
+.sidebar-link.active:hover { background: var(--sidebar-hover); color: var(--on-sidebar-hover); }
+
+/* The pending-count pills the VPSEA nav carries. Inside the panel they answer
+   to it rather than to the page's status palette — badge-warning's pale amber
+   is invisible on the yellow active row and barely there on the blue. */
+.app-sidebar .badge {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--sidebar-brand);
+  border-color: rgba(255, 255, 255, 0.30);
+}
+.sidebar-link.active .badge {
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--on-sidebar-hover);
+  border-color: rgba(0, 0, 0, 0.22);
+}
+
+/* On a dark panel the browser's default focus ring is invisible. */
+.app-sidebar a:focus-visible { outline-color: var(--sidebar-hover); }
 
 /* The nav scrolls on its own when a portal has more links than fit the screen.
    A full-width scrollbar next to the page's own reads as a second page, so keep
    it thin and let it appear only while scrolling. */
 .sidebar-nav { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-.sidebar-nav:hover { scrollbar-color: var(--border-strong) transparent; }
+.sidebar-nav:hover { scrollbar-color: var(--sidebar-border) transparent; }
 .sidebar-nav::-webkit-scrollbar { width: 6px; }
 .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
 .sidebar-nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
-.sidebar-nav:hover::-webkit-scrollbar-thumb { background: var(--border-strong); }
+.sidebar-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); }
 
 
 /* --------------------------------------------------------------------------
@@ -238,14 +300,23 @@ button:focus-visible,
 
 /* The call-to-action of the landing page and the student portal. */
 .btn-accent        { background: var(--accent); color: var(--on-accent); border: none; font-weight: 600; }
-.btn-accent:hover  { background: var(--accent-pure); }
+.btn-accent:hover  { background: var(--accent-strong); }
 
 
 /* --------------------------------------------------------------------------
    6. Form elements
    -------------------------------------------------------------------------- */
 
-input, select, textarea {
+/* Qualified with `body` on purpose, and it matters.
+   Tailwind is loaded from the CDN, which injects its stylesheet into <head> at
+   runtime — after this file — and Tailwind's preflight resets form controls to
+   `padding: 0`. A bare `input, select, textarea` selector ties with preflight on
+   specificity and loses on source order, which is why every control in this app
+   had to carry px-3 py-2 by hand to look like anything. One extra element in the
+   selector settles it: (0,0,2) beats preflight's (0,0,1), and still loses to a
+   utility class like .px-4, so a template that deliberately sizes a control its
+   own way keeps the last word. */
+body input, body select, body textarea {
   width: 100%;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -254,19 +325,113 @@ input, select, textarea {
   background: var(--surface);
   color: var(--text);
   outline: none;
-  font-family: inherit;
+  font-family: var(--font-sans);
   transition: border-color var(--speed), box-shadow var(--speed);
 }
 
-input:focus, select:focus, textarea:focus {
+body input:focus, body select:focus, body textarea:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--ring);
 }
 
-input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 0.75; }
-input[readonly], textarea[readonly] { background: var(--surface-2); color: var(--text-muted); }
+body input::placeholder, body textarea::placeholder { color: var(--text-muted); opacity: 0.75; }
+body input[readonly], body textarea[readonly] { background: var(--surface-2); color: var(--text-muted); }
 
 label { font-size: 0.75rem; font-weight: 500; color: var(--text-soft); }
+
+
+/* --- Dropdowns ----------------------------------------------------------
+   The native arrow is a different shape, weight and colour in every browser,
+   and on Windows it comes with a grey well that ignores the theme entirely.
+   So the control is stripped and given the chevron the rest of the interface
+   uses, drawn as a background image because a pseudo-element cannot be placed
+   on a <select>. currentColor is not available inside a data URI, hence the
+   literal stroke — one for each mode.
+
+   The options list itself is drawn by the operating system and cannot be
+   styled; colour-scheme is the one lever there, and it is what stops a dark
+   page from dropping open a white list. */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  /* One notch more specific than the rule above, because the chevron is drawn
+     inside the control's own box: if a template's own px-* class won here the
+     text would run underneath it. */
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7a99' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+body select:hover:not(:disabled) { border-color: var(--border-strong); }
+/* Focus darkens the chevron rather than brand-colouring it: a data URI cannot
+   read currentColor, so a brand-coloured arrow would be hard-coded to one
+   portal's blue and land wrong in the orange one. The border and ring already
+   carry the portal's colour here. */
+body select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231e2a3a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+body select:disabled { background-color: var(--surface-2); color: var(--text-muted); cursor: not-allowed; opacity: 1; }
+/* A select with nothing chosen yet reads as a prompt, not as an answer. */
+body select:has(option[value='']:checked) { color: var(--text-muted); }
+
+/* A filter sitting in a toolbar rather than a form column: sized to its own
+   content and a notch smaller, but wearing the same well and chevron. It has to
+   out-specify the padding-right above, or the label would run under the arrow. */
+body select.select-inline {
+  width: auto;
+  padding: 0.3rem 1.9rem 0.3rem 0.6rem;
+  font-size: 0.8125rem;
+  background-position: right 0.5rem center;
+  background-size: 0.9rem;
+}
+
+.dark body select, body .dark select {
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2397a3bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+.dark body select:focus, body .dark select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e6ebf5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+
+/* --- File pickers --------------------------------------------------------
+   Left alone, this is a small grey OS button with a bare "No file chosen"
+   beside it — the least finished-looking control on any of the upload pages,
+   and the pages that matter most are all uploads. The field becomes a dashed
+   drop-zone-shaped well and the browser's own button becomes a real button
+   through ::file-selector-button, which is the only part of the control that
+   can be styled without replacing it in JavaScript. */
+body input[type='file'] {
+  padding: 0.45rem 0.75rem 0.45rem 0.45rem;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1.6;
+}
+body input[type='file']:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--text-soft);
+}
+body input[type='file']:focus { border-style: solid; }
+
+body input[type='file']::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--speed);
+}
+body input[type='file']::file-selector-button:hover { background: var(--brand-strong); }
 
 
 /* --------------------------------------------------------------------------
@@ -357,9 +522,6 @@ tr:hover td      { background: var(--surface-sunken); }
   color: var(--brand);
 }
 .section-title:first-child { margin-top: 0; }
-
-/* Kept for templates that ask for the staff green explicitly. */
-.section-title--green { color: #2f9e44; }
 
 .detail-grid {
   display: grid;
@@ -562,7 +724,7 @@ tr:hover td      { background: var(--surface-sunken); }
   font-weight: 700;
   padding: 0.65rem 1rem;
 }
-.btn-auth:hover { background: #e6e600; }
+.btn-auth:hover { background: var(--accent-strong); }
 .btn-auth:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 @media (max-width: 480px) {
@@ -722,8 +884,9 @@ body { overflow-x: hidden; }
   --brand-strong: #a9baff;
   --brand-soft:   #1d2645;
   --on-brand:     #0b1020;
-  --accent:       #ffe14d;
-  --accent-pure:  #ffff00;
+  --accent:       #fde607;
+  --accent-pure:  #fde607;
+  --accent-strong:#e2ce00;
   --on-accent:    #0000ff;
   --ring:         rgba(143, 164, 255, 0.28);
 
@@ -738,8 +901,11 @@ body { overflow-x: hidden; }
    and yellow stay the loudest things on the page. --brand lightens because
    #0000ff as TEXT on a dark surface is unreadable; the pure blue keeps its job
    on the photo washes, borders and solid fills, where it sits under white. */
-.dark[data-portal='student'],
-.dark [data-portal='student'] {
+/* The three blue portals share one dark identity — near-black grounds so the
+   blue and yellow stay the loudest things on the page. */
+.dark[data-portal='student'], .dark [data-portal='student'],
+.dark[data-portal='vpsea'],   .dark [data-portal='vpsea'],
+.dark[data-portal='staff'],   .dark [data-portal='staff'] {
   --bg:            #080a14;
   --surface:       #12141f;
   --surface-2:     #1b1e2d;
@@ -753,24 +919,14 @@ body { overflow-x: hidden; }
   --brand-strong: #a5a5ff;
   --brand-soft:   #16173a;
   --on-brand:     #05061a;
-  --accent:       #ffff00;
-  --accent-pure:  #ffff00;
+  --accent:       #fde607;
+  --accent-pure:  #fde607;
+  --accent-strong:#e2ce00;
   --on-accent:    #0000ff;
   --ring:         rgba(140, 140, 255, 0.30);
   /* A photograph is brighter than everything around it at night. */
   --wash-strong:  rgba(0, 0, 160, 0.94);
   --wash-soft:    rgba(0, 0, 90, 0.72);
-}
-
-.dark[data-portal='vpsea'],
-.dark [data-portal='vpsea'] {
-  --brand:        #a8a4ff;
-  --brand-strong: #c0bcff;
-  --brand-soft:   #1f1d47;
-  --on-brand:     #14123a;
-  --accent:       #ffce4d;
-  --accent-pure:  #ffc800;
-  --ring:         rgba(168, 164, 255, 0.28);
 }
 
 /* UniFAST goes to charcoal, not navy — its identity is orange on black. */
@@ -795,20 +951,13 @@ body { overflow-x: hidden; }
   --ring:         rgba(255, 157, 82, 0.28);
 }
 
-.dark[data-portal='staff'],
-.dark [data-portal='staff'] {
-  --brand:        #69db7c;
-  --brand-strong: #8ce99a;
-  --brand-soft:   #12301a;
-  --on-brand:     #0b2011;
-  --accent:       #51cf66;
-  --accent-pure:  #69db7c;
-  --ring:         rgba(105, 219, 124, 0.28);
-}
-
 /* Chrome that sits outside the token-driven components. */
 .dark body, html.dark body { background: var(--bg); color: var(--text); }
-.dark aside  { background: var(--surface-sunken) !important; border-color: var(--border) !important; }
+/* The sidebar is deliberately absent here: it is the same blue panel in both
+   modes, painted from the --sidebar-* tokens in section 2. Only its ground
+   deepens, by exactly as much as the hero's own wash does at night, so the two
+   still read as the same surface. */
+.dark { --sidebar-bg: #0000a0; --sidebar-bg-2: #00005a; }
 .dark header { background: color-mix(in srgb, var(--surface) 88%, transparent) !important;
                border-color: var(--border) !important; }
 .dark .doc-viewer-backdrop { background: rgba(0, 0, 0, 0.66); }
@@ -857,3 +1006,270 @@ body { overflow-x: hidden; }
 [style*="color:#1971c2"]            { color: var(--brand) !important; }
 [style*="background:#3b5bdb"]       { background: var(--brand) !important; color: var(--on-brand) !important; }
 [style*="border-color:#3b5bdb"]     { border-color: var(--brand) !important; }
+
+
+/* --------------------------------------------------------------------------
+   15. Landing page  (templates/landing.html)
+
+   The public scholarship listing. Only its own furniture lives here — cards,
+   badges and buttons come from the sections above. Written against the tokens,
+   so the page follows dark mode without a single colour in the template.
+
+   Everything is scoped under .page-landing (set on <html> by the template)
+   wherever it retunes a shared component, so no other page is touched.
+   -------------------------------------------------------------------------- */
+
+/* The navbar: a 4rem row over a 1px hairline. --nav-h is that total, and both
+   the height of the hero and the scroll-snap offset are measured from it. */
+:root { --nav-h: calc(4rem + 1px); }
+
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.landing-nav-logo { height: 2.25rem; width: 2.25rem; object-fit: contain; }
+.landing-nav-name { color: var(--text); }
+.landing-nav-sub  { color: var(--text-muted); }
+
+/* The facade fills the first screen: the navbar plus the hero add up to exactly
+   one viewport, so none of the listing below peeks in before the first scroll.
+   min-height is only a floor — if the text wraps onto more lines the box grows
+   instead of clipping. dvh keeps that honest on mobile, where the address bar
+   eats into vh. */
+.hero-landing {
+  min-height: calc(100vh - var(--nav-h));
+  min-height: calc(100dvh - var(--nav-h));
+  padding: clamp(3rem, 8vh, 6rem) 1.25rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+.hero-title { letter-spacing: -0.03em; }
+
+/* The second call to action stands on the photograph rather than on a surface,
+   so it is glass rather than a fill and the picture still reads through it. */
+.btn-on-photo {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+.btn-on-photo:hover { background: rgba(255, 255, 255, 0.22); }
+
+/* One scroll gesture off the hero lands on the listing instead of stopping
+   halfway. The listing is taller than the viewport, so once you are inside it
+   scrolling is free again; the footer carries a snap point of its own so the
+   bottom of the page stays reachable. scroll-padding-top is the sticky navbar,
+   which would otherwise cover the heading it snaps to. */
+.page-landing {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: var(--nav-h);
+  scroll-behavior: smooth;
+}
+.page-landing .hero-landing,
+.page-landing .section-photo { scroll-snap-align: start; }
+.page-landing .site-footer   { scroll-snap-align: end; }
+
+/* A card lifts towards the reader, and its edge picks up the accent. */
+.page-landing .card {
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+}
+.page-landing .card:hover {
+  box-shadow: 0 14px 40px -12px rgba(0, 0, 255, 0.40);
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+/* The coloured edge that tells the three groups apart at a glance. */
+.card-strip { height: 5px; }
+.card-strip-internal      { background: linear-gradient(90deg, #fde607, #e2ce00); }
+.card-strip-external      { background: linear-gradient(90deg, #0000ff, #4d4dff); }
+.card-strip-institutional { background: linear-gradient(90deg, #2f9e44, #51cf66); }
+/* Rounded to match the modal it sits on top of. */
+.modal .card-strip { height: 6px; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+
+.card-logo  { height: 2.5rem; width: 2.5rem; object-fit: contain; flex-shrink: 0; }
+.modal-logo { height: 3rem;   width: 3rem;   object-fit: contain; flex-shrink: 0; }
+
+/* The landing page's own badge: the accent itself, not a pale tint of it. */
+.badge-accent {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: color-mix(in srgb, var(--accent) 80%, #000);
+  font-weight: 600;
+}
+.badge-block  { display: block; }
+.badge-strong { font-weight: 600; }
+
+.card-title { color: var(--text); }
+.card-desc  { color: var(--text-muted); }
+.card-reqs  { color: var(--text-muted); }
+.card-foot  { border-top: 1px solid var(--border); }
+.card-foot-group     { color: var(--brand); }
+.card-foot-group-ok  { color: var(--ok); }
+.card-foot-cta       { color: var(--text-muted); }
+
+.landing-empty { color: var(--text-muted); }
+
+.site-footer {
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+/* The scholarship detail dialog. Narrower than the portal modals, and it scrolls
+   inside itself rather than growing past the screen. */
+.page-landing .modal-overlay { align-items: center; padding: 1rem; }
+.page-landing .modal {
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-xl);
+}
+.page-landing .btn { padding: 0.55rem 1.25rem; font-weight: 600; text-decoration: none; }
+
+.modal-title { color: var(--text); }
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.modal-note       { background: var(--surface-sunken); }
+.modal-note-label { color: var(--brand); }
+.modal-note-text  { color: var(--text-soft); }
+.modal-label      { color: var(--text-muted); }
+.modal-li         { color: var(--text-soft); }
+.modal-tick       { color: var(--ok); }
+.modal-bullet     { color: var(--brand); }
+
+@media (max-width: 640px) {
+  .hero-landing { padding: 3rem 1rem; }
+}
+/* A short landscape window has no room for a screen-high hero, and snapping
+   there would fight the reader rather than help. */
+@media (max-height: 560px) {
+  .hero-landing { min-height: 0; }
+  .page-landing { scroll-snap-type: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-landing { scroll-behavior: auto; }
+}
+
+
+/* --------------------------------------------------------------------------
+   16. Skeleton loading screen
+
+   A stand-in shaped like the page, painted from the very first frame and taken
+   down by static/js/skeleton.js once the real thing is ready.
+
+   Everything here is plain CSS on purpose. The screen has to be correct BEFORE
+   the Tailwind CDN has run — that is the moment it exists to cover — so it
+   cannot lean on a single utility class.
+
+   It stays hidden unless <html> carries .is-loading, which the script adds
+   before the first paint. A browser with JavaScript turned off therefore never
+   sees the placeholder and can never be trapped behind it.
+   -------------------------------------------------------------------------- */
+
+.page-skeleton {
+  position: fixed;
+  inset: 0;
+  z-index: 100;              /* over the sticky navbar (40) and the modals (50) */
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+.is-loading .page-skeleton {
+  opacity: 1;
+  visibility: visible;
+  transition: none;          /* it is there from the start; only leaving fades */
+}
+/* Nothing scrolls underneath the placeholder while it is up. */
+.is-loading { overflow: hidden; }
+
+/* The block every placeholder is built from, with the light sweeping across. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: skeleton-sweep 1.5s ease-in-out infinite;
+}
+.dark .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
+}
+/* On the photograph the blocks are light on blue rather than grey on white. */
+.skeleton-on-photo { background: rgba(255, 255, 255, 0.18); }
+.skeleton-on-photo::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+}
+
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+
+/* A sweep across the whole screen is the kind of movement this setting asks to
+   be spared, so the blocks simply sit still. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
+/* --- The shape of the landing page -------------------------------------- */
+
+.skeleton-nav {
+  flex-shrink: 0;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.skeleton-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+.skeleton-avatar     { height: 2.25rem; width: 2.25rem; border-radius: 9999px; flex-shrink: 0; }
+.skeleton-stack      { display: flex; flex-direction: column; gap: 0.4rem; }
+.skeleton-brand-name { height: 0.85rem; width: 6.5rem; }
+.skeleton-brand-sub  { height: 0.7rem;  width: 5rem; }
+
+/* The hero's own wash, minus the photograph — a gradient paints instantly,
+   which is the whole point of the screen. */
+.skeleton-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 2rem 1.25rem;
+  background-color: var(--brand);
+  background-image: linear-gradient(135deg, var(--wash-strong), var(--wash-soft));
+}
+.skeleton-eyebrow   { height: 0.8rem; width: min(70vw, 16rem); }
+.skeleton-title     { height: 3rem;   width: min(85vw, 34rem); border-radius: var(--radius-lg); margin-bottom: 0.25rem; }
+.skeleton-sub       { height: 1.1rem; width: min(80vw, 30rem); }
+.skeleton-sub-short { width: min(60vw, 21rem); }
+.skeleton-actions   { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+.skeleton-btn       { height: 2.5rem; width: 7rem; }

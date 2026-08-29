@@ -8,7 +8,28 @@ def system_settings(request):
         ctx = {'active_semester': '', 'academic_year': ''}
     ctx['pending_link_requests'] = _pending_link_requests(request)
     ctx['pending_accounts'] = _pending_accounts(request)
+    ctx['enrolled'] = _enrolled(request)
     return ctx
+
+
+def _enrolled(request):
+    """Does this student already hold a scholarship this term?
+
+    The student nav hides both the Apply pages and Link Scholarship once the
+    answer is yes — there is nothing left to apply for or to link. Individual
+    views used to compute this for their own template, which meant the nav
+    quietly showed the wrong thing on every page that forgot to. Answered here
+    instead so it is right on all of them.
+    """
+    user = getattr(request, 'user', None)
+    if not (user and user.is_authenticated and getattr(user, 'role', '') == 'student'):
+        return False
+    from .models import StudentProfile
+    from .student_views import _is_enrolled
+    try:
+        return _is_enrolled(StudentProfile.objects.filter(user=user).first())
+    except Exception:
+        return False
 
 
 def _pending_link_requests(request):

@@ -13,7 +13,7 @@
 
   {# ── Scholarship Application ─────────────────────────────────────────────── #}
   <div class="card p-6">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">BiPSU Staff Scholarship Application</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">BiPSU Staff Scholarship Application</p>
 
     {% if applications %}
     <div style="overflow-x:auto;">
@@ -63,7 +63,7 @@
 
   {# ── Renewal History ─────────────────────────────────────────────────────── #}
   <div class="card p-6">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:#2f9e44;">Renewal History</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Renewal History</p>
 
     {% if renewals %}
     <div style="overflow-x:auto;">
@@ -92,7 +92,7 @@
             <td style="padding:0.7rem 1rem;font-size:0.85rem;color:#6b7a99;">{{ r.remarks|default:"—" }}</td>
             {% if r.supporting_document %}
             <td style="padding:0.7rem 1rem;">
-              <a href="{{ r.supporting_document.url }}" target="_blank" style="color:#2f9e44;font-size:0.8rem;text-decoration:underline;">View</a>
+              <a href="{{ r.supporting_document.url }}" target="_blank" style="color:var(--brand);font-size:0.8rem;text-decoration:underline;">View</a>
             </td>
             {% else %}
             <td style="padding:0.7rem 1rem;color:#6b7a99;font-size:0.8rem;">—</td>
@@ -103,7 +103,7 @@
       </table>
     </div>
     {% else %}
-    <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:#2f9e44;">Submit a renewal →</a></p>
+    <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:var(--brand);">Submit a renewal →</a></p>
     {% endif %}
   </div>
 
@@ -131,7 +131,7 @@
     </div>
     {% endif %}
 
-    <p class="section-title section-title--green">Personal Information</p>
+    <p class="section-title">Personal Information</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Full Name</label><span>{{ a.full_name }}</span></div>
       <div class="detail-field"><label>School ID</label><span>{{ a.student_id|default:"—" }}</span></div>
@@ -144,14 +144,14 @@
       <div class="detail-field"><label>Year Level</label><span>{{ a.year_level }}</span></div>
     </div>
 
-    <p class="section-title section-title--green">Address</p>
+    <p class="section-title">Address</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Barangay / Street</label><span>{{ a.barangay|default:"—" }}</span></div>
       <div class="detail-field"><label>Municipality</label><span>{{ a.municipality|default:"—" }}</span></div>
       <div class="detail-field"><label>Province</label><span>{{ a.province|default:"—" }}</span></div>
     </div>
 
-    <p class="section-title section-title--green">Staff Eligibility</p>
+    <p class="section-title">Staff Eligibility</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Type</label><span>{% if a.is_nsu_staff %}BiPSU Staff (Direct){% elif a.is_nsu_dependent %}BiPSU Staff Dependent{% else %}—{% endif %}</span></div>
       {% if a.is_nsu_dependent %}
@@ -162,7 +162,7 @@
       <div class="detail-field"><label>Has Baccalaureate</label><span>{% if a.has_baccalaureate %}Yes{% else %}No{% endif %}</span></div>
     </div>
 
-    <p class="section-title section-title--green">Employment Details</p>
+    <p class="section-title">Employment Details</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Employment Status</label><span>{{ a.employment_status|default:"—" }}</span></div>
       <div class="detail-field"><label>Designation</label><span>{{ a.designation|default:"—" }}</span></div>
@@ -171,16 +171,16 @@
     </div>
 
     {% if a.appointment_paper %}
-    <p class="section-title section-title--green">Submitted Documents</p>
+    <p class="section-title">Submitted Documents</p>
     <div class="detail-grid">
       <div class="detail-field">
         <label>Appointment Paper</label>
-        <span><a href="{{ a.appointment_paper.url }}" target="_blank" style="color:#2f9e44;text-decoration:underline;">View file</a></span>
+        <span><a href="{{ a.appointment_paper.url }}" target="_blank" style="color:var(--brand);text-decoration:underline;">View file</a></span>
       </div>
     </div>
     {% endif %}
 
-    <p class="section-title section-title--green">Application Status</p>
+    <p class="section-title">Application Status</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Status</label><span>{{ a.status }}</span></div>
       <div class="detail-field"><label>Qualified For</label><span>{{ a.qualified_for|default:"—" }}</span></div>

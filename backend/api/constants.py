@@ -93,6 +93,15 @@ SCHOLARSHIP_TYPE_CHOICES = [
     ('Staff', 'BiPSU Staff Scholarship'),
 ]
 
+# CHED awards under one programme but at two tiers, and every masterlist CHED
+# appears on is split by them. The programme name cannot be relied on to say
+# which — "CHED Merit" covers both — so the tier is carried on the record that
+# creates the award. The labels are the exact block headings the reports print.
+CHED_TIER_CHOICES = [
+    ('Full', 'Full Merit / Full Scholar'),
+    ('Half', 'Half Merit / Partial Scholar'),
+]
+
 SCHOLARSHIP_CATEGORIES = [
     ('application', 'Application'),
     ('recommendation', 'Recommendation'),

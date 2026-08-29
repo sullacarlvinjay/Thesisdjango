@@ -1,89 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="page-landing">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiPSU SRMS — Scholarship Portal</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
-  <script>
-    // Same preference the portals honour, read before first paint so the page
-    // never flashes light before switching.
-    if (localStorage.getItem('theme') === 'dark' ||
-        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    }
-  </script>
-  <style>
-    /* Page-specific only — everything shared lives in srms.css. */
-    .card { overflow: hidden; transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; }
-    .card:hover {
-      box-shadow: 0 14px 40px -12px rgba(0, 0, 255, 0.40);
-      transform: translateY(-3px);
-      border-color: var(--accent);
-    }
-    .modal-overlay { align-items: center; padding: 1rem; }
-    .modal { max-width: 540px; max-height: 90vh; overflow-y: auto; border-radius: var(--radius-xl); }
-    .btn { padding: 0.55rem 1.25rem; font-weight: 600; text-decoration: none; }
-    /* The facade fills the first screen: the 4rem navbar plus the hero add up
-       to exactly one viewport, so none of the listing below peeks in before
-       the first scroll. min-height is still only a floor — if the text wraps
-       onto more lines the box grows instead of clipping. dvh keeps this honest
-       on mobile, where the address bar eats into vh. */
-    /* The sticky navbar: its 4rem row plus the 1px hairline under it. */
-    :root { --nav-h: calc(4rem + 1px); }
-    .hero-landing {
-      min-height: calc(100vh - var(--nav-h));
-      min-height: calc(100dvh - var(--nav-h));
-      padding: clamp(3rem, 8vh, 6rem) 1.25rem;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow: visible;
-    }
-
-    /* One scroll gesture off the hero lands on the scholarship listing instead
-       of stopping halfway. The listing is taller than the viewport, so once you
-       are inside it scrolling is free again; the footer carries a snap point of
-       its own so the bottom of the page stays reachable. scroll-padding-top is
-       the sticky navbar, which would otherwise cover each section's heading. */
-    html {
-      scroll-snap-type: y mandatory;
-      scroll-padding-top: var(--nav-h);
-      scroll-behavior: smooth;
-    }
-    .hero-landing,
-    .section-photo { scroll-snap-align: start; }
-    footer { scroll-snap-align: end; }
-
-    @media (max-width: 640px) {
-      .hero-landing { padding: 3rem 1rem; }
-    }
-    /* A short landscape window has no room for a screen-high hero, and snapping
-       there would fight the user rather than help. */
-    @media (max-height: 560px) {
-      .hero-landing { min-height: 0; }
-      html { scroll-snap-type: none; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-    }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
+  {% comment %}
+    Both of these run before the first paint on purpose, so neither is deferred:
+    one decides the colour scheme, the other raises the loading screen. Let
+    either wait and the reader sees the very moment it exists to hide. The
+    page's own behaviour can wait for the DOM, so it does.
+  {% endcomment %}
+  <script src="{% static 'js/theme.js' %}"></script>
+  <script src="{% static 'js/skeleton.js' %}"></script>
+  <script src="{% static 'js/landing.js' %}" defer></script>
 </head>
 <body data-portal="student">
 
+<!-- Loading screen. Structure only — how it looks is section 16 of srms.css and
+     static/js/skeleton.js takes it down once the page is ready. Hidden from
+     screen readers: there is nothing here to read. -->
+<div class="page-skeleton" aria-hidden="true">
+  <div class="skeleton-nav">
+    <div class="skeleton-nav-inner">
+      <div class="skeleton skeleton-avatar"></div>
+      <div class="skeleton-stack">
+        <div class="skeleton skeleton-brand-name"></div>
+        <div class="skeleton skeleton-brand-sub"></div>
+      </div>
+    </div>
+  </div>
+  <div class="skeleton-hero">
+    <div class="skeleton skeleton-on-photo skeleton-eyebrow"></div>
+    <div class="skeleton skeleton-on-photo skeleton-title"></div>
+    <div class="skeleton skeleton-on-photo skeleton-sub"></div>
+    <div class="skeleton skeleton-on-photo skeleton-sub skeleton-sub-short"></div>
+    <div class="skeleton-actions">
+      <div class="skeleton skeleton-on-photo skeleton-btn"></div>
+      <div class="skeleton skeleton-on-photo skeleton-btn"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Navbar -->
-<nav style="background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:40;">
+<nav class="landing-nav">
   <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.25rem;width:2.25rem;object-fit:contain;" />
+      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="landing-nav-logo" />
       <div>
-        <p class="text-sm font-bold" style="color:var(--text);">BiPSU SRMS</p>
-        <p class="text-xs" style="color:var(--text-muted);">Scholarship Portal</p>
+        <p class="text-sm font-bold landing-nav-name">BiPSU SRMS</p>
+        <p class="text-xs landing-nav-sub">Scholarship Portal</p>
       </div>
     </div>
   </div>
@@ -93,11 +61,11 @@
 <div class="hero hero-facade hero-landing">
   <div class="hero-inner">
     <p class="text-sm hero-eyebrow mb-3">Biliran Province State University</p>
-    <h1 class="text-4xl sm:text-5xl font-extrabold mb-4" style="letter-spacing:-0.03em;">Scholarship Programs</h1>
+    <h1 class="text-4xl sm:text-5xl font-extrabold mb-4 hero-title">Scholarship Programs</h1>
     <p class="text-lg max-w-xl mx-auto hero-sub">Explore available scholarships and find the program that fits you. Click any card to learn more.</p>
     <div class="flex items-center justify-center gap-3 mt-8 flex-wrap">
       <a href="/register/" class="btn btn-accent">Register</a>
-      <a href="/login/" class="btn" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.55);">Sign in</a>
+      <a href="/login/" class="btn btn-on-photo">Sign in</a>
     </div>
   </div>
 </div>
@@ -111,55 +79,24 @@
   <p class="text-sm mb-6 section-sub">Scholarships offered directly by Biliran Province State University.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for s in internal %}
-    <div class="card cursor-pointer" onclick="openModal({{ s.pk }})">
-      <div style="background:linear-gradient(90deg,#ffff00,#ffd400); height:5px;"></div>
+    <div class="card cursor-pointer" role="button" tabindex="0"
+         data-scholarship="{{ s.pk }}" aria-label="{{ s.name }} — view details">
+      <div class="card-strip card-strip-internal"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
-          <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.5rem;width:2.5rem;object-fit:contain;flex-shrink:0;" />
-          <span class="badge" style="background:#ffff00;color:#0000ff;border-color:#cccc00;font-weight:600;">{{ s.type }}</span>
+          <img src="/media/logos/BiPSU.png" alt="BiPSU" class="card-logo" />
+          <span class="badge badge-accent">{{ s.type }}</span>
         </div>
-        <h3 class="font-bold text-lg mb-2" style="color:var(--text);">{{ s.name }}</h3>
-        <p class="text-sm mb-4" style="color:var(--text-muted);">{{ s.description }}</p>
+        <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
+        <p class="text-sm mb-4 card-desc">{{ s.description }}</p>
         {% if s.eligibility_list %}
-        <div class="space-y-1 text-xs" style="color:var(--text-muted);">
+        <div class="space-y-1 text-xs card-reqs">
           {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid var(--border);">
-          <span class="text-xs font-semibold" style="color:var(--brand);">Internal</span>
-          <span class="text-xs" style="color:var(--text-muted);">View Details →</span>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
-<!-- External Scholarships -->
-{% if external %}
-<div class="max-w-6xl mx-auto px-6 pt-10 pb-2">
-  <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
-  <p class="text-sm mb-6 section-sub">Government and agency-funded scholarships processed externally.</p>
-  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% for s in external %}
-    <div class="card cursor-pointer" onclick="openModal({{ s.pk }})">
-      <div style="background:linear-gradient(90deg,#0000ff,#4d4dff); height:5px;"></div>
-      <div class="p-6">
-        <div class="flex items-center gap-3 mb-3">
-          <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.5rem;width:2.5rem;object-fit:contain;flex-shrink:0;" />
-          <span class="badge" style="background:var(--brand-soft);color:var(--brand);border-color:var(--brand);font-weight:600;">{{ s.type }}</span>
-        </div>
-        <h3 class="font-bold text-lg mb-2" style="color:var(--text);">{{ s.name }}</h3>
-        <p class="text-sm mb-4" style="color:var(--text-muted);">{{ s.description }}</p>
-        {% if s.eligibility_list %}
-        <div class="space-y-1 text-xs" style="color:var(--text-muted);">
-          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
-        </div>
-        {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid var(--border);">
-          <span class="text-xs font-semibold" style="color:var(--brand);">External</span>
-          <span class="text-xs" style="color:var(--text-muted);">View Details →</span>
+        <div class="mt-4 pt-4 flex items-center justify-between card-foot">
+          <span class="text-xs font-semibold card-foot-group">Internal</span>
+          <span class="text-xs card-foot-cta">View Details →</span>
         </div>
       </div>
     </div>
@@ -175,23 +112,24 @@
   <p class="text-sm mb-6 section-sub">Scholarships for BiPSU faculty, staff, and their dependents.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for s in institutional %}
-    <div class="card cursor-pointer" onclick="openModal({{ s.pk }})">
-      <div style="background:linear-gradient(90deg,#2f9e44,#51cf66); height:5px;"></div>
+    <div class="card cursor-pointer" role="button" tabindex="0"
+         data-scholarship="{{ s.pk }}" aria-label="{{ s.name }} — view details">
+      <div class="card-strip card-strip-institutional"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
-          <img src="/media/logos/BiPSU.png" alt="BiPSU" style="height:2.5rem;width:2.5rem;object-fit:contain;flex-shrink:0;" />
-          <span class="badge" style="background:#f0fdf4;color:#2f9e44;">{{ s.type }}</span>
+          <img src="/media/logos/BiPSU.png" alt="BiPSU" class="card-logo" />
+          <span class="badge badge-success">{{ s.type }}</span>
         </div>
-        <h3 class="font-bold text-lg mb-2" style="color:var(--text);">{{ s.name }}</h3>
-        <p class="text-sm mb-4" style="color:var(--text-muted);">{{ s.description }}</p>
+        <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
+        <p class="text-sm mb-4 card-desc">{{ s.description }}</p>
         {% if s.eligibility_list %}
-        <div class="space-y-1 text-xs" style="color:var(--text-muted);">
+        <div class="space-y-1 text-xs card-reqs">
           {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between" style="border-top:1px solid var(--border);">
-          <span class="text-xs font-medium" style="color:#2f9e44;">Institutional</span>
-          <span class="text-xs" style="color:var(--text-muted);">View Details →</span>
+        <div class="mt-4 pt-4 flex items-center justify-between card-foot">
+          <span class="text-xs font-medium card-foot-group-ok">Institutional</span>
+          <span class="text-xs card-foot-cta">View Details →</span>
         </div>
       </div>
     </div>
@@ -200,8 +138,43 @@
 </div>
 {% endif %}
 
+
+<!-- External Scholarships -->
+{% if external %}
+<div class="max-w-6xl mx-auto px-6 pt-10 pb-2">
+  <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
+  <p class="text-sm mb-6 section-sub">Government and agency-funded scholarships processed externally.</p>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for s in external %}
+    <div class="card cursor-pointer" role="button" tabindex="0"
+         data-scholarship="{{ s.pk }}" aria-label="{{ s.name }} — view details">
+      <div class="card-strip card-strip-external"></div>
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-3">
+          <img src="/media/logos/BiPSU.png" alt="BiPSU" class="card-logo" />
+          <span class="badge badge-brand badge-strong">{{ s.type }}</span>
+        </div>
+        <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
+        <p class="text-sm mb-4 card-desc">{{ s.description }}</p>
+        {% if s.eligibility_list %}
+        <div class="space-y-1 text-xs card-reqs">
+          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
+        </div>
+        {% endif %}
+        <div class="mt-4 pt-4 flex items-center justify-between card-foot">
+          <span class="text-xs font-semibold card-foot-group">External</span>
+          <span class="text-xs card-foot-cta">View Details →</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+
 {% if not internal and not external and not institutional %}
-<div class="max-w-6xl mx-auto px-6 py-16 text-center" style="color:#6b7a99;">
+<div class="max-w-6xl mx-auto px-6 py-16 text-center landing-empty">
   <p class="text-lg font-medium mb-2">No scholarship programs available yet.</p>
   <p class="text-sm">Please check back later.</p>
 </div>
@@ -210,40 +183,40 @@
 </div>
 
 <!-- Footer -->
-<footer class="text-center py-8 text-xs" style="color:#6b7a99;border-top:1px solid #e8ecf0;">
+<footer class="text-center py-8 text-xs site-footer">
   © 2025 Biliran Province State University · Scholarship Records Management System
 </footer>
 
 <!-- Modals (all scholarships) -->
 {% for s in scholarships %}
-<div class="modal-overlay" id="modal-{{ s.pk }}" onclick="if(event.target===this)closeModal({{ s.pk }})">
+<div class="modal-overlay" id="modal-{{ s.pk }}" data-modal="{{ s.pk }}">
   <div class="modal">
-    <div style="height:6px;background:{% if s.group == 'external' %}linear-gradient(90deg,#0000ff,#4d4dff){% elif s.group == 'institutional' %}linear-gradient(90deg,#2f9e44,#51cf66){% else %}linear-gradient(90deg,#ffff00,#ffd400){% endif %};border-radius:1rem 1rem 0 0;"></div>
+    <div class="card-strip {% if s.group == 'external' %}card-strip-external{% elif s.group == 'institutional' %}card-strip-institutional{% else %}card-strip-internal{% endif %}"></div>
     <div class="p-6">
       <div class="flex items-start justify-between mb-4">
         <div class="flex items-center gap-3">
-          <img src="/media/logos/BiPSU.png" alt="logo" style="height:3rem;width:3rem;object-fit:contain;flex-shrink:0;" />
+          <img src="/media/logos/BiPSU.png" alt="logo" class="modal-logo" />
           <div>
-            <span class="badge mb-1" style="background:#ffff00;color:#0000ff;border-color:#cccc00;display:block;font-weight:600;">{{ s.type }}</span>
-            <h2 class="text-xl font-bold" style="color:#1e2a3a;">{{ s.name }}</h2>
+            <span class="badge badge-accent badge-block mb-1">{{ s.type }}</span>
+            <h2 class="text-xl font-bold modal-title">{{ s.name }}</h2>
           </div>
         </div>
-        <button onclick="closeModal({{ s.pk }})" style="background:none;border:none;cursor:pointer;color:#6b7a99;font-size:1.25rem;line-height:1;">✕</button>
+        <button type="button" class="modal-close" data-close-modal="{{ s.pk }}" aria-label="Close">✕</button>
       </div>
 
       {% if s.background %}
-      <div class="rounded-xl p-4 mb-4" style="background:#f6f8fc;">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Background</p>
-        <p class="text-sm" style="color:#374151;">{{ s.background }}</p>
+      <div class="rounded-xl p-4 mb-4 modal-note">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2 modal-note-label">Background</p>
+        <p class="text-sm modal-note-text">{{ s.background }}</p>
       </div>
       {% endif %}
 
       {% if s.eligibility_list %}
       <div class="mb-4">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">Eligibility Requirements</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2 modal-label">Eligibility Requirements</p>
         <ul class="space-y-1">
           {% for req in s.eligibility_list %}
-          <li class="text-sm flex gap-2" style="color:#374151;"><span style="color:#2f9e44;">✓</span> {{ req }}</li>
+          <li class="text-sm flex gap-2 modal-li"><span class="modal-tick">✓</span> {{ req }}</li>
           {% endfor %}
         </ul>
       </div>
@@ -251,24 +224,20 @@
 
       {% if s.benefits %}
       <div class="mb-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">Benefits</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2 modal-label">Benefits</p>
         <ul class="space-y-1">
           {% for b in s.benefits %}
-          <li class="text-sm flex gap-2" style="color:var(--text-soft);"><span style="color:var(--brand);">•</span> {{ b }}</li>
+          <li class="text-sm flex gap-2 modal-li"><span class="modal-bullet">•</span> {{ b }}</li>
           {% endfor %}
         </ul>
       </div>
       {% endif %}
 
-      <button onclick="closeModal({{ s.pk }})" class="btn btn-outline" style="width:100%;">Close</button>
+      <button type="button" class="btn btn-outline w-full" data-close-modal="{{ s.pk }}">Close</button>
     </div>
   </div>
 </div>
 {% endfor %}
 
-<script>
-  function openModal(id) { document.getElementById('modal-' + id).classList.add('open'); }
-  function closeModal(id) { document.getElementById('modal-' + id).classList.remove('open'); }
-</script>
 </body>
 </html>

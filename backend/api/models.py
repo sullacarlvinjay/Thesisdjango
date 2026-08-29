@@ -21,12 +21,12 @@ top to bottom, the classes below are the entity-relationship diagram:
 """
 from datetime import date
 
-from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 from .constants import (
-    APPLICATION_SOURCES, APPLICATION_STATUSES, BIPSU_COURSES, BIPSU_SCHOOLS, CIVIL_STATUSES,
+    APPLICATION_SOURCES, APPLICATION_STATUSES, BIPSU_COURSES, BIPSU_SCHOOLS,
+    CHED_TIER_CHOICES, CIVIL_STATUSES,
     GENDERS,
     DEFAULT_APPROVAL_MESSAGE, VERIFICATION_STATUSES,
     DESIGNATIONS, EMPLOYMENT_STATUSES, NOTIFICATION_TYPES,
@@ -37,7 +37,8 @@ from .constants import (
 
 # Re-exported so existing `from .models import BIPSU_SCHOOLS` imports keep working.
 __all__ = [
-    'BIPSU_COURSES', 'BIPSU_SCHOOLS', 'SCHOLARSHIP_TYPE_CHOICES',
+    'BIPSU_COURSES', 'BIPSU_SCHOOLS', 'CHED_TIER_CHOICES', 'SCHOLARSHIP_TYPE_CHOICES',
+    'ched_tier', 'split_ched',
     'AcademicRenewal', 'ActivityLog', 'AffirmativeStaffApplication',
     'AffirmativeRecommendation', 'Announcement', 'Application',
     'ApplicationDocument', 'ImportedScholar', 'Notification', 'Scholarship',
@@ -552,7 +553,7 @@ class AffirmativeStaffApplication(PhilippineAddress):
     """Affirmative Action / BiPSU Staff application.
 
     Applied for outside the student portal, so it carries its own copy of the
-    applicant's details and its own password for the public apply portal.
+    applicant's details.
 
     Neither programme is scored here. BiPSU Staff has no merit test — see
     ``is_regular_staff``. Affirmative Action eligibility is decided from the
@@ -601,7 +602,6 @@ class AffirmativeStaffApplication(PhilippineAddress):
     is_tes_beneficiary = models.BooleanField(default=False)
 
     # Result
-    password = models.CharField(max_length=255, default='')
     qualified_for = models.CharField(max_length=20, choices=QUALIFICATION_CHOICES, default='None')
     status = models.CharField(max_length=30, choices=APPLICATION_STATUSES, default='Pending Validation')
     remarks = models.TextField(blank=True)
@@ -610,12 +610,6 @@ class AffirmativeStaffApplication(PhilippineAddress):
 
     def __str__(self):
         return f"{self.full_name} — {self.qualified_for}"
-
-    def set_password(self, raw_password):
-        self.password = make_password(raw_password)
-
-    def check_password(self, raw_password):
-        return check_password(raw_password, self.password)
 
     @property
     def name_parts(self):
@@ -717,6 +711,11 @@ class ScholarshipLinkRequest(models.Model):
     # school_year until now, which it never held: the value is a term.
     term_label = models.CharField(max_length=20, blank=True)
     award_number = models.CharField(max_length=50, blank=True)
+    # Which CHED tier the award is. Blank for every other programme — only CHED
+    # is reported in two blocks, so only CHED asks. Copied onto the Application
+    # as form_data['scholar_type'] when the request is approved, which is what
+    # the masterlists read.
+    award_tier = models.CharField(max_length=10, choices=CHED_TIER_CHOICES, blank=True)
 
     # Review trail
     remarks = models.TextField(blank=True)
@@ -957,3 +956,37 @@ class SystemSettings(models.Model):
     def next_label(self):
         yy, sem = self.academic_year.split('-')
         return f'{yy}-2' if sem == '1' else f'{int(yy) + 1}-1'
+
+
+# ── CHED tiers ──────────────────────────────────────────────────────────────
+
+def ched_tier(app):
+    """'Full', 'Half' or '' for one approved CHED application.
+
+    Three signals, most trustworthy first: the tier the student declared on
+    their link request and the office confirmed, which is copied onto the award
+    as ``form_data['scholar_type']``; then the programme name, for awards
+    created before the field existed or imported under a tier-specific name;
+    then nothing, for rows no one has ever classified.
+    """
+    declared = ((app.form_data or {}).get('scholar_type') or '').lower()
+    name = (app.scholarship.name or '').lower() if app.scholarship_id else ''
+    for text in (declared, name):
+        if 'full' in text:
+            return 'Full'
+        if 'half' in text or 'partial' in text:
+            return 'Half'
+    return ''
+
+
+def split_ched(apps):
+    """Split approved CHED applications into the (full, half) report blocks.
+
+    Every masterlist prints CHED as two tables, so an unclassified row still has
+    to land in one of them. It goes to half — where this code has always put
+    anything not named 'full' — rather than silently disappearing from the
+    report.
+    """
+    apps = list(apps)
+    full = [a for a in apps if ched_tier(a) == 'Full']
+    return full, [a for a in apps if a not in full]

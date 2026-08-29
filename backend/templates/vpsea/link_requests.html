@@ -61,6 +61,7 @@
             <p class="font-semibold" style="color:#1e2a3a;">
               {{ row.req.student.user.get_full_name }}
               <span class="badge badge-info" style="margin-left:0.4rem;">{{ row.req.get_scholarship_type_display }}</span>
+              {% if row.req.award_tier %}<span class="badge badge-brand" style="margin-left:0.25rem;">{{ row.req.get_award_tier_display }}</span>{% endif %}
             </p>
             <p class="text-xs mt-1" style="color:#6b7a99;">
               <span class="font-mono">{{ row.req.student.student_id }}</span>
@@ -126,6 +127,24 @@
               No imported row for {{ active_label }} matches this student's number, award number or name.
               Approving will still record them as a scholar for {{ active_sy }} — {{ active_semester }}.
             </p>
+            {% endif %}
+
+            {% if row.req.scholarship_type == 'CHED' %}
+            <!-- The two CHED blocks in every masterlist. The student declared a
+                 tier; the proof document is in front of the reviewer, so they
+                 get the last word on which block the scholar lands in. -->
+            <div class="space-y-1.5 mb-3">
+              <label class="block text-sm font-medium" style="color:#374151;">CHED award tier</label>
+              <select name="award_tier" class="block w-full text-sm">
+                {% for value, label in ched_tiers %}
+                <option value="{{ value }}" {% if row.req.award_tier == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <p class="text-xs" style="color:#6b7a99;">
+                {% if row.req.award_tier %}The student declared <strong>{{ row.req.get_award_tier_display }}</strong>. Change it here if the proof says otherwise.
+                {% else %}This request predates the tier question — pick the block this scholar belongs in.{% endif %}
+              </p>
+            </div>
             {% endif %}
 
             <div class="space-y-1.5 mb-3">

@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}BiPSU SRMS{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
-          fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] },
+          // The BiPSU face: a plain sans-serif, resolved from --font-sans in
+          // srms.css so the typeface is set in exactly one place.
+          fontFamily: { sans: ['var(--font-sans)'] },
           colors: {
             // Pointed at the design tokens in srms.css so Tailwind utilities
             // follow whichever portal identity the page is wearing.
@@ -20,7 +21,7 @@
             success: { DEFAULT: '#2f9e44', foreground: '#ffffff' },
             warning: { DEFAULT: '#f59f00', foreground: '#1a1a1a' },
             info: { DEFAULT: '#1971c2', foreground: '#ffffff' },
-            sidebar: { DEFAULT: 'var(--surface)', foreground: 'var(--text)', accent: 'var(--brand-soft)', border: 'var(--border)' },
+            sidebar: { DEFAULT: 'var(--sidebar-bg)', foreground: 'var(--sidebar-text)', accent: 'var(--sidebar-hover)', border: 'var(--sidebar-border)' },
             muted: { DEFAULT: 'var(--surface-2)', foreground: 'var(--text-muted)' },
             border: 'var(--border)',
             card: 'var(--surface)',
@@ -37,13 +38,14 @@
     }
   </script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
   {% block extra_head %}{% endblock %}
 </head>
 {% comment %}
-  Which of the three visual identities this page wears. Derived from the signed-in
-  role so no template has to opt in, and read by static/css/srms.css, which
-  re-declares its colour tokens per portal. Structure never changes — only colour.
+  Which portal this page belongs to. Derived from the signed-in role so no
+  template has to opt in, and read by static/css/srms.css. Every office wears
+  the university's blue and yellow; the attribute exists because UniFAST is a
+  separate agency and colours its own pages orange. Structure never changes.
 {% endcomment %}
 <body data-portal="{% if user.role == 'vpsea' %}vpsea{% elif user.role == 'unifast' %}unifast{% elif user.role == 'nsu_staff' %}staff{% else %}student{% endif %}">
 <div class="flex min-h-screen w-full">
@@ -52,22 +54,21 @@
        self-start is what makes sticky work here: without it the flex row
        stretches the aside to the full page height and it has nowhere to stick.
        A nav too long for the screen scrolls inside itself. -->
-  <aside class="hidden lg:flex w-64 shrink-0 flex-col self-start sticky top-0 h-screen"
-         style="background:var(--surface);border-right:1px solid var(--border);">
-    <div class="flex items-center gap-2 px-6 py-5" style="border-bottom:1px solid var(--border);">
-      <div class="h-9 w-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style="background:var(--surface-2);">
+  <aside class="app-sidebar hidden lg:flex w-64 shrink-0 flex-col self-start sticky top-0 h-screen">
+    <div class="sidebar-head flex items-center gap-2 px-6 py-5">
+      <div class="sidebar-logo h-9 w-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
         <img src="{% block logo_src %}/media/logos/BiPSU.png{% endblock %}" alt="logo" class="h-9 w-9 object-contain" />
       </div>
       <div>
-        <p class="text-sm font-semibold" style="color:var(--text);">{% block brand_name %}BiPSU SRMS{% endblock %}</p>
-        <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">{% block brand %}Portal{% endblock %}</p>
+        <p class="sidebar-brand text-sm font-semibold">{% block brand_name %}BiPSU SRMS{% endblock %}</p>
+        <p class="sidebar-brand-sub text-xs uppercase tracking-wider">{% block brand %}Portal{% endblock %}</p>
       </div>
     </div>
     <nav class="sidebar-nav flex-1 min-h-0 overflow-y-auto p-3 space-y-0.5">
       {% block nav %}{% endblock %}
     </nav>
-    <div class="p-3 shrink-0" style="border-top:1px solid var(--border);">
-      <a href="/logout" class="sidebar-link" style="color:var(--text-muted);">
+    <div class="sidebar-foot p-3 shrink-0">
+      <a href="/logout" class="sidebar-link">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
         Sign out
       </a>

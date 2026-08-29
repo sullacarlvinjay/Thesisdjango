@@ -6,7 +6,7 @@
     <form method="get" class="flex flex-wrap items-center gap-3 ml-auto">
       <div class="flex items-center gap-2">
         <label class="text-sm" style="color:#6b7a99;">Semester:</label>
-        <select name="sy" onchange="this.form.submit()" style="border:1px solid #e8ecf0;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.8rem;">
+        <select name="sy" onchange="this.form.submit()" class="select-inline">
           {% for lbl, display in all_sy_display %}
           <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ display }}</option>
           {% endfor %}
@@ -14,7 +14,7 @@
       </div>
       <div class="flex items-center gap-2">
         <label class="text-sm" style="color:#6b7a99;">Program:</label>
-        <select name="stype" onchange="this.form.submit()" style="border:1px solid #e8ecf0;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.8rem;">
+        <select name="stype" onchange="this.form.submit()" class="select-inline">
           <option value="" {% if not selected_type %}selected{% endif %}>All Programs</option>
           {% for t in all_types %}
           <option value="{{ t }}" {% if t == selected_type %}selected{% endif %}>{{ t }}</option>
@@ -82,23 +82,6 @@
       </div>
       <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
       <canvas id="gwaChart" height="180"></canvas>
-    </div>
-    {% endif %}
-
-
-    {% if tes_status %}
-    <!-- TES Application Queue — UniFAST portal only -->
-    <div class="card p-6">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h3 class="font-semibold">TES Application Queue</h3>
-        <button class="chart-toggle-btn" onclick="downloadChart('tesChart','tes-application-queue')">&#8681; PNG</button>
-      </div>
-      <p class="text-xs mb-4" style="color:#6b7a99;">{{ tes_total }} application{{ tes_total|pluralize }} reviewed in this portal, all semesters</p>
-      {% if tes_total %}
-      <canvas id="tesChart" height="180"></canvas>
-      {% else %}
-      <p style="color:#6b7a99;font-size:0.875rem;">No TES applications have been submitted yet.</p>
-      {% endif %}
     </div>
     {% endif %}
 

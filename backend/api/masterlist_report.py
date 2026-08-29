@@ -203,7 +203,7 @@ def _affirmative_row(no, app):
 
 def _sources():
     """Every scholarship type mapped to its approved records, already ordered."""
-    from .models import Application, AffirmativeStaffApplication
+    from .models import Application, AffirmativeStaffApplication, split_ched
 
     def apps(stype):
         return list(
@@ -212,11 +212,7 @@ def _sources():
             .order_by('student__user__last_name', 'student__user__first_name')
         )
 
-    ched = apps('CHED')
-    ched_full = [a for a in ched if 'full' in (a.scholarship.name or '').lower()]
-    ched_half = [a for a in ched if a not in ched_full]
-    if not ched_full and not ched_half:
-        ched_full = ched
+    ched_full, ched_half = split_ched(apps('CHED'))
 
     def affirmative(qualified_for):
         return list(

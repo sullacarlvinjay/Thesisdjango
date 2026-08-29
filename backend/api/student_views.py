@@ -2,87 +2,12 @@
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
-from .models import StudentProfile, Scholarship, Application, Notification, Announcement, User, AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, TESApplication, BIPSU_SCHOOLS, BIPSU_COURSES
+from .models import StudentProfile, Scholarship, Application, Notification, Announcement, User, AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, TESApplication, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from io import BytesIO
-
-SCHOLARSHIP_DETAILS = {
-    'academic': {
-        'name': 'Academic Scholarship', 'category': 'Merit-Based',
-        'color': 'linear-gradient(135deg,#3b5bdb,#4c6ef5)',
-        'badge_bg': '#edf2ff', 'badge_color': '#3b5bdb',
-        'background': 'The Academic Scholarship is BiPSU\'s flagship merit-based program established to recognize and reward students with outstanding academic performance. It has been a cornerstone of the university\'s commitment to academic excellence since its founding, providing full tuition coverage to top-performing students each semester.',
-        'eligibility': ['University Scholar: GWA of 1.29 or better', 'College Scholar: GWA of 1.30 to 1.50', 'No grade above 2.5 in any subject', 'Must be a regular student (full load)'],
-        'benefits': ['Full tuition fee coverage', 'Miscellaneous fee exemption', 'Priority in university activities', 'Certificate of recognition each semester'],
-        'apply_url': '/login/', 'apply_label': 'Sign In to Apply',
-    },
-    'tdp': {
-        'name': 'TDP Scholarship', 'category': 'Needs-Based',
-        'color': 'linear-gradient(135deg,#1971c2,#339af0)',
-        'badge_bg': '#eff6ff', 'badge_color': '#1971c2',
-        'background': 'The Tertiary Development Program (TDP) is a government scholarship under UniFAST providing financial subsidy to qualified students from low-income families enrolled in state universities and colleges. It aims to ensure that financial constraints do not hinder deserving students from accessing higher education.',
-        'eligibility': ['Filipino citizen enrolled in a state university', 'From a low-income family (combined annual income threshold)', 'Not a recipient of other government subsidies', 'Maintaining satisfactory academic performance'],
-        'benefits': ['Monthly stipend for living expenses', 'Tuition and miscellaneous fee subsidy', 'Book and supplies allowance', 'Renewable each semester subject to conditions'],
-        'apply_url': None, 'apply_label': 'Processed by UniFAST',
-    },
-    'staff': {
-        'name': 'BiPSU Staff Scholarship', 'category': 'Institutional',
-        'color': 'linear-gradient(135deg,#2f9e44,#51cf66)',
-        'badge_bg': '#f0fdf4', 'badge_color': '#2f9e44',
-        'background': 'The BiPSU Staff Scholarship is an institutional benefit established by Biliran Province State University to support its permanent faculty, employees, and their qualified dependents. Recognizing the dedication of its academic community, the university provides this scholarship as a tangible expression of its commitment to the welfare of its personnel and their families.',
-        'eligibility': ['Permanent NSU faculty or employee, OR', 'Legitimate dependent of a permanent NSU faculty/staff', 'Dependent must not have already earned a baccalaureate degree', 'Must be enrolled in BiPSU'],
-        'benefits': ['Full tuition fee coverage', 'Miscellaneous fee exemption', 'Renewable each semester', 'Applicable to all undergraduate programs'],
-        'apply_url': '/apply/register/', 'apply_label': 'Register to Apply',
-    },
-    'affirmative': {
-        'name': 'Affirmative Scholarship', 'category': 'Affirmative Action',
-        'color': 'linear-gradient(135deg,#f59f00,#fcc419)',
-        'badge_bg': '#fffbeb', 'badge_color': '#92400e',
-        'background': 'The Affirmative Action Scholarship at BiPSU promotes equal access to quality education for students who demonstrate strong academic potential in Senior High School and perform well in the university admission examination. It bridges the gap for deserving students who may not qualify for traditional merit-based programs but show clear potential for academic success.',
-        'eligibility': ['SHS GPA of at least 75% certified by SHS principal', 'At least 50% passing score in SUC-administered admission exam', 'Must NOT be a TES (Tertiary Education Subsidy) beneficiary', 'Must be enrolled as a regular student at BiPSU'],
-        'benefits': ['Tuition fee coverage', 'Monthly educational allowance', 'Access to university academic support programs', 'Renewable subject to satisfactory academic performance'],
-        'apply_url': '/apply/register/', 'apply_label': 'Register to Apply',
-    },
-    'dost': {
-        'name': 'DOST Scholarship', 'category': 'Science & Tech',
-        'color': 'linear-gradient(135deg,#7048e8,#9775fa)',
-        'badge_bg': '#f3f0ff', 'badge_color': '#7048e8',
-        'background': 'The Department of Science and Technology (DOST) Scholarship is a prestigious government program supporting outstanding students pursuing science, technology, engineering, and mathematics (STEM) courses. Administered nationally, it aims to build a strong pool of Filipino scientists, engineers, and technologists to drive national development.',
-        'eligibility': ['Enrolled in a STEM-related course', 'GWA of at least 85% in high school', 'Must pass the DOST qualifying examination', 'Filipino citizen with financial need'],
-        'benefits': ['Full tuition and fees', 'Monthly stipend', 'Book allowance', 'Thesis/dissertation allowance for graduate scholars'],
-        'apply_url': None, 'apply_label': 'Apply via DOST Office',
-    },
-    'ched': {
-        'name': 'CHED Scholarship', 'category': 'Government',
-        'color': 'linear-gradient(135deg,#e64980,#f783ac)',
-        'badge_bg': '#fff0f6', 'badge_color': '#c2255c',
-        'background': 'The Commission on Higher Education (CHED) Scholarship provides financial assistance to deserving and qualified students in higher education institutions. Established under Republic Act 7722, it represents the government\'s investment in human capital development through accessible higher education for all Filipinos.',
-        'eligibility': ['Filipino citizen with demonstrated financial need', 'GWA of 80% or higher in the previous school year', 'Not a recipient of other CHED scholarships', 'Enrolled in CHED-recognized programs'],
-        'benefits': ['Tuition and miscellaneous fees', 'Monthly living allowance', 'Book allowance per semester', 'Thesis support grant'],
-        'apply_url': None, 'apply_label': 'Apply via CHED Office',
-    },
-    'coscho': {
-        'name': 'CoScho Scholarship', 'category': 'Agricultural',
-        'color': 'linear-gradient(135deg,#0ca678,#20c997)',
-        'badge_bg': '#e6fcf5', 'badge_color': '#0ca678',
-        'background': 'The Coconut Farmers Scholar (CoScho) Program is a scholarship initiative for children and dependents of registered coconut farmers. Funded through the Philippine Coconut Authority, it aims to uplift coconut farming communities by investing in the education of the next generation.',
-        'eligibility': ['Child or legal dependent of a registered coconut farmer', 'Farmer must be registered with PCIC', 'Good academic standing (passing all subjects)', 'Must submit proof of coconut farm registration'],
-        'benefits': ['Tuition fee subsidy', 'Monthly allowance', 'Book and supplies grant', 'Annual clothing allowance'],
-        'apply_url': None, 'apply_label': 'Apply via PCIC Office',
-    },
-    'sports': {
-        'name': 'Sports Scholarship', 'category': 'Athletics',
-        'color': 'linear-gradient(135deg,#f76707,#ff922b)',
-        'badge_bg': '#fff4e6', 'badge_color': '#d9480f',
-        'background': 'The Sports Scholarship at BiPSU honors student athletes who represent the university in regional and national competitions. The university supports its athletes with this scholarship to ensure they can pursue both their academic and athletic goals without financial burden.',
-        'eligibility': ['Must be a recognized university athlete', 'Actively competing in university-sanctioned athletic events', 'Maintaining passing grades in all enrolled subjects', 'Endorsed by the university coach and sports office'],
-        'benefits': ['Full tuition fee coverage', 'Athletic allowance', 'Sports equipment and uniform support', 'Travel allowance for competitions'],
-        'apply_url': None, 'apply_label': 'Coach Endorsement Required',
-    },
-}
 
 
 # — Landing ——————————————————————————————————
@@ -655,7 +580,7 @@ def student_profile(request):
 
 @login_required(login_url='/login/')
 def student_link_scholarship(request):
-    from .models import SystemSettings, SCHOLARSHIP_TYPE_CHOICES
+    from .models import SystemSettings, CHED_TIER_CHOICES, SCHOLARSHIP_TYPE_CHOICES
     profile = StudentProfile.objects.filter(user=request.user).first()
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     active_label = settings_obj.academic_year
@@ -690,6 +615,7 @@ def student_link_scholarship(request):
         return {
             'profile': profile,
             'scholarship_types': SCHOLARSHIP_TYPE_CHOICES,
+            'ched_tiers': CHED_TIER_CHOICES,
             'link_requests': link_requests,
             'enrolled': _is_enrolled(profile),
             'blocked_reason': blocked_reason,
@@ -706,15 +632,23 @@ def student_link_scholarship(request):
         notes = request.POST.get('notes', '')
         award_number = request.POST.get('award_number', '').strip()
         proof = request.FILES.get('proof_document')
+        # CHED is awarded at two tiers under a single programme and every
+        # masterlist reports the two in separate blocks, so the student has to
+        # say which one they hold. Other programmes have one tier; blank there.
+        tier = request.POST.get('award_tier', '') if stype == 'CHED' else ''
         errors = []
         if stype not in [t for t, _ in SCHOLARSHIP_TYPE_CHOICES]:
             errors.append('Please select a scholarship type.')
+        elif stype == 'CHED' and tier not in [t for t, _ in CHED_TIER_CHOICES]:
+            errors.append('Please choose whether your CHED award is Full Merit / Full Scholar '
+                          'or Half Merit / Partial Scholar — your award letter says which.')
         errors += _validate_proof(proof, settings_obj)
         if errors:
             return render(request, 'student/link_scholarship.html', ctx(errors=errors, post=request.POST))
         ScholarshipLinkRequest.objects.create(
             student=profile, scholarship_type=stype, proof_document=proof,
-            notes=notes, award_number=award_number, term_label=active_label,
+            notes=notes, award_number=award_number, award_tier=tier,
+            term_label=active_label,
         )
         return redirect('/student/link-scholarship/?submitted=1')
 
@@ -1028,7 +962,7 @@ def vpsea_link_requests(request):
     person is not counted twice.
     """
     from .models import (ScholarshipLinkRequest, ImportedScholar, SystemSettings,
-                         Notification, ActivityLog)
+                         Notification, ActivityLog, CHED_TIER_CHOICES)
     from django.utils import timezone
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
@@ -1099,6 +1033,17 @@ def vpsea_link_requests(request):
             'claimed_archive': archive,
         }
         form_data = {'imported_from': archive.imported_from} if archive else {}
+
+        # The reviewer can correct the tier the student picked — the proof
+        # document is in front of them and the student is not always sure which
+        # one they were awarded. It rides on the award as 'scholar_type', which
+        # is the key every CHED masterlist splits its two blocks by.
+        if req.scholarship_type == 'CHED':
+            tier = request.POST.get('award_tier', '') or req.award_tier
+            if tier not in [t for t, _ in CHED_TIER_CHOICES]:
+                return redirect('/vpsea/link-requests/?error=Choose+Full+or+Half+Merit+before+approving+a+CHED+link')
+            req.award_tier = tier          # persisted by the req.save() below
+            form_data['scholar_type'] = dict(CHED_TIER_CHOICES)[tier]
 
         # Reuse this semester's row if one already exists so re-approval after a
         # correction does not leave the scholar counted twice.
@@ -1188,6 +1133,7 @@ def vpsea_link_requests(request):
 
     return render(request, 'vpsea/link_requests.html', {
         'rows': rows,
+        'ched_tiers': CHED_TIER_CHOICES,
         'status_filter': status_filter,
         'total_count': all_requests.count(),
         'pending_count': all_requests.filter(status='Pending').count(),
@@ -1374,10 +1320,7 @@ def vpsea_archives(request):
         all_scholars = sy_filter(Application.objects.filter(
             status='Approved', scholarship__type='CHED',
         )).select_related('student__user', 'scholarship').order_by('student__user__last_name')
-        full_scholars = [a for a in all_scholars if 'full' in (a.scholarship.name or '').lower() or 'full' in (a.form_data.get('scholar_type', '')).lower()]
-        half_scholars = [a for a in all_scholars if a not in full_scholars]
-        if not full_scholars and not half_scholars:
-            full_scholars = list(all_scholars)
+        full_scholars, half_scholars = split_ched(all_scholars)
         return render(request, 'vpsea/archives.html', {
             **base_ctx,
             'full_scholars': full_scholars,
@@ -2257,15 +2200,6 @@ def vpsea_analytics(request):
 def unifast_analytics(request):
     """Scoped to the programmes UniFAST administers: TES and TDP."""
     ctx = _analytics_context(request, UNIFAST_TYPES, include_gwa=False)
-    # TES is reviewed in this portal, so its queue is the useful breakdown here
-    # in place of the merit-based GWA chart.
-    tes_qs = TESApplication.objects.all()
-    ctx['tes_status'] = [
-        {'label': 'Approved', 'count': tes_qs.filter(status='Approved').count(), 'color': '#2f9e44'},
-        {'label': 'Pending', 'count': tes_qs.filter(status='Pending').count(), 'color': '#f59f00'},
-        {'label': 'Rejected', 'count': tes_qs.filter(status='Rejected').count(), 'color': '#e03131'},
-    ]
-    ctx['tes_total'] = tes_qs.count()
     return render(request, 'unifast/analytics.html', ctx)
 
 
@@ -2676,10 +2610,7 @@ def vpsea_report_preview_pdf(request):
 
     # ── CHED ──────────────────────────────────────────────────────────────────
     ched_all = list(Application.objects.filter(status='Approved', scholarship__type='CHED').select_related('student__user','scholarship').order_by('student__user__last_name'))
-    ched_full = [a for a in ched_all if 'full' in (a.scholarship.name or '').lower()]
-    ched_half = [a for a in ched_all if a not in ched_full]
-    if not ched_full and not ched_half:
-        ched_full = list(ched_all)
+    ched_full, ched_half = split_ched(ched_all)
     hdrs_ched = ['NO.','AWARD NO.','LAST NAME','FIRST NAME','M.I.','SEX','BRGY./ST.','MUN.','PROV.','CONG. DIST.','COURSE','YR.','SCHOLARSHIP PROGRAM']
 
     def ched_rows(apps):
@@ -2981,10 +2912,7 @@ def vpsea_report_download(request):
         status='Approved', scholarship__type='CHED'
     ).select_related('student__user', 'scholarship').order_by('student__user__last_name')
 
-    ched_full = [a for a in ched_all if 'full' in (a.scholarship.name or '').lower()]
-    ched_half = [a for a in ched_all if a not in ched_full]
-    if not ched_full and not ched_half:
-        ched_full = list(ched_all)
+    ched_full, ched_half = split_ched(ched_all)
 
     headers_ched = ['NO.', 'AWARD NUMBER', 'NAME', 'NAME', 'NAME', 'SEX', 'ADDRESS', 'ADDRESS', 'ADDRESS', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
     sub_ched     = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
@@ -3346,10 +3274,7 @@ def vpsea_report_download_excel(request):
     ched_all = list(Application.objects.filter(
         status='Approved', scholarship__type='CHED'
     ).select_related('student__user', 'scholarship').order_by('student__user__last_name'))
-    ched_full = [a for a in ched_all if 'full' in (a.scholarship.name or '').lower()]
-    ched_half = [a for a in ched_all if a not in ched_full]
-    if not ched_full and not ched_half:
-        ched_full = list(ched_all)
+    ched_full, ched_half = split_ched(ched_all)
     headers_ched = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
 
     def ched_rows(apps):

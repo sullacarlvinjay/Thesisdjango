@@ -221,9 +221,7 @@ class Command(BaseCommand):
         ]
         for data in aff_test:
             if not AffirmativeStaffApplication.objects.filter(email=data['email']).exists():
-                obj = AffirmativeStaffApplication(**data)
-                obj.set_password('demo1234')
-                obj.save()
+                AffirmativeStaffApplication.objects.create(**data)
 
         self.stdout.write(self.style.SUCCESS('Database seeded successfully!'))
         self.stdout.write('\nLogin credentials:')

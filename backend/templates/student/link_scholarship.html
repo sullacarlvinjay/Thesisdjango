@@ -12,8 +12,8 @@
 
   <a href="/student/apply/tes/" class="sidebar-link {% if '/apply/tes' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
 
-  {% endif %}
   <a href="/student/link-scholarship/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
+  {% endif %}
   <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
   <a href="/student/notifications/" class="sidebar-link {% if '/notifications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
   <a href="/student/renewal/academic/" class="sidebar-link {% if '/renewal' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal</a>
@@ -92,11 +92,25 @@
 
       <div>
         <label class="block text-sm font-medium mb-1" style="color:#374151;">Scholarship <span style="color:#e03131;">*</span></label>
-        <select name="scholarship_type" required
-          class="block w-full text-sm rounded-lg border px-3 py-2" style="border-color:#e8ecf0;color:#374151;background:#fff;">
+        <select name="scholarship_type" id="linkScholarshipType" required class="block w-full text-sm">
           <option value="">— Select scholarship —</option>
           {% for value, label in scholarship_types %}
           <option value="{{ value }}" {% if post.scholarship_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- CHED grants two tiers under one programme and the office reports them
+           as separate blocks, so a CHED link has to say which one it is. Shown
+           only for CHED — static/js/link-scholarship.js does the toggling, and
+           the server ignores the field for every other programme. -->
+      <div id="chedTier" hidden>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">CHED Award Tier <span style="color:#e03131;">*</span></label>
+        <p class="text-xs mb-2" style="color:#6b7a99;">Your award letter says which one you were granted. Full Merit covers full tuition; Half Merit is the partial grant.</p>
+        <select name="award_tier" class="block w-full text-sm">
+          <option value="">— Select tier —</option>
+          {% for value, label in ched_tiers %}
+          <option value="{{ value }}" {% if post.award_tier == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -111,8 +125,7 @@
       <div>
         <label class="block text-sm font-medium mb-1" style="color:#374151;">Proof Document <span style="color:#e03131;">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">Upload your scholarship award letter, certificate, or any official document proving your scholarship.</p>
-        <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png"
-          class="block w-full text-sm rounded-lg border px-3 py-2" style="border-color:#e8ecf0;color:#374151;" required />
+        <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png" class="block w-full text-sm" required />
         <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG &nbsp;·&nbsp; maximum {{ max_upload_mb }} MB</p>
       </div>
 
@@ -136,7 +149,10 @@
       <div class="p-4 rounded-xl" style="background:#f6f8fc;">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <p class="text-sm font-medium" style="color:#1e2a3a;">{{ r.get_scholarship_type_display }}</p>
+            <p class="text-sm font-medium" style="color:#1e2a3a;">
+              {{ r.get_scholarship_type_display }}
+              {% if r.award_tier %}<span class="badge badge-brand" style="margin-left:0.35rem;">{{ r.get_award_tier_display }}</span>{% endif %}
+            </p>
             <p class="text-xs mt-0.5" style="color:#6b7a99;">
               Submitted {{ r.submitted_at|date:"M d, Y" }}
               {% if r.school_year %}&nbsp;·&nbsp; for {{ r.school_year }}{% endif %}
@@ -167,4 +183,9 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/link-scholarship.js' %}"></script>
 {% endblock %}

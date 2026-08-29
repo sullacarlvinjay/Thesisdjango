@@ -13,9 +13,8 @@
   {% endif %}
   <title>{% if rejected %}Registration Not Accepted{% else %}Registration Received{% endif %} — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=3" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {

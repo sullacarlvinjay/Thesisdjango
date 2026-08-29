@@ -30,7 +30,7 @@
 
     <div class="mb-4">
       <label class="text-sm font-medium block mb-1">Group <span style="color:#dc2626;">*</span></label>
-      <select name="group" style="width:100%;padding:0.45rem 0.6rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;">
+      <select name="group">
         <option value="internal" {% if s.group == 'internal' %}selected{% endif %}>Internal</option>
         <option value="external" {% if s.group == 'external' %}selected{% endif %}>External</option>
         <option value="institutional" {% if s.group == 'institutional' %}selected{% endif %}>Institutional</option>

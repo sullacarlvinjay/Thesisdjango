@@ -272,26 +272,6 @@ function buildTrendChart(type) {
 
 trendRef.chart = buildTrendChart('line');
 makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
-
-{% if tes_status and tes_total %}
-(function () {
-  new Chart(document.getElementById('tesChart'), {
-    type: 'doughnut',
-    data: {
-      labels: [{% for s in tes_status %}'{{ s.label|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-      datasets: [{
-        data: [{% for s in tes_status %}{{ s.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        backgroundColor: [{% for s in tes_status %}'{{ s.color }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-        borderWidth: 0,
-      }],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'bottom' } },
-    },
-  });
-})();
-{% endif %}
 {% endif %}
 </script>
 

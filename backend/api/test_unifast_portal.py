@@ -88,20 +88,6 @@ class UniFASTPortalTest(TestCase):
         self.assertEqual(r.context['gpa_ranges'], [])
         self.assertNotContains(r, 'GWA Distribution')
 
-    def test_analytics_shows_the_tes_review_queue(self):
-        # One TES application per student: student_apply_tes has always refused
-        # a second, and the database enforces the same rule now. The queue mix
-        # this asserts needs two students, not two applications for one.
-        a = self._scholar('TES', 'Reyes', 'M', '2024-0002').student
-        b = self._scholar('TES', 'Lim', 'F', '2024-0006').student
-        TESApplication.objects.create(student=a, status='Approved')
-        TESApplication.objects.create(student=b, status='Pending')
-        r = self.c.get('/unifast/analytics/')
-        self.assertEqual(r.context['tes_total'], 2)
-        counts = {s['label']: s['count'] for s in r.context['tes_status']}
-        self.assertEqual(counts, {'Approved': 1, 'Pending': 1, 'Rejected': 0})
-        self.assertContains(r, 'TES Application Queue')
-
     def test_vpsea_analytics_still_works_after_the_refactor(self):
         self._scholar('Academic', 'Santos', 'F', '2024-0003')
         self._scholar('TDP', 'Cruz', 'F', '2024-0001')
@@ -115,7 +101,6 @@ class UniFASTPortalTest(TestCase):
         # VPSEA keeps the GWA panel.
         self.assertEqual(len(r.context['gpa_ranges']), 5)
         self.assertContains(r, 'GWA Distribution')
-        self.assertNotContains(r, 'TES Application Queue')
 
     # ── Reports ─────────────────────────────────────────────────────────────
     def test_reports_lists_only_tdp_and_tes_split_by_gender(self):
