@@ -190,19 +190,19 @@
 <!-- Modals (all scholarships) -->
 {% for s in scholarships %}
 <div class="modal-overlay" id="modal-{{ s.pk }}" data-modal="{{ s.pk }}">
-  <div class="modal">
+  <div class="modal modal-sheet">
     <div class="card-strip {% if s.group == 'external' %}card-strip-external{% elif s.group == 'institutional' %}card-strip-institutional{% else %}card-strip-internal{% endif %}"></div>
-    <div class="p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <img src="/media/logos/BiPSU.png" alt="logo" class="modal-logo" />
-          <div>
-            <span class="badge badge-accent badge-block mb-1">{{ s.type }}</span>
-            <h2 class="text-xl font-bold modal-title">{{ s.name }}</h2>
-          </div>
+    <div class="modal-sheet-head">
+      <div class="flex items-center gap-3">
+        <img src="/media/logos/BiPSU.png" alt="logo" class="modal-logo" />
+        <div>
+          <span class="badge badge-accent badge-block mb-1">{{ s.type }}</span>
+          <h2 class="text-xl font-bold modal-title">{{ s.name }}</h2>
         </div>
-        <button type="button" class="modal-close" data-close-modal="{{ s.pk }}" aria-label="Close">✕</button>
       </div>
+      <button type="button" class="modal-close" data-close-modal="{{ s.pk }}" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-sheet-body">
 
       {% if s.background %}
       <div class="rounded-xl p-4 mb-4 modal-note">
@@ -233,6 +233,8 @@
       </div>
       {% endif %}
 
+    </div>
+    <div class="modal-sheet-foot">
       <button type="button" class="btn btn-outline w-full" data-close-modal="{{ s.pk }}">Close</button>
     </div>
   </div>

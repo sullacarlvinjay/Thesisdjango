@@ -1187,7 +1187,7 @@ body { overflow-x: hidden; }
 .card-strip-external      { background: linear-gradient(90deg, #0000ff, #4d4dff); }
 .card-strip-institutional { background: linear-gradient(90deg, #2f9e44, #51cf66); }
 /* Rounded to match the modal it sits on top of. */
-.modal .card-strip { height: 6px; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.modal .card-strip { height: 6px; border-radius: var(--radius-xl) var(--radius-xl) 0 0; flex: 0 0 auto; }
 
 .card-logo  { height: 2.5rem; width: 2.5rem; object-fit: contain; flex-shrink: 0; }
 .modal-logo { height: 3rem;   width: 3rem;   object-fit: contain; flex-shrink: 0; }
@@ -1222,8 +1222,6 @@ body { overflow-x: hidden; }
 .page-landing .modal-overlay { align-items: center; padding: 1rem; }
 .page-landing .modal {
   max-width: 540px;
-  max-height: 90vh;
-  overflow-y: auto;
   border-radius: var(--radius-xl);
 }
 .page-landing .btn { padding: 0.55rem 1.25rem; font-weight: 600; text-decoration: none; }
@@ -1866,3 +1864,117 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+
+/* ── Modal sheet ─────────────────────────────────────────────────────────────
+   The panel a modal draws, for every modal long enough to scroll.
+
+   What these used to be was a single .card carrying max-height:90vh and
+   overflow-y:auto, which scrolls the whole panel — heading, close button and
+   all. On the review modals that is the worst place to lose the ✕: those are
+   the longest screens in the system, and the further down an application an
+   officer read, the further they had to scroll back to shut it. One of them
+   (the TES review) scrolled the overlay instead, so the ✕ left the screen
+   entirely rather than merely moving.
+
+   The fix is the three-part sheet the .modal/.modal-body pair already used: a
+   head and an optional foot that stay put, and only the middle scrolling. It is
+   a flex column, and min-height:0 on the body is what actually allows that
+   middle to shrink — without it a flex item refuses to go below its content
+   height and the whole sheet grows instead of scrolling. */
+
+.modal-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* dvh for the same reason the sidebar uses it: on a phone 90vh is measured
+     against the viewport with the address bar retracted, so the foot of the
+     sheet — where the decision buttons are — sits below the fold. */
+  max-height: 90vh;
+  max-height: 90dvh;
+  min-height: 0;
+}
+
+/* The bar that holds the title and the ✕. Never scrolls. */
+.modal-sheet-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;   /* stop the page behind scrolling at the ends */
+  padding: 1.5rem;
+}
+
+/* Where a modal ends in an action — approve, reject, save. Pinned for the same
+   reason as the head: an officer who has read to the bottom should not have to
+   scroll again to act, and on a long application the buttons were previously
+   only reachable at the very end of the scroll. */
+.modal-sheet-foot {
+  flex: 0 0 auto;
+  /* A safety valve, not a normal state: where a foot carries a remarks box as
+     well as its buttons, a short landscape phone could otherwise leave the body
+     with nothing to read in. */
+  max-height: 45%;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.page-landing .modal-sheet-foot { border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+
+.modal-sheet-title { font-weight: 600; color: var(--text); min-width: 0; }
+
+.modal-sheet-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--speed), color var(--speed);
+}
+.modal-sheet-close:hover { background: var(--surface-2); color: var(--text); }
+
+
+/* ── Scrollbars inside a modal ───────────────────────────────────────────────
+   Not hidden: a scrollbar is the only thing telling someone there is more of an
+   application below, and these are exactly the screens where missing that
+   matters. Kept slim and in the page's own colours instead, so it reads as part
+   of the panel rather than a second window inside it. */
+
+.modal-sheet-body,
+.modal-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.modal-sheet-body::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar { width: 8px; }
+
+.modal-sheet-body::-webkit-scrollbar-track,
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+
+.modal-sheet-body::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+  /* Inset off the panel edge, so the thumb floats in the padding rather than
+     butting against the text. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.modal-sheet-body::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }

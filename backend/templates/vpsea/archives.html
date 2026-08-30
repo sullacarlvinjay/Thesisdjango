@@ -43,11 +43,12 @@
 
 <!-- Add Scholar Modal -->
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
-  <div class="card p-6" style="width:100%;max-width:38rem;max-height:90vh;overflow-y:auto;">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold">Add Scholar — {{ active_type }}</h3>
-      <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+  <div class="card modal-sheet" style="max-width:38rem;">
+    <div class="modal-sheet-head">
+      <h3 class="modal-sheet-title">Add Scholar — {{ active_type }}</h3>
+      <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
+    <div class="modal-sheet-body">
 
     <form method="post" action="/vpsea/archives/add/" enctype="multipart/form-data">
       {% csrf_token %}
@@ -232,16 +233,18 @@
         <button type="submit" class="btn btn-primary">Add Scholar</button>
       </div>
     </form>
+    </div>
   </div>
 </div>
 
 <!-- Upload Excel Modal -->
 <div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
-  <div class="card p-6" style="width:100%;max-width:30rem;">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold">Upload Excel — {{ active_type }}</h3>
-      <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+  <div class="card modal-sheet" style="max-width:30rem;">
+    <div class="modal-sheet-head">
+      <h3 class="modal-sheet-title">Upload Excel — {{ active_type }}</h3>
+      <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
+    <div class="modal-sheet-body">
     {% if import_message %}
     <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">✓ {{ import_message }}</div>
     {% endif %}
@@ -274,6 +277,7 @@
         </button>
       </div>
     </form>
+    </div>
   </div>
 </div>
 
@@ -1123,11 +1127,12 @@ function openDelete(pk, name) {
 
 <!-- Edit Modal -->
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
-  <div class="card p-6" style="width:100%;max-width:32rem;max-height:90vh;overflow-y:auto;">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold">Edit Scholar</h3>
-      <button type="button" onclick="document.getElementById('editModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+  <div class="card modal-sheet" style="max-width:32rem;">
+    <div class="modal-sheet-head">
+      <h3 class="modal-sheet-title">Edit Scholar</h3>
+      <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
+    <div class="modal-sheet-body">
     <form method="post" action=""  id="editForm">
       {% csrf_token %}
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
@@ -1286,6 +1291,7 @@ function openDelete(pk, name) {
         <button type="submit" class="btn btn-primary" onclick="return validateEditPassword()">Save Changes</button>
       </div>
     </form>
+    </div>
   </div>
 </div>
 

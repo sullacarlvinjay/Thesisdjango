@@ -84,12 +84,13 @@
 
 <!-- View / Review Modal -->
 {% for app in applications %}
-<div id="viewModal-{{ app.pk }}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:flex-start;justify-content:center;padding:1.5rem;overflow-y:auto;">
-  <div class="card p-6" style="width:100%;max-width:44rem;margin:auto;">
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="font-semibold">TES Application — {{ app.student.user.last_name }}, {{ app.student.user.first_name }}</h3>
-      <button type="button" onclick="document.getElementById('viewModal-{{ app.pk }}').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
+<div id="viewModal-{{ app.pk }}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;padding:1.5rem;">
+  <div class="card modal-sheet" style="max-width:44rem;">
+    <div class="modal-sheet-head">
+      <h3 class="modal-sheet-title">TES Application — {{ app.student.user.last_name }}, {{ app.student.user.first_name }}</h3>
+      <button type="button" onclick="document.getElementById('viewModal-{{ app.pk }}').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
+    <div class="modal-sheet-body">
 
     <!-- Full form data display -->
     <div class="space-y-5 text-sm">
@@ -189,6 +190,7 @@
           </div>
         </div>
       </form>
+    </div>
     </div>
   </div>
 </div>
