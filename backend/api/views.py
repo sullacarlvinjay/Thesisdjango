@@ -151,7 +151,7 @@ class VPSEAStudentRankingView(APIView):
             if scholarship_type == 'Affirmative':
                 s = 0.0
                 if a.shs_gpa: s += min((a.shs_gpa / 100) * 50, 50)
-                if a.suc_exam_score: s += min((a.suc_exam_score / 100) * 50, 50)
+                if a.suc_exam_percent: s += min((a.suc_exam_percent / 100) * 50, 50)
                 return round(s)
             return 100 if a.is_nsu_staff else 75
 
@@ -159,10 +159,11 @@ class VPSEAStudentRankingView(APIView):
         applicant_data = [{
             'rank': i + 1, 'name': a.full_name, 'course': a.course,
             'year_level': a.year_level, 'shs_gpa': a.shs_gpa,
-            'suc_exam_score': a.suc_exam_score, 'score': score(a),
+            'suc_exam_score': a.suc_exam_score, 'suc_exam_total': a.suc_exam_total,
+            'suc_exam_percent': a.suc_exam_percent, 'score': score(a),
             'eligible': (
                 a.shs_gpa is not None and a.shs_gpa >= passing and
-                a.suc_exam_score is not None and a.suc_exam_score >= 50.0 and
+                a.suc_exam_percent is not None and a.suc_exam_percent >= 50.0 and
                 not a.is_tes_beneficiary
             ) if scholarship_type == 'Affirmative' else True,
         } for i, a in enumerate(ranked)]
@@ -178,11 +179,13 @@ class VPSEAStudentRankingView(APIView):
             'year_level': r.student.year_level,
             'shs_gpa': r.student.shs_gpa,
             'suc_exam_score': r.student.suc_exam_score,
+            'suc_exam_total': r.student.suc_exam_total,
+            'suc_exam_percent': r.student.suc_exam_percent,
             'is_tes_beneficiary': r.student.is_tes_beneficiary,
             'fit_score': r.fit_score,
             'status': r.status,
             'gpa_pass': r.student.shs_gpa is not None and r.student.shs_gpa >= passing,
-            'exam_pass': r.student.suc_exam_score is not None and r.student.suc_exam_score >= 50.0,
+            'exam_pass': r.student.suc_exam_percent is not None and r.student.suc_exam_percent >= 50.0,
             'not_tes': not r.student.is_tes_beneficiary,
         } for r in recs]
 

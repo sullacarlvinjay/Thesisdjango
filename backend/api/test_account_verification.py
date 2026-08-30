@@ -41,7 +41,7 @@ class RegistrationLeavesTheAccountPendingTest(TestCase):
 
     def test_the_landing_page_says_what_happens_next(self):
         r = self._register()
-        self.assertContains(r, 'Waiting for the SDSO')
+        self.assertContains(r, 'to verify your account')
         self.assertContains(r, 'will not have to sign in again')
         self.assertContains(r, 'juan@bipsu.edu.ph')
         self.assertContains(r, 'href="/login/"')
@@ -65,8 +65,8 @@ class SigningInWhileUnverifiedTest(TestCase):
             user=self.user, student_id='2022-00111', course='BSCS', year_level=2)
         self.c = Client()
 
-    def _sign_in(self, password='pw'):
-        return self.c.post('/login/', {'email': 'ana@bipsu.edu.ph', 'password': password})
+    def _sign_in(self, password='pw', email='ana@bipsu.edu.ph'):
+        return self.c.post('/login/', {'email': email, 'password': password})
 
     def test_pending_is_told_where_it_stands_and_stays_out(self):
         r = self._sign_in()
@@ -88,8 +88,17 @@ class SigningInWhileUnverifiedTest(TestCase):
 
     def test_a_wrong_password_never_reveals_the_account_standing(self):
         r = self._sign_in(password='not-the-password')
-        self.assertContains(r, 'Invalid credentials')
+        self.assertContains(r, 'password does not match')
         self.assertNotContains(r, 'waiting for verification')
+
+    def test_an_unknown_address_says_so_rather_than_blaming_the_password(self):
+        r = self._sign_in(email='nobody@bipsu.edu.ph')
+        self.assertContains(r, 'No account is registered')
+        self.assertContains(r, 'Register an account')
+
+    def test_a_wrong_password_keeps_the_address_on_the_form(self):
+        r = self._sign_in(password='not-the-password')
+        self.assertContains(r, self.user.email)
 
 
 class SDSOVerificationQueueTest(TestCase):
@@ -242,7 +251,7 @@ class ReleasedWithoutTypingAgainTest(TestCase):
 
     def test_the_waiting_room_holds_while_the_account_is_pending(self):
         r = self.c.get('/register/received/')
-        self.assertContains(r, 'Waiting for the SDSO')
+        self.assertContains(r, 'to verify your account')
         self.assertContains(r, 'http-equiv="refresh"')
         self.assertNotIn('_auth_user_id', self.c.session)
 

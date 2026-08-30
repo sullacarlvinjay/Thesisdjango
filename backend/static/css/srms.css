@@ -843,6 +843,97 @@ tr:hover td      { background: var(--surface-sunken); }
 
 
 /* --------------------------------------------------------------------------
+   12b. Report preview
+
+   The Reports tabs show the office's own document as a page rather than a web
+   table: the same PDF that prints, framed in place. The frame is deliberately
+   tall — an officer scrolls the report, not the page around it.
+   -------------------------------------------------------------------------- */
+
+.report-preview {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.report-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-preview-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.report-preview-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.report-preview-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.report-preview-frame {
+  width: 100%;
+  height: clamp(30rem, 78vh, 62rem);
+  border: 0;
+  display: block;
+  background: var(--surface-sunken);
+}
+
+/* Shown only when the browser cannot render a PDF inline. */
+.report-preview-fallback {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.report-note {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+.report-note svg   { flex-shrink: 0; margin-top: 0.1rem; color: var(--brand); }
+.report-note-title { font-size: 0.85rem; font-weight: 600; color: var(--brand); }
+.report-note-body  { font-size: 0.75rem; margin-top: 0.15rem; color: var(--text-soft); }
+
+.report-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.report-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
+  color: var(--brand);
+}
+.report-stat-value-accent { color: var(--accent-strong); }
+
+.report-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-color: #e03131;
+  background: #fff5f5;
+  color: #e03131;
+}
+.report-error svg { flex-shrink: 0; }
+.report-error p   { font-size: 0.875rem; font-weight: 500; }
+
+
+/* --------------------------------------------------------------------------
    13. Responsive
    -------------------------------------------------------------------------- */
 
@@ -964,6 +1055,10 @@ body { overflow-x: hidden; }
 .dark .hero::before        { background: linear-gradient(135deg, rgba(6, 12, 32, 0.95), rgba(10, 17, 40, 0.72)); }
 .dark .section-photo::before { background: linear-gradient(180deg, rgba(6, 12, 32, 0.96), rgba(6, 12, 32, 0.99)); }
 .dark .doc-viewer-body iframe { background: var(--surface-2); }
+/* The report frame holds a printed page, so it keeps its own paper ground in
+   either mode; only the surround follows the theme. */
+.dark .report-preview-frame { background: var(--surface-2); }
+.dark .report-error { background: #2a1414; border-color: #7f1d1d; color: #fca5a5; }
 
 /* Inline-style overrides.
    The templates carry a great many hard-coded colours in style attributes,
@@ -1273,3 +1368,501 @@ body { overflow-x: hidden; }
 .skeleton-sub-short { width: min(60vw, 21rem); }
 .skeleton-actions   { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
 .skeleton-btn       { height: 2.5rem; width: 7rem; }
+
+
+/* ── Confirm dialog ───────────────────────────────────────────────────────────
+   Replaces the browser's window.confirm(), which Chrome prefixes with
+   "127.0.0.1:8000 says…" and which cannot be styled or read by the page's dark
+   mode. Same shape as .doc-viewer above so the two feel like one system. */
+
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 90;                       /* above .doc-viewer, which is 80 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.confirm-dialog[hidden] { display: none; }
+
+.confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: min(26rem, 100%);
+  padding: 1.5rem;
+}
+
+.confirm-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.4rem;
+}
+
+.confirm-message {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+  white-space: pre-line;             /* the caller may send a second sentence */
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.confirm-go {
+  background: var(--brand);
+  color: var(--on-brand);
+  border: 1px solid var(--brand);
+}
+.confirm-dialog[data-tone="danger"] .confirm-go {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+.dark .confirm-backdrop { background: rgba(0, 0, 0, 0.66); }
+.dark .confirm-dialog[data-tone="danger"] .confirm-go { color: #1a1a1a; }
+
+
+/* ── Add Scholar: portal account choice ─────────────────────────────────────── */
+
+.account-choice {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  background: var(--surface-2);
+}
+.account-choice-hint { color: var(--text-muted); }
+.account-choice-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  color: var(--text);
+}
+/* The form reset above sizes every input like a text box, which stretches a
+   radio across the row and pushes its label to the far edge. Scoped here rather
+   than fixed globally so no existing screen shifts. */
+.account-choice-option input[type='radio'] {
+  width: auto;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand);
+}
+
+
+/* ── Sidebar drawer (below lg) ────────────────────────────────────────────────
+   Above 1024px the sidebar is part of the page and none of this applies. Below
+   it the aside is off-canvas and static/js/mobile-nav.js slides it in. The
+   transform itself is a Tailwind utility on the element, so only the pieces
+   Tailwind has no name for live here. */
+
+.app-sidebar.is-open { transform: translateX(0); }
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;                       /* under the drawer (50), over the header (30) */
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(2px);
+}
+.sidebar-backdrop[hidden] { display: none; }
+
+.sidebar-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+}
+.sidebar-toggle:hover { background: var(--surface-2); }
+
+@media (min-width: 1024px) {
+  /* Belt and braces: lg:hidden already takes these off, but the drawer must
+     never strand a desktop reader behind a backdrop if a class is dropped. */
+  .sidebar-backdrop, .sidebar-toggle { display: none; }
+}
+
+.dark .sidebar-backdrop { background: rgba(0, 0, 0, 0.66); }
+
+
+/* ── App-shell skeleton ───────────────────────────────────────────────────────
+   The placeholder every page behind base.html shows while the Tailwind CDN is
+   still fetching. It traces the furniture those pages share — sidebar, header,
+   a couple of cards — rather than any one page's real content, which would go
+   stale the moment that page changed. The .page-skeleton, .skeleton and sweep
+   rules it builds on are in the landing-page section above. */
+
+/* flex:1 rather than height:100% — .page-skeleton is a column flex
+   container, so a percentage height on this child has nothing to resolve
+   against and the sidebar stops partway down the screen. */
+.skeleton-app { display: flex; width: 100%; flex: 1; min-height: 0; }
+
+.skeleton-app-side {
+  display: none;                     /* the sidebar is lg-only, so this is too */
+  width: 16rem;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem 0.75rem;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+}
+@media (min-width: 1024px) { .skeleton-app-side { display: flex; } }
+
+.skeleton-app-brand { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.5rem; }
+.skeleton-app-nav   { display: flex; flex-direction: column; gap: 0.4rem; }
+.skeleton-app-navitem { height: 2.25rem; border-radius: var(--radius); }
+
+/* On the sidebar's own dark ground the standard block disappears, so the
+   placeholder blocks inside it are lightened instead. */
+.skeleton-app-side .skeleton { background: rgba(255, 255, 255, 0.13); }
+.skeleton-app-side .skeleton::after { opacity: 0.35; }
+
+.skeleton-app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.skeleton-app-head {
+  height: 4rem;                      /* the real header is h-16 */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border);
+}
+@media (min-width: 1024px) { .skeleton-app-head { padding: 0 2rem; } }
+
+.skeleton-app-title    { height: 1.15rem; width: min(55vw, 15rem); }
+.skeleton-app-subtitle { height: 0.75rem; width: min(40vw, 10rem); margin-top: 0.4rem; }
+
+.skeleton-app-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-content: start;
+  padding: 1.5rem 1rem;
+}
+@media (min-width: 768px) {
+  .skeleton-app-body { grid-template-columns: 1fr 1fr; padding: 1.5rem 2rem; }
+}
+
+.skeleton-app-card  { height: 7rem; border-radius: var(--radius-lg); }
+.skeleton-app-block { height: 18rem; border-radius: var(--radius-lg); }
+@media (min-width: 768px) { .skeleton-app-block { grid-column: 1 / -1; } }
+
+.account-choice-note {
+  color: var(--brand);
+  border-top: 1px dashed var(--border);
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+}
+.account-choice-note[hidden] { display: none; }
+
+/* The asterisk the rest of the Add Scholar form uses, applied by
+   static/js/account-choice.js only while an account is being created. */
+label.is-required::after { content: ' *'; color: var(--danger); }
+
+/* An imported scholar's row keeps its "Imported" marker and gains the delete
+   the portal rows always had. */
+.imported-cell { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
+.imported-cell form { margin: 0; }
+.imported-delete {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+.imported-delete:hover { background: var(--danger-bg); }
+
+/* SUC exam: a score and the total it was out of, on one line. */
+.suc-score-pair { display: flex; align-items: center; gap: 0.5rem; }
+.suc-score-pair input { flex: 1; min-width: 0; }
+.suc-score-of { color: var(--text-muted); font-size: 0.8125rem; white-space: nowrap; }
+
+/* ── A decision already made ─────────────────────────────────────────────── */
+/* The office decides an application once. Where the review buttons would be,
+   a decided application shows what was decided instead — a form the server
+   would refuse has no business being on screen. Filled in by
+   static/js/decision-lock.js, or rendered server-side where the modal is. */
+.decision-locked {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+.decision-locked-remarks {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.decision-locked-note {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Page alert ──────────────────────────────────────────────────────────── */
+/* What a screen says back when it refuses a posted action: a decision already
+   made, an id that matched nothing. */
+.page-alert {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.page-alert-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
+}
+
+
+/* ── Error pages ─────────────────────────────────────────────────────────────
+   templates/errors/. They wear the auth-page furniture — same seal, same card,
+   same dark ground — so a 403 does not look like a different site than the one
+   the person was just signed into. Only the bits the sign-in pages have no use
+   for live here. */
+
+.error-code {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+  margin-bottom: 0.4rem;
+}
+
+/* The list of likely causes. Bulleted rather than prose because people scan
+   this page looking for the line that matches what they just did. */
+.error-reasons {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.1rem;
+}
+.error-reasons-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.45rem;
+}
+.error-reasons ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+.error-reasons li {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* Django's own wording for the failure, shown only with DEBUG on. */
+.error-technical {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.error-page .btn-auth { display: block; text-align: center; }
+
+
+/* ── Card toolbar ────────────────────────────────────────────────────────────
+   The row of controls a card carries beside its heading — a search box and the
+   actions that operate on the list below it.
+
+   On a desktop it is one line. On a phone it used to run straight out past the
+   card's right edge: the search box was fixed at 11rem and both buttons carried
+   white-space:nowrap, so the row could not shrink and had nothing to wrap on.
+   Here it becomes a full-width block that wraps, with the search on its own
+   line and the actions sharing the next one. */
+
+.card-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.card-toolbar-search { width: 11rem; }
+
+/* Wrappers around a button that owns a dropdown: they must not collapse to
+   nothing when the row wraps, and the menu hangs off them. */
+.card-toolbar-menu { position: relative; }
+
+/* The Download Excel menu. It used to carry all of this inline, which meant a
+   hard #fff panel that stayed white in dark mode and a right:0 no media query
+   could talk out of. Open state is a class so the stylesheet keeps the last
+   word on both. */
+.dl-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 220px;
+  z-index: 100;
+  padding: 0.4rem 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.dl-menu.is-open { display: block; }
+
+@media (max-width: 640px) {
+  .card-toolbar {
+    width: 100%;
+  }
+  /* Search takes the first line to itself — it is the control people reach for
+     most and the one that suffers most from being narrow. */
+  .card-toolbar-search {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  /* The actions share the line below, each taking half of it. */
+  .card-toolbar > .btn,
+  .card-toolbar-menu {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .card-toolbar-menu > .btn { width: 100%; }
+  .card-toolbar .btn {
+    justify-content: center;
+    /* Their labels are two short words; letting them wrap beats letting them
+       push the card open. */
+    white-space: normal;
+  }
+  /* The menu hangs off its button, and once that button is only half the row
+     wide a 220px menu has nowhere to go but out through the side of the card.
+     Rather than guess a width, hand the positioning to the toolbar itself: the
+     toolbar is exactly as wide as the card's content, so a menu stretched
+     across it can never be wider than the card. Dropping the wrapper out of
+     position:static is what lets the menu see the toolbar as its containing
+     block, and top then measures from below the whole button row. */
+  .card-toolbar { position: relative; }
+  .card-toolbar-menu { position: static; }
+  .card-toolbar-menu .dl-menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    width: auto;
+  }
+}
+
+
+/* ── Wide filter field ───────────────────────────────────────────────────────
+   A text input whose content is genuinely long — the TES batch line reads
+   "On-going (10,11,12,12.1,13,13.1 & 13.2)" — so it wants room on a desktop and
+   has to give it back on a phone, where 22rem is wider than the screen. */
+
+.field-wide { min-width: 22rem; }
+
+@media (max-width: 640px) {
+  .field-wide { min-width: 0; width: 100%; }
+  /* The form around it wraps to a column so the Apply button is not squeezed
+     onto the same line as a full-width field. */
+  .filter-form { width: 100%; }
+  .filter-form > * { min-width: 0; }
+  .filter-form-field { flex: 1 1 100%; }
+  .filter-form > .btn { width: 100%; justify-content: center; }
+}
+
+
+/* ── Reaching the bottom of the drawer on a phone ────────────────────────────
+   Sign out lives at the foot of the sidebar, and on Android it was unreachable.
+
+   Two things were in the way. The aside is h-screen, which is 100vh, and on a
+   phone browser 100vh means the viewport with the address bar retracted — the
+   tallest it ever gets. With the bar showing, the last ~56px of the drawer is
+   simply below the fold, and that is exactly the row Sign out sits in. Then the
+   system navigation bar (Back, Home, Recents) takes another slice underneath.
+
+   100dvh is the viewport as it actually is at this moment, address bar and all,
+   so the foot lands on screen either way; the safe-area inset keeps it clear of
+   the gesture pill or the three buttons. Both are scoped below lg, where the
+   sidebar is a drawer — above it the aside is part of the page and 100vh is
+   right. The plain 100vh line stays as the fallback for browsers without dvh. */
+
+@media (max-width: 1023.98px) {
+  /* The leading `body` is not decoration. Tailwind comes from a CDN script that
+     injects its sheet after this file, so a single class here would only tie
+     .h-screen and .py-6 and lose the tie-break. One element selector is enough
+     to win it without reaching for !important. */
+  body .app-sidebar {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* Same reasoning against Tailwind's p-3. */
+  .app-sidebar .sidebar-foot {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The header is sticky and the drawer overlays it, so the same inset has to
+     keep the page's own last row off the navigation bar. */
+  body .app-main {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+
+/* ── Analytics chart controls ──────────────────────────────────────────────────
+   The chart-type toggles and the PNG button above each chart. Moved here from a
+   <style> block in templates/_analytics_js.html, and rewritten against the
+   tokens on the way — the hard #f6f8fc and #3b5bdb it carried stayed light in
+   dark mode. */
+
+.chart-toggle-btn {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--speed), color var(--speed), opacity var(--speed);
+}
+.chart-toggle-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.chart-toggle-btn.active {
+  background: var(--brand);
+  color: var(--on-brand);
+  border-color: var(--brand);
+}
+
+/* A chart with nothing in it. The button stays on the page so the export is
+   still discoverable, but it cannot be pressed and its title says why. */
+.chart-toggle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

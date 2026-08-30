@@ -1,30 +1,54 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-.chart-toggle-btn {
-  padding: 0.18rem 0.55rem;
-  font-size: 0.72rem;
-  border: 1px solid #e8ecf0;
-  border-radius: 5px;
-  background: #f6f8fc;
-  color: #6b7a99;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.chart-toggle-btn.active {
-  background: #3b5bdb;
-  color: #fff;
-  border-color: #3b5bdb;
-}
-</style>
 <script>
 // ── Download chart as PNG ─────────────────────────────────────────────────────
+// The file this used to save looked broken, and for two separate reasons.
+//
+// A Chart.js canvas is transparent: it never paints a background, it just draws
+// on whatever the card behind it is. toDataURL copies that transparency
+// straight into the PNG, so the axis labels and the grid — mid greys, chosen to
+// sit on white — landed on nothing at all. Opened anywhere with a dark backdrop
+// (Windows Photos, Messenger, a dark-themed Docs) the chart was grey-on-black
+// and read as a corrupt file. So the export is composited onto an opaque sheet
+// first.
+//
+// The second reason really was 'no data'. Every button was drawn whether or not
+// its chart had a single point in it, and an empty chart exports a blank
+// rectangle. Those buttons are now switched off instead — see the bottom of
+// this file.
+function chartHasData(canvas) {
+  const chart = (window.Chart && Chart.getChart) ? Chart.getChart(canvas) : null;
+  if (!chart) return false;
+  return (chart.data.datasets || []).some(function (ds) {
+    return (ds.data || []).some(function (v) {
+      const n = (v && typeof v === 'object') ? (v.y != null ? v.y : v.v) : v;
+      return typeof n === 'number' && !isNaN(n) && n !== 0;
+    });
+  });
+}
+
 function downloadChart(canvasId, filename) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+
+  if (!chartHasData(canvas)) return;   // the button is disabled; belt and braces
+
+  // Always light: the PNG is going into a report or an email, not back into the
+  // page, and a dark-mode export would print as a black block.
+  const sheet = document.createElement('canvas');
+  sheet.width = canvas.width;
+  sheet.height = canvas.height;
+  const ctx = sheet.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sheet.width, sheet.height);
+  ctx.drawImage(canvas, 0, 0);
+
   const link = document.createElement('a');
   link.download = filename + '.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = sheet.toDataURL('image/png');
+  // Firefox ignores a click on an anchor that is not in the document.
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
 
 const gridColor = '#e8ecf0';
@@ -273,5 +297,25 @@ function buildTrendChart(type) {
 trendRef.chart = buildTrendChart('line');
 makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
 {% endif %}
-</script>
 
+
+// ── PNG buttons ───────────────────────────────────────────────────────────────
+// Delegated, so the markup carries only which canvas it means. Runs last, once
+// every chart above has been built: a button whose chart came out empty is
+// switched off and says why, rather than handing over a blank rectangle and
+// leaving the person to wonder whether the export is broken.
+(function () {
+  document.querySelectorAll('.chart-png-btn').forEach(function (btn) {
+    var canvas = document.getElementById(btn.dataset.png);
+    if (canvas && chartHasData(canvas)) return;
+    btn.disabled = true;
+    btn.title = 'No data to export for the semester and programme you are viewing.';
+  });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.chart-png-btn');
+    if (!btn || btn.disabled) return;
+    downloadChart(btn.dataset.png, btn.dataset.pngName);
+  });
+})();
+</script>

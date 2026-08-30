@@ -5,13 +5,16 @@ and context builder.
 """
 import openpyxl
 from io import BytesIO
+from unittest import mock
 
 from django.test import TestCase, Client
 
+from api import doc_convert
 from api.models import (
     User, StudentProfile, Scholarship, Application, Announcement,
     TESApplication, SystemSettings,
 )
+from api.test_support import pdf_text
 
 
 class UniFASTPortalTest(TestCase):
@@ -153,7 +156,8 @@ class UniFASTPortalTest(TestCase):
         a = Client()
         a.login(email='vpsea@bipsu.edu.ph', password='pw')
         for url in ('/unifast/announcements/', '/unifast/analytics/',
-                    '/unifast/reports/', '/unifast/reports/download/excel/',
+                    '/unifast/reports/', '/unifast/reports/preview/',
+                    '/unifast/reports/download/excel/',
                     '/unifast/reports/download/tes/'):
             r = a.get(url)
             self.assertEqual(r.status_code, 302, url)
@@ -286,17 +290,75 @@ class TESValidationWorkbookTest(TestCase):
         self.assertEqual(wb['Annex 2-Form 1']['Q24'].value, 2)
         self.assertEqual(wb['Annex 2-Form 1']['V25'].value, "='Annex 2-Form 2'!N1101")
 
-    def test_reports_page_previews_the_official_list(self):
+    def test_reports_page_frames_the_official_list_as_a_pdf(self):
         self._grantee('Cruz', 'Ana', '2024-0001', pwd=True)
         r = self.c.get('/unifast/reports/', {'batch': 'On-going'})
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, 'LIST OF CONTINUING TES GRANTEES SUBJECT FOR VALIDATION')
-        self.assertContains(r, 'BILIRAN PROVINCE STATE UNIVERSITY')
-        self.assertContains(r, 'STUDENT ID NUMBER')
-        self.assertContains(r, 'VALIDATION REMARKS')
-        self.assertContains(r, '2024-0001')
-        self.assertContains(r, 'AW-2024-0001')
         self.assertEqual(r.context['tes_total'], 1)
-        self.assertNotIn('tes_amount_total', r.context)
         self.assertEqual(r.context['pwd_count'], 1)
         self.assertTrue(r.context['template_available'])
+        self.assertNotIn('tes_amount_total', r.context)
+        body = r.content.decode()
+        self.assertIn('/unifast/reports/preview/', body)
+        self.assertIn('report-preview-frame', body)
+        # The batch filter follows the page into the frame.
+        self.assertIn('/unifast/reports/preview/?batch=On-going', body)
+
+    def test_the_frame_serves_the_converted_ched_workbook(self):
+        self._grantee('Cruz', 'Ana', '2024-0001')
+        with mock.patch('api.doc_convert.available', return_value=True), \
+                mock.patch('api.doc_convert.to_pdf',
+                           return_value=b'%PDF-1.7 converted') as convert:
+            r = self.c.get('/unifast/reports/preview/', {'batch': 'On-going'})
+
+        self.assertEqual(r.content, b'%PDF-1.7 converted')
+        source, suffix = convert.call_args[0]
+        self.assertEqual(suffix, '.xlsx')
+        # What went to the converter is the filled workbook itself, all sheets.
+        wb = openpyxl.load_workbook(BytesIO(source))
+        self.assertEqual(
+            wb.sheetnames,
+            ['Official List', 'Annex 2-Form 2', 'Annex 2-Form 1', 'Annex 2-Form 4'])
+        self.assertEqual(wb['Official List']['D20'].value, 'Cruz')
+
+    def test_the_stand_in_is_used_when_no_converter_is_installed(self):
+        self._grantee('Cruz', 'Ana', '2024-0001', pwd=True)
+        with mock.patch('api.doc_convert.available', return_value=False):
+            r = self.c.get('/unifast/reports/preview/', {'batch': 'On-going'})
+
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertTrue(r.content.startswith(b'%PDF'))
+
+        # Column headings wrap inside their cells, so they land in the page as
+        # separate words — assert on the words, not the joined heading.
+        text = pdf_text(r.content)
+        self.assertIn('LIST OF CONTINUING TES GRANTEES SUBJECT FOR VALIDATION', text)
+        self.assertIn('BILIRAN PROVINCE STATE UNIVERSITY', text)
+        for word in ('STUDENT', 'AWARD', 'BIRTHDATE', 'VALIDATION', 'REMARKS'):
+            self.assertIn(word, text, word)
+        self.assertIn('Cruz', text)
+        self.assertIn('2024-0001', text)
+        self.assertIn('AW-2024-0001', text)
+        # And it says on its face that it is not the office workbook.
+        self.assertIn('STAND-IN LAYOUT', text)
+
+    def test_a_failed_conversion_falls_back_instead_of_erroring(self):
+        with mock.patch('api.doc_convert.available', return_value=True), \
+                mock.patch('api.doc_convert.to_pdf',
+                           side_effect=doc_convert.ConversionFailed('no pdf')):
+            r = self.c.get('/unifast/reports/preview/')
+
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('STAND-IN LAYOUT', pdf_text(r.content))
+
+    def test_the_preview_renders_with_no_grantees_at_all(self):
+        with mock.patch('api.doc_convert.available', return_value=False):
+            r = self.c.get('/unifast/reports/preview/')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.content.startswith(b'%PDF'))
+
+    def test_the_preview_may_be_framed_by_our_own_pages(self):
+        with mock.patch('api.doc_convert.available', return_value=False):
+            r = self.c.get('/unifast/reports/preview/')
+        self.assertNotEqual(r.headers.get('X-Frame-Options'), 'DENY')

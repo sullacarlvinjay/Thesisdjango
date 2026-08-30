@@ -1,0 +1,41 @@
+{% extends "errors/_shell.html" %}
+{% comment %}
+  What Django would otherwise answer with is "Forbidden (403) — CSRF
+  verification failed. Request aborted.", which reads as an accusation and
+  offers nothing to do about it. In practice this page is almost never a real
+  attack: it is a form left open until the session expired, a browser with
+  cookies switched off, or the back button after signing out. So say those
+  things, and put the way out on the page.
+{% endcomment %}
+{% block title %}Your form expired{% endblock %}
+{% block code %}403 · Session expired{% endblock %}
+{% block heading %}That form is no longer valid{% endblock %}
+{% block lead %}Nothing was saved, and nothing is wrong with your account.{% endblock %}
+
+{% block body %}
+<div class="error-reasons">
+  <p class="error-reasons-title">This almost always means one of these:</p>
+  <ul>
+    <li>The page sat open long enough for your sign-in to expire.</li>
+    <li>You signed out, or signed in as someone else, in another tab.</li>
+    <li>You reached this by pressing Back after submitting once already.</li>
+    <li>Your browser is blocking cookies for this site.</li>
+  </ul>
+</div>
+
+<p class="text-sm mb-4" style="color:var(--text-muted);">
+  Open the form fresh and submit it again — it will go through. If you were part
+  way into a long form, your answers are not lost: use Back once you have signed
+  in again, and the browser will still have them.
+</p>
+
+<a href="{{ retry_url|default:'/login/' }}" class="btn btn-auth" style="text-decoration:none;">
+  {% if request.user.is_authenticated %}Reload the page{% else %}Sign in again{% endif %}
+</a>
+
+{% if reason and debug %}
+<p class="error-technical">Technical detail: {{ reason }}</p>
+{% endif %}
+{% endblock %}
+
+{% block footnote %}Still stuck? Contact the SDSO office. &nbsp;·&nbsp; <a href="/">Back to Scholarships</a>{% endblock %}

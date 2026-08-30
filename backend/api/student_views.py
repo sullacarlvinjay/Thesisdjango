@@ -6,6 +6,8 @@ from .models import StudentProfile, Scholarship, Application, Notification, Anno
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.core.files.base import ContentFile
+from django.db import transaction
+from . import notify
 from django.http import HttpResponse
 from io import BytesIO
 
@@ -45,8 +47,8 @@ def login_view(request):
         return redirect(_portal_for(request.user))
 
     if request.method == 'POST':
-        email = request.POST.get('email')
-        password = request.POST.get('password')
+        email = (request.POST.get('email') or '').strip()
+        password = request.POST.get('password') or ''
         user = authenticate(request, username=email, password=password)
         if user and not user.can_sign_in:
             # Only reachable with the right password, so this tells the person
@@ -58,8 +60,54 @@ def login_view(request):
         if user:
             login(request, user)
             return redirect(_portal_for(user))
-        return render(request, 'login.html', {'error': 'Invalid credentials'})
+        # 'Invalid credentials' told nobody anything. Someone who mistyped their
+        # address and someone who forgot their password got the same sentence,
+        # and both retyped the same wrong thing. Naming which half is wrong is
+        # what the office was fielding phone calls about.
+        #
+        # It does mean the form will confirm whether an address is registered.
+        # The registration form already does — it refuses a duplicate email —
+        # so the page is not giving away anything the site did not already say.
+        return render(request, 'login.html', _sign_in_error(email, password))
     return render(request, 'login.html')
+
+
+def _sign_in_error(email, password):
+    """Work out which part of the sign-in the person got wrong, and say so.
+
+    Returns the template context, keeping ``email`` filled in so a wrong
+    password does not cost them the address they typed as well.
+    """
+    ctx = {'email': email}
+
+    if not email:
+        ctx['error'] = 'Enter the email address you registered with.'
+        return ctx
+    if not password:
+        ctx['error'] = 'Enter your password.'
+        return ctx
+
+    account = User.objects.filter(email__iexact=email).first()
+    if account is None:
+        ctx['error'] = (
+            f'No account is registered under {email}. Check the address for a '
+            'typo, or register first if you have not yet.'
+        )
+        ctx['error_action'] = 'register'
+        return ctx
+
+    if not account.is_active:
+        ctx['error'] = (
+            'That account has been deactivated. Contact the SDSO office to have '
+            'it reopened.'
+        )
+        return ctx
+
+    ctx['error'] = (
+        f'The password does not match the account for {email}. Check your '
+        'capitals — passwords are case-sensitive.'
+    )
+    return ctx
 
 
 def logout_view(request):
@@ -538,6 +586,16 @@ def student_profile(request):
         if raw_shs:
             try: profile.shs_gpa = float(raw_shs)
             except ValueError: pass
+        raw_total = p.get('suc_exam_total', '').strip()
+        if raw_total:
+            try:
+                total = float(raw_total)
+                # A total of zero would divide by nothing; treat it as unset.
+                profile.suc_exam_total = total if total > 0 else None
+            except ValueError:
+                pass
+        else:
+            profile.suc_exam_total = None
         raw_suc = p.get('suc_exam_score', '').strip()
         if raw_suc:
             try: profile.suc_exam_score = float(raw_suc)
@@ -765,7 +823,9 @@ def _vpsea_required(view_fn):
 
 @_vpsea_required
 def vpsea_affirmative_applications(request):
+    from .constants import DECIDED_APPLICATION_STATUSES
     from .models import AffirmativeStaffApplication, Application
+    from urllib.parse import quote
     if request.method == 'POST':
         app_id = request.POST.get('app_id')
         new_status = request.POST.get('status')
@@ -780,18 +840,38 @@ def vpsea_affirmative_applications(request):
                     .exclude(scholarship__type__in=VPSEA_EXCLUDED_TYPES)
                     .get(id=app_id)
                 )
+                # The office decides once. The buttons are already hidden for a
+                # decided application, so reaching here means a stale page or a
+                # posted id — either way the recorded decision stands.
+                if acad_app.status in DECIDED_APPLICATION_STATUSES:
+                    return redirect('/vpsea/affirmative/?tab=academic&error=' + quote(
+                        f'APP-{acad_app.id:07d} was already decided '
+                        f'({acad_app.status}). A decision is made once.'))
                 acad_app.status = new_status
                 acad_app.remarks = remarks
                 acad_app.save()
+                notify.decision(
+                    acad_app.student, f'Your {acad_app.scholarship.name} application',
+                    new_status, remarks, link='/student/applications/',
+                )
             except Application.DoesNotExist:
                 pass
             return redirect(f'/vpsea/affirmative/?tab=academic')
         else:
             try:
                 aff_app = AffirmativeStaffApplication.objects.get(id=app_id)
+                if aff_app.status in DECIDED_APPLICATION_STATUSES:
+                    return redirect(f'/vpsea/affirmative/?tab={tab}&error=' + quote(
+                        f'{aff_app.full_name} was already decided '
+                        f'({aff_app.status}). A decision is made once.'))
                 aff_app.status = new_status
                 aff_app.remarks = remarks
                 aff_app.save()
+                notify.decision(
+                    aff_app.email,
+                    f'Your {aff_app.get_qualified_for_display()} application',
+                    new_status, remarks,
+                )
                 # On approval: create Django User + StudentProfile + Application
                 if new_status == 'Approved' and not User.objects.filter(email=aff_app.email).exists():
                     name_parts = aff_app.full_name.strip().split()
@@ -886,6 +966,12 @@ def vpsea_renewals(request):
         new_status = request.POST.get('status')
         remarks = request.POST.get('remarks', '')
         AcademicRenewal.objects.filter(id=renewal_id).update(status=new_status, remarks=remarks)
+        reviewed = AcademicRenewal.objects.select_related('student__user').filter(id=renewal_id).first()
+        if reviewed:
+            notify.decision(
+                reviewed.student, 'Your scholarship renewal', new_status, remarks,
+                link='/student/renewal/',
+            )
         # On approval: create a new Application for the current semester so the
         # student appears in the current-SY archives.
         if new_status == 'Approved':
@@ -1160,6 +1246,11 @@ def _unawarded_rows(term_label):
     invitation; one waiting on review needs the queue cleared; one rejected
     needs a reason. The office can only act on the difference, so each row
     carries the student's most recent application — if they have one at all.
+
+    An account the office rejected at registration is none of those. That
+    person was turned away at the door and cannot sign in to apply, so they
+    are not a student the system failed to serve — they were never admitted
+    to it. They belong on the accounts screen, not in the archives.
     """
     from .constants import academic_classification
 
@@ -1170,6 +1261,7 @@ def _unawarded_rows(term_label):
     students = (
         StudentProfile.objects
         .exclude(id__in=awarded)
+        .exclude(user__verification_status='rejected')
         .select_related('user')
         .prefetch_related('applications__scholarship')
         .order_by('user__last_name', 'user__first_name')
@@ -1354,17 +1446,84 @@ def vpsea_archive_add(request):
     active_sy = parsed['sy']
     active_semester = parsed['semester']
 
+    # Whether this scholar gets a login. The office adds plenty of records for
+    # people who will never open the portal — a graduating batch typed up from
+    # the agency's own list, say — and those used to get an account anyway, with
+    # a password guessable from the student number. Answering "no" keeps the
+    # profile every report reads and leaves no usable password behind.
+    wants_account = p.get('create_account') == 'yes'
+    supplied_email = p.get('email', '').strip()
+
+    if wants_account:
+        # An account needs both, and the form asks for neither. Without an
+        # address the account is created against a fabricated one the scholar
+        # cannot receive mail at; without a student number the password falls
+        # back to the literal 'bipsu1234', shared by every account made that
+        # way. Refused rather than half-made — an import is the option for a
+        # scholar whose details the office does not have.
+        missing = []
+        if not supplied_email:
+            missing.append('an email address')
+        if not p.get('student_id', '').strip():
+            missing.append('a student number')
+        if missing:
+            from urllib.parse import quote
+            return redirect(f'/vpsea/archives/?type={stype}&error=' + quote(
+                'Creating an account needs ' + ' and '.join(missing) + '. The '
+                'address is where the scholar is emailed, and the student number '
+                'is their first password. Choose "Just an import" to record this '
+                'scholar without an account.'))
+
+    if not wants_account:
+        # "Just an import": exactly the row an uploaded spreadsheet produces, for
+        # a scholar the office is recording rather than enrolling. No account, no
+        # password, no profile — ImportedScholar is where every other import
+        # lands, and the archive tables already read it for every programme.
+        from .models import ImportedScholar
+        try:
+            year_level = int(p.get('year_level', 0) or 0)
+        except (TypeError, ValueError):
+            year_level = 0
+        try:
+            gwa = float(p.get('gwa', 0) or 0)
+        except (TypeError, ValueError):
+            gwa = 0.0
+        ImportedScholar.objects.create(
+            scholarship_type=stype,
+            term_label=settings_obj.academic_year,
+            last_name=p.get('last_name', '').strip(),
+            first_name=p.get('first_name', '').strip(),
+            middle_name=p.get('middle_name', '').strip(),
+            gender=p.get('gender', ''),
+            course=p.get('course', ''),
+            year_level=year_level,
+            gwa=gwa,
+            student_id=p.get('student_id', '').strip(),
+            award_number=p.get('award_number', ''),
+            congress_district=p.get('congress_district', ''),
+            barangay=p.get('barangay', ''),
+            municipality=p.get('municipality', ''),
+            province=p.get('province', ''),
+            imported_from='Added by SDSO',
+        )
+        return redirect(f'/vpsea/archives/?type={stype}&added=1')
+
     if stype in ('Affirmative', 'Staff'):
         full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
-        fake_email = f"{p.get('student_id','').strip() or full_name.replace(' ','_').lower()}_{stype.lower()}@bipsu.edu.ph"
-        base = fake_email
-        counter = 1
-        while AffirmativeStaffApplication.objects.filter(email=fake_email).exists():
-            fake_email = f"{base.split('@')[0]}_{counter}@bipsu.edu.ph"
-            counter += 1
+        # A real address when the office has one; otherwise the placeholder this
+        # has always fabricated, still deduped because several records can share
+        # a blank student number.
+        email = supplied_email
+        if not email:
+            email = f"{p.get('student_id','').strip() or full_name.replace(' ','_').lower()}_{stype.lower()}@bipsu.edu.ph"
+            base = email
+            counter = 1
+            while AffirmativeStaffApplication.objects.filter(email=email).exists():
+                email = f"{base.split('@')[0]}_{counter}@bipsu.edu.ph"
+                counter += 1
         AffirmativeStaffApplication.objects.create(
             full_name=full_name,
-            email=fake_email,
+            email=email,
             contact_number=p.get('contact_number', ''),
             barangay=p.get('barangay', ''),
             municipality=p.get('municipality', ''),
@@ -1379,11 +1538,12 @@ def vpsea_archive_add(request):
             is_nsu_staff=(stype == 'Staff'),
         )
     else:
-        email = p.get('email', '').strip()
+        email = supplied_email
         student_id = p.get('student_id', '').strip()
         if not email:
             email = f"{student_id}@bipsu.edu.ph"
         user = User.objects.filter(email=email).first()
+        account_created = False
         if not user:
             user = User.objects.create_user(
                 username=email, email=email,
@@ -1392,6 +1552,7 @@ def vpsea_archive_add(request):
                 last_name=p.get('last_name', ''),
                 role='student',
             )
+            account_created = True
         profile = StudentProfile.objects.filter(user=user).first()
         if not profile:
             profile = StudentProfile.objects.create(
@@ -1431,11 +1592,28 @@ def vpsea_archive_add(request):
                     'elementary': p.get('elementary', ''),
                     'highschool': p.get('highschool', ''),
                     'last_school': p.get('last_school', ''),
-                    'father_name': p.get('father_name', ''),
-                    'father_occupation': p.get('father_occupation', ''),
-                    'mother_name': p.get('mother_name', ''),
-                    'mother_occupation': p.get('mother_occupation', ''),
                 })
+                # Parents' names belong on the profile, in parts. They used to be
+                # written into form_data as one string per parent, so the columns
+                # the masterlists and the TES form read stayed empty.
+                parent_fields = [
+                    'father_last_name', 'father_first_name', 'father_middle_name',
+                    'father_occupation', 'mother_last_name', 'mother_first_name',
+                    'mother_middle_name', 'mother_occupation',
+                ]
+                changed = []
+                for field in parent_fields:
+                    value = p.get(field, '').strip()
+                    if value:
+                        setattr(profile, field, value)
+                        changed.append(field)
+                for field in ('elementary', 'highschool', 'last_school'):
+                    value = p.get(field, '').strip()
+                    if value:
+                        setattr(profile, field, value)
+                        changed.append(field)
+                if changed:
+                    profile.save(update_fields=changed)
             already = Application.objects.filter(
                 student=profile, scholarship=scholarship,
                 school_year=active_sy, semester=active_semester,
@@ -1466,6 +1644,16 @@ def vpsea_archive_add(request):
                 uploaded = f.get(field)
                 if uploaded:
                     ApplicationDocument.objects.create(application=app, name=label, file=uploaded)
+        if account_created and supplied_email:
+            notify.notify(
+                user, 'Your SRMS account is ready',
+                'The VPSEA office has added you to the Scholarship Records '
+                'Management System.\n\n'
+                f'Sign in with this email address. Your initial password is your '
+                f'student number ({student_id}). Contact the VPSEA office to have '
+                'it changed.',
+                tone='success',
+            )
     return redirect(f'/vpsea/archives/?type={stype}&added=1')
 
 
@@ -1576,10 +1764,23 @@ def vpsea_archive_edit(request, pk):
             obj.contact_number = p.get('contact_number')
         if p.get('date_of_birth'):
             obj.date_of_birth = p.get('date_of_birth')
-        # Password reset for AffirmativeStaffApplication scholars
-        new_pw = p.get('new_password', '').strip()
+        # Password reset. The login lives on the User account, not on this row:
+        # migration 0045 dropped the password field, so the obj.set_password()
+        # this used to call raised AttributeError the moment the field was
+        # filled in. Office-added archive rows carry a fabricated email and have
+        # no account behind them at all, which is what the miss check is for.
+        new_pw = (p.get('new_password') or '').strip()
         if new_pw:
-            obj.set_password(new_pw)
+            account = User.objects.filter(email=obj.email).first()
+            if not account:
+                from urllib.parse import quote
+                return redirect(
+                    f'/vpsea/archives/?type={stype}&error=' + quote(
+                        'This scholar has no login account, so the password '
+                        'cannot be reset.')
+                )
+            account.set_password(new_pw)
+            account.save()
         obj.save()
     else:
         try:
@@ -1634,24 +1835,38 @@ def vpsea_new_semester(request):
     ALL_TYPES = _base + [t for t in Scholarship.objects.values_list('type', flat=True).distinct() if t not in _base]
 
     def _build_excel(scholarship_type):
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = 'Scholars'
+        # Header labels and cell positions both come from the import contract,
+        # so a rollover file can be uploaded straight back through
+        # vpsea_archive_import. They were written out by hand here before and
+        # had drifted from COLUMN_MAPS for every scholarship type — Affirmative
+        # and Staff in all of their columns, the rest from the middle name on,
+        # which re-imported a gender as somebody's first name. An unmapped type
+        # falls back to the layout the importer falls back to.
+        col_map = COLUMN_MAPS.get(scholarship_type, COLUMN_MAPS['CoScho'])
+        hint = COLUMN_HINTS.get(scholarship_type, COLUMN_HINTS['CoScho'])
+        header = [h.strip() for h in hint.split('|')]
+
         if scholarship_type in ('Affirmative', 'Staff'):
-            ws.append(['No.', 'Full Name', 'Gender', 'Course', 'Year Level', 'Student ID', 'Address'])
             qs = AffirmativeStaffApplication.objects.filter(
                 status='Approved', qualified_for=scholarship_type
             ).order_by('full_name')
-            for i, s in enumerate(qs, 1):
-                ws.append([i, s.full_name, s.gender, s.course, s.year_level, s.student_id, s.address])
         else:
-            ws.append(['No.', 'Last Name', 'First Name', 'Gender', 'Course', 'Year Level', 'Student ID', 'GWA', 'Barangay', 'Municipality', 'Province'])
             qs = Application.objects.filter(
                 status='Approved', scholarship__type=scholarship_type
-            ).select_related('student__user').order_by('student__user__last_name')
-            for i, app in enumerate(qs, 1):
-                p = app.student
-                ws.append([i, p.user.last_name, p.user.first_name, p.gender, p.course, p.year_level, p.student_id, p.gwa, p.barangay, p.municipality, p.province])
+            ).select_related('student__user', 'scholarship').order_by('student__user__last_name')
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Scholars'
+        ws.append(header)
+        for i, record in enumerate(qs, 1):
+            cells = _rollover_fields(record)
+            row = [''] * len(header)
+            row[0] = i
+            for idx, field in col_map:
+                row[idx] = cells.get(field, '')
+            ws.append(row)
+
         buf = BytesIO()
         wb.save(buf)
         buf.seek(0)
@@ -1727,18 +1942,136 @@ COLUMN_MAPS = {
 }
 
 
+def _rollover_fields(record):
+    """One approved scholar's cells, keyed by the field names COLUMN_MAPS uses.
+
+    Both shapes an approved scholar can arrive in — an Application with a
+    StudentProfile behind it, or an AffirmativeStaffApplication carrying its own
+    copy of the details — reduce to the same dict here. That is what lets
+    _build_excel lay a rollover out by the import contract without caring which
+    table the row came from.
+    """
+    if isinstance(record, AffirmativeStaffApplication):
+        pct = '100' if record.is_nsu_staff else '75'
+        name = ('BiPSU Staff Scholarship' if record.is_nsu_staff
+                else 'Affirmative Action Scholarship')
+        return {
+            'last_name': record.last_name,
+            'first_name': record.first_name,
+            'middle_name': record.middle_name,
+            'middle_initial': record.middle_initial,
+            'sex': record.gender or '',
+            'barangay': record.barangay or '',
+            'municipality': record.municipality or '',
+            'province': record.province or '',
+            'course': record.course or '',
+            'year': record.year_level or '',
+            'gwa': '',
+            'student_number': record.student_id or '',
+            'award_number': '',
+            'congress_district': '',
+            'pct': pct, 'pct_type': pct,
+            'scholarship': name, 'scholarship_program': name,
+        }
+
+    profile = record.student
+    gwa = profile.gwa or 0
+    # Academic reports a rank where the other programmes report a percentage —
+    # the same rule masterlist_report._application_row applies.
+    if record.scholarship.type == 'Academic':
+        pct = 'Univ. Scholar' if gwa <= 1.29 else ('College Scholar' if gwa <= 1.50 else '')
+    else:
+        pct = ''
+    return {
+        'last_name': profile.user.last_name or '',
+        'first_name': profile.user.first_name or '',
+        'middle_name': profile.middle_name or '',
+        'middle_initial': profile.middle_initial,
+        'sex': profile.gender or '',
+        'barangay': profile.barangay or '',
+        'municipality': profile.municipality or '',
+        'province': profile.province or '',
+        'course': profile.course or '',
+        'year': profile.year_level or '',
+        'gwa': f'{gwa:.2f}' if gwa else '',
+        'student_number': profile.student_id or '',
+        'award_number': record.award_number or '',
+        'congress_district': record.congress_district or '',
+        'pct': pct, 'pct_type': pct,
+        'scholarship': record.scholarship.name,
+        'scholarship_program': record.scholarship.name,
+    }
+
+
+def _delete_import_with_scholars(record):
+    """Delete a ScholarListImport together with the scholars it brought in.
+
+    The rows an import creates are keyed by scholarship type and term rather
+    than by a foreign key back to the import, so nothing cascaded and deleting
+    the import used to leave every one of them behind — still counted on the
+    analytics screen, still listed in the archive tables, and still holding the
+    term open in the semester dropdown, which reads its labels off these rows.
+
+    A row a student has since claimed is deleted too. Both foreign keys that
+    point at one — Application.claimed_archive and
+    ScholarshipLinkRequest.matched_archive — are SET_NULL, so an approved award
+    survives its provenance being removed.
+
+    Returns ``(rows_removed, scholarship_type, term_label)``.
+    """
+    from .models import ImportedScholar
+
+    stype, label = record.scholarship_type, record.term_label
+    with transaction.atomic():
+        removed, _ = ImportedScholar.objects.filter(
+            scholarship_type=stype, term_label=label,
+        ).delete()
+        record.excel_file.delete(save=False)
+        record.delete()
+    return removed, stype, label
+
+
+@_vpsea_required
+def vpsea_imported_delete(request, pk):
+    """Remove one imported scholar row.
+
+    The archive tables list imported rows beside portal awards but offered no
+    way to remove one — the only delete was the whole import, which takes every
+    row with it. A single bad line from a spreadsheet had to be fixed by
+    deleting and re-uploading the lot.
+    """
+    from .models import ImportedScholar, ActivityLog
+    if request.method != 'POST':
+        return redirect('/vpsea/archives/')
+    stype = request.POST.get('scholarship_type', 'Academic')
+    row = ImportedScholar.objects.filter(pk=pk).first()
+    if not row:
+        return redirect(f'/vpsea/archives/?type={stype}')
+    label = f'{row.full_name} ({row.scholarship_type} {row.term_label})'
+    row.delete()
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'Deleted imported scholar {label}.',
+    )
+    return redirect(f'/vpsea/archives/?type={stype}&deleted=1')
+
+
 @_vpsea_required
 def vpsea_rollover_delete(request, pk):
-    from .models import ScholarListImport
+    from .models import ScholarListImport, ActivityLog
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     stype = request.POST.get('type', 'Academic')
     try:
         r = ScholarListImport.objects.get(pk=pk)
-        r.excel_file.delete(save=False)
-        r.delete()
     except ScholarListImport.DoesNotExist:
-        pass
+        return redirect(f'/vpsea/archives/?type={stype}')
+    removed, imported_type, label = _delete_import_with_scholars(r)
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'Deleted the {imported_type} import for "{label}" and the '
+               f'{removed} scholar row(s) it had created.'
+    )
     return redirect(f'/vpsea/archives/?type={stype}')
 
 
@@ -1765,9 +2098,6 @@ def vpsea_archive_import(request):
         wb = openpyxl.load_workbook(file)
         ws = wb.active
         col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
-
-        # Delete existing rows for this label+type so re-import is clean
-        ImportedScholar.objects.filter(scholarship_type=stype, term_label=rollover_label).delete()
 
         records = []
         for row in ws.iter_rows(min_row=2, values_only=True):
@@ -1808,7 +2138,7 @@ def vpsea_archive_import(request):
                 middle_name=extra.get('middle_name', extra.get('middle_initial', '')),
                 gender=extra.get('sex', ''),
                 course=extra.get('course', ''),
-                year=year_level,
+                year_level=year_level,
                 gwa=gwa,
                 barangay=extra.get('barangay', addr_parts[0] if len(addr_parts) > 0 else ''),
                 municipality=extra.get('municipality', addr_parts[1] if len(addr_parts) > 1 else ''),
@@ -1819,7 +2149,13 @@ def vpsea_archive_import(request):
                 imported_from=file.name,
             ))
 
-        ImportedScholar.objects.bulk_create(records)
+        # Replace the term's rows only once the new ones are in hand, and in one
+        # transaction. The delete used to run before the sheet was parsed, so a
+        # file the parser choked on destroyed the term and imported nothing.
+        with transaction.atomic():
+            ImportedScholar.objects.filter(
+                scholarship_type=stype, term_label=rollover_label).delete()
+            ImportedScholar.objects.bulk_create(records)
         created = len(records)
 
         # Save the uploaded file as a rollover record for download history
@@ -1945,6 +2281,18 @@ def _analytics_context(request, all_types, include_gwa=True):
     ALL_TYPES = list(all_types)
 
     from .models import ImportedScholar
+
+    def _imported_current(stype):
+        """Imported scholars for the active term, the ones a live count misses.
+
+        Claimed rows are excluded: that scholar has an Application of their own,
+        and counting both would show them twice. Same rule the archive tables
+        use.
+        """
+        return ImportedScholar.objects.filter(
+            scholarship_type=stype, term_label=active_label, claimed_by__isnull=True,
+        )
+
     all_labels = list(
         ScholarListImport.objects.values_list('term_label', flat=True)
         .distinct().order_by('-term_label')
@@ -1980,13 +2328,22 @@ def _analytics_context(request, all_types, include_gwa=True):
             # Current semester — no rollover yet, count from live approved records
             if t in ('Affirmative', 'Staff'):
                 from .models import AffirmativeStaffApplication
-                rollover_counts[t] = AffirmativeStaffApplication.objects.filter(
-                    status='Approved', qualified_for=t
-                ).count()
+                rollover_counts[t] = (
+                    AffirmativeStaffApplication.objects.filter(
+                        status='Approved', qualified_for=t
+                    ).count()
+                    + _imported_current(t).count()
+                )
             else:
-                rollover_counts[t] = Application.objects.filter(
-                    status='Approved', scholarship__type=t
-                ).count()
+                # Imported scholars count too. Only the past-semester branch
+                # below ever looked at them, so a list uploaded into the active
+                # term showed nothing here until the term rolled over.
+                rollover_counts[t] = (
+                    Application.objects.filter(
+                        status='Approved', scholarship__type=t
+                    ).count()
+                    + _imported_current(t).count()
+                )
         else:
             # Past semester — prefer ImportedScholar rows, fall back to rollover snapshot
             import_count = ImportedScholar.objects.filter(scholarship_type=t, term_label=selected_label).count()
@@ -2000,17 +2357,28 @@ def _analytics_context(request, all_types, include_gwa=True):
         # Current semester — pull from live approved records
         if selected_label == active_label:
             from django.db.models import Count as DCount
+            counts = {}
             if stype in ('Affirmative', 'Staff'):
                 from .models import AffirmativeStaffApplication
                 qs = AffirmativeStaffApplication.objects.filter(
                     status='Approved', qualified_for=stype
                 ).values('course').annotate(n=DCount('id'))
-                return {r['course'] or 'Unknown': r['n'] for r in qs}
+                for r in qs:
+                    key = r['course'] or 'Unknown'
+                    counts[key] = counts.get(key, 0) + r['n']
             else:
                 qs = Application.objects.filter(
                     status='Approved', scholarship__type=stype
                 ).values('student__course').annotate(n=DCount('id'))
-                return {r['student__course'] or 'Unknown': r['n'] for r in qs}
+                for r in qs:
+                    key = r['student__course'] or 'Unknown'
+                    counts[key] = counts.get(key, 0) + r['n']
+            # …and the imported rows for the same term, which this branch used
+            # to leave out entirely.
+            for r in _imported_current(stype).values('course').annotate(n=DCount('id')):
+                key = r['course'] or 'Unknown'
+                counts[key] = counts.get(key, 0) + r['n']
+            return counts
         # Past semester — first try ImportedScholar (imported rows)
         ar_counts = {}
         for rec in ImportedScholar.objects.filter(scholarship_type=stype, term_label=selected_label).values('course'):
@@ -2211,7 +2579,8 @@ def unifast_announcements(request):
         body = (request.POST.get('body') or '').strip()
         if title and body:
             Announcement.objects.create(title=title, body=body, published_by=request.user)
-            return redirect('/unifast/announcements/?posted=1')
+            reached = notify.broadcast(title, body)
+            return redirect(f'/unifast/announcements/?posted={reached}')
         return render(request, 'unifast/announcements.html', {
             'announcements': Announcement.objects.select_related('published_by').order_by('-created_at'),
             'errors': ['Both a title and a body are required.'],
@@ -2277,7 +2646,7 @@ def unifast_reports(request):
     """On-screen replica of the CHED 'Official List' validation sheet."""
     import os
     from .models import SystemSettings
-    from . import tes_report
+    from . import doc_convert, tes_report
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
@@ -2294,11 +2663,51 @@ def unifast_reports(request):
         'tes_total': len(rows),
         'pwd_count': sum(1 for r in rows if r['is_pwd']),
         'template_available': os.path.exists(tes_report.TEMPLATE_PATH),
+        # Whether the frame is showing the workbook itself or the fallback
+        # layout, so the page can say which one an officer is reading.
+        'exact_preview': doc_convert.available(),
         # The plain TDP/TES masterlist stays available underneath.
         'sections': sections,
         'grand_total': sum(s['total'] for s in sections),
         'error': request.GET.get('error'),
     })
+
+
+@_unifast_required
+@xframe_options_exempt
+def unifast_report_preview_pdf(request):
+    """The CHED workbook as a PDF page, for the preview frame on the Reports tab.
+
+    The Annex 2 workbook the office submits is filled and converted, so all four
+    sheets preview exactly as they print. Without a converter installed the
+    Official List is laid out here instead, and the tab says so.
+    """
+    from .models import SystemSettings
+    from . import doc_convert, report_pdf, tes_report
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    batch = request.GET.get('batch', '').strip()
+    label = settings_obj.academic_year.replace('-', '_')
+
+    pdf = None
+    if doc_convert.available():
+        try:
+            buf, _written, _overflow = tes_report.build_workbook(
+                parsed['sy'], parsed['semester'], batch=batch)
+            pdf = doc_convert.to_pdf(buf.getvalue(), '.xlsx')
+        except (FileNotFoundError, doc_convert.ConversionUnavailable,
+                doc_convert.ConversionFailed):
+            pdf = None
+    if pdf is None:
+        buf, _rows = report_pdf.tes_official_list_pdf(
+            parsed['sy'], parsed['semester'], batch=batch)
+        pdf = buf.read()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'inline; filename="TES_Validation_List_{label}.pdf"')
+    return response
 
 
 @_unifast_required
@@ -2428,12 +2837,15 @@ def unifast_report_download_excel(request):
 def vpsea_announcements(request):
     from .models import Announcement
     if request.method == 'POST':
-        Announcement.objects.create(
-            title=request.POST.get('title'),
-            body=request.POST.get('body'),
-            published_by=request.user,
-        )
-        return redirect('/vpsea/announcements/')
+        title = (request.POST.get('title') or '').strip()
+        body = (request.POST.get('body') or '').strip()
+        if not title or not body:
+            return redirect('/vpsea/announcements/?error=1')
+        Announcement.objects.create(title=title, body=body, published_by=request.user)
+        # The row alone reached nobody: it showed only in the dashboard's top
+        # three and raised no notification at all.
+        reached = notify.broadcast(title, body)
+        return redirect(f'/vpsea/announcements/?posted={reached}')
     announcements = Announcement.objects.all().order_by('-created_at')
     return render(request, 'vpsea/announcements.html', {'announcements': announcements})
 
@@ -2447,7 +2859,7 @@ def vpsea_reports(request):
     """
     import os
     from .models import SystemSettings
-    from . import masterlist_report
+    from . import doc_convert, masterlist_report
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
@@ -2480,6 +2892,9 @@ def vpsea_reports(request):
         'grand_total': sum(e['total'] for e in summary),
         'summary': summary,
         'template_available': os.path.exists(masterlist_report.TEMPLATE_PATH),
+        # Whether the frame is showing the Word document itself or the fallback
+        # layout, so the page can say which one an officer is reading.
+        'exact_preview': doc_convert.available(),
         'error': request.GET.get('error'),
     })
 
@@ -2487,194 +2902,36 @@ def vpsea_reports(request):
 @_vpsea_required
 @xframe_options_exempt
 def vpsea_report_preview_pdf(request):
-    from reportlab.lib.pagesizes import landscape, legal
-    from reportlab.lib import colors
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
-    from io import BytesIO
-    from django.http import HttpResponse
-    from .models import Application, AffirmativeStaffApplication, SystemSettings
+    """The masterlist as a PDF page, for the preview frame on the Reports tab.
+
+    The Word document the office files is generated and converted, so the page
+    on screen is that document rather than a picture of it. Without a converter
+    installed the same rows are laid out here instead, and the tab says so.
+    """
+    from .models import SystemSettings
+    from . import doc_convert, masterlist_report, report_pdf
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    semester = settings_obj.active_semester
-    ay = settings_obj.academic_year
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    label = settings_obj.academic_year.replace('-', '_')
 
-    buf = BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=landscape(legal),
-        leftMargin=0.5*inch, rightMargin=0.5*inch,
-        topMargin=0.7*inch, bottomMargin=0.5*inch,
-    )
+    pdf = None
+    if doc_convert.available():
+        try:
+            buf, _summary = masterlist_report.build_document(
+                parsed['sy'], parsed['semester'])
+            pdf = doc_convert.to_pdf(buf.getvalue(), '.docx')
+        except (FileNotFoundError, doc_convert.ConversionUnavailable,
+                doc_convert.ConversionFailed):
+            pdf = None
+    if pdf is None:
+        buf, _summary = report_pdf.masterlist_pdf(
+            parsed['sy'], parsed['semester'])
+        pdf = buf.read()
 
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('title', parent=styles['Normal'], fontSize=13, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=2)
-    sub_style   = ParagraphStyle('sub',   parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=2)
-    sec_style   = ParagraphStyle('sec',   parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=4, spaceBefore=8)
-    lbl_style   = ParagraphStyle('lbl',   parent=styles['Normal'], fontSize=9,  alignment=TA_LEFT,   fontName='Helvetica-Bold')
-    cell_style  = ParagraphStyle('cell',  parent=styles['Normal'], fontSize=7)
-
-    HDR_BG  = colors.HexColor('#D9E1F2')
-    SEC_BG  = colors.HexColor('#BDD7EE')
-    TITLE_BG = colors.HexColor('#1F4E79')
-    TITLE_FG = colors.white
-
-    def _split(full):
-        p = full.strip().split()
-        if not p: return '', '', ''
-        if len(p) == 1: return p[0], '', ''
-        if len(p) == 2: return p[-1], p[0], ''
-        mi = p[1][0] + '.' if len(p) > 2 else ''
-        return p[-1], p[0], mi
-
-    def _addr(profile):
-        return profile.barangay, profile.municipality, profile.province
-
-    def make_table(headers, rows):
-        data = [headers] + (rows if rows else [['—'] * len(headers)])
-        col_w = (landscape(legal)[0] - inch) / len(headers)
-        t = Table(data, colWidths=[col_w] * len(headers), repeatRows=1)
-        style = TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), HDR_BG),
-            ('FONTNAME',   (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE',   (0,0), (-1,-1), 7),
-            ('ALIGN',      (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
-            ('GRID',       (0,0), (-1,-1), 0.4, colors.black),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F5F7FF')]),
-        ])
-        t.setStyle(style)
-        return t
-
-    story = []
-    story.append(Paragraph('Republic of the Philippines', sub_style))
-    story.append(Paragraph('BILIRAN PROVINCE STATE UNIVERSITY — Naval, Biliran', title_style))
-    story.append(Paragraph(f'LIST OF SCHOLARS FOR {semester} SY: {ay}', title_style))
-    story.append(Spacer(1, 8))
-
-    # ── ACADEMIC ──────────────────────────────────────────────────────────────
-    academic = list(Application.objects.filter(
-        status='Approved', scholarship__type='Academic'
-    ).select_related('student__user').order_by('student__user__last_name'))
-    females_a = [a for a in academic if a.student.gender and a.student.gender.upper() in ('F','FEMALE')]
-    males_a   = [a for a in academic if a not in females_a]
-
-    hdrs_acad = ['NO.','LAST NAME','FIRST NAME','M.I.','SEX','BRGY./ST.','MUN.','PROV.','COURSE','YR.','GWA','%','SCHOLARSHIP']
-
-    def acad_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            pct = 'Univ. Scholar' if p.gwa <= 1.29 else ('College Scholar' if p.gwa <= 1.50 else '')
-            rows.append([i, u.last_name, u.first_name, '', p.gender or '', p.barangay, p.municipality, p.province, p.course, p.year_level, p.gwa, pct, 'ACADEMIC'])
-        return rows
-
-    story.append(Paragraph(f'ACADEMIC (@) SCHOLARSHIP GRANT — {semester} SY: {ay}', sec_style))
-    story.append(Paragraph('FEMALE', lbl_style))
-    story.append(make_table(hdrs_acad, acad_rows(females_a)))
-    story.append(Paragraph('MALE', lbl_style))
-    story.append(make_table(hdrs_acad, acad_rows(males_a)))
-    story.append(Spacer(1, 10))
-
-    # ── BiPSU STAFF ─────────────────────────────────────────────────────────────
-    staff = list(AffirmativeStaffApplication.objects.filter(status='Approved', qualified_for='Staff').order_by('full_name'))
-    hdrs_staff = ['NO.','LAST NAME','FIRST NAME','M.I.','SEX','COURSE','YEAR LEVEL','STUDENT NO.','%','SCHOLARSHIP PROGRAM']
-    staff_rows = []
-    for i, app in enumerate(staff, 1):
-        last, first, mi = _split(app.full_name)
-        staff_rows.append([i, last, first, mi, app.gender or '', app.course, app.year_level, app.student_id or '', '100' if app.is_nsu_staff else '75', 'BiPSU STAFF'])
-    story.append(Paragraph(f'BiPSU STAFF (@) SCHOLARSHIP GRANT — {semester} SY: {ay}', sec_style))
-    story.append(make_table(hdrs_staff, staff_rows))
-    story.append(Spacer(1, 10))
-
-    # ── AFFIRMATIVE ───────────────────────────────────────────────────────────
-    affirmative = list(AffirmativeStaffApplication.objects.filter(status='Approved', qualified_for='Affirmative').order_by('full_name'))
-    aff_f = [a for a in affirmative if a.gender and a.gender.upper() in ('F','FEMALE')]
-    aff_m = [a for a in affirmative if a not in aff_f]
-    hdrs_aff = ['NO.','AWARD NO.','LAST NAME','FIRST NAME','M.I.','SEX','BRGY./ST.','MUN.','PROV.','CONG. DIST.','COURSE','YR.','SCHOLARSHIP PROGRAM']
-
-    def aff_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            last, first, mi = _split(app.full_name)
-            rows.append([i, '', last, first, mi, app.gender or '', app.barangay, app.municipality, app.province, '', app.course, app.year_level, 'Affirmative Action'])
-        return rows
-
-    story.append(Paragraph(f'AN WARAY (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', sec_style))
-    story.append(Paragraph('FEMALE', lbl_style))
-    story.append(make_table(hdrs_aff, aff_rows(aff_f)))
-    story.append(Paragraph('MALE', lbl_style))
-    story.append(make_table(hdrs_aff, aff_rows(aff_m)))
-    story.append(Spacer(1, 10))
-
-    # ── CHED ──────────────────────────────────────────────────────────────────
-    ched_all = list(Application.objects.filter(status='Approved', scholarship__type='CHED').select_related('student__user','scholarship').order_by('student__user__last_name'))
-    ched_full, ched_half = split_ched(ched_all)
-    hdrs_ched = ['NO.','AWARD NO.','LAST NAME','FIRST NAME','M.I.','SEX','BRGY./ST.','MUN.','PROV.','CONG. DIST.','COURSE','YR.','SCHOLARSHIP PROGRAM']
-
-    def ched_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            rows.append([i, app.award_number, u.last_name, u.first_name, '', p.gender or '', p.barangay, p.municipality, p.province, app.congress_district, p.course, p.year_level, app.scholarship.name])
-        return rows
-
-    for title, block in [('FULL MERIT/ FULL SCHOLAR (*)', ched_full), ('HALF MERIT/ PARTIAL SCHOLAR (*)', ched_half)]:
-        story.append(Paragraph(f'{title} — {semester} SY: {ay}', sec_style))
-        bf = [a for a in block if a.student.gender and a.student.gender.upper() in ('F','FEMALE')]
-        bm = [a for a in block if a not in bf]
-        story.append(Paragraph('FEMALE', lbl_style))
-        story.append(make_table(hdrs_ched, ched_rows(bf)))
-        story.append(Paragraph('MALE', lbl_style))
-        story.append(make_table(hdrs_ched, ched_rows(bm)))
-        story.append(Spacer(1, 10))
-
-    # ── DOST ──────────────────────────────────────────────────────────────────
-    dost_all = list(Application.objects.filter(status='Approved', scholarship__type='DOST').select_related('student__user','scholarship').order_by('student__user__last_name'))
-    dost_f = [a for a in dost_all if a.student.gender and a.student.gender.upper() in ('F','FEMALE')]
-    dost_m = [a for a in dost_all if a not in dost_f]
-    story.append(Paragraph(f'DOST (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', sec_style))
-    story.append(Paragraph('FEMALE', lbl_style))
-    story.append(make_table(hdrs_ched, ched_rows(dost_f)))
-    story.append(Paragraph('MALE', lbl_style))
-    story.append(make_table(hdrs_ched, ched_rows(dost_m)))
-    story.append(Spacer(1, 10))
-
-    # ── GSIS ──────────────────────────────────────────────────────────────────
-    gsis_all = list(Application.objects.filter(status='Approved', scholarship__type='GSIS').select_related('student__user','scholarship').order_by('student__user__last_name'))
-    hdrs_gsis = ['NO.','LAST NAME','FIRST NAME','M.I.','SEX','BRGY./ST.','MUN.','PROV.','CONG. DIST.','COURSE','YR.','SCHOLARSHIP PROGRAM']
-
-    def gsis_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            rows.append([i, u.last_name, u.first_name, '', p.gender or '', p.barangay, p.municipality, p.province, app.congress_district, p.course, p.year_level, app.scholarship.name])
-        return rows
-
-    gsis_f = [a for a in gsis_all if a.student.gender and a.student.gender.upper() in ('F','FEMALE')]
-    gsis_m = [a for a in gsis_all if a not in gsis_f]
-    story.append(Paragraph(f'GSIS (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', sec_style))
-    story.append(Paragraph('FEMALE', lbl_style))
-    story.append(make_table(hdrs_gsis, gsis_rows(gsis_f)))
-    story.append(Paragraph('MALE', lbl_style))
-    story.append(make_table(hdrs_gsis, gsis_rows(gsis_m)))
-    story.append(Spacer(1, 10))
-
-    # ── TDP/TES ───────────────────────────────────────────────────────────────
-    tes_all = list(Application.objects.filter(status='Approved', scholarship__type='TDP').select_related('student__user','scholarship').order_by('student__user__last_name'))
-    tes_f = [a for a in tes_all if a.student.gender and a.student.gender.upper() in ('F','FEMALE')]
-    tes_m = [a for a in tes_all if a not in tes_f]
-    story.append(Paragraph(f'TERTIARY EDUCATION SUBSIDY - TES (*) — {semester} SY: {ay}', sec_style))
-    story.append(Paragraph('FEMALE', lbl_style))
-    story.append(make_table(hdrs_ched, ched_rows(tes_f)))
-    story.append(Paragraph('MALE', lbl_style))
-    story.append(make_table(hdrs_ched, ched_rows(tes_m)))
-
-    doc.build(story)
-    buf.seek(0)
-    response = HttpResponse(buf.read(), content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="masterlist_preview.pdf"'
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'inline; filename="BiPSU_List_of_Scholars_{label}.pdf"')
     return response
 
 
@@ -3428,13 +3685,14 @@ def vpsea_accounts(request):
         # A verified student finds this waiting in their portal. Staff
         # notifications hang off StudentProfile, which staff do not have, so
         # for them the login page is the whole of it.
-        profile = StudentProfile.objects.filter(user=account).first()
-        if profile and status == 'approved':
-            Notification.objects.create(
-                student=profile, type='success',
-                title='Account verified',
-                body=account.verification_note,
-            )
+        # Emailed either way: a rejected applicant has no portal to read a
+        # notification in, and used to be told nothing at all.
+        notify.notify(
+            account,
+            'Account verified' if status == 'approved' else 'Account not verified',
+            account.verification_note,
+            tone='success' if status == 'approved' else 'warning',
+        )
         ActivityLog.objects.create(
             user=request.user,
             action=(f'Account {status}: {account.get_full_name() or account.email} '
@@ -3522,7 +3780,10 @@ def vpsea_students(request):
 
     # Students with NO approved application at all — shown in the second tab.
     # This is a simple anti-join: every StudentProfile whose pk is not in the
-    # set of profiles that have at least one Approved application.
+    # set of profiles that have at least one Approved application. Accounts the
+    # office rejected at registration are left out for the same reason as on the
+    # archives tab: they cannot sign in to apply, so they are not students the
+    # system failed to serve.
     approved_pks = Application.objects.filter(
         status='Approved'
     ).values_list('student_id', flat=True).distinct()
@@ -3531,6 +3792,7 @@ def vpsea_students(request):
         StudentProfile.objects
         .select_related('user')
         .exclude(pk__in=approved_pks)
+        .exclude(user__verification_status='rejected')
         .order_by('user__last_name', 'user__first_name')
     )
     if q:
@@ -3784,7 +4046,7 @@ def vpsea_student_edit(request, pk):
         'v_has_other_scholarship': profile.has_other_scholarship,
         'v_indigenous_group': profile.indigenous_group,
         'v_shs_gpa': profile.shs_gpa,
-        'v_suc_exam_score': profile.suc_exam_score,
+        'v_suc_exam_score': profile.suc_exam_display or profile.suc_exam_score,
         'v_is_tes_beneficiary': profile.is_tes_beneficiary,
     })
 
@@ -3927,8 +4189,9 @@ def vpsea_ranking(request):
         s = 0.0
         if a.shs_gpa is not None:
             s += min((a.shs_gpa / 100.0) * 50.0, 50.0)
-        if a.suc_exam_score is not None:
-            s += min((a.suc_exam_score / 100.0) * 50.0, 50.0)
+        # The percentage, so an exam out of 50 is not scored as if out of 100.
+        if a.suc_exam_percent is not None:
+            s += min((a.suc_exam_percent / 100.0) * 50.0, 50.0)
         return round(s)
 
     def _staff_score(a):
@@ -3944,11 +4207,11 @@ def vpsea_ranking(request):
             return None
         return {
             'gpa_pass': a.shs_gpa is not None and a.shs_gpa >= passing_threshold,
-            'exam_pass': a.suc_exam_score is not None and a.suc_exam_score >= 50.0,
+            'exam_pass': a.suc_exam_percent is not None and a.suc_exam_percent >= 50.0,
             'not_tes': not a.is_tes_beneficiary,
             'eligible': (
                 a.shs_gpa is not None and a.shs_gpa >= passing_threshold and
-                a.suc_exam_score is not None and a.suc_exam_score >= 50.0 and
+                a.suc_exam_percent is not None and a.suc_exam_percent >= 50.0 and
                 not a.is_tes_beneficiary
             ),
         }
@@ -3981,7 +4244,7 @@ def vpsea_ranking(request):
     for i, rec in enumerate(recommendations):
         p = rec.student
         gpa_pass   = p.shs_gpa is not None and p.shs_gpa >= passing_threshold
-        exam_pass  = p.suc_exam_score is not None and p.suc_exam_score >= 50.0
+        exam_pass  = p.suc_exam_percent is not None and p.suc_exam_percent >= 50.0
         not_tes    = not p.is_tes_beneficiary
         eligible   = gpa_pass and exam_pass and not_tes
         rec_rows.append({
@@ -4125,10 +4388,19 @@ def unifast_tes_ranking(request):
 
 @_unifast_required
 def unifast_tes_applications(request):
+    from .constants import DECIDED_REVIEW_STATUSES
+    from urllib.parse import quote
     if request.method == 'POST':
         app_id = request.POST.get('app_id')
         new_status = request.POST.get('status')
         remarks = request.POST.get('remarks', '')
+        # Same rule as the review screen below: a decision already recorded is
+        # not overwritten from here either.
+        posted = TESApplication.objects.filter(id=app_id).first()
+        if posted and posted.status in DECIDED_REVIEW_STATUSES:
+            return redirect('/unifast/tes-applications/?error=' + quote(
+                f'That application was already {posted.status.lower()}. '
+                'A decision is made once.'))
         TESApplication.objects.filter(id=app_id).update(status=new_status, remarks=remarks)
         return redirect('/unifast/tes-applications/?saved=1')
     apps = TESApplication.objects.select_related('student__user').order_by('-submitted_at')
@@ -4142,15 +4414,44 @@ def unifast_tes_applications(request):
 
 @_unifast_required
 def unifast_tes_review(request, pk):
+    """Record UniFAST's decision on one TES application.
+
+    The decision is made once: an application already approved or rejected
+    keeps that status, and posting a different one is refused. A later save
+    can still correct the award number and remarks, because CHED issues the
+    award number after the decision and the billing report is built on it —
+    locking that away with the status would strand a typo the office has no
+    other way to fix.
+    """
+    from .constants import DECIDED_REVIEW_STATUSES
+    from urllib.parse import quote
     if request.method == 'POST':
+        tes_app = TESApplication.objects.select_related('student__user').filter(pk=pk).first()
+        if not tes_app:
+            return redirect('/unifast/tes-applications/?error=' + quote(
+                'That application was not found.'))
         new_status = request.POST.get('status', 'Pending')
         remarks = request.POST.get('remarks', '')
         award_number = request.POST.get('award_number', '')
+        already_decided = tes_app.status in DECIDED_REVIEW_STATUSES
+        if already_decided and new_status != tes_app.status:
+            return redirect('/unifast/tes-applications/?error=' + quote(
+                f'That application was already {tes_app.status.lower()}. '
+                'A decision is made once.'))
         TESApplication.objects.filter(pk=pk).update(
             status=new_status,
             remarks=remarks,
             award_number=award_number,
         )
+        # Only the first decision is announced. A later award-number correction
+        # is bookkeeping, not news the applicant should be told a second time.
+        if not already_decided:
+            notify.decision(
+                tes_app.student, 'Your Tertiary Education Subsidy application',
+                new_status, remarks,
+                detail=f'Award number: {award_number}' if award_number else '',
+                link='/student/applications/',
+            )
         if new_status == 'Approved':
             from .models import SystemSettings
             try:
@@ -4402,7 +4703,6 @@ def unifast_archive_import(request):
         wb = openpyxl.load_workbook(file)
         ws = wb.active
         col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
-        ImportedScholar.objects.filter(scholarship_type=stype, term_label=rollover_label).delete()
         records = []
         for row in ws.iter_rows(min_row=2, values_only=True):
             if not row or row[0] is None:
@@ -4435,7 +4735,7 @@ def unifast_archive_import(request):
                 middle_name=extra.get('middle_name', extra.get('middle_initial', '')),
                 gender=extra.get('sex', ''),
                 course=extra.get('course', ''),
-                year=year_level,
+                year_level=year_level,
                 gwa=gwa,
                 barangay=extra.get('barangay', ''),
                 municipality=extra.get('municipality', ''),
@@ -4445,7 +4745,11 @@ def unifast_archive_import(request):
                 congress_district=extra.get('congress_district', ''),
                 imported_from=file.name,
             ))
-        ImportedScholar.objects.bulk_create(records)
+        # Same replace-in-one-transaction rule as vpsea_archive_import above.
+        with transaction.atomic():
+            ImportedScholar.objects.filter(
+                scholarship_type=stype, term_label=rollover_label).delete()
+            ImportedScholar.objects.bulk_create(records)
         created = len(records)
         file.seek(0)
         if not ScholarListImport.objects.filter(term_label=rollover_label, scholarship_type=stype).exists():
@@ -4471,16 +4775,20 @@ def unifast_archive_import(request):
 
 @_unifast_required
 def unifast_rollover_delete(request, pk):
-    from .models import ScholarListImport
+    from .models import ScholarListImport, ActivityLog
     if request.method != 'POST':
         return redirect('/unifast/archives/')
     stype = request.POST.get('type', 'TDP')
     try:
         r = ScholarListImport.objects.get(pk=pk)
-        r.excel_file.delete(save=False)
-        r.delete()
     except ScholarListImport.DoesNotExist:
-        pass
+        return redirect(f'/unifast/archives/?type={stype}')
+    removed, imported_type, label = _delete_import_with_scholars(r)
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'Deleted the {imported_type} import for "{label}" and the '
+               f'{removed} scholar row(s) it had created.'
+    )
     return redirect(f'/unifast/archives/?type={stype}')
 
 

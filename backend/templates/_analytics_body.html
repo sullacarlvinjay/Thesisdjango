@@ -34,7 +34,7 @@
       <div class="flex items-center gap-2">
         <div class="flex gap-1" id="trendChartToggle"></div>
         {% if trend_data|length > 1 %}
-        <button class="chart-toggle-btn" onclick="downloadChart('trendChart','scholars-over-time')">&#8681; PNG</button>
+        <button type="button" class="chart-toggle-btn chart-png-btn" data-png="trendChart" data-png-name="scholars-over-time">&#8681; PNG</button>
         {% endif %}
       </div>
     </div>
@@ -55,7 +55,7 @@
       {% endif %}
       <div class="flex items-center gap-2">
         <div class="flex gap-1" id="programChartToggle"></div>
-        <button class="chart-toggle-btn" onclick="downloadChart('programChart','scholars-per-program')">&#8681; PNG</button>
+        <button type="button" class="chart-toggle-btn chart-png-btn" data-png="programChart" data-png-name="scholars-per-program">&#8681; PNG</button>
       </div>
     </div>
     <p class="text-xs mb-4" style="color:#6b7a99;">Based on rollover list{% if not selected_type %}s{% endif %} for {{ selected_sy_display }}</p>
@@ -77,7 +77,7 @@
         <h3 class="font-semibold">GWA Distribution</h3>
         <div class="flex items-center gap-2">
           <div class="flex gap-1" id="gwaChartToggle"></div>
-          <button class="chart-toggle-btn" onclick="downloadChart('gwaChart','gwa-distribution')">&#8681; PNG</button>
+          <button type="button" class="chart-toggle-btn chart-png-btn" data-png="gwaChart" data-png-name="gwa-distribution">&#8681; PNG</button>
         </div>
       </div>
       <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
@@ -91,7 +91,7 @@
         <h3 class="font-semibold">Scholars by Course</h3>
         <div class="flex items-center gap-2">
           {% if course_dist %}<div class="flex gap-1" id="courseChartToggle"></div>{% endif %}
-          {% if course_dist %}<button class="chart-toggle-btn" onclick="downloadChart('courseChart','scholars-by-course')">&#8681; PNG</button>{% endif %}
+          {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-course">&#8681; PNG</button>{% endif %}
         </div>
       </div>
       <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>

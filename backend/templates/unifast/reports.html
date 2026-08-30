@@ -10,26 +10,26 @@
 <div class="space-y-6">
 
   {% if error %}
-  <div class="card p-4 flex items-center gap-3" style="border-color:#e03131;background:#fff5f5;">
-    <svg class="h-5 w-5 shrink-0" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <p class="text-sm font-medium" style="color:#e03131;">{{ error }}</p>
+  <div class="card p-4 report-error">
+    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p>{{ error }}</p>
   </div>
   {% endif %}
 
   <!-- Toolbar -->
   <div class="card p-5 flex flex-wrap items-end justify-between gap-4">
-    <form method="get" class="flex flex-wrap items-end gap-3">
-      <div class="space-y-1.5">
+    <form method="get" class="filter-form flex flex-wrap items-end gap-3">
+      <div class="space-y-1.5 filter-form-field">
         <label>TES Batch</label>
         <input name="batch" value="{{ batch }}" placeholder="e.g. On-going (10,11,12,12.1,13,13.1 &amp; 13.2)"
-               style="min-width:22rem;" />
+               class="field-wide" />
       </div>
       <button type="submit" class="btn btn-outline">Apply</button>
     </form>
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="report-preview-actions">
       {% if template_available %}
       <a href="/unifast/reports/download/tes/{% if batch %}?batch={{ batch|urlencode }}{% endif %}"
-         class="btn btn-primary" style="display:inline-flex;gap:0.5rem;">
+         class="btn btn-primary flex items-center gap-1">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Download CHED workbook (.xlsx)
       </a>
@@ -40,101 +40,62 @@
     </div>
   </div>
 
-  <div class="card p-5 flex gap-3" style="background:#edf2ff;border-color:#3b5bdb;">
-    <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  <div class="card p-5 report-note">
+    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <div>
-      <p class="text-sm font-semibold" style="color:#3b5bdb;">The download is the office's own workbook, filled in</p>
-      <p class="text-xs mt-0.5" style="color:#4c6ef5;">
+      <p class="report-note-title">The download is the office's own workbook, filled in</p>
+      <p class="report-note-body">
         All four sheets are preserved — Official List, Annex 2-Form 1, Form 2 and Form 4 — with their
         instructions, formulas and signatory blocks intact. Filling the Form 2 amounts makes the totals,
         the 1% management fee and the whole Form 1 billing statement compute themselves in Excel.
-        The preview below is the Official List sheet.
+        {% if exact_preview %}
+        The frame below is that workbook, converted to PDF — every sheet, exactly as it prints.
+        {% else %}
+        The frame below is a stand-in for it: the same Official List rows, drawn here rather than
+        being the workbook itself. Install LibreOffice and it becomes the XLSX exactly as it prints.
+        {% endif %}
       </p>
     </div>
   </div>
 
   <!-- Summary -->
   <div class="grid sm:grid-cols-2 gap-4">
-    <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Grantees</p><p class="text-3xl font-bold mt-2" style="color:#3b5bdb;">{{ tes_total }}</p></div>
-    <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">With disability (TES-3A)</p><p class="text-3xl font-bold mt-2" style="color:#f59f00;">{{ pwd_count }}</p></div>
+    <div class="card p-5"><p class="report-stat-label">Grantees</p><p class="report-stat-value">{{ tes_total }}</p></div>
+    <div class="card p-5"><p class="report-stat-label">With disability (TES-3A)</p><p class="report-stat-value report-stat-value-accent">{{ pwd_count }}</p></div>
   </div>
-  <p class="text-xs mt-3" style="color:#6b7a99;">
+  <p class="report-preview-sub">
     Both amount columns export blank. CHED sets what each grantee is paid, so
     the office enters those figures in the workbook rather than the system
     assuming a rate.
   </p>
 
-  <!-- Official List replica -->
-  <div class="card p-0" style="overflow:hidden;">
-    <div class="p-6 pb-0 text-center">
-      <p class="font-bold" style="color:#1e2a3a;letter-spacing:0.02em;">LIST OF CONTINUING TES GRANTEES SUBJECT FOR VALIDATION</p>
-      <p class="font-semibold text-sm mt-1" style="color:#1e2a3a;">BILIRAN PROVINCE STATE UNIVERSITY</p>
-      <p class="text-xs mt-1" style="color:#6b7a99;">TES Batch {{ batch|default:"On-going" }}, {{ semester }}, AY {{ ay }}</p>
+  <!-- The Official List sheet itself -->
+  <div class="card report-preview">
+    <div class="report-preview-bar">
+      <div>
+        <p class="report-preview-label">{% if exact_preview %}CHED workbook preview{% else %}Official List preview{% endif %}</p>
+        <p class="report-preview-sub">
+          {% if tes_total %}
+            TES Batch {{ batch|default:"On-going" }}, {{ semester }}, AY {{ ay }}.
+          {% else %}
+            No approved TES grantees yet — the form previews empty. Approve applications under
+            <a href="/unifast/tes-applications/">TES Applications</a> and they appear here.
+          {% endif %}
+        </p>
+      </div>
+      <div class="report-preview-actions">
+        <a href="/unifast/reports/preview/{% if batch %}?batch={{ batch|urlencode }}{% endif %}"
+           target="_blank" rel="noopener" class="btn btn-outline">Open PDF in a new tab</a>
+      </div>
     </div>
-
-    <div class="px-6 pt-4 pb-2">
-      <p class="text-xs font-semibold" style="color:#374151;">INSTRUCTIONS:</p>
-      <ol class="text-xs mt-1 space-y-0.5" style="color:#6b7a99;list-style:decimal;padding-left:1.1rem;">
-        <li>Identify the status of the student-grantee (make necessary corrections to the student personal details if needed).</li>
-        <li>Complete all Annexes: Annex 2-Form 1, Annex 2-Form 2, and Annex 2-Form 4.</li>
-        <li>Submit the documentary requirements to CHEDRO.</li>
-      </ol>
-    </div>
-
-    <div style="overflow-x:auto;" class="px-6 pb-6">
-      <table class="sheet" style="border-collapse:collapse;font-size:0.72rem;min-width:100%;">
-        <thead>
-          <tr>
-            {% for h in headers %}
-            <th style="border:1px solid #9aa7bd;background:#dbe5f1;padding:0.4rem 0.5rem;font-weight:600;color:#1e2a3a;vertical-align:middle;white-space:pre-line;">{{ h }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in rows %}
-          <tr>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;text-align:center;color:#6b7a99;">{{ r.seq }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;font-family:monospace;">{{ r.student_no }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;font-family:monospace;">{{ r.award_no }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;font-weight:500;">{{ r.last_name }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.first_name }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.ext_name }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.middle_name }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;text-align:center;">{{ r.sex }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;white-space:nowrap;">{{ r.birthdate|date:"m/d/Y" }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.course }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;text-align:center;">{{ r.year_level }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.contact }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.batch }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;text-align:right;">{{ r.tes_amount|floatformat:"0" }}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;text-align:right;">{% if r.is_pwd %}<span class="badge badge-warning" style="font-size:0.62rem;">PWD</span>{% endif %}</td>
-            <td style="border:1px solid #c7d0de;padding:0.3rem 0.45rem;">{{ r.remarks }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="{{ headers|length }}" style="border:1px solid #c7d0de;padding:2rem;text-align:center;color:#6b7a99;">
-              No approved TES grantees yet. Approve applications under
-              <a href="/unifast/tes-applications/" style="color:#3b5bdb;">TES Applications</a> and they appear here.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        {% if rows %}
-        <tfoot>
-          <tr>
-            <td colspan="13" style="border:1px solid #9aa7bd;background:#eef3fa;padding:0.4rem 0.5rem;text-align:right;font-weight:600;">TOTAL TERTIARY EDUCATION SUBSIDY</td>
-            <td colspan="3" style="border:1px solid #9aa7bd;background:#eef3fa;padding:0.4rem 0.5rem;text-align:right;font-weight:600;color:#6b7a99;">to be entered by the office</td>
-          </tr>
-        </tfoot>
-        {% endif %}
-      </table>
-    </div>
-
-    <div class="px-6 pb-6 grid sm:grid-cols-3 gap-6 text-xs" style="color:#6b7a99;">
-      <div><p>Prepared by:</p><p class="mt-8 font-semibold" style="color:#1e2a3a;">TES Focal Person / Scholarship Coordinator</p><p>(Print Name and Signature)</p></div>
-      <div><p>Certified by:</p><p class="mt-8 font-semibold" style="color:#1e2a3a;">Registrar</p><p>(Print Name and Signature)</p></div>
-      <div><p>Approved by:</p><p class="mt-8 font-semibold" style="color:#1e2a3a;">President</p><p>(Print Name and Signature)</p></div>
-    </div>
+    <iframe class="report-preview-frame"
+            src="/unifast/reports/preview/{% if batch %}?batch={{ batch|urlencode }}{% endif %}"
+            title="CHED Official List — preview">
+      <p class="report-preview-fallback">
+        This browser will not display a PDF here.
+        <a href="/unifast/reports/preview/">Open the preview in a new tab</a> instead.
+      </p>
+    </iframe>
   </div>
 
   <!-- Plain masterlist, kept for the TDP side -->
@@ -143,13 +104,13 @@
       <h3 class="font-semibold">TDP / TES masterlist</h3>
       <span class="badge badge-muted">{{ grand_total }} scholar{{ grand_total|pluralize }}</span>
     </div>
-    <p class="text-xs" style="color:#6b7a99;">
+    <p class="report-preview-sub">
       The internal BiPSU masterlist across both programs UniFAST administers, split by gender.
       Use the CHED workbook above for anything submitted to CHEDRO.
     </p>
-    <div class="mt-3 flex flex-wrap gap-4 text-xs" style="color:#6b7a99;">
+    <div class="mt-3 flex flex-wrap gap-4 text-xs">
       {% for section in sections %}
-      <span><strong style="color:#1e2a3a;">{{ section.title }}</strong> — {{ section.total }}</span>
+      <span class="report-preview-sub"><strong class="report-preview-label">{{ section.title }}</strong> — {{ section.total }}</span>
       {% endfor %}
     </div>
   </div>

@@ -24,6 +24,7 @@ from datetime import date
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from .validators import validate_document, validate_spreadsheet
 from .constants import (
     APPLICATION_SOURCES, APPLICATION_STATUSES, BIPSU_COURSES, BIPSU_SCHOOLS,
     CHED_TIER_CHOICES, CIVIL_STATUSES,
@@ -38,7 +39,7 @@ from .constants import (
 # Re-exported so existing `from .models import BIPSU_SCHOOLS` imports keep working.
 __all__ = [
     'BIPSU_COURSES', 'BIPSU_SCHOOLS', 'CHED_TIER_CHOICES', 'SCHOLARSHIP_TYPE_CHOICES',
-    'ched_tier', 'split_ched',
+    'ched_tier', 'split_ched', 'suc_exam_percent',
     'AcademicRenewal', 'ActivityLog', 'AffirmativeStaffApplication',
     'AffirmativeRecommendation', 'Announcement', 'Application',
     'ApplicationDocument', 'ImportedScholar', 'Notification', 'Scholarship',
@@ -188,9 +189,14 @@ class StudentProfile(PersonalInfo, PhilippineAddress):
 
     # Affirmative scholarship eligibility inputs
     shs_gpa = models.FloatField(null=True, blank=True)
-    shs_gpa_cert = models.FileField(upload_to='profile/shs_cert/', null=True, blank=True)
-    suc_exam_score = models.FloatField(null=True, blank=True)
-    suc_exam_cert = models.FileField(upload_to='profile/suc_cert/', null=True, blank=True)
+    shs_gpa_cert = models.FileField(upload_to='profile/shs_cert/', null=True, blank=True, validators=validate_document)
+    suc_exam_score = models.FloatField(
+        null=True, blank=True,
+        help_text='Raw score. A percentage when suc_exam_total is blank.')
+    suc_exam_total = models.FloatField(
+        null=True, blank=True,
+        help_text='Items the exam was out of. Blank means the score is already a percentage.')
+    suc_exam_cert = models.FileField(upload_to='profile/suc_cert/', null=True, blank=True, validators=validate_document)
     is_tes_beneficiary = models.BooleanField(default=False)
 
     # TES eligibility facts about the person and their household.
@@ -213,6 +219,21 @@ class StudentProfile(PersonalInfo, PhilippineAddress):
     year_first_enrolled = models.IntegerField(
         null=True, blank=True,
         help_text='Calendar year the student first enrolled in this programme, for the maximum-years rule.')
+
+    @property
+    def suc_exam_percent(self):
+        """The SUC exam as a percentage — see :func:`suc_exam_percent`."""
+        return suc_exam_percent(self.suc_exam_score, self.suc_exam_total)
+
+    @property
+    def suc_exam_display(self):
+        """'35 / 50 (70%)' when the total is known, '70%' when it is not."""
+        pct = self.suc_exam_percent
+        if pct is None:
+            return ''
+        if self.suc_exam_total:
+            return f'{self.suc_exam_score:g} / {self.suc_exam_total:g} ({pct:g}%)'
+        return f'{pct:g}%'
 
     # Educational background
     elementary = models.CharField(max_length=200, blank=True)
@@ -291,7 +312,7 @@ class StaffProfile(PersonalInfo, PhilippineAddress):
         null=True, blank=True,
         help_text='Only read when date_hired is blank — see the years_of_service property.',
     )
-    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True)
+    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True, validators=validate_document)
 
     # Study background, for the staff scholarship
     highest_education = models.CharField(max_length=200, blank=True)
@@ -461,7 +482,7 @@ class Application(models.Model):
 class ApplicationDocument(models.Model):
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='documents')
     name = models.CharField(max_length=100)
-    file = models.FileField(upload_to='documents/')
+    file = models.FileField(upload_to='documents/', validators=validate_document)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -592,13 +613,18 @@ class AffirmativeStaffApplication(PhilippineAddress):
     position = models.CharField(max_length=200, blank=True)
     years_of_service = models.IntegerField(null=True, blank=True)
     date_of_regularization = models.DateField(null=True, blank=True)
-    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True)
+    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True, validators=validate_document)
 
     # Affirmative eligibility
     shs_gpa = models.FloatField(null=True, blank=True)
-    shs_certificate = models.FileField(upload_to='affirmative/shs/', null=True, blank=True)
-    suc_exam_score = models.FloatField(null=True, blank=True)
-    suc_exam_certificate = models.FileField(upload_to='affirmative/suc/', null=True, blank=True)
+    shs_certificate = models.FileField(upload_to='affirmative/shs/', null=True, blank=True, validators=validate_document)
+    suc_exam_score = models.FloatField(
+        null=True, blank=True,
+        help_text='Raw score. A percentage when suc_exam_total is blank.')
+    suc_exam_total = models.FloatField(
+        null=True, blank=True,
+        help_text='Items the exam was out of. Blank means the score is already a percentage.')
+    suc_exam_certificate = models.FileField(upload_to='affirmative/suc/', null=True, blank=True, validators=validate_document)
     is_tes_beneficiary = models.BooleanField(default=False)
 
     # Result
@@ -607,6 +633,21 @@ class AffirmativeStaffApplication(PhilippineAddress):
     remarks = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def suc_exam_percent(self):
+        """The SUC exam as a percentage — see :func:`suc_exam_percent`."""
+        return suc_exam_percent(self.suc_exam_score, self.suc_exam_total)
+
+    @property
+    def suc_exam_display(self):
+        """'35 / 50 (70%)' when the total is known, '70%' when it is not."""
+        pct = self.suc_exam_percent
+        if pct is None:
+            return ''
+        if self.suc_exam_total:
+            return f'{self.suc_exam_score:g} / {self.suc_exam_total:g} ({pct:g}%)'
+        return f'{pct:g}%'
 
     def __str__(self):
         return f"{self.full_name} — {self.qualified_for}"
@@ -661,8 +702,8 @@ class AffirmativeStaffApplication(PhilippineAddress):
 class AcademicRenewal(models.Model):
     """A continuing academic scholar's per-semester renewal submission."""
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='academic_renewals')
-    certificate_of_grades = models.FileField(upload_to='renewals/academic/')
-    certificate_of_enrollment = models.FileField(upload_to='renewals/academic/')
+    certificate_of_grades = models.FileField(upload_to='renewals/academic/', validators=validate_document)
+    certificate_of_enrollment = models.FileField(upload_to='renewals/academic/', validators=validate_document)
     status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
     remarks = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
@@ -681,7 +722,7 @@ class StaffRenewal(models.Model):
         User, on_delete=models.CASCADE, related_name='staff_renewals',
         limit_choices_to={'role': 'nsu_staff'},
     )
-    supporting_document = models.FileField(upload_to='renewals/staff/', null=True, blank=True)
+    supporting_document = models.FileField(upload_to='renewals/staff/', null=True, blank=True, validators=validate_document)
     status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
     remarks = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
@@ -702,7 +743,7 @@ class ScholarshipLinkRequest(models.Model):
     """
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='link_requests')
     scholarship_type = models.CharField(max_length=50, choices=SCHOLARSHIP_TYPE_CHOICES)
-    proof_document = models.FileField(upload_to='link_requests/')
+    proof_document = models.FileField(upload_to='link_requests/', validators=validate_document)
     notes = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
     submitted_at = models.DateTimeField(auto_now_add=True)
@@ -750,7 +791,7 @@ class ScholarListImport(models.Model):
     semester = models.CharField(max_length=20, choices=SEMESTERS, default='1st Semester')
     term_label = models.CharField(max_length=20, blank=True)
     scholar_count = models.IntegerField(default=0)
-    excel_file = models.FileField(upload_to='rollovers/')
+    excel_file = models.FileField(upload_to='rollovers/', validators=validate_spreadsheet)
     imported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,
                                     related_name='scholar_imports')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -851,7 +892,9 @@ class AffirmativeRecommendation(models.Model):
         """
         created = disqualified = 0
         for profile in StudentProfile.objects.all():
-            gpa, exam = profile.shs_gpa, profile.suc_exam_score
+            # The percentage, not the raw score: an exam out of 50 would
+            # otherwise be judged against a pass mark meant for one out of 100.
+            gpa, exam = profile.shs_gpa, profile.suc_exam_percent
             passes = (
                 gpa is not None and gpa >= passing_threshold and
                 exam is not None and exam >= 50.0 and
@@ -960,6 +1003,25 @@ class SystemSettings(models.Model):
 
 # ── CHED tiers ──────────────────────────────────────────────────────────────
 
+def suc_exam_percent(score, total):
+    """The SUC entrance exam as a percentage, however it was recorded.
+
+    The exam is not always out of 100 — a scholar who answered 35 of 50 items
+    scored 70%, and every rule in the system is written against a percentage
+    (the 50% pass mark, and the 50 points the fit score weights it as). Entering
+    35 alone used to mean 35%, which failed an applicant who had passed.
+
+    ``total`` blank means the score is already a percentage: that is how every
+    record taken before the total was asked for is stored, so they keep reading
+    correctly.
+    """
+    if score is None:
+        return None
+    if total:
+        return round(score / total * 100.0, 2)
+    return float(score)
+
+
 def ched_tier(app):
     """'Full', 'Half' or '' for one approved CHED application.
 
@@ -969,8 +1031,10 @@ def ched_tier(app):
     created before the field existed or imported under a tier-specific name;
     then nothing, for rows no one has ever classified.
     """
-    declared = ((app.form_data or {}).get('scholar_type') or '').lower()
-    name = (app.scholarship.name or '').lower() if app.scholarship_id else ''
+    # Read defensively: an imported row carries neither field, and an unclassified
+    # record is exactly what the ''-means-Half fallback below is for.
+    declared = ((getattr(app, 'form_data', None) or {}).get('scholar_type') or '').lower()
+    name = (app.scholarship.name or '').lower() if getattr(app, 'scholarship_id', None) else ''
     for text in (declared, name):
         if 'full' in text:
             return 'Full'

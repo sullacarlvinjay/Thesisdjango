@@ -254,19 +254,19 @@
           </div>
           <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ total }} active scholar{{ total|pluralize }} with Approved status</p>
         </div>
-        <div class="flex items-center gap-2">
-          <input placeholder="Search…" id="archSearch" oninput="filterArch()" style="width:11rem;" />
-          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary" style="gap:0.4rem;white-space:nowrap;">
+        <div class="card-toolbar">
+          <input placeholder="Search…" id="archSearch" oninput="filterArch()" class="card-toolbar-search" />
+          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary" style="gap:0.4rem;">
             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Add Scholar
           </button>
-          <div style="position:relative;">
-            <button onclick="toggleDlMenu()" class="btn btn-outline" style="gap:0.4rem;white-space:nowrap;">
+          <div class="card-toolbar-menu">
+            <button onclick="toggleDlMenu()" class="btn btn-outline" style="gap:0.4rem;">
               <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               Download Excel
               <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div id="dlMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e8ecf0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.10);min-width:220px;z-index:100;padding:0.4rem 0;">
+            <div id="dlMenu" class="dl-menu">
               <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Current Semester</div>
               <a href="/unifast/archives/download/?type={{ active_type }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
                 <svg class="h-3.5 w-3.5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -282,7 +282,9 @@
                   {{ h.term_label|default:h.school_year }}
                   <span style="font-size:0.72rem;color:#6b7a99;">{{ h.scholar_count }} scholars</span>
                 </a>
-                <form method="post" action="/unifast/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" onsubmit="return confirm('Delete {{ h.term_label|default:h.school_year }} rollover? This cannot be undone.');">
+                <form method="post" action="/unifast/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" data-confirm="Delete the {{ h.term_label|default:h.school_year }} {{ active_type }} import?"
+                      data-confirm-detail="The scholars it added are removed with it. This cannot be undone."
+                      data-confirm-tone="danger" data-confirm-label="Delete">
                   {% csrf_token %}
                   <input type="hidden" name="type" value="{{ active_type }}">
                   <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:#e03131;padding:0.2rem;line-height:1;">✕</button>
@@ -486,14 +488,16 @@ function filterArch() {
 {% if import_message or import_error %}
 document.getElementById('uploadExcelModal').style.display = 'flex';
 {% endif %}
+// Open state is a class, not an inline display, so the stylesheet stays in
+// charge of where the menu sits — which is what lets it reposition itself on a
+// phone instead of hanging off the right edge of the card.
 function toggleDlMenu() {
-  const m = document.getElementById('dlMenu');
-  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('dlMenu').classList.toggle('is-open');
 }
 document.addEventListener('click', function(e) {
   if (!e.target.closest('#dlMenu') && !e.target.closest('[onclick="toggleDlMenu()"]')) {
     const m = document.getElementById('dlMenu');
-    if (m) m.style.display = 'none';
+    if (m) m.classList.remove('is-open');
   }
 });
 function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress) {

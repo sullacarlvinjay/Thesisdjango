@@ -60,6 +60,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
           <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
+          <div><label>Middle Name</label><input name="middle_name" style="margin-top:0.25rem;" /></div>
           <div><label>Student Number</label><input name="student_id" style="margin-top:0.25rem;" /></div>
           <div><label>Email</label><input name="email" type="email" style="margin-top:0.25rem;" /></div>
           <div><label>Birth Date</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
@@ -106,9 +107,19 @@
 
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Family Background</p>
         <div class="grid grid-cols-2 gap-3">
-          <div><label>Father's Name</label><input name="father_name" style="margin-top:0.25rem;" /></div>
+          {% comment %}
+            In parts, like the Edit modal beside it and like StudentProfile
+            stores them. One box per parent meant the name only ever reached
+            Application.form_data as a blob — father_last_name and the rest
+            stayed empty, and CHED's TES form asks for them separately.
+          {% endcomment %}
+          <div><label>Father's Last Name</label><input name="father_last_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Father's Given Name</label><input name="father_first_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Father's Middle Name</label><input name="father_middle_name" style="margin-top:0.25rem;" /></div>
           <div><label>Father's Occupation</label><input name="father_occupation" style="margin-top:0.25rem;" /></div>
-          <div><label>Mother's Name</label><input name="mother_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Mother's Last Name</label><input name="mother_last_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Mother's Given Name</label><input name="mother_first_name" style="margin-top:0.25rem;" /></div>
+          <div><label>Mother's Middle Name</label><input name="mother_middle_name" style="margin-top:0.25rem;" /></div>
           <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
         </div>
 
@@ -139,10 +150,9 @@
       <div class="grid grid-cols-2 gap-3">
         <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
         <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
+        <div><label>Middle Name</label><input name="middle_name" style="margin-top:0.25rem;" /></div>
         <div><label>Student ID / School ID</label><input name="student_id" style="margin-top:0.25rem;" /></div>
-        {% if active_type not in 'Affirmative Staff' %}
         <div><label>Email</label><input name="email" type="email" style="margin-top:0.25rem;" /></div>
-        {% endif %}
         <div><label>Gender</label>
           <select name="gender" style="margin-top:0.25rem;">
             <option value="">—</option><option value="Male">Male</option><option value="Female">Female</option>
@@ -192,6 +202,30 @@
         </div>
       </div>
       {% endif %}
+
+      {% comment %}
+        Whether this scholar can sign in. "No" still records them everywhere the
+        reports look; it just leaves no password behind for an account nobody
+        asked for.
+      {% endcomment %}
+      <div class="account-choice mt-4">
+        <p class="text-sm font-medium">Portal account</p>
+        <p class="account-choice-hint text-xs mt-1 mb-2">An import is the same flat record an uploaded spreadsheet makes &mdash; it appears in the archives and the analytics, and the scholar never signs in. An account gives them the portal and emails them at the address above.</p>
+        <label class="account-choice-option text-sm">
+          <input type="radio" name="create_account" value="no" checked />
+          <span>Just an import &mdash; record only, no account</span>
+        </label>
+        <label class="account-choice-option text-sm">
+          <input type="radio" name="create_account" value="yes" />
+          <span>Create an account for this student and email them</span>
+        </label>
+        {% comment %}
+          There is no password box on purpose: the office does not pick the
+          scholar's password, the student number becomes it. This line is where
+          that is said, and static/js/account-choice.js fills in the number.
+        {% endcomment %}
+        <p id="accountChoiceNote" class="account-choice-note text-xs mt-2" hidden></p>
+      </div>
 
       <div class="flex gap-2 justify-end mt-5">
         <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="btn btn-outline">Cancel</button>
@@ -297,19 +331,19 @@
           </div>
           <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ total }} active scholar{{ total|pluralize }} with Approved status</p>
         </div>
-        <div class="flex items-center gap-2">
-          <input placeholder="Search…" id="archSearch" oninput="filterArch()" style="width:11rem;" />
-          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary" style="gap:0.4rem;white-space:nowrap;">
+        <div class="card-toolbar">
+          <input placeholder="Search…" id="archSearch" oninput="filterArch()" class="card-toolbar-search" />
+          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary" style="gap:0.4rem;">
             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Add Scholar
           </button>
-          <div style="position:relative;">
-            <button onclick="toggleDlMenu()" class="btn btn-outline" style="gap:0.4rem;white-space:nowrap;">
+          <div class="card-toolbar-menu">
+            <button onclick="toggleDlMenu()" class="btn btn-outline" style="gap:0.4rem;">
               <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               Download Excel
               <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div id="dlMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e8ecf0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.10);min-width:220px;z-index:100;padding:0.4rem 0;">
+            <div id="dlMenu" class="dl-menu">
               <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Current Semester</div>
               <a href="/vpsea/archives/download/?type={{ active_type }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
                 <svg class="h-3.5 w-3.5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -325,7 +359,9 @@
                   {{ h.term_label|default:h.school_year }}
                   <span style="font-size:0.72rem;color:#6b7a99;">{{ h.scholar_count }} scholars</span>
                 </a>
-                <form method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" onsubmit="return confirm('Delete {{ h.term_label|default:h.school_year }} rollover? This cannot be undone.');">
+                <form method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" data-confirm="Delete the {{ h.term_label|default:h.school_year }} {{ active_type }} import?"
+                      data-confirm-detail="The scholars it added are removed with it. This cannot be undone."
+                      data-confirm-tone="danger" data-confirm-label="Delete">
                   {% csrf_token %}
                   <input type="hidden" name="type" value="{{ active_type }}">
                   <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:#e03131;padding:0.2rem;line-height:1;">✕</button>
@@ -410,7 +446,19 @@
                 {% if row.gwa > 0 %}{% if row.gwa <= 1.29 %}University Scholar{% elif row.gwa <= 1.50 %}College Scholar{% else %}—{% endif %}{% else %}—{% endif %}
               </td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Academic Scholarship</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                <div class="imported-cell">
+                  <span>Imported</span>
+                  <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                        data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                        data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                        data-confirm-tone="danger" data-confirm-label="Delete">
+                    {% csrf_token %}
+                    <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                    <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                  </form>
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -470,7 +518,19 @@
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;">—</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">BiPSU Staff Scholarship</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                <div class="imported-cell">
+                  <span>Imported</span>
+                  <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                        data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                        data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                        data-confirm-tone="danger" data-confirm-label="Delete">
+                    {% csrf_token %}
+                    <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                    <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                  </form>
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -539,7 +599,19 @@
                 <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
                 <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
                 <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">CHED Scholarship</td>
-                <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+                <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                  <div class="imported-cell">
+                    <span>Imported</span>
+                    <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                          data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                          data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                          data-confirm-tone="danger" data-confirm-label="Delete">
+                      {% csrf_token %}
+                      <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                      <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                    </form>
+                  </div>
+                </td>
               </tr>
               {% endfor %}{% endif %}
             </tbody>
@@ -659,7 +731,19 @@
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                <div class="imported-cell">
+                  <span>Imported</span>
+                  <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                        data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                        data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                        data-confirm-tone="danger" data-confirm-label="Delete">
+                    {% csrf_token %}
+                    <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                    <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                  </form>
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -726,7 +810,19 @@
               <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">GSIS Scholarship</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                <div class="imported-cell">
+                  <span>Imported</span>
+                  <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                        data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                        data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                        data-confirm-tone="danger" data-confirm-label="Delete">
+                    {% csrf_token %}
+                    <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                    <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                  </form>
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -789,7 +885,19 @@
               <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
               <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">Affirmative Action Scholarship</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                <div class="imported-cell">
+                  <span>Imported</span>
+                  <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                        data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                        data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                        data-confirm-tone="danger" data-confirm-label="Delete">
+                    {% csrf_token %}
+                    <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                    <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                  </form>
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -856,7 +964,19 @@
               <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
               <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
               <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
-              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
+              <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">
+                <div class="imported-cell">
+                  <span>Imported</span>
+                  <form method="post" action="/vpsea/archives/imported/{{ row.pk }}/delete/"
+                        data-confirm="Delete {{ row.first_name }} {{ row.last_name }}?"
+                        data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                        data-confirm-tone="danger" data-confirm-label="Delete">
+                    {% csrf_token %}
+                    <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+                    <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+                  </form>
+                </div>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -949,14 +1069,16 @@ function filterArch() {
 {% if import_message or import_error %}
 document.getElementById('uploadExcelModal').style.display = 'flex';
 {% endif %}
+// Open state is a class, not an inline display, so the stylesheet stays in
+// charge of where the menu sits — which is what lets it reposition itself on a
+// phone instead of hanging off the right edge of the card.
 function toggleDlMenu() {
-  const m = document.getElementById('dlMenu');
-  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('dlMenu').classList.toggle('is-open');
 }
 document.addEventListener('click', function(e) {
   if (!e.target.closest('#dlMenu') && !e.target.closest('[onclick="toggleDlMenu()"]')) {
     const m = document.getElementById('dlMenu');
-    if (m) m.style.display = 'none';
+    if (m) m.classList.remove('is-open');
   }
 });
 function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress, contact, school) {
@@ -1198,4 +1320,6 @@ document.getElementById('deleteForm').addEventListener('submit', function(e) {
   this.submit();
 });
 </script>
+{% load static %}
+<script src="{% static 'js/account-choice.js' %}?v=1"></script>
 {% endblock %}

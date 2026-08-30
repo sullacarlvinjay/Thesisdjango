@@ -6,7 +6,7 @@
   <title>Register — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=9" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -28,7 +28,7 @@
   </style>
 </head>
 <body data-portal="student" class="auth-page auth-page--tall">
-  <div class="auth-shell">
+  <div class="auth-shell auth-shell--wide">
 
     <div class="auth-brand">
       <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />

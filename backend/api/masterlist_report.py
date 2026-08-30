@@ -201,16 +201,106 @@ def _affirmative_row(no, app):
     return row
 
 
-def _sources():
-    """Every scholarship type mapped to its approved records, already ordered."""
-    from .models import Application, AffirmativeStaffApplication, split_ched
+def _imported_row(no, rec):
+    """A row from an ImportedScholar — a scholar the office uploaded or typed in.
+
+    These are the bulk of the office's records for every programme without a
+    portal, and the masterlist used to read straight past them: it asked only
+    Application and AffirmativeStaffApplication, so a list of imported CHED or
+    DOST scholars produced an empty table under a printed heading.
+    """
+    middle = rec.middle_name or ''
+    gwa = rec.gwa or 0
+    if rec.scholarship_type == 'Academic':
+        percent = 'Univ. Scholar' if 0 < gwa <= 1.29 else ('College Scholar' if 0 < gwa <= 1.50 else '')
+    else:
+        percent = ''
+
+    # Set in _sources so the programme's proper name costs one query, not one
+    # per scholar. Falls back to the bare type if a Scholarship row is missing.
+    name = getattr(rec, '_program_name', '') or rec.scholarship_type
+
+    row = _blank_row(no)
+    row.update({
+        'last_name': rec.last_name or '',
+        'first_name': rec.first_name or '',
+        'first_name1': rec.first_name or '',
+        'middle_name': middle,
+        'm_i': _initial(middle),
+        'sex': (rec.gender or '')[:1].upper(),
+        'brgy_st': rec.barangay or '',
+        'mun': rec.municipality or '', 'municipality': rec.municipality or '',
+        'prov': rec.province or '', 'province': rec.province or '',
+        'course': rec.course or '',
+        'yr': rec.year_level or '', 'year_level': rec.year_level or '',
+        'gwa': f'{gwa:.2f}' if gwa else '',
+        'percent': percent,
+        'number': rec.student_id or '',
+        'award_number': rec.award_number or '',
+        'cong_dist': rec.congress_district or '',
+        'scholarship_program': name, 'program': name,
+    })
+    return row
+
+
+def _row_for(no, record):
+    """Build a row from whichever of the three shapes a scholar arrived in."""
+    from .models import AffirmativeStaffApplication, ImportedScholar
+
+    if isinstance(record, AffirmativeStaffApplication):
+        return _affirmative_row(no, record)
+    if isinstance(record, ImportedScholar):
+        return _imported_row(no, record)
+    return _application_row(no, record)
+
+
+def _gender_of(record):
+    """The gender to split a table on, whatever shape the record is."""
+    from .models import Application
+
+    if isinstance(record, Application):
+        return record.student.gender
+    return record.gender
+
+
+def _sources(term_label=None):
+    """Every scholarship type mapped to its approved records, already ordered.
+
+    Three shapes land here. Applications are the portal's awards;
+    AffirmativeStaffApplications cover the two programmes applied for outside it;
+    ImportedScholars are everyone the office uploaded or added by hand, which for
+    most programmes is nearly all of them.
+
+    Imported rows are scoped to one term because they carry one, and a document
+    stamped with a single semester should not print every scholar the office has
+    ever imported. A row already claimed by a student account is skipped — that
+    scholar has an Application above and would otherwise be printed twice.
+    """
+    from .models import (Application, AffirmativeStaffApplication, ImportedScholar,
+                         Scholarship, SystemSettings, split_ched)
+
+    if term_label is None:
+        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+        term_label = settings_obj.academic_year
+
+    programme_names = dict(Scholarship.objects.values_list('type', 'name'))
+
+    def imported(stype):
+        rows = list(
+            ImportedScholar.objects
+            .filter(scholarship_type=stype, term_label=term_label, claimed_by__isnull=True)
+            .order_by('last_name', 'first_name')
+        )
+        for r in rows:
+            r._program_name = programme_names.get(stype, stype)
+        return rows
 
     def apps(stype):
         return list(
             Application.objects.filter(status='Approved', scholarship__type=stype)
             .select_related('student__user', 'scholarship')
             .order_by('student__user__last_name', 'student__user__first_name')
-        )
+        ) + imported(stype)
 
     ched_full, ched_half = split_ched(apps('CHED'))
 
@@ -219,7 +309,7 @@ def _sources():
             AffirmativeStaffApplication.objects.filter(
                 status='Approved', qualified_for=qualified_for
             ).order_by('full_name')
-        )
+        ) + imported(qualified_for)
 
     return {
         'Academic': apps('Academic'),
@@ -246,9 +336,10 @@ def build_context(sources=None):
 
     for slot, heading, key, layout, header_style in PROGRAM_SLOTS:
         records = sources.get(key, [])
-        is_affirmative = key in ('Affirmative', 'Staff')
-        build = _affirmative_row if is_affirmative else _application_row
-        gender_of = (lambda r: r.gender) if is_affirmative else (lambda r: r.student.gender)
+        # A slot now holds a mix of shapes — an imported row can sit beside a
+        # portal application in the same table — so the builder is chosen per
+        # record rather than per slot.
+        build, gender_of = _row_for, _gender_of
 
         entry = {'name': heading, 'female': [], 'male': [], 'students': []}
         if layout == 'students':

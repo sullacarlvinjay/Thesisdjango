@@ -8,6 +8,10 @@
 
 {% block content %}
 
+{% if request.GET.error %}
+<div class="page-alert page-alert-error">{{ request.GET.error }}</div>
+{% endif %}
+
 {# ── Tab switcher ─────────────────────────────────────────────────────────── #}
 <div class="flex gap-2 mb-5 flex-wrap">
   <a href="/vpsea/affirmative/?tab=academic"
@@ -86,6 +90,7 @@
           data-contact="{{ app.student.contact_number|escapejs }}"
           data-address="{{ app.student.address|escapejs }}"
           data-scholarship="{{ app.scholarship.name|escapejs }}"
+          data-remarks="{{ app.remarks|escapejs }}"
           data-docs="{% for doc in app.documents.all %}{{ doc.name }}::{{ doc.file.url }}{% if not forloop.last %}||{% endif %}{% endfor %}"
           data-formdata-id="{{ app.id }}">
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">APP-{{ app.id|stringformat:"07d" }}</td>
@@ -166,7 +171,7 @@
             {% if app.shs_gpa %}<span class="badge {% if app.shs_gpa >= 75 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.shs_gpa }}%</span>{% else %}—{% endif %}
           </td>
           <td style="padding:0.6rem 0.75rem;">
-            {% if app.suc_exam_score %}<span class="badge {% if app.suc_exam_score >= 50 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.suc_exam_score }}%</span>{% else %}—{% endif %}
+            {% if app.suc_exam_percent is not None %}<span class="badge {% if app.suc_exam_percent >= 50 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.suc_exam_display }}</span>{% else %}—{% endif %}
           </td>
           <td style="padding:0.6rem 0.75rem;">
             <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% elif app.status == 'Draft' %}badge-muted{% else %}badge-warning{% endif %}">
@@ -287,7 +292,8 @@
       <div id="acadModalDocs" class="space-y-2 mb-4"></div>
     </div>
     <div style="border-top:1px solid #e8ecf0;padding-top:1rem;margin-top:0.5rem;">
-      <form method="post" action="/vpsea/affirmative/">
+      <div class="decision-locked" id="acadDecided" hidden></div>
+      <form method="post" action="/vpsea/affirmative/" id="acadDecisionForm">
         {% csrf_token %}
         <input type="hidden" name="tab" value="academic" />
         <input type="hidden" name="app_id" id="acadModalAppId" />
@@ -297,7 +303,7 @@
         </div>
         <div class="flex gap-2">
           <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
-          <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Request Revision</button>
+          <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Send Back</button>
           <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
         </div>
       </form>
@@ -317,7 +323,8 @@
       <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Appointment Paper</p>
       <div id="affModalDoc"></div>
     </div>
-    <form method="post" action="/vpsea/affirmative/">
+    <div class="decision-locked" id="affDecided" hidden></div>
+    <form method="post" action="/vpsea/affirmative/" id="affDecisionForm">
       {% csrf_token %}
       <input type="hidden" name="tab" id="affModalTab" value="affirmative" />
       <input type="hidden" name="app_id" id="affModalAppId" />
@@ -327,7 +334,7 @@
       </div>
       <div class="flex gap-2">
         <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
-        <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Request Revision</button>
+        <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Send Back</button>
         <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
       </div>
     </form>
@@ -337,6 +344,8 @@
 {% endblock %}
 
 {% block extra_js %}
+{% load static %}
+<script src="{% static 'js/decision-lock.js' %}?v=1"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────────────
 function field(label, value) {
@@ -396,6 +405,8 @@ function openAcademicModal(row) {
     docsSec.style.display = 'none';
   }
 
+  lockDecision(d.status, 'acadDecisionForm', 'acadDecided', d.remarks);
+
   document.getElementById('academicModal').style.display = 'flex';
 }
 function closeAcadModal() { document.getElementById('academicModal').style.display = 'none'; }
@@ -412,6 +423,7 @@ function openAffModal(id, name, type, course, shs, suc, status, remarks) {
     field('SUC Exam Score', suc ? suc + '%' : null) +
     field('Current Status', status);
   document.getElementById('affModalDocSection').style.display = 'none';
+  lockDecision(status, 'affDecisionForm', 'affDecided', remarks);
   document.getElementById('affModal').style.display = 'flex';
 }
 
@@ -438,6 +450,7 @@ function openStaffModal(row) {
   } else {
     docSec.style.display = 'none';
   }
+  lockDecision(d.status, 'affDecisionForm', 'affDecided', d.remarks);
   document.getElementById('affModal').style.display = 'flex';
 }
 

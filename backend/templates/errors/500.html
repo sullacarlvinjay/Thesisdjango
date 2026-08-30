@@ -1,0 +1,21 @@
+{% extends "errors/_shell.html" %}
+{% comment %}
+  Rendered without a request and without context processors — Django's
+  server_error() calls template.render() with nothing. So this page must not
+  reference request, user, or anything a context processor supplies.
+{% endcomment %}
+{% block title %}Something broke{% endblock %}
+{% block code %}500 · Server error{% endblock %}
+{% block heading %}Something broke at our end{% endblock %}
+{% block lead %}This is not something you did, and it has been logged.{% endblock %}
+
+{% block body %}
+<p class="text-sm mb-4" style="color:var(--text-muted);">
+  If you were saving something, it may not have gone through — check the record
+  before submitting again. If it keeps happening, tell the SDSO office what you
+  were doing when it appeared.
+</p>
+<a href="/" class="btn btn-auth" style="text-decoration:none;">Back to Scholarships</a>
+{% endblock %}
+
+{% block footnote %}BiPSU Scholarship Records Management System{% endblock %}

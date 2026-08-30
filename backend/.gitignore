@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# Virtualenv — rebuild from requirements.txt, never commit
+venv/
+.venv/
+env/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# collectstatic output — regenerated at build time
+staticfiles/
+
+# Uploaded files. Production keeps these in Supabase Storage; the local copy is
+# scratch data and, unlike the rest of the repo, it is real student documents.
+media/
+
+# ...except the university's own branding. Templates and srms.css reference
+# these by fixed /media/ paths, and they are part of the application rather
+# than anything a user uploaded, so they ship with the code.
+!media/logos/
+!media/logos/**
+!media/backgrounds/
+!media/backgrounds/**
+
+# Secrets — only .env.example belongs in git
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch files that accumulated at the repo root
+tmp.txt
+tmp_lines.txt
+result.txt
+q-dev-chat-*.html

@@ -6,7 +6,7 @@
   <title>Sign In — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=9" />
   <script>
     // Read before first paint so the page never flashes light before switching.
     if (localStorage.getItem('theme') === 'dark' ||
@@ -29,7 +29,12 @@
       <p class="auth-sub mb-5">Use the email and password you registered with.</p>
 
       {% if error %}
-      <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">{{ error }}</div>
+      <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">
+        {{ error }}
+        {% if error_action == 'register' %}
+        <p class="mt-2"><a href="/register/" style="text-decoration:underline;font-weight:600;color:inherit;">Register an account</a></p>
+        {% endif %}
+      </div>
       {% endif %}
 
       {% comment %}
@@ -39,7 +44,7 @@
       {% if verification_status == 'pending' %}
       <div class="mb-4 p-3 rounded-lg text-sm badge-warning" style="display:block;border-radius:var(--radius);">
         <p class="font-semibold mb-1">Your account is waiting for verification.</p>
-        <p>The SDSO reviews new registrations before they can be used. Your details are with them — try signing in again once they have gone through it.</p>
+        <p>The Student Development and Services Office (SDSO) reviews new registrations before they can be used. Your details are with them — try signing in again once they have gone through it.</p>
         <p class="mt-2">If it has been a while, contact the SDSO office and mention the email address you registered with.</p>
       </div>
       {% elif verification_status == 'rejected' %}
@@ -57,7 +62,7 @@
         <div class="space-y-4">
           <div class="space-y-1.5">
             <label>Email</label>
-            <input type="email" name="email" placeholder="you@bipsu.edu.ph" required autocomplete="email" />
+            <input type="email" name="email" value="{{ email|default:'' }}" placeholder="you@bipsu.edu.ph" required autocomplete="email" />
           </div>
           <div class="space-y-1.5">
             <label>Password</label>

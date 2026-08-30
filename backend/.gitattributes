@@ -1,0 +1,17 @@
+# Normalise line endings so a repo edited on Windows still deploys to Linux.
+* text=auto
+
+# Render runs build.sh with bash. CRLF line endings make the shell read the
+# carriage return as part of the command and fail with "\r: command not found",
+# so these must stay LF whatever the checkout platform.
+*.sh text eol=lf
+
+# Binary, and diffing them is meaningless.
+*.docx binary
+*.xlsx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.sqlite3 binary

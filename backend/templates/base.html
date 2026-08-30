@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{% block title %}BiPSU SRMS{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -38,7 +38,14 @@
     }
   </script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=9" />
+  {% comment %}
+    Blocking on purpose: the class it sets has to land before anything paints,
+    or the reader sees the unstyled markup the placeholder exists to hide. The
+    layout here comes from the Tailwind CDN, which is JavaScript, so until that
+    has run there is no layout at all.
+  {% endcomment %}
+  <script src="{% static 'js/skeleton.js' %}?v=2"></script>
   {% block extra_head %}{% endblock %}
 </head>
 {% comment %}
@@ -48,13 +55,52 @@
   separate agency and colours its own pages orange. Structure never changes.
 {% endcomment %}
 <body data-portal="{% if user.role == 'vpsea' %}vpsea{% elif user.role == 'unifast' %}unifast{% elif user.role == 'nsu_staff' %}staff{% else %}student{% endif %}">
+<div class="page-skeleton" aria-hidden="true">
+  <div class="skeleton-app">
+    <div class="skeleton-app-side">
+      <div class="skeleton-app-brand">
+        <div class="skeleton skeleton-avatar"></div>
+        <div class="skeleton-stack">
+          <div class="skeleton skeleton-brand-name"></div>
+          <div class="skeleton skeleton-brand-sub"></div>
+        </div>
+      </div>
+      <div class="skeleton-app-nav">
+        <div class="skeleton skeleton-app-navitem"></div>
+        <div class="skeleton skeleton-app-navitem"></div>
+        <div class="skeleton skeleton-app-navitem"></div>
+        <div class="skeleton skeleton-app-navitem"></div>
+        <div class="skeleton skeleton-app-navitem"></div>
+        <div class="skeleton skeleton-app-navitem"></div>
+      </div>
+    </div>
+    <div class="skeleton-app-main">
+      <div class="skeleton-app-head">
+        <div class="skeleton-stack">
+          <div class="skeleton skeleton-app-title"></div>
+          <div class="skeleton skeleton-app-subtitle"></div>
+        </div>
+        <div class="skeleton skeleton-avatar"></div>
+      </div>
+      <div class="skeleton-app-body">
+        <div class="skeleton skeleton-app-card"></div>
+        <div class="skeleton skeleton-app-card"></div>
+        <div class="skeleton skeleton-app-block"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="flex min-h-screen w-full">
   <!-- Sidebar. Sticky and exactly one screen tall, so it stays put while the
        page scrolls and Sign out never slides off the bottom of a long page.
        self-start is what makes sticky work here: without it the flex row
        stretches the aside to the full page height and it has nowhere to stick.
        A nav too long for the screen scrolls inside itself. -->
-  <aside class="app-sidebar hidden lg:flex w-64 shrink-0 flex-col self-start sticky top-0 h-screen">
+  <aside id="appSidebar"
+         class="app-sidebar fixed lg:sticky top-0 bottom-0 lg:bottom-auto left-0 z-50 lg:z-auto
+                w-64 shrink-0 flex flex-col self-start h-screen
+                -translate-x-full lg:translate-x-0 transition-transform duration-200">
     <div class="sidebar-head flex items-center gap-2 px-6 py-5">
       <div class="sidebar-logo h-9 w-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
         <img src="{% block logo_src %}/media/logos/BiPSU.png{% endblock %}" alt="logo" class="h-9 w-9 object-contain" />
@@ -78,7 +124,11 @@
   <!-- Main content -->
   <div class="flex flex-1 flex-col min-w-0">
     <!-- Header -->
-    <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 px-4 lg:px-8" style="background:color-mix(in srgb, var(--surface) 85%, transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);">
+    <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 lg:gap-4 px-4 lg:px-8" style="background:color-mix(in srgb, var(--surface) 85%, transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);">
+      <button type="button" id="sidebarToggle" class="lg:hidden p-2 -ml-2 rounded-lg shrink-0 sidebar-toggle"
+              aria-label="Open menu" aria-controls="appSidebar" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
       <div class="min-w-0">
         <h1 class="text-lg font-semibold truncate" style="color:var(--text);">{% block page_title %}{% endblock %}</h1>
         <p class="text-xs truncate" style="color:var(--text-muted);">{% block page_subtitle %}{% endblock %}</p>
@@ -94,18 +144,34 @@
           <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
           <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
         </button>
-        <a href="{% if user.role == 'nsu_staff' %}/nsu-staff/notifications/{% elif user.role == 'student' %}/student/notifications/{% else %}#{% endif %}"
+        {% comment %}
+          The offices have no notification inbox — nothing ever writes to one for
+          them — so a bell here was a dead button. They post announcements
+          instead, and that is what this shortcut opens. Students and staff, who
+          do receive notifications, keep the bell.
+        {% endcomment %}
+        {% if user.role == 'vpsea' or user.role == 'unifast' %}
+        <a href="{% if user.role == 'vpsea' %}/vpsea/announcements/{% else %}/unifast/announcements/{% endif %}"
+           class="relative p-2 rounded-lg hover:bg-muted" style="display:inline-flex;align-items:center;justify-content:center;" title="Announcements">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+          <span class="sr-only">Announcements</span>
+        </a>
+        {% elif user.role == 'nsu_staff' or user.role == 'student' %}
+        <a href="{% if user.role == 'nsu_staff' %}/nsu-staff/notifications/{% else %}/student/notifications/{% endif %}"
            class="relative p-2 rounded-lg hover:bg-muted" style="display:inline-flex;align-items:center;justify-content:center;" title="Notifications">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="sr-only">Notifications</span>
           {% if unread_count %}
           <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style="background:#dc2626;"></span>
           {% endif %}
         </a>
+        {% endif %}
         <div class="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 cursor-pointer hover:bg-muted">
           <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white" style="background:var(--brand);color:var(--on-brand);">{{ user.initials|default:"U" }}</div>
           <div class="hidden md:block text-left">
             <p class="text-xs font-medium leading-tight">{{ user.get_full_name|default:user.username }}</p>
-            <p class="text-xs leading-tight" style="color:#6b7a99;">
+            <p class="text-xs leading-tight" style="color:#6b7a99;"
+               title="{% if user.role == 'vpsea' %}Student Development and Services Office{% elif user.role == 'unifast' %}Unified Student Financial Assistance System for Tertiary Education{% endif %}">
               {% if user.role == 'vpsea' %}SDSO
               {% elif user.role == 'nsu_staff' %}BiPSU Staff
               {% elif user.role == 'student' %}Student
@@ -118,7 +184,7 @@
       </div>
     </header>
 
-    <main class="flex-1 px-4 lg:px-8 py-6">
+    <main class="app-main flex-1 px-4 lg:px-8 py-6">
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -138,6 +204,28 @@
     document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
   })();
 </script>
+
+<!-- The drawer's backdrop. Only ever visible below lg, where .app-sidebar
+     leaves the flow and slides in over the page. -->
+<div id="sidebarBackdrop" class="sidebar-backdrop lg:hidden" hidden></div>
+<script src="{% static 'js/mobile-nav.js' %}?v=1"></script>
+
+<!-- ── Confirm dialog ────────────────────────────────────────────
+     Anything marked data-confirm asks here instead of through window.confirm(),
+     which the browser labels with the host name and will not style. Driven by
+     static/js/confirm-dialog.js. -->
+<div id="confirmDialog" class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+  <div class="confirm-backdrop"></div>
+  <div class="confirm-panel">
+    <p id="confirmTitle" class="confirm-title"></p>
+    <p id="confirmMessage" class="confirm-message"></p>
+    <div class="confirm-actions">
+      <button type="button" id="confirmCancel" class="btn btn-outline">Cancel</button>
+      <button type="button" id="confirmGo" class="btn confirm-go">Confirm</button>
+    </div>
+  </div>
+</div>
+<script src="{% static 'js/confirm-dialog.js' %}?v=1"></script>
 
 <!-- ── Document viewer ──────────────────────────────────────────────────────
      Any link marked with data-doc opens here instead of a new tab. The href is

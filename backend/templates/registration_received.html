@@ -14,7 +14,7 @@
   <title>{% if rejected %}Registration Not Accepted{% else %}Registration Received{% endif %} — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=6" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=9" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -82,7 +82,7 @@
       <div class="p-3 rounded-lg text-sm mb-4 flex items-start gap-2" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
         <span class="waiting-dot h-2 w-2 rounded-full shrink-0 mt-1.5" style="background:#f59f00;"></span>
         <span>
-          <span class="font-semibold">Waiting for the SDSO to verify your account.</span><br />
+          <span class="font-semibold">Waiting for the Student Development and Services Office (SDSO) to verify your account.</span><br />
           Keep this page open — it checks every few seconds and takes you straight into your
           portal the moment they release it. You will not have to sign in again.
         </span>

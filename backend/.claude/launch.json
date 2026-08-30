@@ -3,8 +3,12 @@
   "configurations": [
     {
       "name": "srms",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["manage.py", "runserver", "8010"],
+      "runtimeExecutable": "venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "manage.py",
+        "runserver",
+        "8010"
+      ],
       "port": 8010
     }
   ]

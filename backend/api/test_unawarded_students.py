@@ -71,6 +71,28 @@ class UnawardedStudentsTest(TestCase):
         rows = self._rows().context['rows']
         self.assertEqual([r['profile'].student_id for r in rows], ['2024-0003'])
 
+    def test_an_account_the_office_rejected_is_not_listed(self):
+        """Rejected at registration is not "unserved". That person was turned
+        away at the door and cannot sign in to apply at all, so listing them
+        here as a student to follow up misreads what the office decided."""
+        turned_away = self._student('Ilagan', '2024-0080')
+        turned_away.user.decide_verification('rejected', 'Not on our enrolment list.', None)
+        self._student('Jimenez', '2024-0081')
+
+        ctx = self._rows().context
+        self.assertEqual([r['profile'].student_id for r in ctx['rows']], ['2024-0081'])
+        self.assertEqual(ctx['total'], 1)
+
+    def test_an_account_still_waiting_on_review_is_kept(self):
+        """Pending is not a decision. Once the office approves it this is
+        exactly the student who needs an invitation, so they stay on the list."""
+        waiting = self._student('Kalaw', '2024-0082')
+        waiting.user.verification_status = 'pending'
+        waiting.user.save(update_fields=['verification_status'])
+
+        rows = self._rows().context['rows']
+        self.assertEqual([r['profile'].student_id for r in rows], ['2024-0082'])
+
     # ── why they appear ─────────────────────────────────────────────────────
 
     def test_each_row_says_what_the_office_would_have_to_do(self):
@@ -180,3 +202,42 @@ class UnawardedStudentsTest(TestCase):
         r = self._rows()
         self.assertEqual(r.context['total'], 0)
         self.assertContains(r, 'Every student on file holds an approved scholarship')
+
+
+class StudentsScreenNoScholarshipTabTest(TestCase):
+    """The students screen asks the same question on its own tab.
+
+    Hiding a rejected registrant from the archives is no use if the office
+    finds them again one page over, so the two listings agree on who counts.
+    """
+
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
+        Scholarship.objects.create(
+            name='Academic Scholarship', type='Academic', category='application',
+            description='x', eligibility='x', requirements=[],
+        )
+        User.objects.create_user(
+            username='vpsea2@bipsu.edu.ph', email='vpsea2@bipsu.edu.ph',
+            password='pw', role='vpsea',
+        )
+        self.c = Client()
+        self.assertTrue(self.c.login(email='vpsea2@bipsu.edu.ph', password='pw'))
+
+    def _student(self, last, sid):
+        u = User.objects.create_user(
+            username=f'{sid}@bipsu.edu.ph', email=f'{sid}@bipsu.edu.ph', password='pw',
+            first_name='Test', last_name=last, role='student',
+        )
+        return StudentProfile.objects.create(
+            user=u, student_id=sid, course='BSCS', year_level=2)
+
+    def test_a_rejected_registrant_is_left_off_the_tab(self):
+        turned_away = self._student('Ilagan', '2024-0090')
+        turned_away.user.decide_verification('rejected', 'Not on our enrolment list.', None)
+        self._student('Jimenez', '2024-0091')
+
+        r = self.c.get('/vpsea/students/?tab=no_scholarship')
+        self.assertEqual(r.status_code, 200)
+        listed = [p.student_id for p in r.context['no_scholarship_students']]
+        self.assertEqual(listed, ['2024-0091'])

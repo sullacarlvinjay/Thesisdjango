@@ -62,6 +62,15 @@ REVIEW_STATUSES = [
     ('Rejected', 'Rejected'),
 ]
 
+# A decision is made once. These are the statuses that record one, so a review
+# screen must refuse to overwrite them: an approval quietly turned into a
+# rejection days later leaves the applicant holding a notification that no
+# longer matches their record, and nothing saying who changed it or why.
+# Everything not listed here — Pending Validation, Draft, Pending — is a
+# submission still waiting on the office.
+DECIDED_APPLICATION_STATUSES = ('Approved', 'Rejected', 'Needs Revision')
+DECIDED_REVIEW_STATUSES = ('Approved', 'Rejected')
+
 RECOMMENDATION_STATUSES = [
     ('Recommended', 'Recommended'),
     ('Endorsed', 'Endorsed'),          # VPSEA formally endorses the student

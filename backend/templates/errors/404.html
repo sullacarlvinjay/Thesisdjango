@@ -1,0 +1,15 @@
+{% extends "errors/_shell.html" %}
+{% block title %}Page not found{% endblock %}
+{% block code %}404 · Not found{% endblock %}
+{% block heading %}That page is not here{% endblock %}
+{% block lead %}The address may have changed, or the record it pointed at was removed.{% endblock %}
+
+{% block body %}
+<p class="text-sm mb-4" style="color:var(--text-muted);">
+  Check the address for a typo. If you followed a link from inside the system and
+  it brought you here, tell the SDSO office which page it was on.
+</p>
+<a href="/" class="btn btn-auth" style="text-decoration:none;">Back to Scholarships</a>
+{% endblock %}
+
+{% block footnote %}<a href="/login/">Sign in</a>{% endblock %}

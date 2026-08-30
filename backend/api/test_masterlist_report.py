@@ -1,14 +1,25 @@
 """The VPSEA masterlist renders into the office's own Word template."""
 from io import BytesIO
+from unittest import mock
 
 import docx
 from django.test import Client, TestCase
 
-from api import masterlist_report
+from api import doc_convert, masterlist_report
+from api.test_support import pdf_text
 from api.models import (
     AffirmativeStaffApplication, Application, Scholarship, StudentProfile,
     SystemSettings, User,
 )
+
+
+def _docx_text(data):
+    """Every paragraph and cell of a .docx, joined — for checking what was sent
+    to the converter is the real document."""
+    document = docx.Document(BytesIO(data))
+    parts = [p.text for p in document.paragraphs]
+    parts += [c.text for t in document.tables for row in t.rows for c in row.cells]
+    return '\n'.join(parts)
 
 
 class MasterlistFixtures:
@@ -222,9 +233,6 @@ class MasterlistPreviewTest(MasterlistFixtures, TestCase):
         self._scholar('DOST', 'Bautista', 'Ben', 'M', '2024-0002')
 
         r = self.c.get('/vpsea/reports/')
-        self.assertContains(r, 'Cruz')
-        self.assertContains(r, 'Bautista')
-        self.assertContains(r, 'LIST OF SCHOLARS FOR')
         self.assertEqual(r.context['grand_total'], 2)
 
         doc_context, _ = masterlist_report.build_context()
@@ -252,6 +260,89 @@ class MasterlistPreviewTest(MasterlistFixtures, TestCase):
     def test_preview_reports_a_missing_template(self):
         r = self.c.get('/vpsea/reports/')
         self.assertTrue(r.context['template_available'])
+
+
+class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
+    """The Reports tab frames the document as a PDF instead of retyping it.
+
+    Whether the frame gets the converted Word file or the stand-in layout
+    depends on the machine, so every assertion about page content pins the view
+    to one path rather than reading whatever this developer happens to have
+    installed.
+    """
+
+    def test_the_tab_frames_the_preview_rather_than_a_table(self):
+        self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
+        r = self.c.get('/vpsea/reports/')
+        body = r.content.decode()
+        self.assertIn('src="/vpsea/reports/preview/"', body)
+        self.assertIn('report-preview-frame', body)
+        # The old editable replica is gone: nothing on this page is typed into.
+        self.assertNotIn('contenteditable', body)
+
+    def test_the_frame_serves_the_converted_word_document(self):
+        self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
+        with mock.patch('api.doc_convert.available', return_value=True), \
+                mock.patch('api.doc_convert.to_pdf',
+                           return_value=b'%PDF-1.7 converted') as convert:
+            r = self.c.get('/vpsea/reports/preview/')
+
+        self.assertEqual(r.content, b'%PDF-1.7 converted')
+        source, suffix = convert.call_args[0]
+        self.assertEqual(suffix, '.docx')
+        # What went to the converter is the generated document itself.
+        self.assertTrue(source.startswith(b'PK'))
+        self.assertIn('Cruz', _docx_text(source))
+
+    def test_the_stand_in_is_used_when_no_converter_is_installed(self):
+        self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
+        self._scholar('DOST', 'Bautista', 'Ben', 'M', '2024-0002')
+
+        with mock.patch('api.doc_convert.available', return_value=False):
+            r = self.c.get('/vpsea/reports/preview/')
+
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertTrue(r['Content-Disposition'].startswith('inline;'))
+        self.assertTrue(r.content.startswith(b'%PDF'))
+
+        text = pdf_text(r.content)
+        self.assertIn('Cruz', text)
+        self.assertIn('Bautista', text)
+        self.assertIn('LIST OF SCHOLARS FOR', text)
+        self.assertIn('BILIRAN PROVINCE STATE UNIVERSITY', text)
+        # And it says on its face that it is not the office template.
+        self.assertIn('STAND-IN LAYOUT', text)
+
+    def test_a_failed_conversion_falls_back_instead_of_erroring(self):
+        with mock.patch('api.doc_convert.available', return_value=True), \
+                mock.patch('api.doc_convert.to_pdf',
+                           side_effect=doc_convert.ConversionFailed('no pdf')):
+            r = self.c.get('/vpsea/reports/preview/')
+
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('STAND-IN LAYOUT', pdf_text(r.content))
+
+    def test_the_preview_renders_with_no_scholars_at_all(self):
+        with mock.patch('api.doc_convert.available', return_value=False):
+            r = self.c.get('/vpsea/reports/preview/')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.content.startswith(b'%PDF'))
+
+    def test_the_preview_may_be_framed_by_our_own_pages(self):
+        with mock.patch('api.doc_convert.available', return_value=False):
+            r = self.c.get('/vpsea/reports/preview/')
+        self.assertNotEqual(r.headers.get('X-Frame-Options'), 'DENY')
+
+    def test_the_preview_is_closed_to_other_roles(self):
+        other = Client()
+        User.objects.create_user(
+            username='u@bipsu.edu.ph', email='u@bipsu.edu.ph', password='pw',
+            role='unifast')
+        other.login(email='u@bipsu.edu.ph', password='pw')
+        r = other.get('/vpsea/reports/preview/')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/login/', r['Location'])
 
 
 class MasterlistUnusedSlotsTest(MasterlistFixtures, TestCase):

@@ -128,9 +128,9 @@
             {% else %}<span style="color:#aaa;">—</span>{% endif %}
           </td>
           <td class="td-cell">
-            {% if s.applicant.suc_exam_score is not None %}
+            {% if s.applicant.suc_exam_percent is not None %}
               <span class="badge {% if s.rules.exam_pass %}badge-success{% else %}badge-danger{% endif %}">
-                {{ s.applicant.suc_exam_score }}%
+                {{ s.applicant.suc_exam_display }}
               </span>
             {% else %}<span style="color:#aaa;">—</span>{% endif %}
           </td>
@@ -284,9 +284,9 @@
           {# Rule 2 — SUC Exam #}
           <td class="td-cell">
             <div class="flex flex-col gap-0.5">
-              {% if r.profile.suc_exam_score is not None %}
+              {% if r.profile.suc_exam_percent is not None %}
                 <span class="badge {% if r.exam_pass %}badge-success{% else %}badge-danger{% endif %}">
-                  {{ r.profile.suc_exam_score }}%
+                  {{ r.profile.suc_exam_display }}
                 </span>
                 {% if r.profile.suc_exam_cert %}
                   <a href="{{ r.profile.suc_exam_cert.url }}" data-doc="{{ r.profile.user.get_full_name }} — SUC Exam Certificate"
@@ -346,7 +346,9 @@
               <input type="hidden" name="action" value="endorse">
               <button type="submit" class="btn btn-outline text-xs"
                       style="color:#2f9e44;border-color:#2f9e44;"
-                      onclick="return confirm('Endorse {{ r.profile.user.get_full_name }} for Affirmative Action scholarship?')">
+                      data-confirm="Endorse {{ r.profile.user.get_full_name }}?"
+                      data-confirm-detail="They will be recommended for the Affirmative Action scholarship."
+                      data-confirm-label="Endorse">
                 Endorse
               </button>
             </form>
@@ -360,7 +362,9 @@
               <input type="hidden" name="action" value="disqualify">
               <button type="submit" class="btn btn-outline text-xs"
                       style="color:#dc2626;border-color:#dc2626;"
-                      onclick="return confirm('Mark as disqualified?')">
+                      data-confirm="Mark as disqualified?"
+                      data-confirm-detail="They will no longer appear as recommended for this scholarship."
+                      data-confirm-tone="danger" data-confirm-label="Disqualify">
                 Disqualify
               </button>
             </form>

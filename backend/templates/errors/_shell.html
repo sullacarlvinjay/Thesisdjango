@@ -1,0 +1,44 @@
+{% comment %}
+  The shell every error page wears.
+
+  It deliberately does not extend base.html: base.html draws a sidebar keyed on
+  the signed-in role, and the two errors that matter most here — a stale CSRF
+  token and a 500 — are exactly the moments there may be no session, no context
+  processors and no role to key on. This page needs nothing but the stylesheet.
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>{% block title %}Something went wrong{% endblock %} — BiPSU SRMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=9" />
+  <script>
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+</head>
+<body data-portal="student" class="auth-page">
+  <div class="auth-shell">
+
+    <div class="auth-brand">
+      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
+      <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
+      <p class="text-sm mt-1">Scholarship Records Management System</p>
+    </div>
+
+    <div class="auth-card">
+      <p class="error-code">{% block code %}Error{% endblock %}</p>
+      <h2 class="text-lg font-bold mb-1">{% block heading %}Something went wrong{% endblock %}</h2>
+      <p class="auth-sub mb-5">{% block lead %}{% endblock %}</p>
+
+      {% block body %}{% endblock %}
+    </div>
+
+    <p class="auth-footnote">{% block footnote %}<a href="/">← Back to Scholarships</a>{% endblock %}</p>
+  </div>
+</body>
+</html>

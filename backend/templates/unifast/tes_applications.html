@@ -15,6 +15,10 @@
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Application updated successfully.</div>
 {% endif %}
 
+{% if request.GET.error %}
+<div class="page-alert page-alert-error">{{ request.GET.error }}</div>
+{% endif %}
+
 <!-- Stats -->
 <div class="grid sm:grid-cols-3 gap-4 mb-6">
   <div class="card p-5">
@@ -158,11 +162,21 @@
             </div>
             <div>
               <label class="text-sm font-medium">Status</label>
+              {% if app.status == 'Pending' %}
               <select name="status" style="margin-top:0.25rem;width:100%;">
-                <option value="Pending" {% if app.status == 'Pending' %}selected{% endif %}>Pending</option>
-                <option value="Approved" {% if app.status == 'Approved' %}selected{% endif %}>Approved</option>
-                <option value="Rejected" {% if app.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+                <option value="Pending" selected>Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
               </select>
+              {% else %}
+              {# Decided already. The status is posted back unchanged so the
+                 award number below can still be corrected. #}
+              <input type="hidden" name="status" value="{{ app.status }}" />
+              <div class="decision-locked" style="margin-top:0.25rem;">
+                <span class="badge {% if app.status == 'Approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ app.status }}</span>
+                <p class="decision-locked-note">Decided already — a decision is made once. The award number and remarks can still be corrected.</p>
+              </div>
+              {% endif %}
             </div>
             <div>
               <label class="text-sm font-medium">Remarks</label>

@@ -421,11 +421,28 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>
       <div class="space-y-1.5">
-        <label>SUC Admission Exam Score (%)</label>
-        <input name="suc_exam_score" type="number" step="0.01" min="0" max="100"
-          value="{% if profile.suc_exam_score %}{{ profile.suc_exam_score }}{% endif %}"
-          placeholder="e.g. 72.0" />
-        <p class="text-xs" style="color:#6b7a99;">As certified by the SUC Admission Office.</p>
+        <label>SUC Admission Exam Score</label>
+        {% comment %}
+          Score and total, because the exam is not always out of 100 and every
+          rule reads a percentage. Leaving the total blank keeps the old meaning
+          — the score is taken as a percentage already.
+        {% endcomment %}
+        <div class="suc-score-pair">
+          <input name="suc_exam_score" type="number" step="0.01" min="0"
+            value="{% if profile.suc_exam_score is not None %}{{ profile.suc_exam_score|floatformat:'-2' }}{% endif %}"
+            placeholder="score, e.g. 35" aria-label="SUC exam score" />
+          <span class="suc-score-of">out of</span>
+          <input name="suc_exam_total" type="number" step="0.01" min="1"
+            value="{% if profile.suc_exam_total %}{{ profile.suc_exam_total|floatformat:'-2' }}{% endif %}"
+            placeholder="total, e.g. 50" aria-label="Total items" />
+        </div>
+        <p class="text-xs" style="color:#6b7a99;">
+          As certified by the SUC Admission Office. Leave the total blank if your
+          certificate already gives a percentage.
+          {% if profile.suc_exam_percent is not None %}
+          <br /><strong>Currently: {{ profile.suc_exam_display }}</strong>
+          {% endif %}
+        </p>
       </div>
       <div class="space-y-1.5">
         <label>SUC Exam Certificate <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>

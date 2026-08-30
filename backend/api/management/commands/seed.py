@@ -6,6 +6,7 @@ from api.models import (
     ActivityLog, SystemSettings, ImportedScholar,
     AffirmativeStaffApplication,
 )
+from api.catalogue import ensure_scholarships
 from rest_framework.authtoken.models import Token
 import datetime
 
@@ -76,51 +77,10 @@ class Command(BaseCommand):
         )
 
         # Scholarships
-        scholarships_data = [
-            {'name': 'Academic Scholarship', 'type': 'Academic', 'category': 'application',
-             'description': "BiPSU's flagship merit scholarship for outstanding students with exemplary GWA.",
-             'requirements': ['Certificate of Grades', 'Certificate of Enrollment', 'Prospectus', 'Good Moral', '2x2 ID', 'Study Load'],
-             'eligibility': 'GWA 1.00–1.50, no grade above 2.5'},
-            {'name': 'TDP Scholarship', 'type': 'TDP', 'category': 'application',
-             'description': 'Tertiary Education Subsidy & TDP grant for indigent but deserving students.',
-             'requirements': ['COR/COE', 'Certificate of Indigency'],
-             'eligibility': 'Indigent family, enrolled BiPSU student'},
-            {'name': 'DOST Merit Scholarship', 'type': 'DOST', 'category': 'recommendation',
-             'description': 'DOST-SEI scholarship for STEM students with academic excellence.',
-             'requirements': ['DOST application form', 'HS Card', 'Income Tax Return'],
-             'eligibility': 'STEM course, high GWA, passed DOST exam'},
-            {'name': 'CHED Merit', 'type': 'CHED', 'category': 'recommendation',
-             'description': 'CHED-funded merit scholarship for qualified college students.',
-             'requirements': ['CHED form', 'Income proof', 'Grades'],
-             'eligibility': 'GWA ≥ 1.75, family income ≤ ₱300k'},
-            {'name': 'CoScho (Coconut Farmers)', 'type': 'CoScho', 'category': 'recommendation',
-             'description': 'Scholarship for children of registered coconut farmers.',
-             'requirements': ['PCA Certification', 'Birth Certificate'],
-             'eligibility': 'Child of registered coconut farmer'},
-            {'name': 'Sports Scholarship', 'type': 'Sports', 'category': 'recommendation',
-             'description': 'Grant for varsity athletes representing BiPSU.',
-             'requirements': ['Athlete Certification', 'Coach endorsement'],
-             'eligibility': 'Active varsity athlete'},
-            {'name': 'Affirmative Action', 'type': 'Affirmative', 'category': 'recommendation',
-             'description': 'Support for Indigenous Peoples and students with disabilities.',
-             'requirements': ['IP Certification or PWD ID'],
-             'eligibility': 'IP member or PWD'},
-            {'name': 'Staff Scholarship', 'type': 'Staff', 'category': 'recommendation',
-             'description': 'Tuition support for dependents of BiPSU employees.',
-             'requirements': ['HR Certification'],
-             'eligibility': 'Dependent of BiPSU employee'},
-            # Approving a TES application looks this row up by type to create the
-            # award (see unifast_tes_applications). Without it the approval
-            # silently produces no Application and the scholar never reaches the
-            # masterlist.
-            {'name': 'Tertiary Education Subsidy', 'type': 'TES', 'category': 'application',
-             'group': 'external',
-             'description': 'CHED Tertiary Education Subsidy, administered by the UniFAST office.',
-             'requirements': ['Certificate of Registration', 'Certificate of Indigency'],
-             'eligibility': 'Enrolled BiPSU student meeting CHED TES criteria'},
-        ]
-        for s in scholarships_data:
-            Scholarship.objects.get_or_create(name=s['name'], defaults=s)
+        # The catalogue itself lives in api.catalogue, shared with the
+        # bootstrap command so a laptop and a deployment cannot end up
+        # offering different programmes.
+        ensure_scholarships()
 
         # Applications
         academic = Scholarship.objects.get(type='Academic')

@@ -1,8 +1,6 @@
 from django.urls import path
 from . import views
 from . import student_views
-from django.conf import settings
-from django.conf.urls.static import static
 from django.shortcuts import redirect
 
 urlpatterns = [
@@ -54,6 +52,7 @@ urlpatterns = [
     path('vpsea/link-requests/', student_views.vpsea_link_requests),
     path('vpsea/archives/', student_views.vpsea_archives),
     path('vpsea/archives/add/', student_views.vpsea_archive_add),
+    path('vpsea/archives/imported/<int:pk>/delete/', student_views.vpsea_imported_delete),
     path('vpsea/archives/rollover/<int:pk>/delete/', student_views.vpsea_rollover_delete),
     path('vpsea/archives/import/', student_views.vpsea_archive_import),
     path('vpsea/archives/new-semester/', student_views.vpsea_new_semester),
@@ -100,11 +99,13 @@ urlpatterns = [
     path('unifast/announcements/', student_views.unifast_announcements),
     path('unifast/analytics/', student_views.unifast_analytics),
     path('unifast/reports/', student_views.unifast_reports),
+    path('unifast/reports/preview/', student_views.unifast_report_preview_pdf),
     path('unifast/reports/download/excel/', student_views.unifast_report_download_excel),
     path('unifast/reports/download/tes/', student_views.unifast_report_download_tes),
     path('unifast/tes-applications/<int:pk>/review/', student_views.unifast_tes_review),
     path('api/unifast/dashboard/', views.UniFASTDashboardView.as_view()),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# /media/ is wired in config.urls, through a view that checks who is asking.
+# It is deliberately not served here: this URLconf is included first, so a
+# static() fallback would shadow that check whenever DEBUG was on.
