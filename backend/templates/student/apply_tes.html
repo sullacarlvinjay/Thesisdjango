@@ -39,6 +39,18 @@
 </div>
 {% endif %}
 
+{% comment %}
+  Every box on this form is the student's to fill in or correct. The ones that
+  come from the profile arrive filled in and are saved back to it, so a
+  correction made here is a correction everywhere — there is still one copy of
+  each fact, just more than one window onto it.
+{% endcomment %}
+<div class="mb-5 rounded-xl px-5 py-4 text-sm" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">
+  Anything already filled in comes from <a href="/student/profile/" style="font-weight:600;text-decoration:underline;">My Profile</a>.
+  Change it here if it is wrong and your profile is updated with it — you do not have to go anywhere else.
+  Fields marked <span style="color:#e03131;">*</span> are the ones CHED requires.
+</div>
+
 <form method="post">
   {% csrf_token %}
   <div class="grid lg:grid-cols-3 gap-6">
@@ -49,40 +61,111 @@
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h3>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>Student ID</label>
-            <input name="student_id" value="{{ profile.student_id }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
+            <label>Student ID <span style="color:#e03131;">*</span></label>
+            <input name="student_id" value="{{ post.student_id|default:'' }}" required maxlength="30" />
           </div>
           <div class="space-y-1.5">
             <label>LRN <span style="color:#e03131;">*</span></label>
             <input name="lrn" value="{{ post.lrn|default:'' }}" required placeholder="Learner Reference Number" />
           </div>
+          {% comment %}
+            Both optional on CHED's form and optional here. A student with
+            neither leaves them blank and the columns export empty.
+          {% endcomment %}
           <div class="space-y-1.5">
-            <label>Last Name</label>
-            <input name="last_name" value="{{ profile.user.last_name }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
+            <label>PhilSys ID Number <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(optional)</span></label>
+            <input name="philsys_id" value="{{ post.philsys_id|default:'' }}" maxlength="30"
+                   placeholder="Leave blank if you have none" />
           </div>
           <div class="space-y-1.5">
-            <label>Given Name</label>
-            <input name="first_name" value="{{ profile.user.first_name }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
+            <label>4Ps ID Number <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(optional)</span></label>
+            <input name="four_ps_id" value="{{ post.four_ps_id|default:'' }}" maxlength="30"
+                   placeholder="Leave blank if not a 4Ps household" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Last Name <span style="color:#e03131;">*</span></label>
+            <input name="last_name" value="{{ post.last_name|default:'' }}" required />
+          </div>
+          <div class="space-y-1.5">
+            <label>Given Name <span style="color:#e03131;">*</span></label>
+            <input name="first_name" value="{{ post.first_name|default:'' }}" required />
           </div>
           <div class="space-y-1.5">
             <label>Middle Name</label>
-            <input value="{{ profile.middle_name }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
+            <input name="middle_name" value="{{ post.middle_name|default:'' }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Sex</label>
-            <input name="sex" value="{{ profile.gender }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
+            <label>Ext. Name <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(Jr., Sr., III — optional)</span></label>
+            <input name="suffix" value="{{ post.suffix|default:'' }}" maxlength="20" />
+          </div>
+          <div class="space-y-1.5">
+            <label for="tesGender">Sex <span style="color:#e03131;">*</span></label>
+            <select name="gender" id="tesGender" required>
+              <option value="">Select…</option>
+              {% for value, label in genders %}
+              <option value="{{ value }}" {% if value == post.gender %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="space-y-1.5">
             <label>Birthdate (YYYY-MM-DD) <span style="color:#e03131;">*</span></label>
             <input name="birthdate" type="date" value="{{ post.birthdate|default:profile.date_of_birth|date:'Y-m-d' }}" required />
           </div>
+          {% comment %}
+            The registry's own names, read from CHED's workbook — not the BiPSU
+            abbreviations. 'BSCS' is what the university calls the programme;
+            'BACHELOR OF SCIENCE IN COMPUTER SCIENCE' is what CHED checks the
+            Annex 1 against, and typing the short form is what put 'BSHM' in a
+            submitted list.
+          {% endcomment %}
+          {% comment %}
+            Pick the school, then the programme — the same pair the registration
+            form makes of School and Course. Forty entries that all open with
+            "BACHELOR OF SCIENCE IN" cannot be scanned as one list; six under
+            your own school can. The school is not stored: it is worked out from
+            the programme, so keeping it would be a second copy of one fact.
+          {% endcomment %}
+          {% if programs %}
           <div class="space-y-1.5 sm:col-span-2">
-            <label>Complete Program <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(Should be consistent with your HEI Registry)</span></label>
-            <input name="complete_program" value="{{ post.complete_program|default:profile.course }}" required placeholder="e.g. Bachelor of Science in Computer Science" />
+            <label for="programSchool">School</label>
+            <select id="programSchool" data-filters="#completeProgram">
+              <option value="">— All schools —</option>
+            </select>
+            <p class="text-xs" style="color:#6b7a99;">Narrows the programme list below. Not part of your application.</p>
+          </div>
+          {% endif %}
+          <div class="space-y-1.5 sm:col-span-2">
+            <label for="completeProgram">Complete Program <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(as registered with CHED)</span></label>
+            {% if programs %}
+            <select name="complete_program" id="completeProgram" required>
+              <option value="">Select your programme…</option>
+              {% for school, school_programs in program_groups %}
+              <optgroup label="{{ school }}">
+                {% for program in school_programs %}
+                <option value="{{ program }}" {% if program == post.complete_program %}selected{% endif %}>{{ program }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+            {% if post.complete_program and post.complete_program not in programs %}
+            <p class="text-xs" style="color:#92400e;">
+              Your profile has “{{ post.complete_program }}”, which is not a name on CHED's registry.
+              Pick the registered name of the same programme above.
+            </p>
+            {% endif %}
+            {% else %}
+            {% comment %} No bundled workbook to read the registry from. {% endcomment %}
+            <input name="complete_program" id="completeProgram" value="{{ post.complete_program|default:profile.course }}" required
+                   placeholder="e.g. BACHELOR OF SCIENCE IN COMPUTER SCIENCE" />
+            <p class="text-xs" style="color:#92400e;">
+              The programme list could not be loaded. Type the name exactly as it appears on CHED's registry.
+            </p>
+            {% endif %}
           </div>
           <div class="space-y-1.5">
-            <label>Year Level</label>
-            <input name="year_level" value="{{ profile.year_level }}" readonly style="background:var(--surface-2);color:var(--text-muted);" />
+            <label>Year Level <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">(1–6)</span></label>
+            <input name="year_level" type="number" min="1" max="6"
+                   value="{{ post.year_level|default:'' }}" required />
           </div>
         </div>
       </div>
@@ -91,45 +174,39 @@
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Family Background</h3>
         <p class="text-xs mb-4" style="color:var(--text-muted);">
-          Taken from your profile so you only enter it once.
-          {% if not profile.father_last_name or not profile.mother_last_name %}
-          <span style="color:#92400e;font-weight:600;">Some of it is missing —</span>
-          <a href="/student/profile/" style="color:var(--brand);font-weight:600;">add it in My Profile</a>
-          before submitting.
-          {% else %}
-          <a href="/student/profile/" style="color:var(--brand);font-weight:600;">Correct it in My Profile</a> if anything is wrong.
-          {% endif %}
+          Filled in from your profile, and saved back to it — correct anything wrong here and it is
+          corrected everywhere. CHED requires the mother's name; the father's is optional.
         </p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="sm:col-span-2">
-            <p class="text-xs font-semibold mb-2" style="color:var(--text-muted);">Father's Name</p>
+            <p class="text-xs font-semibold mb-2" style="color:var(--text-muted);">Father's Name <span style="font-weight:400;">(optional)</span></p>
           </div>
           <div class="space-y-1.5">
             <label>Last Name</label>
-            <input value="{{ profile.father_last_name }}" readonly />
+            <input name="father_last_name" value="{{ post.father_last_name|default:'' }}" />
           </div>
           <div class="space-y-1.5">
             <label>Given Name</label>
-            <input value="{{ profile.father_first_name }}" readonly />
+            <input name="father_first_name" value="{{ post.father_first_name|default:'' }}" />
           </div>
           <div class="space-y-1.5">
             <label>Middle Name</label>
-            <input value="{{ profile.father_middle_name }}" readonly />
+            <input name="father_middle_name" value="{{ post.father_middle_name|default:'' }}" />
           </div>
           <div class="sm:col-span-2" style="border-top:1px solid var(--border);padding-top:1rem;margin-top:0.5rem;">
-            <p class="text-xs font-semibold mb-2" style="color:var(--text-muted);">Mother's Name</p>
+            <p class="text-xs font-semibold mb-2" style="color:var(--text-muted);">Mother's Maiden Name</p>
           </div>
           <div class="space-y-1.5">
-            <label>Last Name</label>
-            <input value="{{ profile.mother_last_name }}" readonly />
+            <label>Last Name <span style="color:#e03131;">*</span></label>
+            <input name="mother_last_name" value="{{ post.mother_last_name|default:'' }}" required />
           </div>
           <div class="space-y-1.5">
-            <label>Given Name</label>
-            <input value="{{ profile.mother_first_name }}" readonly />
+            <label>Given Name <span style="color:#e03131;">*</span></label>
+            <input name="mother_first_name" value="{{ post.mother_first_name|default:'' }}" required />
           </div>
           <div class="space-y-1.5">
             <label>Middle Name</label>
-            <input value="{{ profile.mother_middle_name }}" readonly />
+            <input name="mother_middle_name" value="{{ post.mother_middle_name|default:'' }}" />
           </div>
         </div>
       </div>
@@ -173,9 +250,27 @@
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Additional Information</h3>
         <div class="space-y-4">
+          {% comment %}
+            CHED's own list, read from the workbook's Disability_List sheet, so
+            the value cannot be one the sheet would reject. 'NO' is how that
+            list spells not applicable. 'Other' is this system's addition and
+            reveals a box — what reaches CHED is what the student types there.
+          {% endcomment %}
           <div class="space-y-1.5">
-            <label>Disability Type <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">Put N/A if not applicable</span></label>
-            <input name="disability_type" value="{{ post.disability_type|default:'N/A' }}" required />
+            <label for="disabilityType">Disability Type <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">Choose NO if not applicable</span></label>
+            <select name="disability_type" id="disabilityType" required
+                    data-reveals="#disabilityOther" data-reveal-on="{{ other_option }}">
+              {% for option in disabilities %}
+              <option value="{{ option }}" {% if option == post.disability_type %}selected{% endif %}>
+                {% if option == 'NO' %}NO — not applicable{% else %}{{ option }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5" id="disabilityOther" hidden>
+            <label>Please specify the disability <span style="color:#e03131;">*</span></label>
+            <input name="disability_type_other" value="{{ post.disability_type_other|default:'' }}"
+                   maxlength="100" placeholder="Type the disability as you would write it on a form" />
           </div>
           <div class="space-y-1.5">
             <label>Dependent/child of solo parent <span style="color:#e03131;">*</span> <span style="font-size:0.75rem;color:#6b7a99;font-weight:400;">0=No, 1=Yes</span></label>
@@ -232,4 +327,10 @@
     </div>
   </div>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
+<script src="{% static 'js/select-by-group.js' %}?v=1"></script>
 {% endblock %}

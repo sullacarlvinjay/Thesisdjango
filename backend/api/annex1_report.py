@@ -51,10 +51,75 @@ _NCOLS = len(ANNEX1_HEADERS)
 # Disability_List and the IP instruction both spell 'not applicable' as NO.
 NOT_APPLICABLE = 'NO'
 
-# PhilSys and 4Ps ID numbers are both optional on the form and neither is
-# collected anywhere in this system — the TES eligibility record holds a 4Ps
-# yes/no, not the household's ID. They export blank for the office to fill in
-# rather than being invented from the flag.
+# PhilSys and 4Ps ID numbers are optional on CHED's form and are asked for the
+# same way on the apply form. A student who has neither leaves them blank and
+# the columns export empty. They are never derived from the 4Ps flag on
+# TESEligibility: that is a yes/no, and this column wants a household's ID.
+
+
+# The workbook's own lookup sheets, read once and kept. The apply form offers
+# exactly these, so a student cannot enter a programme or a disability the sheet
+# would then reject — and when the office drops in a newer template, the form
+# follows it without anybody editing a list in code.
+LOOKUP_SHEETS = {
+    'programs': 'Registry_Courses',
+    'disabilities': 'Disability_List',
+}
+
+# What a student picks when their case is not on CHED's list. Kept out of the
+# lookup sheets because it is this system's word, not CHED's — the value that
+# reaches the workbook is whatever they then type.
+OTHER = 'Other'
+
+_LOOKUP_CACHE = {}
+
+
+def _lookup(key):
+    """The values of one lookup sheet, minus its heading row.
+
+    An empty list when the template is missing rather than an exception: the
+    apply form has to render for a student either way, and the office is
+    already told the template is gone on every screen that needs it.
+    """
+    if key in _LOOKUP_CACHE:
+        return _LOOKUP_CACHE[key]
+
+    values = []
+    if os.path.exists(TEMPLATE_PATH):
+        import openpyxl
+        wb = openpyxl.load_workbook(TEMPLATE_PATH, read_only=True, data_only=True)
+        try:
+            sheet = wb[LOOKUP_SHEETS[key]]
+            values = [str(cell.value).strip()
+                      for (cell,) in sheet.iter_rows(min_row=2, max_col=1)
+                      if cell.value is not None and str(cell.value).strip()]
+        finally:
+            wb.close()
+
+    _LOOKUP_CACHE[key] = values
+    return values
+
+
+def registry_programs():
+    """The programme names CHED's registry holds, for the apply form's dropdown.
+
+    The reason this is not ``BIPSU_COURSES``: that list is the abbreviations the
+    university uses internally — 'BSCS', 'BSEd - English' — and CHED asks for
+    the registered name, 'BACHELOR OF SCIENCE IN COMPUTER SCIENCE'. Typing the
+    abbreviation into this form is what put 'BSHM' in an Annex 1 that CHED reads
+    against its own registry.
+    """
+    return _lookup('programs')
+
+
+def disability_types():
+    """The disability values the form offers, in the sheet's own order.
+
+    'NO' leads it, which is how this form spells 'not applicable' — see
+    :func:`_disability`. ``OTHER`` is appended for a condition CHED's list does
+    not name; the student types that one out.
+    """
+    return _lookup('disabilities') + [OTHER]
 
 
 def _sex_code(gender):
@@ -123,8 +188,8 @@ def applicant_rows(school_year='', status=''):
             'seq': seq,
             'student_no': p.student_id or '',
             'lrn': tes.lrn or p.learner_ref_no or '',
-            'philsys_id': '',
-            'four_ps_id': '',
+            'philsys_id': tes.philsys_id or '',
+            'four_ps_id': tes.four_ps_id or '',
             'last_name': u.last_name or '',
             'first_name': u.first_name or '',
             'ext_name': p.suffix or '',

@@ -7,14 +7,40 @@
 
 {% block content %}
 
+{% comment %}
+  'They have been emailed' is claimed only where mail actually leaves the
+  server. With no EMAIL_HOST the console backend accepts every message and
+  reports success, so saying it here would be the same silent lie the standing
+  warning below exists to stop.
+{% endcomment %}
 {% if approved %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
   ✓ Account verified. They can sign in now.
+  {% if emailed == '1' and email_enabled %}They have been emailed.{% endif %}
 </div>
 {% endif %}
 {% if rejected %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
   Account rejected. Your reason is what they will read when they try to sign in.
+  {% if emailed == '1' and email_enabled %}They have been emailed the same words.{% endif %}
+</div>
+{% endif %}
+{% comment %}
+  The decision saved but the message did not go. Worth saying out loud: a
+  rejected applicant has no portal to read a notification in, so the email was
+  the only way they were going to hear about it.
+{% endcomment %}
+{% if emailed == '0' %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+  <span class="font-semibold">The decision was saved, but the email did not go out.</span>
+  The mail server refused or timed out — the server log has the reason. Tell them another way.
+</div>
+{% endif %}
+{% if not email_enabled %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+  <span class="font-semibold">Email is not configured on this deployment.</span>
+  Decisions still save and still appear in a student's portal, but no message leaves this
+  server and nobody can confirm their address. Set <code>EMAIL_HOST</code> to turn it on.
 </div>
 {% endif %}
 {% if error %}
@@ -39,6 +65,22 @@
             <span class="badge {% if account.role == 'nsu_staff' %}badge-success{% else %}badge-info{% endif %}" style="margin-left:0.35rem;">{{ account.get_role_display }}</span>
           </p>
           <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}</p>
+          {% comment %}
+            Whether anyone has proved they can read mail at that address. It is
+            not a gate — the decision is still yours — but an unconfirmed
+            address is one nobody has ever reached, so a rejection sent to it
+            goes nowhere and the applicant hears nothing.
+          {% endcomment %}
+          {% if account.email_verified %}
+          <p class="text-xs mt-1" style="color:#2f9e44;">✓ Email address confirmed by them</p>
+          {% elif account.awaiting_email_confirmation %}
+          <p class="text-xs mt-1" style="color:#92400e;">
+            ⚠ Email address not confirmed — the link sent {{ account.email_confirmation_sent_at|timesince }} ago
+            has not been opened. Anything you write to this address may reach nobody.
+          </p>
+          {% else %}
+          <p class="text-xs mt-1" style="color:#92400e;">⚠ Email address not confirmed — no link was ever sent.</p>
+          {% endif %}
         </div>
       </div>
 

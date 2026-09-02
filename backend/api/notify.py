@@ -69,13 +69,20 @@ def send_email(to, subject, body):
         return False
 
 
-def notify(target, title, body, tone='info', email=True):
+def notify(target, title, body, tone='info', email=True, email_body=None):
     """Write the in-app notification and optionally email the same words.
 
     ``target`` may be a StudentProfile, a User, or a bare email address. A
     target with no StudentProfile — office staff, or an applicant the office
     added who has no portal account — still gets the email; there is simply no
     bell for it to land in, because Notification hangs off StudentProfile.
+
+    ``email_body`` says it at more length for the message that leaves the
+    building. The bell sits inside a portal that gives it all its context — who
+    it is about, what it refers to, a link to the thing. An email arrives with
+    none of that, sometimes to someone who cannot sign in to go and look, so a
+    one-line body that reads perfectly in the portal can be unreadable in an
+    inbox. Both still come from this one call, so they cannot contradict.
 
     Returns ``(notified_in_app, emailed)``.
     """
@@ -90,8 +97,52 @@ def notify(target, title, body, tone='info', email=True):
         )
         in_app = True
 
-    emailed = send_email(address, f'[BiPSU SRMS] {title}', body) if email else False
+    emailed = send_email(
+        address, f'[BiPSU SRMS] {title}', email_body or body) if email else False
     return in_app, emailed
+
+
+def account_decision(account, status, note):
+    """Tell someone whether their registration was accepted, and what happens next.
+
+    Its own function because this message goes to a person who, half the time,
+    cannot sign in to read anything else — a rejected registration has no portal
+    behind it. The office's own note is the heart of it; everything around it is
+    the context an inbox does not supply.
+    """
+    approved = status == 'approved'
+    title = 'Account verified' if approved else 'Account not verified'
+
+    greeting = f'Hi {account.first_name},' if account.first_name else 'Hello,'
+    opening = (
+        'Your registration for the BiPSU Scholarship Records Management System '
+        'has been verified by the Student Development and Services Office '
+        '(SDSO). You can sign in now with the email and password you chose.'
+        if approved else
+        'The Student Development and Services Office (SDSO) has reviewed your '
+        'registration for the BiPSU Scholarship Records Management System and '
+        'could not verify it. Your account cannot be used to sign in yet.'
+    )
+
+    lines = [greeting, opening]
+    if note:
+        lines.append(f'From the office: {note}')
+    if getattr(settings, 'SITE_URL', ''):
+        lines.append(
+            f'Sign in here: {settings.SITE_URL}/login/' if approved
+            else f'{settings.SITE_URL}/login/ shows the same message '
+                 'whenever you try to sign in.')
+    if not approved:
+        lines.append(
+            'If you think this is a mistake, contact the SDSO office. Once the '
+            'details check out they can verify the account, and the same email '
+            'and password will get you in.')
+
+    return notify(
+        account, title, note,
+        tone='success' if approved else 'warning',
+        email_body='\n\n'.join(lines),
+    )
 
 
 def broadcast(title, body, tone='info'):

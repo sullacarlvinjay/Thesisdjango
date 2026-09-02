@@ -349,6 +349,13 @@ if not DEBUG:
 
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '').strip()
 
+# Whether mail actually leaves this machine. The console backend below is a
+# development convenience that looks exactly like success to every caller, so
+# the office had no way to tell 'the applicant was emailed' from 'the message
+# was printed to a log nobody reads'. The screens that send mail show a warning
+# when this is False rather than letting it fail silently.
+EMAIL_ENABLED = bool(EMAIL_HOST)
+
 if EMAIL_HOST:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))

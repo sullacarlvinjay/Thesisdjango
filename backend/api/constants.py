@@ -257,6 +257,67 @@ def school_for_course(course):
             return school
     return ''
 
+# Which BiPSU school a CHED registry programme belongs to, matched on the words
+# in its name. Keyword rules rather than a name-by-name table so a newer Annex 1
+# template can add programmes without this needing an edit — anything unmatched
+# groups under OTHER_PROGRAMS, which is visible rather than wrong.
+#
+# Order matters, first match wins: 'COMPUTER SCIENCE' is listed rather than
+# 'COMPUTER' so that COMPUTER ENGINEERING falls through to Engineering, and
+# 'INDUSTRIAL TECHNOLOGY' comes before 'EDUCATION' so that TECHNOLOGY AND
+# LIVELIHOOD EDUCATION is read as a teaching degree, which it is.
+#
+# This only decides which heading a programme is filed under in a dropdown. The
+# value submitted is the registry name either way, so a debatable grouping costs
+# a moment's looking, never a wrong name on a CHED submission.
+REGISTRY_PROGRAM_SCHOOLS = [
+    ('INDUSTRIAL TECHNOLOGY', 'School of Technologies and Computer Studies'),
+    ('COMPUTER SCIENCE', 'School of Technologies and Computer Studies'),
+    ('INFORMATION SYSTEM', 'School of Technologies and Computer Studies'),
+    ('INFORMATION TECHNOLOGY', 'School of Technologies and Computer Studies'),
+    ('EDUCATION', 'School of Teacher Education'),
+    ('ENGINEERING', 'School of Engineering'),
+    ('NURSING', 'School of Nursing and Health Sciences'),
+    ('CRIMINOLOGY', 'School of Criminal Justice Education'),
+    ('INDUSTRIAL SECURITY', 'School of Criminal Justice Education'),
+    ('HOTEL', 'School of Tourism and Hospitality Management'),
+    ('TOURISM', 'School of Tourism and Hospitality Management'),
+    ('TRAVEL', 'School of Tourism and Hospitality Management'),
+    ('HOSPITALITY', 'School of Tourism and Hospitality Management'),
+    ('BUSINESS ADMINISTRATION', 'School of Business and Management'),
+    ('BACHELOR OF ARTS', 'School of Arts and Sciences'),
+]
+
+OTHER_PROGRAMS = 'Other programmes'
+
+
+def school_for_registry_program(name):
+    """The BiPSU school a CHED registry programme name belongs under.
+
+    ``OTHER_PROGRAMS`` when none of the rules match — a heading that says so
+    beats filing it under a school that does not offer it.
+    """
+    upper = (name or '').strip().upper()
+    for keyword, school in REGISTRY_PROGRAM_SCHOOLS:
+        if keyword in upper:
+            return school
+    return OTHER_PROGRAMS
+
+
+def group_programs_by_school(programs):
+    """``[(school, [programme, ...]), ...]`` in the schools' own order.
+
+    Empty schools are dropped, programmes are sorted within each, and anything
+    unmatched trails at the end under ``OTHER_PROGRAMS``.
+    """
+    grouped = {}
+    for program in programs:
+        grouped.setdefault(school_for_registry_program(program), []).append(program)
+
+    order = [school for school, _label in BIPSU_SCHOOLS] + [OTHER_PROGRAMS]
+    return [(school, sorted(grouped[school])) for school in order if school in grouped]
+
+
 def academic_classification(gwa):
     """'University Scholar' | 'College Scholar' | 'Not Eligible' for a GWA.
 

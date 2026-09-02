@@ -82,9 +82,21 @@
   --sidebar-hover-bg:rgba(253, 230, 7, 0.16);
   --on-sidebar-hover:#0000ff;
   /* The photo washes. Kept here so the pages that use them stay in step and
-     the opacity can be tuned in one place. */
-  --wash-strong: rgba(0, 0, 255, 0.84);  
-  --wash-soft:   rgba(0, 0, 255, 0.60);
+     the strength can be tuned in one place.
+
+     A deep indigo rather than the brand's own #0000ff. Pure blue at 84% over a
+     photograph is the most saturated thing a screen can show — it flattened the
+     campus behind it into one electric field of colour and left the yellow call
+     to action fighting it. Same hue family, much less shouting, and the picture
+     underneath is legible as a picture again. The brand blue is untouched
+     everywhere it is the interface rather than a wash over a photograph.
+
+     The soft end is not as light as it could be, though. White body text sits
+     over the middle of these photographs and the campus buildings are pale
+     concrete — at 0.56 the subtitle was fighting the wall behind it. 0.66 still
+     shows the picture and keeps the text on a ground it can be read against. */
+  --wash-strong: rgba(26, 33, 104, 0.84);
+  --wash-soft:   rgba(38, 49, 134, 0.66);
 
   /* Status colours — shared, so a warning reads the same in every office. */
   --ok:        #2f9e44;
@@ -614,8 +626,8 @@ tr:hover td      { background: var(--surface-sunken); }
                     url('/media/backgrounds/Student.JPG');
 }
 .hero-registration {
-  background-image: linear-gradient(135deg, rgba(0, 0, 255, 0.50), rgba(9, 9, 169, 0.84)),
-                    url('/media/backgrounds/registration.jpg');
+  background-image: linear-gradient(135deg, var(--wash-soft), var(--wash-strong)),
+                    url('/media/backgrounds/registration-campus.jpg');
 }
 
 .hero h1, .hero h2 { color: #fff; }
@@ -637,7 +649,7 @@ tr:hover td      { background: var(--surface-sunken); }
 .section-photo {
   position: relative;
   background-color: var(--brand);
-  background-image: linear-gradient(180deg, rgba(0, 0, 255, 0.50), rgba(9, 9, 169, 0.84)),
+  background-image: linear-gradient(180deg, var(--wash-soft), var(--wash-strong)),
                     url('/media/backgrounds/Student.JPG');
   background-size: cover;
   background-position: center;
@@ -675,13 +687,31 @@ tr:hover td      { background: var(--surface-sunken); }
   align-items: center;
   justify-content: center;
   padding: 2.5rem 1rem;
-  background-color: var(--brand);
-  background-image: linear-gradient(135deg, rgba(0, 0, 255, 0.50), rgba(9, 9, 169, 0.84)),
-                    url('/media/backgrounds/registration.jpg');
+  /* The ground under the photograph, not the brand blue. It is what shows
+     before the image loads, and what fills any strip a fixed background cannot
+     reach — pure #0000ff flashing behind a sign-in card is the one place that
+     blue does the identity no favours. Matched to the dark end of the wash. */
+  background-color: #1a2168;
+  /* registration-campus.jpg is registration.jpg with the sky cropped off and
+     the file brought down from 6 MB to 0.4 MB. The sky was the top 46% of the
+     frame: `cover` could never crop that much by position alone, because it
+     only overflows the viewport by a fraction of the height. Cutting it in the
+     file is also what let the sign-in page stop shipping a 6 MB photograph. */
+  background-image: linear-gradient(135deg, var(--wash-soft), var(--wash-strong)),
+                    url('/media/backgrounds/registration-campus.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  /* Phones scroll it. A fixed background on a touch device either stutters
+     against the scroll or is quietly ignored, and the registration form is
+     taller than a phone screen, so it would be doing that the whole way down. */
   background-attachment: scroll;
+}
+
+/* Tablet and up: the campus stays put and the card scrolls over it. Worth it
+   exactly where there is a pointer and a screen tall enough to notice. */
+@media (min-width: 768px) {
+  .auth-page { background-attachment: fixed; }
 }
 
 /* Taller than the viewport is normal here, so start from the top and let it run. */
@@ -736,8 +766,9 @@ tr:hover td      { background: var(--surface-sunken); }
 /* At night the photograph is the brightest thing on screen, so it gets a
    heavier wash and the card drops to near-black. */
 .dark .auth-page {
-  background-image: linear-gradient(135deg, rgba(0, 0, 140, 0.93), rgba(0, 0, 60, 0.80)),
-                    url('/media/backgrounds/registration.jpg');
+  background-color: #080b20;
+  background-image: linear-gradient(135deg, rgba(12, 16, 58, 0.93), rgba(5, 7, 26, 0.84)),
+                    url('/media/backgrounds/registration-campus.jpg');
 }
 .dark .auth-card {
   background: #12141f;

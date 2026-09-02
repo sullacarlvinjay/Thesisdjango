@@ -12,6 +12,8 @@ urlpatterns = [
     path('logout/', student_views.logout_view),
     path('register/', student_views.register_view),
     path('register/received/', student_views.registration_received),
+    path('register/verify/<str:token>/', student_views.verify_email),
+    path('register/resend/', student_views.resend_confirmation),
 
     # Student portal — /student/ redirects straight to applications
     path('student/', lambda r: redirect('/student/applications/')),

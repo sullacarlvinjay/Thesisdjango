@@ -154,7 +154,72 @@ def registration_received(request):
         'note': account.verification_note if rejected else '',
         # Only keep reloading while there is genuinely something to wait for.
         'waiting': bool(account) and account.awaiting_verification,
+        # The other half of the wait: whether they have opened the link sent to
+        # the address they typed. Until they do, nobody knows it reaches them.
+        'confirm_email': bool(account) and not account.email_verified,
+        'confirmed': request.GET.get('confirmed') == '1',
+        'resent': request.GET.get('resent') == '1',
+        'confirm_error': request.GET.get('confirm_error', ''),
     })
+
+
+def verify_email(request, token):
+    """Open the link mailed to a registrant, and mark the address confirmed.
+
+    Nothing here signs anyone in or releases an account: the SDSO's decision is
+    still the gate. All this records is that somebody could read mail at the
+    address, which is what the office needs to know before writing to it.
+    """
+    from . import email_verify
+    from .middleware import PENDING_EMAIL
+    from urllib.parse import quote
+
+    account, reason = email_verify.read_token(token)
+    if account is None:
+        message = {
+            'expired': 'That confirmation link has expired. Registrations are '
+                       'confirmed within three days — ask for a new link below.',
+            'stale': 'That link was sent to a different address than the one on '
+                     'the account now. Ask for a new link below.',
+        }.get(reason, 'That confirmation link is not valid. Check that you '
+                      'copied the whole of it, or ask for a new one below.')
+        return redirect(f'/register/received/?confirm_error={quote(message)}')
+
+    account.mark_email_verified()
+    # Opening the link on the same browser they registered in puts them back in
+    # the waiting room where the middleware can release them; on a different
+    # one the session is empty and the page says to sign in instead.
+    if not request.session.get(PENDING_EMAIL):
+        request.session[PENDING_EMAIL] = account.email
+    return redirect('/register/received/?confirmed=1')
+
+
+def resend_confirmation(request):
+    """Send the confirmation link again, to the address this browser registered.
+
+    Only the address held in the session — this must not become a way to make
+    the site email an arbitrary address on demand.
+    """
+    from . import email_verify
+    from .middleware import PENDING_EMAIL
+    from urllib.parse import quote
+
+    # POST only: sending mail is not something a link preview or a prefetching
+    # browser should be able to set off by following a URL.
+    if request.method != 'POST':
+        return redirect('/register/received/')
+
+    email = request.session.get(PENDING_EMAIL, '')
+    account = User.objects.filter(email=email).first() if email else None
+    if account is None:
+        return redirect('/register/received/?confirm_error=' + quote(
+            'There is no registration on this browser to send a link for. '
+            'Sign in with the email and password you registered with.'))
+    if account.email_verified:
+        return redirect('/register/received/?confirmed=1')
+
+    email_verify.send_confirmation(account, request)
+    return redirect('/register/received/?resent=1')
 
 
 def _register_context():
@@ -177,9 +242,16 @@ def register_view(request):
         errors = []
         account_type = p.get('account_type', 'student')
 
+        from . import email_verify
+
         if p.get('password') != p.get('confirm_password'):
             errors.append('Passwords do not match.')
-        if User.objects.filter(email=p.get('email')).exists():
+        # Checked before uniqueness: 'already registered' is a confusing thing
+        # to be told about an address that could never have been registered.
+        address_problem = email_verify.address_error(p.get('email'))
+        if address_problem:
+            errors.append(address_problem)
+        elif User.objects.filter(email=p.get('email')).exists():
             errors.append('Email already registered.')
 
         if account_type == 'student':
@@ -201,7 +273,15 @@ def register_view(request):
             role=account_type,
             # Nobody signs in off the public form until the SDSO says so.
             verification_status='pending',
+            # Nor is an address off the public form taken on trust — see
+            # api/email_verify.py. The office's own accounts stay exempt.
+            email_verified=False,
         )
+        # Sent before the profile is built so a slow mail server delays the
+        # confirmation, never the registration; it cannot fail the request.
+        # The request is passed so the link is absolute even where SITE_URL
+        # was never set — a relative path in an email is not a link.
+        email_verify.send_confirmation(user, request)
 
         if account_type == 'student':
             # ── Student: create a StudentProfile ───────────────────────────
@@ -3938,18 +4018,17 @@ def vpsea_accounts(request):
         # for them the login page is the whole of it.
         # Emailed either way: a rejected applicant has no portal to read a
         # notification in, and used to be told nothing at all.
-        notify.notify(
-            account,
-            'Account verified' if status == 'approved' else 'Account not verified',
-            account.verification_note,
-            tone='success' if status == 'approved' else 'warning',
-        )
+        _in_app, emailed = notify.account_decision(
+            account, status, account.verification_note)
         ActivityLog.objects.create(
             user=request.user,
             action=(f'Account {status}: {account.get_full_name() or account.email} '
                     f'({account.get_role_display()}) — {account.verification_note}'),
         )
-        return redirect(f'/vpsea/accounts/?{action}d=1')
+        # Whether the message actually left the building. The office was told
+        # 'verified' either way, so a mail server that was down, or never
+        # configured, looked exactly like one that had delivered.
+        return redirect(f'/vpsea/accounts/?{action}d=1&emailed={1 if emailed else 0}')
 
     pending = list(User.objects.filter(
         verification_status='pending', role__in=('student', 'nsu_staff'),
@@ -3969,6 +4048,8 @@ def vpsea_accounts(request):
         account.student_profile = students.get(account.id)
         account.employee_profile = staff.get(account.id)
 
+    from django.conf import settings as django_settings
+
     return render(request, 'vpsea/accounts.html', {
         'active': 'accounts',
         'pending': pending,
@@ -3976,6 +4057,11 @@ def vpsea_accounts(request):
         'error': request.GET.get('error', ''),
         'approved': request.GET.get('approved'),
         'rejected': request.GET.get('rejected'),
+        # Whether the decision just made was actually emailed, and whether this
+        # deployment can send mail at all. Without the second, an office with no
+        # SMTP configured would read every 'not emailed' as a broken server.
+        'emailed': request.GET.get('emailed'),
+        'email_enabled': django_settings.EMAIL_ENABLED,
     })
 
 
@@ -4682,47 +4768,183 @@ def vpsea_ranking(request):
     })
 
 
+# The profile fields the TES form fills itself in from. They are editable here
+# and saved back to the profile when the application is — one record of each
+# fact, corrected wherever the student happens to be looking at it.
+#
+# On the profile page these lock after the first save, because an edit there
+# would silently change a record the office has already reviewed. That reason
+# does not hold here: this form only opens while the application is undecided,
+# so nothing has been reviewed yet. Same rule, applied where it means something.
+TES_PROFILE_FIELDS = [
+    'student_id', 'middle_name', 'suffix', 'gender', 'year_level',
+    'father_last_name', 'father_first_name', 'father_middle_name',
+    'mother_last_name', 'mother_first_name', 'mother_middle_name',
+]
+
+# Of those, the ones CHED marks Required on the Annex 1. The father's names are
+# deliberately absent: CHED marks them optional, and a student raised by one
+# parent should not be stopped by a box they cannot honestly fill.
+TES_REQUIRED_FIELDS = [
+    ('student_id', 'Student ID'),
+    ('last_name', 'Last name'),
+    ('first_name', 'Given name'),
+    ('gender', 'Sex'),
+    ('year_level', 'Year level'),
+    ('mother_last_name', "Mother's last name"),
+    ('mother_first_name', "Mother's given name"),
+]
+
+
+def _tes_profile_errors(posted, profile):
+    """What the form is missing, and anything it cannot be given."""
+    errors = []
+    blank = [label for field, label in TES_REQUIRED_FIELDS
+             if not (posted.get(field) or '').strip()]
+    if blank:
+        errors.append('CHED requires ' + ', '.join(blank) + ' on the TES form. '
+                      'Fill them in above — they are saved to your profile too.')
+
+    year = (posted.get('year_level') or '').strip()
+    if year and (not year.isdigit() or not 1 <= int(year) <= 6):
+        errors.append('Year level must be a number from 1 to 6.')
+
+    # The student number is the key the office matches against its enrolment
+    # list, so two students cannot share one.
+    student_id = (posted.get('student_id') or '').strip()
+    if student_id and profile is not None and StudentProfile.objects.filter(
+            student_id=student_id).exclude(pk=profile.pk).exists():
+        errors.append(f'Student ID {student_id} belongs to another account. '
+                      'Check it for a typo, or ask the SDSO office to sort it out.')
+    return errors
+
+
+def _tes_profile_values(profile):
+    """What the form's profile half shows when it is first opened."""
+    if profile is None:
+        return {}
+    values = {field: str(getattr(profile, field, '') or '')
+              for field in TES_PROFILE_FIELDS}
+    values['first_name'] = profile.user.first_name or ''
+    values['last_name'] = profile.user.last_name or ''
+    return values
+
+
+def _save_tes_profile_fields(profile, posted):
+    """Write the form's profile half back, so there is still one copy of each."""
+    user = profile.user
+    user.first_name = (posted.get('first_name') or '').strip()
+    user.last_name = (posted.get('last_name') or '').strip()
+    user.save(update_fields=['first_name', 'last_name'])
+
+    for field in TES_PROFILE_FIELDS:
+        value = (posted.get(field) or '').strip()
+        if field == 'year_level':
+            profile.year_level = int(value) if value.isdigit() else profile.year_level
+        else:
+            setattr(profile, field, value)
+    profile.save()
+
+
 @login_required(login_url='/login/')
 def student_apply_tes(request):
     profile = StudentProfile.objects.filter(user=request.user).first()
     from .constants import EDITABLE_REVIEW_STATUSES
+    from . import annex1_report
     existing = TESApplication.objects.filter(student=profile).first() if profile else None
     # Undecided means still the applicant's to correct; a decided one is final.
     editing = existing if existing and existing.status in EDITABLE_REVIEW_STATUSES else None
+    errors = []
+
     if request.method == 'POST' and profile and (editing or not existing):
         p = request.POST
-        # The student's own middle name and both parents' names come from the
-        # profile now, so the form shows them read-only and the application
-        # does not keep a second copy that could drift out of step.
-        TESApplication.objects.update_or_create(
-            student=profile,
-            defaults=dict(
-            lrn=p.get('lrn', ''),
-            birthdate=p.get('birthdate') or None,
-            complete_program=p.get('complete_program', ''),
-            street_barangay=p.get('street_barangay', ''),
-            city_municipality=p.get('city_municipality', ''),
-            province=p.get('province', ''),
-            region=p.get('region', ''),
-            zip_code=p.get('zip_code', ''),
-            contact_number=p.get('contact_number', ''),
-            email_address=p.get('email_address', ''),
-            disability_type=p.get('disability_type', 'N/A'),
-            is_solo_parent_dependent=p.get('is_solo_parent_dependent') == '1',
-            is_first_gen_college=p.get('is_first_gen_college') == '1',
-            indigenous_people_group=p.get('indigenous_people_group', 'Not Applicable'),
-            ),
-        )
-        return redirect('/student/apply/tes/?submitted=1')
+        errors.extend(_tes_profile_errors(p, profile))
+
+        # The dropdown is the registry, so anything else reaching here came from
+        # a hand-made post or a template that could not be read. Checked only
+        # when there is a list to check against — with the workbook missing the
+        # form falls back to a text box and this would reject everything.
+        registry = annex1_report.registry_programs()
+        program = p.get('complete_program', '').strip()
+        if registry and program not in registry:
+            errors.append(
+                'Pick your programme from the list — CHED reads the Annex 1 '
+                'against its own registry of programme names.')
+
+        # 'Other' is this system's word for a condition CHED's list does not
+        # name; what reaches the workbook is what the student typed instead.
+        disability = p.get('disability_type', '').strip()
+        if disability == annex1_report.OTHER:
+            disability = p.get('disability_type_other', '').strip()
+            if not disability:
+                errors.append('Name the disability you chose "Other" for.')
+
+        if not errors:
+            # The profile half is saved to the profile, not copied onto the
+            # application: the names live in exactly one place, and this form is
+            # another window onto them rather than a second record of them.
+            _save_tes_profile_fields(profile, p)
+            TESApplication.objects.update_or_create(
+                student=profile,
+                defaults=dict(
+                lrn=p.get('lrn', ''),
+                philsys_id=p.get('philsys_id', '').strip(),
+                four_ps_id=p.get('four_ps_id', '').strip(),
+                birthdate=p.get('birthdate') or None,
+                complete_program=program,
+                street_barangay=p.get('street_barangay', ''),
+                city_municipality=p.get('city_municipality', ''),
+                province=p.get('province', ''),
+                region=p.get('region', ''),
+                zip_code=p.get('zip_code', ''),
+                contact_number=p.get('contact_number', ''),
+                email_address=p.get('email_address', ''),
+                disability_type=disability or 'N/A',
+                is_solo_parent_dependent=p.get('is_solo_parent_dependent') == '1',
+                is_first_gen_college=p.get('is_first_gen_college') == '1',
+                indigenous_people_group=p.get('indigenous_people_group', 'Not Applicable'),
+                ),
+            )
+            return redirect('/student/apply/tes/?submitted=1')
+
+    # Grouped under the school that offers them, in the schools' own order, and
+    # alphabetical inside each. Forty entries that all open with the same four
+    # words are unscannable as one list; a student knows their own school.
+    from .constants import GENDERS, group_programs_by_school
+    programs = annex1_report.registry_programs()
+    program_groups = group_programs_by_school(programs)
+    disabilities = annex1_report.disability_types()
+    # A saved value that is not on CHED's list is one somebody typed under
+    # 'Other'. The form has to come back showing it that way, or editing an
+    # application would silently drop what they wrote.
+    saved_disability = (existing.disability_type or '').strip() if existing else ''
+    custom_disability = (saved_disability
+                         if saved_disability and saved_disability not in disabilities
+                         else '')
+
     return render(request, 'student/apply_tes.html', {
         'profile': profile,
         'existing': existing,
         'editing': editing,
+        'errors': errors,
+        'programs': programs,
+        'program_groups': program_groups,
+        'program_count': len(programs),
+        'genders': GENDERS,
+        'disabilities': disabilities,
+        'other_option': annex1_report.OTHER,
         'submitted': request.GET.get('submitted'),
         'enrolled': _is_enrolled(profile),
-        'post': request.POST if request.method == 'POST' else (
+        # On a redisplay the boxes hold what was typed, not what is stored —
+        # otherwise a field the student deliberately cleared would come back
+        # filled in from the profile they were trying to correct.
+        'post': request.POST if request.method == 'POST' else dict(
+            _tes_profile_values(profile),
+            **(
             {
                 'lrn': existing.lrn,
+                'philsys_id': existing.philsys_id,
+                'four_ps_id': existing.four_ps_id,
                 'birthdate': existing.birthdate.strftime('%Y-%m-%d') if existing.birthdate else '',
                 'complete_program': existing.complete_program,
                 'street_barangay': existing.street_barangay,
@@ -4732,11 +4954,12 @@ def student_apply_tes(request):
                 'zip_code': existing.zip_code,
                 'contact_number': existing.contact_number,
                 'email_address': existing.email_address,
-                'disability_type': existing.disability_type,
+                'disability_type': annex1_report.OTHER if custom_disability else saved_disability,
+                'disability_type_other': custom_disability,
                 'is_solo_parent_dependent': '1' if existing.is_solo_parent_dependent else '0',
                 'is_first_gen_college': '1' if existing.is_first_gen_college else '0',
                 'indigenous_people_group': existing.indigenous_people_group,
-            } if existing else {}
+            } if existing else {})
         ),
     })
 

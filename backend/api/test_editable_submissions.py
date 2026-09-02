@@ -32,9 +32,15 @@ class StudentMixin:
         self.user = User.objects.create_user(
             username='ana@bipsu.edu.ph', email='ana@bipsu.edu.ph', password='pw',
             first_name='Ana', last_name='Lim', role='student')
+        # Sex and the mother's name are on here because the TES form refuses a
+        # profile without them — CHED marks those columns Required and the form
+        # reads them rather than asking. These tests are about whether a
+        # submission can be corrected, not about that gate; see
+        # api/test_tes_form_fields.py for the gate itself.
         self.profile = StudentProfile.objects.create(
             user=self.user, student_id='2022-00111', course='BSCS', year_level=3,
-            gwa=1.25)
+            gwa=1.25, gender='Female',
+            mother_last_name='Lim', mother_first_name='Rosa')
         self.c = Client()
         self.assertTrue(self.c.login(email='ana@bipsu.edu.ph', password='pw'))
 
@@ -154,7 +160,13 @@ class EditATesApplicationTest(StudentMixin, TestCase):
 
     def apply_tes(self, **extra):
         data = {'lrn': '123456789012', 'birthdate': '2004-01-01',
-                'complete_program': 'BS Computer Science',
+                # A name off CHED's registry: the form refuses anything else.
+                'complete_program': 'BACHELOR OF SCIENCE IN COMPUTER SCIENCE',
+                # The profile half of the form — editable there, saved back to
+                # the profile, and required where CHED requires it.
+                'student_id': '2022-00111', 'last_name': 'Lim',
+                'first_name': 'Ana', 'gender': 'Female', 'year_level': '3',
+                'mother_last_name': 'Lim', 'mother_first_name': 'Rosa',
                 'is_solo_parent_dependent': '0'}
         data.update(extra)
         return self.c.post('/student/apply/tes/', data)

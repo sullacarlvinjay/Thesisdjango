@@ -210,3 +210,232 @@ masterlist uses, so the section on screen and the file that downloads cannot
 drift. The preview converts that workbook when LibreOffice is installed and
 falls back to `report_pdf.programme_masterlist_pdf` when it is not — the same
 two-step the TES frame uses.
+
+## Added: registrants confirm their email address
+
+The registration form took any string with an `@` in it. Nothing checked the
+address was well formed, and nothing checked the person filling in the form
+could read mail at it — so a mistyped address produced an account nobody could
+ever reach, and somebody else's address produced one too. Every message the
+system sent after that, the SDSO's own decision included, went to a stranger or
+to nowhere.
+
+Two checks now, in `api/email_verify.py`:
+
+* `address_error()` runs on the posted form and refuses what cannot be an
+  address. It is deliberately narrow — Django's own validator already catches a
+  dotless domain, a one-letter TLD and a leading hyphen. What this adds is the
+  two holes Django leaves open on purpose: `localhost`, which it allowlists,
+  and an IP literal like `juan@[127.0.0.1]`.
+* a signed link emailed to the address. `TimestampSigner` signs the account id
+  and the address together, so it expires on its own, cannot be forged without
+  the SECRET_KEY, and **stops working the moment the address on the account
+  changes** — a link mailed to the old address must not confirm the new one.
+
+**No DNS or MX lookup, on purpose.** It reads like the stronger check and is
+not: a domain serving mail through MX alone resolves no A record, a nameserver
+that is briefly down looks exactly like a domain that does not exist, and either
+one turns into a real student refused registration for an address that works.
+
+**Confirmation is not a sign-in gate.** Mail is optional here (`EMAIL_ENABLED`),
+so a gate would strand every applicant on an installation with no SMTP. It is a
+fact the SDSO is shown while deciding — an unconfirmed address is one nobody has
+been able to reach. `User.email_verified` defaults to True for the same reason
+`verification_status` defaults to approved: the office's own accounts are not
+asked to prove an address the office already had. Migration `0054`.
+
+## Changed: the approve/reject email says something
+
+It was the office's one-line note and nothing else — no greeting, no statement
+of what had been decided, no idea what to do next. That reads fine in the portal,
+where the screen supplies all of it, and reads like a fragment in an inbox,
+which is where it lands for the half of recipients who cannot sign in at all.
+
+`notify.account_decision()` writes both halves from one call, so they cannot
+contradict: the bell keeps the office's own words, the email wraps them in the
+context an inbox does not supply. `notify.notify()` grew an `email_body` for it.
+
+Confirmation links are absolute — `SITE_URL` first because it is the only source
+a proxy cannot rewrite, otherwise built from the request. **A relative path in an
+email is not a link**; nobody can click it.
+
+## Fixed: 'they have been emailed' when nothing was sent
+
+With no `EMAIL_HOST` the console backend accepts every message and reports
+success, so the office was told an applicant had been emailed when the message
+had been printed to a log nobody reads. The accounts page now carries a standing
+warning when no mail server is configured, claims delivery only where mail
+actually leaves the server, and says so in red when a configured server refuses
+or times out — the decision itself is saved either way.
+
+## Changed: the TES form offers CHED's own lists
+
+Complete Program and Disability Type are dropdowns now, and the options are read
+out of the bundled Annex 1 workbook's hidden `Registry_Courses` and
+`Disability_List` sheets — the same lists the sheet's own dropdown validation
+points at. Cached on first read. Drop in a newer template and the form follows
+it; nothing to edit in code.
+
+**The programme list is not `BIPSU_COURSES`.** That one holds the university's
+abbreviations — `BSCS`, `BSEd - English` — and CHED reads the Annex 1 against
+its registry of full names. Typing the short form is exactly what put `BSHM` in
+a submitted list. The two vocabularies cover the same programmes; only one of
+them is the one CHED checks.
+
+Disability Type also carries **Other**, which reveals a box to type in
+(`static/js/reveal-on-select.js`). The hidden box is `disabled` while it is out
+of sight — a hidden input still posts, and a stale value from a choice the
+student changed their mind about would go to CHED as their answer. Re-opening a
+saved application that used Other comes back on Other with the text intact,
+rather than silently dropping what they wrote.
+
+## Added: PhilSys and 4Ps ID numbers on the TES form
+
+The last two Annex 1 columns nothing collected. Optional on CHED's form and
+optional here. Still never derived from the 4Ps flag on `TESEligibility` — that
+is a yes/no and the column wants a household's ID. Migration `0055`.
+
+## Fixed: a student with an empty profile could submit an unusable TES form
+
+Sex, year level and both parents' names are read off the profile and shown
+read-only, so a student who never filled in their profile had **no box on the
+page** that could supply them. The form took the submission anyway and produced
+an Annex 1 with a blank mother's name — a column CHED marks Required.
+
+Submission is now refused, naming the missing fields and linking to My Profile,
+with the submit button replaced by that link. `TES_PROFILE_REQUIREMENTS` in
+`api/student_views.py` is the list. **The father's names are deliberately not on
+it**: CHED marks them optional, and a student raised by one parent should not be
+stopped by a box they cannot honestly fill.
+
+## Changed: the programme list can be searched, and is alphabetical
+
+Forty options that all begin "BACHELOR OF SCIENCE IN" is not a list anyone can
+scan. Two changes, both small:
+
+* the form sorts them A-Z rather than using the sheet's own order, which groups
+  by college and tells a student nothing;
+* a box above the dropdown narrows it as you type
+  (`static/js/searchable-select.js`). Words match in any order and anywhere in
+  the name, so "comp sci" finds BACHELOR OF SCIENCE IN COMPUTER SCIENCE, which
+  typing it in order would not.
+
+Options are hidden rather than removed, so the select still submits normally and
+**the currently selected option is never hidden** — it would vanish from the
+closed select while still being the answer that gets sent. With JavaScript off
+the box does nothing and the whole list is there, which is what it was before.
+
+The submitted programme is now checked against the registry server-side, so a
+hand-made post cannot put a name in the Annex 1 that CHED's registry does not
+hold. Skipped when the workbook is missing, or it would reject everything.
+
+## Fixed: srms.css was cached at ?v=9 across several sessions of edits
+
+The stylesheet link carries a hand-written `?v=` cache-buster and it had not
+moved while CSS was added to it, so a returning browser kept a stale copy and
+new rules simply did not apply — which is what made the programme-search count
+render as unstyled text below its box. Bumped to `?v=10` in all six templates
+that link it. **Bump it whenever srms.css changes.**
+
+## Changed: pick the school, then the programme
+
+Two dropdowns, the same pair the registration form makes of School and Course:
+choosing a school shows that school's programmes alone. Six options under your
+own school can be read; forty that all open with "BACHELOR OF SCIENCE IN"
+cannot, and nobody should have to remember how their course is spelled to find
+it in a list.
+
+The School box takes its choices from the programme select's own `<optgroup>`
+labels, so there is no second list to keep in step, and switching schools clears
+a programme left over from the last one — it would still be the answer that gets
+submitted while no longer being visible to change. Editing an application opens
+on the school its programme belongs to.
+
+**The school is not stored.** It is worked out from the programme by
+`school_for_registry_program()`, so keeping a copy would be a second record of
+one fact. The box has no `name`, so the browser never posts it.
+
+This replaced a type-to-search box added an hour earlier, which asked the
+student to know the wording before they could find it. `searchable-select.js`
+and the `.program-search` CSS went with it rather than being left dead.
+
+`school_for_registry_program()` in `api/constants.py` matches on keywords rather
+than a name-by-name table, so a newer Annex 1 template can add programmes without
+an edit here. Order matters in that list — 'COMPUTER SCIENCE' rather than
+'COMPUTER' so COMPUTER ENGINEERING lands under Engineering, and 'INDUSTRIAL
+TECHNOLOGY' before 'EDUCATION' so TECHNOLOGY AND LIVELIHOOD EDUCATION is read as
+the teaching degree it is. Anything unmatched groups under **Other programmes**,
+which is visible rather than wrong; today that is Marine Transportation, which
+BiPSU's school list has no home for.
+
+**The grouping is navigation only.** The value submitted is the registry name
+either way, so a debatable heading costs a moment's looking and never a wrong
+name on a CHED submission.
+
+## Changed: nothing on the TES form is read-only
+
+Student ID, both names, middle name, ext. name, sex, year level and both
+parents' names were locked. They still fill themselves in from the profile —
+that part was the point and it stays — but they are editable now and **saved
+back to the profile**. There is still exactly one copy of each fact; the form is
+another window onto it rather than a second record of it, which is why
+`TESApplication` still carries no name columns.
+
+On the profile page these lock after the first save, because an edit there would
+quietly change a record the office has already reviewed. **That reason does not
+hold here**: this form only opens while the application is undecided, so nothing
+has been reviewed yet. Same rule, applied where it means something — a decided
+application is still closed, and posting to it still changes nothing.
+
+This replaces the "finish your profile first" block added earlier the same day:
+the fields it sent students away to fill in are now fillable where they are
+standing. What survives is the validation — CHED's required columns are still
+refused blank, year level must be 1-6, and a Student ID belonging to another
+account is refused rather than raising an IntegrityError.
+
+## Changed: the photo washes are no longer pure blue
+
+`--wash-strong` and `--wash-soft` were `rgba(0, 0, 255, …)` — the brand blue at
+full saturation, which is the most saturated thing a screen can show. Over a
+photograph it flattened the campus into one electric field of colour and left
+the yellow call to action fighting it. They are a deep indigo now: same hue
+family, much less shouting, and the picture underneath reads as a picture.
+
+**The brand blue itself is untouched.** `--brand` is still `#0000ff` everywhere
+it is the interface — sidebar, buttons, headings. Only the wash over a
+photograph changed.
+
+The soft end sits at 0.66 rather than as light as it could go: white body text
+runs across the middle of these photographs and the campus buildings are pale
+concrete, so at 0.56 the hero subtitle was fighting the wall behind it.
+
+Every hard-coded `rgba(0, 0, 255, 0.50), rgba(9, 9, 169, 0.84)` pair now goes
+through the two tokens, so the next tune is one edit rather than four.
+
+## Changed: the sign-in photograph is fixed, and the sky is gone
+
+`media/backgrounds/registration-campus.jpg` is the old `registration.jpg` with
+the top 42% cropped away and the file re-encoded. The sky was the top 46% of the
+frame: `background-position` could never crop that, because `cover` only
+overflows the viewport by a fraction of the height — it had to come out of the
+file. **The same crop took the sign-in page's background from 5.99 MB to
+0.41 MB**, which is the larger win of the two.
+
+`background-attachment: fixed` from 768px up, so the campus stays put while the
+card scrolls over it. Phones keep `scroll` on purpose: a fixed background on a
+touch device either stutters against the scroll or is quietly ignored, and the
+registration form is taller than a phone screen.
+
+The page's `background-color` is a deep indigo now rather than `--brand`. It is
+what shows before the image loads and in any strip a viewport-sized fixed
+background cannot reach, and pure `#0000ff` flashing behind a sign-in card is
+the one place that blue does the identity no favours.
+
+`registration.jpg` (5.99 MB) and `Gymnasium.jpg` (3.27 MB) were left referenced
+by nothing and have been **deleted** at the office's request. `Gymnasium.jpg`
+was already unused before any of this. Both were git-tracked, so both are still
+in the history if either is ever wanted back:
+
+    git checkout <commit-before-deletion> -- media/backgrounds/registration.jpg
+
+`media/backgrounds/` is down from 10.4 MB to 1.5 MB.

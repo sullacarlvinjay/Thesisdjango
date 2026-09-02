@@ -239,12 +239,37 @@ class User(AbstractUser):
     )
     verified_at = models.DateTimeField(null=True, blank=True)
 
+    # Whether the address was proved to belong to whoever typed it, by opening
+    # the link emailed to it. Nothing else can prove that: a registration form
+    # will accept any address its owner has never heard of, and every message
+    # this system sends — the SDSO's decision included — goes to a stranger.
+    #
+    # True by default for the same reason verification_status defaults to
+    # approved: an account the office creates itself, and every account that
+    # existed before this gate, is not asked to prove an address the office
+    # already had. Only the public registration form sets it False.
+    email_verified = models.BooleanField(default=True)
+    email_confirmation_sent_at = models.DateTimeField(null=True, blank=True)
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
     @property
     def awaiting_verification(self):
         return self.verification_status == 'pending'
+
+    @property
+    def awaiting_email_confirmation(self):
+        """Asked to confirm the address and has not done so yet."""
+        return not self.email_verified and self.email_confirmation_sent_at is not None
+
+    def mark_email_verified(self):
+        """Record that the link emailed to this address was opened."""
+        if self.email_verified:
+            return False
+        self.email_verified = True
+        self.save(update_fields=['email_verified'])
+        return True
 
     @property
     def can_sign_in(self):
@@ -1293,6 +1318,14 @@ class TESApplication(TermStamped):
     lrn = models.CharField(max_length=30, blank=True)
     birthdate = models.DateField(null=True, blank=True)
     complete_program = models.CharField(max_length=200, blank=True)
+
+    # The two optional identifiers on CHED's Annex 1. Optional on the form and
+    # asked for the same way here — a student who has neither leaves them blank
+    # and the columns export empty, which is what the form expects. The 4Ps
+    # *number* is not the 4Ps *flag* on TESEligibility: one is a household's ID,
+    # the other a yes/no, and the column wants the ID.
+    philsys_id = models.CharField(max_length=30, blank=True)
+    four_ps_id = models.CharField(max_length=30, blank=True)
 
     # Address as CHED's form asks for it — finer-grained than PhilippineAddress,
     # and submitted by the student rather than copied from their profile.
