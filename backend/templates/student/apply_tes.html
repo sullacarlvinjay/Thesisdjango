@@ -28,6 +28,7 @@
 {% if existing %}
 <div class="mb-5 rounded-xl px-5 py-4 text-sm" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">
   You already have a TES application with status: <strong>{{ existing.status }}</strong>.
+  {% if editing %}You can still change it below until UniFAST decides on it.{% endif %}
   {% if existing.remarks %}<br>Remarks: {{ existing.remarks }}{% endif %}
 </div>
 {% endif %}
@@ -222,8 +223,8 @@
           <div class="flex justify-between"><span style="color:#6b7a99;">Processed by</span><span class="font-medium">UniFAST</span></div>
           <div class="flex justify-between"><span style="color:#6b7a99;">Student</span><span class="font-medium">{{ profile.user.get_full_name }}</span></div>
         </div>
-        {% if not existing %}
-        <button type="submit" class="btn btn-primary w-full">Submit Application</button>
+        {% if editing or not existing %}
+        <button type="submit" class="btn btn-primary w-full">{% if editing %}Update Application{% else %}Submit Application{% endif %}</button>
         {% else %}
         <p class="text-xs text-center" style="color:#6b7a99;">Application already submitted.</p>
         {% endif %}

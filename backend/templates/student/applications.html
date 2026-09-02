@@ -45,7 +45,6 @@
             {% if a.status == "Approved" %}<span class="badge badge-success">{{ a.status }}</span>
             {% elif a.status == "Rejected" %}<span class="badge badge-destructive">{{ a.status }}</span>
             {% elif a.status == "Needs Revision" %}<span class="badge badge-info">{{ a.status }}</span>
-            {% elif a.status == "Draft" %}<span class="badge badge-muted">{{ a.status }}</span>
             {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
           </td>
           <td style="color:#6b7a99;">{{ a.remarks|default:"—" }}</td>

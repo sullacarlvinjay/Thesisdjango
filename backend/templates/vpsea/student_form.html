@@ -62,21 +62,6 @@
             <input name="student_id" required value="{{ v_student_id }}" placeholder="e.g. 2024-00001" />
           </div>
           <div class="space-y-1.5">
-            <label>School <span style="color:#e03131;">*</span></label>
-            <select name="school" id="schoolSelect" onchange="updateCourseDropdown()" required>
-              <option value="">— Select School —</option>
-              {% for val, label in bipsu_schools %}
-              <option value="{{ val }}" {% if v_school == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label>Course <span style="color:#e03131;">*</span></label>
-            <select name="course" id="courseSelect" required>
-              <option value="">— Select Course —</option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
             <label>Birth Date</label>
             <input name="date_of_birth" id="birthDateField" type="date" value="{{ v_date_of_birth }}" />
           </div>
@@ -109,6 +94,62 @@
             <input name="province" value="{{ v_province }}" placeholder="e.g. Biliran" />
           </div>
           <div class="space-y-1.5">
+            <label>Birth Place</label>
+            <input name="birth_place" value="{{ v_birth_place }}" placeholder="e.g. Naval, Biliran" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Civil Status</label>
+            <select name="civil_status">
+              <option value="">— Select —</option>
+              {% for val, label in civil_statuses %}
+              <option value="{{ val }}" {% if v_civil_status == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Annual Family Income (₱)</label>
+            <input name="family_income" type="number" min="0" value="{{ v_family_income }}" placeholder="e.g. 120000" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Enrollment Data -->
+      <div class="card p-6">
+        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Enrollment Data</h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label>School <span style="color:#e03131;">*</span></label>
+            <select name="school" id="schoolSelect" onchange="updateCourseDropdown()" required>
+              <option value="">— Select School —</option>
+              {% for val, label in bipsu_schools %}
+              <option value="{{ val }}" {% if v_school == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Course <span style="color:#e03131;">*</span></label>
+            <select name="course" id="courseSelect" required>
+              <option value="">— Select Course —</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Level</label>
+            <select name="level">
+              <option value="">— Select —</option>
+              {% for val, label in student_levels %}
+              <option value="{{ val }}" {% if v_level == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Department</label>
+            <input name="department" value="{{ v_department }}" placeholder="e.g. Computer Science Department" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Curriculum</label>
+            <input name="curriculum" value="{{ v_curriculum }}" placeholder="e.g. 2018-2019" />
+          </div>
+          <div class="space-y-1.5">
             <label>Year Level <span style="color:#e03131;">*</span></label>
             <select name="year_level">
               <option value="1" {% if v_year_level == "1" %}selected{% endif %}>1st Year</option>
@@ -118,8 +159,26 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Annual Family Income (₱)</label>
-            <input name="family_income" type="number" min="0" value="{{ v_family_income }}" placeholder="e.g. 120000" />
+            <label>Learner Ref. No.</label>
+            <input name="learner_ref_no" value="{{ v_learner_ref_no }}" placeholder="12-digit LRN" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Entry Period</label>
+            <select name="entry_period">
+              <option value="">— Select —</option>
+              {% for val, label in semesters %}
+              <option value="{{ val }}" {% if v_entry_period == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label>Entry Date</label>
+            <input name="entry_date" type="date" value="{{ v_entry_date }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Exam Score</label>
+            <input name="exam_score" type="number" step="0.01" min="0" value="{{ v_exam_score }}"
+                   placeholder="Admission exam score on the registrar's record" />
           </div>
         </div>
       </div>

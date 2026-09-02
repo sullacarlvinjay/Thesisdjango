@@ -292,7 +292,7 @@ class TESValidationWorkbookTest(TestCase):
 
     def test_reports_page_frames_the_official_list_as_a_pdf(self):
         self._grantee('Cruz', 'Ana', '2024-0001', pwd=True)
-        r = self.c.get('/unifast/reports/', {'batch': 'On-going'})
+        r = self.c.get('/unifast/reports/', {'sy': '2026-2027'})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.context['tes_total'], 1)
         self.assertEqual(r.context['pwd_count'], 1)
@@ -301,8 +301,11 @@ class TESValidationWorkbookTest(TestCase):
         body = r.content.decode()
         self.assertIn('/unifast/reports/preview/', body)
         self.assertIn('report-preview-frame', body)
-        # The batch filter follows the page into the frame.
-        self.assertIn('/unifast/reports/preview/?batch=On-going', body)
+        # The school year follows the page into the frame. The TES Batch was
+        # dropped from this toolbar — CHED's bookkeeping label is not something
+        # the office filters its own reports by.
+        self.assertIn('/unifast/reports/preview/?sy=2026-2027', body)
+        self.assertNotIn('TES Batch', body)
 
     def test_the_frame_serves_the_converted_ched_workbook(self):
         self._grantee('Cruz', 'Ana', '2024-0001')

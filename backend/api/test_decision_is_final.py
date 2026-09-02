@@ -76,13 +76,6 @@ class SDSODecidesOnceTest(TestCase):
         self.assertEqual(app.remarks, 'Congratulations.')
         self.assertEqual(Notification.objects.filter(student=self.student).count(), 1)
 
-    def test_a_draft_is_not_a_decision_and_can_still_be_decided(self):
-        app = self._application('Draft')
-        self._decide(app, 'Approved')
-
-        app.refresh_from_db()
-        self.assertEqual(app.status, 'Approved')
-
     # ── and only the first ──────────────────────────────────────────────────
 
     def test_an_approval_cannot_be_turned_into_a_rejection(self):

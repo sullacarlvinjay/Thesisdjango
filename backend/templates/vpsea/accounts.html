@@ -51,6 +51,7 @@
         <div><span style="color:#6b7a99;">Contact</span><br />{{ account.student_profile.contact_number|default:"—" }}</div>
         <div><span style="color:#6b7a99;">Date of Birth</span><br />{{ account.student_profile.date_of_birth|date:"M j, Y"|default:"—" }}</div>
         <div><span style="color:#6b7a99;">Middle Name</span><br />{{ account.student_profile.middle_name|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">Registered</span><br />{{ account.student_profile.term_display|default:"—" }}</div>
         {% elif account.employee_profile %}
         <div><span style="color:#6b7a99;">Employee ID</span><br />{{ account.employee_profile.employee_id|default:"—" }}</div>
         <div><span style="color:#6b7a99;">Department</span><br />{{ account.employee_profile.department|default:"—" }}</div>
@@ -80,17 +81,19 @@
 </div>
 
 <div class="card p-6">
+  <div class="filter-scheme mb-4" data-filter-bar></div>
   <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#3b5bdb;">Recently decided</p>
   <p class="text-xs mb-4" style="color:#6b7a99;">The last 25 decisions. Verifying a rejected account here lets them straight in.</p>
 
   {% if decided %}
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
       <thead>
         <tr>
           <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Name</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Role</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Decision</th>
+          <th data-filter="Role" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Role</th>
+          <th data-filter="Registered" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Registered</th>
+          <th data-filter="Decision" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Decision</th>
           <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Message they see</th>
           <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">By</th>
           <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;"></th>
@@ -104,6 +107,7 @@
             <br /><span style="color:#6b7a99;font-size:0.75rem;">{{ account.email }}</span>
           </td>
           <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.get_role_display }}</td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.student_profile.term_display|default:"—" }}</td>
           <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
             <span class="badge {% if account.verification_status == 'approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ account.get_verification_status_display }}</span>
           </td>
@@ -131,4 +135,10 @@
   {% endif %}
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-sort.js' %}?v=1"></script>
 {% endblock %}

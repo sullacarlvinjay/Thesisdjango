@@ -85,9 +85,78 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
+    """A student's whole record, flat, the way the API has always returned it.
+
+    Most of these are no longer columns on StudentProfile — they live on the
+    detail rows it hangs off. They are declared here rather than left to
+    ``fields = '__all__'`` because the autodetected list only sees this table's
+    own columns, and dropping forty keys from a response is not a refactor. The
+    profile's :class:`~api.models.DetailField` proxies read and write them, so a
+    PATCH lands on the right row without this serializer knowing which.
+    """
     name = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
     avatar = serializers.SerializerMethodField()
+
+    # ── Enrolment
+    school = serializers.CharField(required=False, allow_blank=True)
+    course = serializers.CharField(required=False, allow_blank=True)
+    level = serializers.CharField(required=False, allow_blank=True)
+    department = serializers.CharField(required=False, allow_blank=True)
+    curriculum = serializers.CharField(required=False, allow_blank=True)
+    year_level = serializers.IntegerField(required=False)
+    learner_ref_no = serializers.CharField(required=False, allow_blank=True)
+    entry_period = serializers.CharField(required=False, allow_blank=True)
+    entry_date = serializers.DateField(required=False, allow_null=True)
+    exam_score = serializers.FloatField(required=False, allow_null=True)
+    gwa = serializers.FloatField(required=False)
+
+    # ── Personal
+    middle_name = serializers.CharField(required=False, allow_blank=True)
+    suffix = serializers.CharField(required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    birth_place = serializers.CharField(required=False, allow_blank=True)
+    gender = serializers.CharField(required=False, allow_blank=True)
+    civil_status = serializers.CharField(required=False, allow_blank=True)
+    contact_number = serializers.CharField(required=False, allow_blank=True)
+
+    # ── Affirmative eligibility
+    shs_gpa = serializers.FloatField(required=False, allow_null=True)
+    suc_exam_score = serializers.FloatField(required=False, allow_null=True)
+    suc_exam_total = serializers.FloatField(required=False, allow_null=True)
+    is_tes_beneficiary = serializers.BooleanField(required=False)
+
+    # ── Needs-based and priority-group indicators
+    family_income = serializers.FloatField(required=False)
+    household_size = serializers.IntegerField(required=False, allow_null=True)
+    indigenous_group = serializers.CharField(required=False, allow_blank=True)
+    parent_employment = serializers.CharField(required=False, allow_blank=True)
+    is_pwd = serializers.BooleanField(required=False)
+    is_athlete = serializers.BooleanField(required=False)
+    is_coconut_farmer_family = serializers.BooleanField(required=False)
+    has_other_scholarship = serializers.BooleanField(required=False)
+
+    # ── TES eligibility. Three-state, so null has to survive the round trip.
+    citizenship = serializers.CharField(required=False, allow_blank=True)
+    is_listahanan_household = serializers.BooleanField(required=False, allow_null=True)
+    is_4ps_beneficiary = serializers.BooleanField(required=False, allow_null=True)
+    has_previous_degree = serializers.BooleanField(required=False, allow_null=True)
+    year_first_enrolled = serializers.IntegerField(required=False, allow_null=True)
+
+    # ── Educational background
+    elementary = serializers.CharField(required=False, allow_blank=True)
+    highschool = serializers.CharField(required=False, allow_blank=True)
+    last_school = serializers.CharField(required=False, allow_blank=True)
+
+    # ── Family background
+    father_last_name = serializers.CharField(required=False, allow_blank=True)
+    father_first_name = serializers.CharField(required=False, allow_blank=True)
+    father_middle_name = serializers.CharField(required=False, allow_blank=True)
+    father_occupation = serializers.CharField(required=False, allow_blank=True)
+    mother_last_name = serializers.CharField(required=False, allow_blank=True)
+    mother_first_name = serializers.CharField(required=False, allow_blank=True)
+    mother_middle_name = serializers.CharField(required=False, allow_blank=True)
+    mother_occupation = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = StudentProfile

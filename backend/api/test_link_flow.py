@@ -12,6 +12,17 @@ from api.models import (
 )
 
 
+def archive_rows(response, kind=None):
+    """The rows the archive table rendered, optionally of one record shape.
+
+    'imported' rows come from an office spreadsheet, 'award' rows from an
+    Application. The merge these tests cover is exactly the moment a scholar
+    stops being the first and becomes the second.
+    """
+    rows = [row for group in response.context['scholar_groups'] for row in group['rows']]
+    return [row for row in rows if kind is None or row['kind'] == kind]
+
+
 class LinkScholarshipMergeTest(TestCase):
     def setUp(self):
         s = SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
@@ -78,8 +89,8 @@ class LinkScholarshipMergeTest(TestCase):
         # Archives before approval: the imported row, and no live scholar.
         r = a.get('/vpsea/archives/?type=Academic')
         self.assertEqual(r.context['total'], 1)
-        self.assertEqual(r.context['imported_rows'].count(), 1)
-        self.assertEqual(r.context['scholars'].count(), 0)
+        self.assertEqual(len(archive_rows(r, 'imported')), 1)
+        self.assertEqual(len(archive_rows(r, 'award')), 0)
 
         # 5. VPSEA approves and merges the imported row.
         r = a.post('/vpsea/link-requests/', {
@@ -117,8 +128,8 @@ class LinkScholarshipMergeTest(TestCase):
         # 6. The archives now show ONE entry, not two.
         r = a.get('/vpsea/archives/?type=Academic')
         self.assertEqual(r.context['total'], 1)
-        self.assertEqual(r.context['imported_rows'].count(), 0)
-        self.assertEqual(r.context['scholars'].count(), 1)
+        self.assertEqual(len(archive_rows(r, 'imported')), 0)
+        self.assertEqual(len(archive_rows(r, 'award')), 1)
 
         # The student was notified and the page reflects the link.
         n = Notification.objects.get(student=self.profile)

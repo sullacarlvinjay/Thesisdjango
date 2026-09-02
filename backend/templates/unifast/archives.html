@@ -31,6 +31,9 @@
 {% if request.GET.deleted %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Scholar deleted.</div>
 {% endif %}
+{% if request.GET.columns_saved %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">Column values saved for {{ request.GET.columns_saved }} scholar{{ request.GET.columns_saved|pluralize }}.</div>
+{% endif %}
 
 <!-- Add Scholar Modal -->
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
@@ -305,144 +308,27 @@
 
   
 
-      {# ── TDP ── #}
-{% if active_type == 'TDP' %}
-<table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
-  <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Award No.</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Name</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Congress District</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Yr.</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship Program</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
-  </tr></thead>
-  <tbody>
-    {% for app in scholars %}
-    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-      data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
-      data-id="{{ app.student.student_id|lower }}">
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.award_number|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.congress_district|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
-      <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-        <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.award_number|default:''|escapejs }}','{{ app.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
-        <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
-      </td>
-    </tr>
-    {% empty %}
-    {% if not imported_rows %}
-    <tr><td colspan="14" style="padding:3rem;text-align:center;color:#6b7a99;">No approved {{ active_type }} scholars yet.</td></tr>
-    {% endif %}
-    {% endfor %}
-    {% for row in imported_rows %}
-    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-      data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-      data-id="{{ row.student_id|lower }}">
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.award_number|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ row.congress_district|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% comment %}
+The same table the SDSO archive renders, from the same choice: a programme names
+its columns once, on its scholarship form, and both offices list it that way. The
+two hand-written tables that were here disagreed with the SDSO ones about the
+columns for the very same programme.
+{% endcomment %}
+<form method="post" action="/unifast/archives/columns/" id="archColumnForm">
+  {% csrf_token %}
+  <input type="hidden" name="type" value="{{ active_type }}" />
+  <input type="hidden" name="sy" value="{{ selected_sy }}" />
+</form>
 
-{# ── Fallback: any type not TDP ── #}
-{% else %}
-<table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
-  <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Middle Initial</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Sex</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Brgy./St.</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Municipality</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Province</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Course</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year Level</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student No.</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Award No.</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Scholarship Program</th>
-    <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
-  </tr></thead>
-  <tbody>
-    {% for app in scholars %}
-    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-      data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
-      data-id="{{ app.student.student_id|lower }}">
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">—</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.gender }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.barangay }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.municipality }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.province }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.course }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
-      <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.award_number|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.scholarship.name }}</td>
-      <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-        <button type="button" onclick="openEdit({{ app.pk }},'{{ app.student.user.first_name|escapejs }}','{{ app.student.user.last_name|escapejs }}','{{ app.student.student_id|escapejs }}','{{ app.student.gender|escapejs }}','{{ app.student.course|escapejs }}','{{ app.student.year_level }}','{{ app.student.barangay|escapejs }}','{{ app.student.municipality|escapejs }}','{{ app.student.province|escapejs }}','','{{ app.award_number|default:''|escapejs }}','{{ app.congress_district|default:''|escapejs }}')" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;">Edit</button>
-        <button type="button" onclick="openDelete({{ app.pk }},'{{ app.student.user.last_name|escapejs }}, {{ app.student.user.first_name|escapejs }}')" class="btn" style="padding:0.2rem 0.55rem;font-size:0.75rem;background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Delete</button>
-      </td>
-    </tr>
-    {% empty %}
-    {% if not imported_rows %}
-    <tr><td colspan="14" style="padding:3rem;text-align:center;color:#6b7a99;">No approved {{ active_type }} scholars yet.</td></tr>
-    {% endif %}
-    {% endfor %}
-    {% for row in imported_rows %}
-    <tr style="border-bottom:1px solid #f1f3f9;" class="arch-row"
-      data-name="{{ row.last_name|lower }} {{ row.first_name|lower }}"
-      data-id="{{ row.student_id|lower }}">
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
-      <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ row.last_name }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.first_name }}</td>
-      <td style="padding:0.55rem 0.75rem;color:#6b7a99;">{{ row.middle_name|default:'—' }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.gender }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.barangay }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.municipality }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.province }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.course }}</td>
-      <td style="padding:0.55rem 0.75rem;">{{ row.year_level }}</td>
-      <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ row.student_id }}</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ active_type }} Scholarship</td>
-      <td style="padding:0.55rem 0.75rem;font-size:0.75rem;color:#6b7a99;">Imported</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% for group in scholar_groups %}
+{% if group.title %}<div class="scholar-table__group">{{ group.title }}</div>{% endif %}
+{% include "vpsea/_scholar_table.html" with rows=group.rows empty_message=group.empty %}
+{% endfor %}
+
+{% if has_custom_columns %}
+<div class="scholar-table__save">
+  <button type="submit" form="archColumnForm" class="btn btn-primary">Save column values</button>
+</div>
 {% endif %}
   
 

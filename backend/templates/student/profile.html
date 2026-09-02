@@ -99,6 +99,16 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         <input name="suffix" value="{{ profile.suffix }}" placeholder="Jr., Sr., III — leave blank if none" />
       </div>
       <div class="space-y-1.5">
+        <label>Birth Place</label>
+        {% if birth_place_locked %}
+        <input value="{{ profile.birth_place }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input type="hidden" name="birth_place" value="{{ profile.birth_place }}" />
+        {% else %}
+        <input name="birth_place" value="{{ profile.birth_place }}" placeholder="e.g. Naval, Biliran" />
+        <p class="text-xs" style="color:#6b7a99;">Contact the SDSO to change this after it is saved.</p>
+        {% endif %}
+      </div>
+      <div class="space-y-1.5">
         <label>Civil Status</label>
         {% if civil_status_locked %}
         <input value="{{ profile.civil_status }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />

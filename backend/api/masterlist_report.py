@@ -276,7 +276,7 @@ def _sources(term_label=None):
     ever imported. A row already claimed by a student account is skipped — that
     scholar has an Application above and would otherwise be printed twice.
     """
-    from .models import (Application, AffirmativeStaffApplication, ImportedScholar,
+    from .models import (STUDENT_DETAILS, Application, AffirmativeStaffApplication, ImportedScholar,
                          Scholarship, SystemSettings, split_ched)
 
     if term_label is None:
@@ -298,7 +298,7 @@ def _sources(term_label=None):
     def apps(stype):
         return list(
             Application.objects.filter(status='Approved', scholarship__type=stype)
-            .select_related('student__user', 'scholarship')
+            .select_related('student__user', 'scholarship', *STUDENT_DETAILS)
             .order_by('student__user__last_name', 'student__user__first_name')
         ) + imported(stype)
 

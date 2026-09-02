@@ -36,36 +36,71 @@
 </div>
 
 <div class="card p-6">
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-    <h3 class="font-semibold">TES Applications</h3>
-    <input placeholder="Search name or student ID…" id="tesSearch" oninput="filterTes()" style="width:14rem;" />
+  <div class="report-gen-head mb-4">
+    <h3 class="report-gen-title">TES Applications</h3>
+    {% comment %}
+      The report controls sit on the list they act on. The school year narrows
+      the table below and the Annex 1 workbook alike, so an officer exports
+      exactly the list they have just been reading.
+    {% endcomment %}
+    <div class="report-gen-actions">
+      <form method="get" class="report-gen-actions">
+        <select name="sy" id="reportYear" aria-label="School year"
+                class="filter-scheme__select">
+          <option value="">All school years</option>
+          {% for year in school_years %}
+          <option value="{{ year }}" {% if year == school_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline">Apply</button>
+      </form>
+      {% if annex1_available %}
+      <a href="/unifast/tes-applications/report/{% if school_year %}?sy={{ school_year|urlencode }}{% endif %}"
+         class="btn btn-primary flex items-center gap-1">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Annex 1 (.xlsm)
+      </a>
+      {% else %}
+      <span class="badge badge-destructive">Annex 1 template missing</span>
+      {% endif %}
+      <button type="button" class="btn btn-outline" data-preview-open="annex1Preview">Preview the sheet</button>
+    </div>
   </div>
+
+  {% comment %}
+    Same filter scheme the SDSO Applications page uses: the search box and one
+    dropdown per marked column, built from the values actually in the table.
+  {% endcomment %}
+  <div class="filter-scheme mb-4" data-filter-bar data-filter-search="#tesSearch">
+    <input placeholder="Search name or student ID…" id="tesSearch" style="max-width:20rem;" />
+  </div>
+
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
       <thead>
         <tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">#</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student ID</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Program</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
+          <th data-filter="Program" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Program</th>
+          <th data-filter="Year" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
+          <th data-filter="Term" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Term</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Submitted</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Status</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
+          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Status</th>
+          <th data-no-sort style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for app in applications %}
-        <tr style="border-bottom:1px solid #f1f3f9;" class="tes-row"
-          data-name="{{ app.student.user.last_name|lower }} {{ app.student.user.first_name|lower }}"
-          data-id="{{ app.student.student_id|lower }}">
+        <tr style="border-bottom:1px solid #f1f3f9;">
           <td style="padding:0.55rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
           <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
           <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
           <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
           <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.complete_program|default:app.student.course }}</td>
           <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
+          <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.term_display|default:"—" }}</td>
           <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.submitted_at|date:"M d, Y" }}</td>
           <td style="padding:0.55rem 0.75rem;">
             <span class="badge badge-{{ app.status|lower }}">{{ app.status }}</span>
@@ -75,10 +110,89 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">No TES applications yet.</td></tr>
+        <tr><td colspan="10" style="padding:3rem;text-align:center;color:#6b7a99;">No TES applications yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+{% comment %}
+  What the download will contain, column for column. Drawn from the same rows
+  the workbook is filled from, so the sheet cannot disagree with this preview.
+{% endcomment %}
+<div class="modal-overlay" id="annex1Preview" data-preview>
+  <div class="card modal-sheet report-gen-sheet">
+    <div class="modal-sheet-head">
+      <h3 class="modal-sheet-title">
+        Annex 1 — List of TES Applicants
+        {% if school_year %}· AY {{ school_year }}{% endif %}
+      </h3>
+      <button type="button" data-preview-close class="modal-sheet-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-sheet-body">
+      <div class="table-scroll">
+        <table class="scholar-table">
+          <thead>
+            <tr>
+              {% for header in annex1_headers %}<th>{{ header }}</th>{% endfor %}
+              <th>REVIEW STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in annex1_rows %}
+            <tr>
+              <td class="cell-no">{{ row.seq }}</td>
+              <td>{{ row.student_no }}</td>
+              <td>{{ row.lrn }}</td>
+              <td>{{ row.philsys_id }}</td>
+              <td>{{ row.four_ps_id }}</td>
+              <td class="cell-name">{{ row.last_name }}</td>
+              <td>{{ row.first_name }}</td>
+              <td>{{ row.ext_name }}</td>
+              <td>{{ row.middle_name }}</td>
+              <td>{{ row.sex }}</td>
+              <td>{{ row.birthdate|date:"Y-m-d" }}</td>
+              <td>{{ row.course }}</td>
+              <td>{{ row.year_level }}</td>
+              <td>{{ row.father_last_name }}</td>
+              <td>{{ row.father_first_name }}</td>
+              <td>{{ row.father_middle_name }}</td>
+              <td>{{ row.mother_last_name }}</td>
+              <td>{{ row.mother_first_name }}</td>
+              <td>{{ row.mother_middle_name }}</td>
+              <td>{{ row.street_barangay }}</td>
+              <td>{{ row.city_municipality }}</td>
+              <td>{{ row.province }}</td>
+              <td>{{ row.region }}</td>
+              <td>{{ row.zip_code }}</td>
+              <td>{{ row.contact }}</td>
+              <td>{{ row.email }}</td>
+              <td>{{ row.disability }}</td>
+              <td>{{ row.solo_parent }}</td>
+              <td>{{ row.first_gen }}</td>
+              <td>{{ row.ip_group }}</td>
+              <td><span class="badge badge-{{ row.status|lower }}">{{ row.status }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td class="cell-empty" colspan="31">
+              No TES applicants{% if school_year %} for {{ school_year }}{% endif %} yet —
+              the workbook would download with its header rows and nothing under them.
+            </td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-sheet-foot">
+      <div class="flex gap-2 justify-end">
+        <button type="button" data-preview-close class="btn btn-outline">Close</button>
+        {% if annex1_available %}
+        <a href="/unifast/tes-applications/report/{% if school_year %}?sy={{ school_year|urlencode }}{% endif %}"
+           class="btn btn-primary">Download Annex 1 (.xlsm)</a>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
 
@@ -170,8 +284,10 @@
                 <option value="Rejected">Rejected</option>
               </select>
               {% else %}
-              {# Decided already. The status is posted back unchanged so the
-                 award number below can still be corrected. #}
+              {% comment %}
+              Decided already. The status is posted back unchanged so the award
+              number below can still be corrected.
+              {% endcomment %}
               <input type="hidden" name="status" value="{{ app.status }}" />
               <div class="decision-locked" style="margin-top:0.25rem;">
                 <span class="badge {% if app.status == 'Approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ app.status }}</span>
@@ -199,13 +315,16 @@
 {% endblock %}
 
 {% block extra_js %}
+{% load static %}
+<script src="{% static 'js/report-preview.js' %}?v=1"></script>
+{% comment %}
+  The search box is wired through the filter bar's data-filter-search, so the
+  text search and the column dropdowns narrow the same rows together instead of
+  two scripts fighting over which ones are hidden.
+{% endcomment %}
+<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script>
-function filterTes() {
-  const q = document.getElementById('tesSearch').value.toLowerCase();
-  document.querySelectorAll('.tes-row').forEach(row => {
-    row.style.display = (!q || row.dataset.name.includes(q) || row.dataset.id.includes(q)) ? '' : 'none';
-  });
-}
 function openView(pk) {
   document.getElementById('viewModal-' + pk).style.display = 'flex';
 }

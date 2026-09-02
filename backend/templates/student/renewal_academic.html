@@ -40,7 +40,7 @@
   <!-- Submission Form -->
   <div class="card p-6">
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
-      <h3 class="font-semibold">Submit Renewal Documents</h3>
+      <h3 class="font-semibold">{% if editing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h3>
       <span class="badge" style="background:#edf2ff;color:#3b5bdb;">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
     </div>
     <p class="text-xs mb-5" style="color:#6b7a99;">Upload the required documents to renew your scholarship for the next semester.</p>
@@ -64,7 +64,14 @@
         <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG</p>
       </div>
 
-      <button type="submit" class="btn btn-primary w-full">Submit Renewal</button>
+      <button type="submit" class="btn btn-primary w-full">{% if editing %}Replace Documents{% else %}Submit Renewal{% endif %}</button>
+      {% if editing %}
+      <p class="text-xs mt-2" style="color:var(--text-muted);">
+        You already have a renewal in for this semester and the office has not
+        reviewed it yet. Uploading here replaces the documents on it rather than
+        sending a second one.
+      </p>
+      {% endif %}
     </form>
   </div>
 
@@ -76,7 +83,8 @@
       {% for r in renewals %}
       <div class="flex items-center justify-between p-4 rounded-xl" style="background:#f6f8fc;">
         <div>
-          <p class="text-sm font-medium" style="color:#1e2a3a;">Renewal — {{ r.submitted_at|date:"M d, Y" }}</p>
+          <p class="text-sm font-medium" style="color:#1e2a3a;">Renewal — {{ r.term_display|default:"term not recorded" }}</p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">Submitted {{ r.submitted_at|date:"M d, Y" }}</p>
           <p class="text-xs mt-0.5" style="color:#6b7a99;">
             COE: {{ r.certificate_of_enrollment.name|default:"—" }} &nbsp;·&nbsp;
             COG: {{ r.certificate_of_grades.name|default:"—" }}

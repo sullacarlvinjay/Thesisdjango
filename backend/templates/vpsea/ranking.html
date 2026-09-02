@@ -11,23 +11,10 @@
 
 
 
-{# Staff type is only relevant in the Applicants tab; hide it on Recommended #}
-<div class="flex gap-2 mb-5">
-  {% for t in scholarship_types %}
-  {% if t != 'Staff' or tab != 'recommended' %}
-  <a href="/vpsea/ranking/?tab={% if t == 'Staff' %}applicants{% else %}{{ tab }}{% endif %}&type={{ t }}&passing={{ passing_threshold }}"
-     class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">
-    {% if t == 'Affirmative' %}Affirmative Action{% else %}BiPSU Staff{% endif %}
-  </a>
-  {% endif %}
-  {% endfor %}
-</div>
 
-{% if active_type == 'Affirmative' %}
 {# ── Passing-threshold + Re-evaluate controls ─────────────────────────── #}
 <form method="get" action="/vpsea/ranking/" class="card p-4 mb-5 flex flex-wrap items-end gap-4">
   <input type="hidden" name="tab" value="{{ tab }}">
-  <input type="hidden" name="type" value="{{ active_type }}">
   <div class="space-y-1">
     <label class="text-xs font-medium" style="color:#6b7a99;">Passing GPA threshold (%)</label>
     <input name="passing" type="number" step="0.5" min="50" max="100"
@@ -38,7 +25,7 @@
 
 {# ── Page-level tabs: Applicants | Recommended Students ───────────────── #}
 <div class="flex gap-0 mb-5 border-b" style="border-color:#e8ecf0;">
-  <a href="/vpsea/ranking/?tab=applicants&type={{ active_type }}&passing={{ passing_threshold }}"
+  <a href="/vpsea/ranking/?tab=applicants&passing={{ passing_threshold }}"
      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px
             {% if tab == 'applicants' %}border-blue-600" style="color:#3b5bdb;border-color:#3b5bdb;
             {% else %}border-transparent" style="color:#6b7a99;
@@ -46,9 +33,7 @@
     Applicants
     <span class="ml-1 rounded-full px-2 py-0.5 text-xs" style="background:#e8ecf0;">{{ total_applicants }}</span>
   </a>
-  {# Recommended tab only shown for Affirmative type #}
-  {% if active_type == 'Affirmative' %}
-  <a href="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}"
+  <a href="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}"
      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px
             {% if tab == 'recommended' %}border-blue-600{% else %}border-transparent{% endif %}"
      style="{% if tab == 'recommended' %}color:#3b5bdb;border-color:#3b5bdb;{% else %}color:#6b7a99;{% endif %}">
@@ -58,17 +43,15 @@
       {{ eligible_count }}
     </span>
   </a>
-  {% endif %}
 </div>
-{% endif %}
 
 {# ═══════════════════ TAB: APPLICANTS ════════════════════════════════════ #}
-{% if tab == 'applicants' or active_type == 'Staff' %}
+{% if tab == 'applicants' %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4">
     <div>
       <h3 class="font-semibold">
-        {% if active_type == 'Affirmative' %}Affirmative Action{% else %}BiPSU Staff{% endif %} — Applicant Rankings
+        Affirmative Action — Applicant Rankings
       </h3>
       <p class="text-xs mt-0.5" style="color:#6b7a99;">
         {{ applicant_rows|length }} pending applicant{{ applicant_rows|length|pluralize }} · excludes already-approved
@@ -84,15 +67,10 @@
           <th class="th-cell" style="width:3rem;">Rank</th>
           <th class="th-cell">Name</th>
           <th class="th-cell">Course / Year</th>
-          {% if active_type == 'Affirmative' %}
           <th class="th-cell">SHS GPA</th>
           <th class="th-cell">SUC Exam</th>
           <th class="th-cell">TES?</th>
           <th class="th-cell">Eligible</th>
-          {% else %}
-          <th class="th-cell">Type</th>
-          <th class="th-cell">Staff Name</th>
-          {% endif %}
           <th class="th-cell">Status</th>
           <th class="th-cell">Fit Score</th>
         </tr>
@@ -100,7 +78,7 @@
       <tbody>
         {% for s in applicant_rows %}
         <tr class="trow" data-name="{{ s.applicant.full_name|lower }}"
-            style="border-bottom:1px solid #f1f3f9;{% if active_type == 'Affirmative' and s.rules and not s.rules.eligible %}opacity:.65;{% endif %}">
+            style="border-bottom:1px solid #f1f3f9;{% if s.rules and not s.rules.eligible %}opacity:.65;{% endif %}">
           <td class="td-cell">
             {% if s.rank == 1 %}<span style="font-size:1.1rem;">🥇</span>
             {% elif s.rank == 2 %}<span style="font-size:1.1rem;">🥈</span>
@@ -119,7 +97,6 @@
             </div>
           </td>
           <td class="td-cell">{{ s.applicant.course }}<br><span class="text-xs" style="color:#6b7a99;">Year {{ s.applicant.year_level }}</span></td>
-          {% if active_type == 'Affirmative' %}
           <td class="td-cell">
             {% if s.applicant.shs_gpa is not None %}
               <span class="badge {% if s.rules.gpa_pass %}badge-success{% else %}badge-danger{% endif %}">
@@ -148,15 +125,8 @@
               <span class="badge badge-danger">✗ No</span>
             {% endif %}
           </td>
-          {% else %}
           <td class="td-cell">
-            {% if s.applicant.is_nsu_staff %}<span class="badge badge-success">BiPSU Staff</span>
-            {% else %}<span class="badge badge-info">Dependent</span>{% endif %}
-          </td>
-          <td class="td-cell">{{ s.applicant.staff_name|default:"—" }}</td>
-          {% endif %}
-          <td class="td-cell">
-            <span class="badge {% if s.applicant.status == 'Pending Validation' %}badge-warning{% elif s.applicant.status == 'Draft' %}badge-muted{% else %}badge-info{% endif %}">
+            <span class="badge {% if s.applicant.status == 'Pending Validation' %}badge-warning{% else %}badge-info{% endif %}">
               {{ s.applicant.status }}
             </span>
           </td>
@@ -184,7 +154,7 @@
 {% endif %}
 
 {# ═══════════════════ TAB: RECOMMENDED STUDENTS ══════════════════════════ #}
-{% if tab == 'recommended' and active_type == 'Affirmative' %}
+{% if tab == 'recommended' %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
     <div>
@@ -199,7 +169,7 @@
       <input id="recSearch" placeholder="Search name or ID…" style="width:14rem;"
              oninput="filterTable('recSearch','recTable','data-name')" />
       {# Re-evaluate button #}
-      <form method="post" action="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}">
+      <form method="post" action="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}">
         {% csrf_token %}
         <input type="hidden" name="action" value="resync">
         <button type="submit" class="btn btn-outline text-xs">↻ Re-evaluate</button>
@@ -339,7 +309,7 @@
           <td class="td-cell">
             {% if r.eligible and r.rec.status != 'Endorsed' %}
             <form method="post"
-                  action="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}"
+                  action="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}"
                   style="display:inline;">
               {% csrf_token %}
               <input type="hidden" name="rec_id" value="{{ r.rec.id }}">
@@ -355,7 +325,7 @@
             {% endif %}
             {% if r.rec.status != 'Disqualified' %}
             <form method="post"
-                  action="/vpsea/ranking/?tab=recommended&type={{ active_type }}&passing={{ passing_threshold }}"
+                  action="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}"
                   style="display:inline;">
               {% csrf_token %}
               <input type="hidden" name="rec_id" value="{{ r.rec.id }}">

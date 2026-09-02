@@ -1,0 +1,63 @@
+<table class="scholar-table" id="archTable" data-sortable data-filterable>
+  <thead>
+    <tr>
+      <th>#</th>
+      {% for col in columns %}<th{% if col.filterable %} data-filter="{{ col.label }}"{% endif %}>{{ col.label }}</th>{% endfor %}
+      <th data-no-sort>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr class="arch-row" data-name="{{ row.search_name }}" data-id="{{ row.search_id }}">
+      <td class="cell-no">{{ row.no }}</td>
+
+      {% for cell in row.cells %}
+      <td class="{% if cell.key == 'last_name' %}cell-name{% elif cell.key == 'brgy_st' or cell.key == 'municipality' or cell.key == 'province' or cell.key == 'award_number' or cell.key == 'cong_dist' %}cell-muted{% endif %}">
+        {% if cell.custom %}
+        {% comment %}
+        The office named this column, so its value is typed here rather than read
+        off the record. The input belongs to the save form by id, not by nesting:
+        an imported row carries its own delete form in the last cell, and a form
+        inside a form is dropped by the browser.
+        {% endcomment %}
+        <input class="scholar-table__extra" form="archColumnForm" value="{{ cell.value }}"
+               name="extra__{{ row.kind }}__{{ row.obj.pk }}__{{ cell.key }}" />
+        {% elif cell.key == 'gwa' and cell.value %}
+        <span class="badge badge-success">{{ cell.value }}</span>
+        {% else %}
+        {{ cell.value|default:"—" }}
+        {% endif %}
+      </td>
+      {% endfor %}
+
+      <td class="cell-actions">
+        {% if row.kind == 'imported' %}
+        <div class="imported-cell">
+          <span>Imported</span>
+          <form method="post" action="/vpsea/archives/imported/{{ row.obj.pk }}/delete/"
+                data-confirm="Delete {{ row.obj.first_name }} {{ row.obj.last_name }}?"
+                data-confirm-detail="This removes the one imported row. The rest of the import is left alone."
+                data-confirm-tone="danger" data-confirm-label="Delete">
+            {% csrf_token %}
+            <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+            <button type="submit" class="btn btn-outline imported-delete">Delete</button>
+          </form>
+        </div>
+        {% elif row.kind == 'staff' %}
+        <button type="button" class="btn btn-outline"
+                onclick="openEdit({{ row.obj.pk }},'{{ row.obj.full_name|escapejs }}','','{{ row.obj.student_id|escapejs }}','{{ row.obj.gender|escapejs }}','{{ row.obj.course|escapejs }}','{{ row.obj.year_level }}','{{ row.obj.barangay|escapejs }}','{{ row.obj.municipality|escapejs }}','{{ row.obj.province|escapejs }}','','','','{{ row.obj.contact_number|escapejs }}','{{ row.obj.school|escapejs }}')">Edit</button>
+        <button type="button" class="btn btn-danger-soft"
+                onclick="openDelete({{ row.obj.pk }},'{{ row.obj.full_name|escapejs }}')">Delete</button>
+        {% else %}
+        <button type="button" class="btn btn-outline"
+                onclick="openEdit({{ row.obj.pk }},'{{ row.obj.student.user.first_name|escapejs }}','{{ row.obj.student.user.last_name|escapejs }}','{{ row.obj.student.student_id|escapejs }}','{{ row.obj.student.gender|escapejs }}','{{ row.obj.student.course|escapejs }}','{{ row.obj.student.year_level }}','{{ row.obj.student.barangay|escapejs }}','{{ row.obj.student.municipality|escapejs }}','{{ row.obj.student.province|escapejs }}','{{ row.obj.student.gwa }}','{{ row.obj.award_number|escapejs }}','{{ row.obj.congress_district|escapejs }}','{{ row.obj.student.contact_number|escapejs }}','{{ row.obj.student.school|escapejs }}')">Edit</button>
+        <button type="button" class="btn btn-danger-soft"
+                onclick="openDelete({{ row.obj.pk }},'{{ row.obj.student.user.last_name|escapejs }}, {{ row.obj.student.user.first_name|escapejs }}')">Delete</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="{{ columns|length|add:2 }}" class="cell-empty">{{ empty_message }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

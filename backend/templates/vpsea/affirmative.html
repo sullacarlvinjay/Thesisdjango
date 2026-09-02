@@ -22,14 +22,6 @@
       {{ academic_apps|length }}
     </span>
   </a>
-  <a href="/vpsea/affirmative/?tab=affirmative"
-     class="btn {% if active_tab == 'affirmative' %}btn-primary{% else %}btn-outline{% endif %}">
-    Affirmative Action
-    <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5"
-          style="background:{% if active_tab == 'affirmative' %}rgba(255,255,255,0.25){% else %}#fff9db{% endif %};color:{% if active_tab == 'affirmative' %}#fff{% else %}#f59f00{% endif %};">
-      {{ affirmative_apps|length }}
-    </span>
-  </a>
   <a href="/vpsea/affirmative/?tab=staff"
      class="btn {% if active_tab == 'staff' %}btn-primary{% else %}btn-outline{% endif %}">
     BiPSU Staff
@@ -42,31 +34,25 @@
 
 {# ── Search / status filter ───────────────────────────────────────────────── #}
 <div class="card p-6">
-  <div class="flex flex-wrap gap-3 mb-5">
-    <input placeholder="Search by name or ID…" style="max-width:20rem;" id="searchInput" oninput="filterTable()" />
-    <select id="statusFilter" onchange="filterTable()" style="width:auto;">
-      <option value="">All Statuses</option>
-      <option>Pending Validation</option>
-      <option>Approved</option>
-      <option>Rejected</option>
-      <option>Needs Revision</option>
-      <option>Draft</option>
-    </select>
+  <div class="filter-scheme mb-5" data-filter-bar data-filter-search="#searchInput">
+    <input placeholder="Search by name or ID…" style="max-width:20rem;" id="searchInput" />
   </div>
 
   {# ══ ACADEMIC TAB ════════════════════════════════════════════════════════ #}
   {% if active_tab == 'academic' %}
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
+    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
       <thead>
         <tr style="border-bottom:1px solid #e8ecf0;">
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Student</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
+          <th data-filter="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">School</th>
+          <th data-filter="Course" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">GWA</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Type</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
+          <th data-filter="Type" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Type</th>
+          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Semester</th>
+          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Date</th>
           <th></th>
         </tr>
@@ -78,19 +64,19 @@
           data-id="{{ app.student.student_id|lower }}"
           data-status="{{ app.status }}"
           data-appid="{{ app.id }}"
-          data-firstname="{{ app.student.user.first_name|escapejs }}"
-          data-lastname="{{ app.student.user.last_name|escapejs }}"
-          data-studentid="{{ app.student.student_id|escapejs }}"
-          data-email="{{ app.student.user.email|escapejs }}"
-          data-course="{{ app.student.course|escapejs }}"
+          data-firstname="{{ app.student.user.first_name }}"
+          data-lastname="{{ app.student.user.last_name }}"
+          data-studentid="{{ app.student.student_id }}"
+          data-email="{{ app.student.user.email }}"
+          data-course="{{ app.student.course }}"
           data-year="{{ app.student.year_level }}"
           data-gwa="{{ app.student.gwa }}"
-          data-gender="{{ app.student.gender|escapejs }}"
+          data-gender="{{ app.student.gender }}"
           data-dob="{{ app.student.date_of_birth|default:'' }}"
-          data-contact="{{ app.student.contact_number|escapejs }}"
-          data-address="{{ app.student.address|escapejs }}"
-          data-scholarship="{{ app.scholarship.name|escapejs }}"
-          data-remarks="{{ app.remarks|escapejs }}"
+          data-contact="{{ app.student.contact_number }}"
+          data-address="{{ app.student.address }}"
+          data-scholarship="{{ app.scholarship.name }}"
+          data-remarks="{{ app.remarks }}"
           data-docs="{% for doc in app.documents.all %}{{ doc.name }}::{{ doc.file.url }}{% if not forloop.last %}||{% endif %}{% endfor %}"
           data-formdata-id="{{ app.id }}">
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">APP-{{ app.id|stringformat:"07d" }}</td>
@@ -105,12 +91,14 @@
               </div>
             </div>
           </td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.school|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.student.course }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.student.year_level }}</td>
           <td style="padding:0.6rem 0.75rem;"><span class="badge badge-muted">{{ app.student.gwa }}</span></td>
           <td style="padding:0.6rem 0.75rem;">{{ app.scholarship.name }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.term_display|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">
-            <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% elif app.status == 'Draft' %}badge-muted{% else %}badge-warning{% endif %}">
+            <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% else %}badge-warning{% endif %}">
               {{ app.status }}
             </span>
           </td>
@@ -123,73 +111,9 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" style="padding:2rem;text-align:center;color:#6b7a99;">No academic applications found.</td></tr>
+        <tr><td colspan="11" style="padding:2rem;text-align:center;color:#6b7a99;">No academic applications found.</td></tr>
         {% endfor %}
         {% for app in academic_apps %}{{ app.form_data|json_script:app.id }}{% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  {# ══ AFFIRMATIVE TAB ═════════════════════════════════════════════════════ #}
-  {% elif active_tab == 'affirmative' %}
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
-      <thead>
-        <tr style="border-bottom:1px solid #e8ecf0;">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SHS GPA</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">SUC Exam</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Submitted</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for app in affirmative_apps %}
-        <tr style="border-bottom:1px solid #f1f3f9;" class="app-row"
-          data-name="{{ app.full_name|lower }}"
-          data-id="{{ app.student_id|lower }}"
-          data-status="{{ app.status }}">
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">AFF-{{ app.id|stringformat:"05d" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
-            <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#f59f00;">
-                {{ app.full_name|first }}
-              </div>
-              <div>
-                <p class="font-medium leading-tight">{{ app.full_name }}</p>
-                <p class="text-xs" style="color:#6b7a99;">{{ app.email }}</p>
-              </div>
-            </div>
-          </td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.course }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.year_level }}</td>
-          <td style="padding:0.6rem 0.75rem;">
-            {% if app.shs_gpa %}<span class="badge {% if app.shs_gpa >= 75 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.shs_gpa }}%</span>{% else %}—{% endif %}
-          </td>
-          <td style="padding:0.6rem 0.75rem;">
-            {% if app.suc_exam_percent is not None %}<span class="badge {% if app.suc_exam_percent >= 50 %}badge-success{% else %}badge-destructive{% endif %}">{{ app.suc_exam_display }}</span>{% else %}—{% endif %}
-          </td>
-          <td style="padding:0.6rem 0.75rem;">
-            <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% elif app.status == 'Draft' %}badge-muted{% else %}badge-warning{% endif %}">
-              {{ app.status }}
-            </span>
-          </td>
-          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
-            <button onclick="openAffModal({{ app.id }}, '{{ app.full_name|escapejs }}', 'Affirmative', '{{ app.course|escapejs }}', '{{ app.shs_gpa|default:'' }}', '{{ app.suc_exam_score|default:'' }}', '{{ app.status }}', '{{ app.remarks|escapejs }}')"
-              class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
-              <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              View
-            </button>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="9" style="padding:2rem;text-align:center;color:#6b7a99;">No Affirmative Action applications found.</td></tr>
-        {% endfor %}
       </tbody>
     </table>
   </div>
@@ -197,17 +121,18 @@
   {# ══ BiPSU STAFF TAB ════════════════════════════════════════════════════════ #}
   {% else %}
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
       <thead>
         <tr style="border-bottom:1px solid #e8ecf0;">
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
+          <th data-filter="Course" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Employment</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Designation</th>
+          <th data-filter="Employment" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Employment</th>
+          <th data-filter="Designation" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Designation</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Date of Reg.</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
+          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Semester</th>
+          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Submitted</th>
           <th></th>
         </tr>
@@ -219,13 +144,13 @@
           data-id="{{ app.student_id|lower }}"
           data-status="{{ app.status }}"
           data-appid="{{ app.id }}"
-          data-fullname="{{ app.full_name|escapejs }}"
-          data-course="{{ app.course|escapejs }}"
-          data-employment="{{ app.employment_status|default:''|escapejs }}"
-          data-designation="{{ app.designation|default:''|escapejs }}"
+          data-fullname="{{ app.full_name }}"
+          data-course="{{ app.course }}"
+          data-employment="{{ app.employment_status|default:'' }}"
+          data-designation="{{ app.designation|default:'' }}"
           data-yos="{{ app.years_of_service|default:'' }}"
           data-doreg="{{ app.date_of_regularization|date:'Y-m-d'|default:'' }}"
-          data-remarks="{{ app.remarks|escapejs }}"
+          data-remarks="{{ app.remarks }}"
           data-docurl="{% if app.appointment_paper %}{{ app.appointment_paper.url }}{% endif %}">
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">STF-{{ app.id|stringformat:"05d" }}</td>
           <td style="padding:0.6rem 0.75rem;">
@@ -244,8 +169,9 @@
           <td style="padding:0.6rem 0.75rem;">{{ app.employment_status|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.designation|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;font-size:0.8rem;">{{ app.date_of_regularization|date:"M d, Y"|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.term_display|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">
-            <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% elif app.status == 'Draft' %}badge-muted{% else %}badge-warning{% endif %}">
+            <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% else %}badge-warning{% endif %}">
               {{ app.status }}
             </span>
           </td>
@@ -259,7 +185,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="10" style="padding:2rem;text-align:center;color:#6b7a99;">No BiPSU Staff applications found.</td></tr>
+        <tr><td colspan="11" style="padding:2rem;text-align:center;color:#6b7a99;">No BiPSU Staff applications found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -351,6 +277,8 @@
 
 {% block extra_js %}
 {% load static %}
+<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script src="{% static 'js/decision-lock.js' %}?v=1"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -463,14 +391,5 @@ function openStaffModal(row) {
 function closeAffModal() { document.getElementById('affModal').style.display = 'none'; }
 
 // ── Table filter ──────────────────────────────────────────────────────────────
-function filterTable() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  const s = document.getElementById('statusFilter').value;
-  document.querySelectorAll('.app-row').forEach(row => {
-    const matchQ = !q || row.dataset.name.includes(q) || (row.dataset.id || '').includes(q);
-    const matchS = !s || row.dataset.status === s;
-    row.style.display = matchQ && matchS ? '' : 'none';
-  });
-}
 </script>
 {% endblock %}

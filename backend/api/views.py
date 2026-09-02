@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
 from django.db.models import Count
 from .models import (
+    STUDENT_DETAILS,
     User, StudentProfile, Scholarship, Application, Notification,
     Announcement, AcademicRenewal, ImportedScholar,
     ActivityLog, SystemSettings,
@@ -170,7 +171,7 @@ class VPSEAStudentRankingView(APIView):
 
         # ── Recommendations tab (enrolled students) ──
         AffirmativeRecommendation.evaluate_and_sync(passing)
-        recs = AffirmativeRecommendation.objects.select_related('student__user').order_by('-fit_score')
+        recs = AffirmativeRecommendation.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-fit_score')
         rec_data = [{
             'id': r.id,
             'student_id': r.student.student_id,
@@ -198,7 +199,7 @@ class VPSEAStudentRankingView(APIView):
 
 class VPSEAApplicationListView(generics.ListAPIView):
     serializer_class = ApplicationSerializer
-    queryset = Application.objects.select_related('student__user', 'scholarship').all()
+    queryset = Application.objects.select_related('student__user', 'scholarship', *STUDENT_DETAILS).all()
 
 
 class VPSEAApplicationDetailView(generics.RetrieveUpdateAPIView):
@@ -217,12 +218,12 @@ class VPSEARenewalListView(generics.ListAPIView):
     serializer_class = AcademicRenewalSerializer
 
     def get_queryset(self):
-        return AcademicRenewal.objects.select_related('student__user').order_by('-submitted_at')
+        return AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-submitted_at')
 
 
 class VPSEARenewalDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = AcademicRenewalSerializer
-    queryset = AcademicRenewal.objects.select_related('student__user').all()
+    queryset = AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).all()
 
     def perform_update(self, serializer):
         renewal = serializer.save()
@@ -283,16 +284,23 @@ def _approval_trend():
 class VPSEAAnalyticsView(APIView):
     def get(self, request):
         from django.db.models.functions import TruncMonth
-        course_dist = (
-            StudentProfile.objects.filter(applications__status='Approved')
-            .values('course').annotate(scholars=Count('id'))
-        )
+        # The course and the GWA are columns on the enrolment row now, so these
+        # aggregate across the relation rather than off the profile table.
+        course_dist = [
+            {'course': row['enrollment__course'], 'scholars': row['scholars']}
+            for row in StudentProfile.objects.filter(applications__status='Approved')
+            .values('enrollment__course').annotate(scholars=Count('id'))
+        ]
+        gwa_bands = [
+            ('1.00-1.25', {'enrollment__gwa__gte': 1.0, 'enrollment__gwa__lte': 1.25}),
+            ('1.26-1.50', {'enrollment__gwa__gt': 1.25, 'enrollment__gwa__lte': 1.50}),
+            ('1.51-1.75', {'enrollment__gwa__gt': 1.50, 'enrollment__gwa__lte': 1.75}),
+            ('1.76-2.00', {'enrollment__gwa__gt': 1.75, 'enrollment__gwa__lte': 2.00}),
+            ('2.01-2.50', {'enrollment__gwa__gt': 2.00, 'enrollment__gwa__lte': 2.50}),
+        ]
         gpa_ranges = [
-            {'range': '1.00-1.25', 'count': StudentProfile.objects.filter(gwa__gte=1.0, gwa__lte=1.25).count()},
-            {'range': '1.26-1.50', 'count': StudentProfile.objects.filter(gwa__gt=1.25, gwa__lte=1.50).count()},
-            {'range': '1.51-1.75', 'count': StudentProfile.objects.filter(gwa__gt=1.50, gwa__lte=1.75).count()},
-            {'range': '1.76-2.00', 'count': StudentProfile.objects.filter(gwa__gt=1.75, gwa__lte=2.00).count()},
-            {'range': '2.01-2.50', 'count': StudentProfile.objects.filter(gwa__gt=2.00, gwa__lte=2.50).count()},
+            {'range': label, 'count': StudentProfile.objects.filter(**band).count()}
+            for label, band in gwa_bands
         ]
         scholarship_dist = (
             Application.objects.filter(status='Approved')

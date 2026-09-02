@@ -932,6 +932,39 @@ tr:hover td      { background: var(--surface-sunken); }
 .report-error svg { flex-shrink: 0; }
 .report-error p   { font-size: 0.875rem; font-weight: 500; }
 
+/* The report controls sit in the head of the card holding the list they act
+   on — the school year, the download and the preview beside the table they
+   describe, rather than in a panel of their own above it. */
+.report-gen-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.report-gen-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.report-gen-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* The preview sheet: 30 CHED columns, so it scrolls sideways inside the
+   dialog rather than stretching it past the viewport. */
+.report-gen-sheet { max-width: 76rem; }
+.report-gen-sheet .table-scroll { max-height: 60vh; overflow-y: auto; }
+.report-gen-sheet th { white-space: nowrap; }
+.report-gen-sheet td { white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .report-gen-head { align-items: stretch; }
+  .report-gen-actions { width: 100%; }
+  .report-gen-actions > .btn,
+  .report-gen-actions > a.btn,
+  .report-gen-actions > form { width: 100%; justify-content: center; }
+  .report-gen-actions .filter-scheme__select { flex: 1 1 auto; max-width: none; }
+}
+
 
 /* --------------------------------------------------------------------------
    13. Responsive
@@ -1978,3 +2011,181 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .modal-sheet-body::-webkit-scrollbar-thumb:hover,
 .modal-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+
+/* ── Archive table column picker ───────────────────────────────────────────
+   On the scholarship form: which columns that programme's archive table shows,
+   and the columns the office adds itself. */
+
+.col-picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--surface-2);
+}
+.col-picker__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.col-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.4rem 0.75rem;
+}
+.col-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+  /* The label is the hit area, so it needs no margin of its own — the grid gap
+     already separates them. */
+  margin: 0;
+}
+.col-picker__option input { width: auto; margin: 0; cursor: pointer; }
+
+.col-picker__custom {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.col-picker__row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.col-picker__row input { flex: 1; }
+.col-picker__remove,
+.col-picker__add { padding: 0.35rem 0.7rem; font-size: 0.75rem; white-space: nowrap; }
+
+/* ── Archive scholar table ─────────────────────────────────────────────────
+   One table for every programme, built from the columns that programme chose. */
+
+.scholar-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.scholar-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border);
+}
+.scholar-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.scholar-table tbody tr:last-child td { border-bottom: none; }
+.scholar-table .cell-no,
+.scholar-table .cell-muted { color: var(--text-muted); font-size: 0.8rem; }
+.scholar-table .cell-name { font-weight: 500; }
+.scholar-table .cell-actions { white-space: nowrap; }
+.scholar-table .cell-empty {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.scholar-table .btn { padding: 0.2rem 0.55rem; font-size: 0.75rem; }
+.scholar-table .btn-danger-soft {
+  background: var(--bad-bg, #fff1f2);
+  color: var(--bad, #e03131);
+  border: 1px solid var(--bad-border, #fecaca);
+}
+.scholar-table__extra { width: 100%; min-width: 6rem; font-size: 0.8rem; padding: 0.25rem 0.4rem; }
+
+.scholar-table__group {
+  background: var(--brand-soft);
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.scholar-table__save {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 0;
+}
+
+
+/* ── Scholars-by-school tally ──────────────────────────────────────────────
+   The exact counts under the chart. A bar says which school is largest; the
+   office still has to read a number off it to put in a report. */
+
+.school-tally {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+}
+.school-tally th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.school-tally td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.school-tally tr:last-child td { border-bottom: none; }
+.school-tally th:last-child,
+.school-tally__count { text-align: right; font-variant-numeric: tabular-nums; }
+
+
+/* ── Sortable table headings ───────────────────────────────────────────────
+   Any <table data-sortable>: the heading is the control, and the caret says
+   which way the column is pointing. */
+
+.is-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  position: relative;
+  padding-right: 1.1rem !important;
+}
+.is-sortable:hover { color: var(--brand); }
+.is-sortable:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+
+/* A faint caret on every sortable heading, so the column reads as clickable
+   before anyone clicks it; the active one is solid and points the sorted way. */
+.is-sortable::after {
+  content: "↕";
+  position: absolute;
+  right: 0.3rem;
+  opacity: 0.3;
+  font-size: 0.85em;
+}
+.is-sortable:hover::after { opacity: 0.6; }
+.is-sortable[data-sort="asc"]::after  { content: "↑"; opacity: 1; color: var(--brand); }
+.is-sortable[data-sort="desc"]::after { content: "↓"; opacity: 1; color: var(--brand); }
+
+
+/* ── Filter schemes ────────────────────────────────────────────────────────
+   Narrow a table to one category at a time. Built by static/js/table-filter.js
+   from the values actually present in the marked columns. */
+
+.filter-scheme {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.filter-scheme__select {
+  width: auto;
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.6rem;
+  max-width: 14rem;
+}
+.filter-scheme__count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.filter-scheme__clear { padding: 0.35rem 0.7rem; font-size: 0.75rem; }

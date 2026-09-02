@@ -7,7 +7,7 @@ asks for them separately and a combined name cannot be split back reliably.
 """
 from django.test import Client, TestCase
 
-from api.models import StudentProfile, TESApplication, User
+from api.models import FamilyBackground, StudentProfile, TESApplication, User
 
 
 class ProfileHoldsTheParentNamesTest(TestCase):
@@ -99,7 +99,9 @@ class TESReadsTheNamesOffTheProfileTest(TestCase):
         self.assertNotIn('name="middle_name"', html)
 
     def test_the_form_says_so_when_the_profile_is_missing_the_names(self):
-        StudentProfile.objects.filter(pk=self.profile.pk).update(
+        # A bulk update has to name the table the columns are on — the profile's
+        # proxies work on an instance, not on a queryset.
+        FamilyBackground.objects.filter(student=self.profile).update(
             father_last_name='', mother_last_name='')
         html = self.c.get('/student/apply/tes/').content.decode()
         self.assertIn('add it in My Profile', html)
@@ -123,7 +125,7 @@ class TESReadsTheNamesOffTheProfileTest(TestCase):
         self.c.post('/student/apply/tes/', {
             'lrn': '1', 'birthdate': '2004-01-01', 'complete_program': 'BSCS',
             'is_solo_parent_dependent': '0'})
-        StudentProfile.objects.filter(pk=self.profile.pk).update(father_first_name='Juanito')
+        FamilyBackground.objects.filter(student=self.profile).update(father_first_name='Juanito')
         tes = TESApplication.objects.get(student=self.profile)
         tes.refresh_from_db()
         self.assertEqual(tes.student.father_first_name, 'Juanito',

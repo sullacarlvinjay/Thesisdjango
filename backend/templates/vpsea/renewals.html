@@ -14,9 +14,10 @@
 </div>
 
 <div class="card p-6">
+  <div class="filter-scheme mb-4" data-filter-bar></div>
   <h3 class="font-semibold mb-4">Renewal Submissions</h3>
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
       <thead>
         <tr style="border-bottom:1px solid #e8ecf0;">
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
@@ -24,8 +25,9 @@
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Student ID</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">COG</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">COE</th>
+          <th data-filter="Term" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Term</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Submitted</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
+          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
           <th></th>
         </tr>
       </thead>
@@ -41,6 +43,7 @@
           <td style="padding:0.6rem 0.75rem;">
             {% if r.certificate_of_enrollment %}<a href="{{ r.certificate_of_enrollment.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Enrollment" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:#6b7a99;">—</span>{% endif %}
           </td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ r.term_display|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ r.submitted_at|date:"M d, Y" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <span class="badge {% if r.status == 'Approved' %}badge-success{% elif r.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %}">{{ r.status }}</span>
@@ -50,7 +53,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" style="padding:2rem;text-align:center;color:#6b7a99;">No renewal applications found.</td></tr>
+        <tr><td colspan="9" style="padding:2rem;text-align:center;color:#6b7a99;">No renewal applications found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -81,6 +84,9 @@
 {% endblock %}
 
 {% block extra_js %}
+{% load static %}
+<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script>
 function openRenModal(id, name) {
   document.getElementById('renModalId').value = id;

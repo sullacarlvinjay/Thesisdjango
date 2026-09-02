@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ action }} Scholarship — BiPSU SRMS{% endblock %}
+
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}{{ action }} Scholarship Program{% endblock %}
@@ -60,10 +61,52 @@
       </div>
     </div>
 
+    {# ── Which columns this programme's archive table shows ──────────────── #}
+    <div class="col-picker mb-6">
+      <label class="text-sm font-medium block mb-1">Archive Table Columns</label>
+      <p class="col-picker__hint">
+        Tick the columns to show when this programme is listed under Archives.
+        Leave every box clear to use the standard set.
+      </p>
+
+      <div class="col-picker__grid">
+        {% for col in column_catalogue %}
+        <label class="col-picker__option">
+          <input type="checkbox" name="table_columns" value="{{ col.key }}"
+                 {% if col.key in chosen_columns %}checked{% endif %} />
+          <span>{{ col.label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div class="col-picker__custom">
+        <p class="col-picker__hint">
+          Need a column that is not on the list? Name it here and it is added to
+          the table with a box on every scholar's row to type their value into.
+        </p>
+        <div id="customColumns">
+          {% for col in custom_columns %}
+          <div class="col-picker__row">
+            <input name="extra_columns" value="{{ col.label }}" placeholder="e.g. Batch, Adviser" />
+            <button type="button" class="btn btn-outline col-picker__remove">Remove</button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" id="addCustomColumn" class="btn btn-outline col-picker__add">
+          + Add column
+        </button>
+      </div>
+    </div>
+
     <div class="flex gap-3">
       <button type="submit" class="btn btn-primary">{{ action }} Scholarship</button>
       <a href="/vpsea/scholarships/" class="btn btn-outline">Cancel</a>
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/column-picker.js' %}?v=1"></script>
 {% endblock %}

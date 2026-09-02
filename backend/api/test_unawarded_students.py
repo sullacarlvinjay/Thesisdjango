@@ -98,10 +98,10 @@ class UnawardedStudentsTest(TestCase):
     def test_each_row_says_what_the_office_would_have_to_do(self):
         never = self._student('Abad', '2024-0010')
         pending = self._student('Bello', '2024-0011')
-        draft = self._student('Cruz', '2024-0012')
+        revising = self._student('Cruz', '2024-0012')
         rejected = self._student('Dizon', '2024-0013')
         self._app(pending, 'Pending Validation')
-        self._app(draft, 'Draft')
+        self._app(revising, 'Needs Revision')
         self._app(rejected, 'Rejected')
 
         ctx = self._rows().context
@@ -109,7 +109,9 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(states, {
             '2024-0010': 'never',
             '2024-0011': 'pending',
-            '2024-0012': 'draft',
+            # Sent back for a correction is still waiting on the student, which
+            # from this tab's point of view is the same as pending.
+            '2024-0012': 'pending',
             '2024-0013': 'rejected',
         })
         self.assertEqual(ctx['total'], 4)

@@ -44,14 +44,15 @@ COLLEGE_SCHOLAR_MAX_GWA = 1.50
 
 # ── Workflow statuses ───────────────────────────────────────────────────────
 
-# Full review lifecycle: scholarship applications that can be saved as a draft
-# and sent back for correction.
+# Full review lifecycle: scholarship applications, which can be sent back for
+# correction. There is no draft — a submission the office cannot see is one
+# nobody can act on. An applicant corrects a real submission instead, for as
+# long as it has no decision on it; see EDITABLE_APPLICATION_STATUSES.
 APPLICATION_STATUSES = [
     ('Pending Validation', 'Pending Validation'),
     ('Approved', 'Approved'),
     ('Rejected', 'Rejected'),
     ('Needs Revision', 'Needs Revision'),
-    ('Draft', 'Draft'),
 ]
 
 # Simple review lifecycle: submissions that are only ever waved through or
@@ -66,10 +67,20 @@ REVIEW_STATUSES = [
 # screen must refuse to overwrite them: an approval quietly turned into a
 # rejection days later leaves the applicant holding a notification that no
 # longer matches their record, and nothing saying who changed it or why.
-# Everything not listed here — Pending Validation, Draft, Pending — is a
+# Everything not listed here — Pending Validation, Pending — is a
 # submission still waiting on the office.
 DECIDED_APPLICATION_STATUSES = ('Approved', 'Rejected', 'Needs Revision')
 DECIDED_REVIEW_STATUSES = ('Approved', 'Rejected')
+
+# The other side of the same line: what the APPLICANT may still change.
+#
+# A submission stays open to correction until a decision lands on it, and
+# 'Needs Revision' is the office asking for exactly that — the student uploaded
+# the wrong document and is being told to send it again. Approved and Rejected
+# are final, and a student can no more edit those than a reviewer can overwrite
+# them.
+EDITABLE_APPLICATION_STATUSES = ('Pending Validation', 'Needs Revision')
+EDITABLE_REVIEW_STATUSES = ('Pending',)
 
 RECOMMENDATION_STATUSES = [
     ('Recommended', 'Recommended'),
@@ -149,6 +160,15 @@ APPLICATION_SOURCES = [
 SEMESTERS = [
     ('1st Semester', '1st Semester'),
     ('2nd Semester', '2nd Semester'),
+]
+
+# The programme level a student is enrolled at. Recorded on EnrollmentData
+# alongside the course, because a course name alone does not say it — BSN is
+# undergraduate, an MA in the same school is not.
+STUDENT_LEVELS = [
+    ('Undergraduate', 'Undergraduate'),
+    ('Graduate', 'Graduate'),
+    ('Post-Graduate', 'Post-Graduate'),
 ]
 
 

@@ -3,7 +3,7 @@
 {% block logo_src %}/media/logos/UniFAST.png{% endblock %}
 {% block brand %}UniFAST{% endblock %}
 {% block page_title %}Reports{% endblock %}
-{% block page_subtitle %}TES validation &amp; billing — CHED Annex 2 (Continuing){% endblock %}
+{% block page_subtitle %}TES and TDP, one school year at a time{% endblock %}
 {% block nav %}{% include "unifast/_nav.html" with active="reports" %}{% endblock %}
 
 {% block content %}
@@ -20,76 +20,94 @@
   <div class="card p-5 flex flex-wrap items-end justify-between gap-4">
     <form method="get" class="filter-form flex flex-wrap items-end gap-3">
       <div class="space-y-1.5 filter-form-field">
-        <label>TES Batch</label>
-        <input name="batch" value="{{ batch }}" placeholder="e.g. On-going (10,11,12,12.1,13,13.1 &amp; 13.2)"
-               class="field-wide" />
+        <label for="reportYear">School Year</label>
+        {% comment %}
+          What both reports below are generated for: it scopes the grantee and
+          scholar lists and is the year printed in their headers. 'All school
+          years' is the default, so the page reports what it always has until a
+          year is chosen.
+        {% endcomment %}
+        <select name="sy" id="reportYear">
+          <option value="">All school years</option>
+          {% for year in school_years %}
+          <option value="{{ year }}" {% if year == school_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
       </div>
       <button type="submit" class="btn btn-outline">Apply</button>
     </form>
     <div class="report-preview-actions">
-      {% if template_available %}
-      <a href="/unifast/reports/download/tes/{% if batch %}?batch={{ batch|urlencode }}{% endif %}"
-         class="btn btn-primary flex items-center gap-1">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Download CHED workbook (.xlsx)
+      <a href="/unifast/reports/download/excel/?sy={{ school_year|urlencode }}" class="btn btn-outline">
+        Combined TDP/TES masterlist
       </a>
-      {% else %}
-      <span class="badge badge-destructive">Workbook template missing</span>
-      {% endif %}
-      <a href="/unifast/reports/download/excel/" class="btn btn-outline">Plain TDP/TES masterlist</a>
     </div>
   </div>
 
   <div class="card p-5 report-note">
     <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <div>
-      <p class="report-note-title">The download is the office's own workbook, filled in</p>
+      <p class="report-note-title">One report for each programme UniFAST administers</p>
       <p class="report-note-body">
-        All four sheets are preserved — Official List, Annex 2-Form 1, Form 2 and Form 4 — with their
-        instructions, formulas and signatory blocks intact. Filling the Form 2 amounts makes the totals,
-        the 1% management fee and the whole Form 1 billing statement compute themselves in Excel.
+        <strong>TES</strong> is CHED's own Annex 2 workbook, filled in — all four sheets, with their
+        instructions, formulas and signatory blocks intact, so entering the Form 2 amounts makes the
+        totals, the 1% management fee and the whole Form 1 billing statement compute themselves in
+        Excel. <strong>TDP</strong> is the BiPSU scholars masterlist for Tulong Dunong, split by
+        gender the way the office reads it.
         {% if exact_preview %}
-        The frame below is that workbook, converted to PDF — every sheet, exactly as it prints.
+        Each frame below is that file, converted to PDF — exactly as it prints.
         {% else %}
-        The frame below is a stand-in for it: the same Official List rows, drawn here rather than
-        being the workbook itself. Install LibreOffice and it becomes the XLSX exactly as it prints.
+        Each frame below is a stand-in drawn here rather than being the file itself. Install
+        LibreOffice and both become the workbooks exactly as they print.
         {% endif %}
+        Annex 1 — the list of TES <em>applicants</em>, decided or not — is generated from
+        <a href="/unifast/tes-applications/">TES Applications</a>, and the button below is a shortcut
+        to it for whichever school year is selected here.
       </p>
     </div>
   </div>
 
-  <!-- Summary -->
+  {% comment %} ── TES ──────────────────────────────────────────────────── {% endcomment %}
   <div class="grid sm:grid-cols-2 gap-4">
-    <div class="card p-5"><p class="report-stat-label">Grantees</p><p class="report-stat-value">{{ tes_total }}</p></div>
+    <div class="card p-5"><p class="report-stat-label">TES grantees</p><p class="report-stat-value">{{ tes_total }}</p></div>
     <div class="card p-5"><p class="report-stat-label">With disability (TES-3A)</p><p class="report-stat-value report-stat-value-accent">{{ pwd_count }}</p></div>
   </div>
-  <p class="report-preview-sub">
-    Both amount columns export blank. CHED sets what each grantee is paid, so
-    the office enters those figures in the workbook rather than the system
-    assuming a rate.
-  </p>
 
-  <!-- The Official List sheet itself -->
   <div class="card report-preview">
     <div class="report-preview-bar">
       <div>
-        <p class="report-preview-label">{% if exact_preview %}CHED workbook preview{% else %}Official List preview{% endif %}</p>
+        <p class="report-preview-label">TES — {% if exact_preview %}CHED workbook preview{% else %}Official List preview{% endif %}</p>
         <p class="report-preview-sub">
           {% if tes_total %}
-            TES Batch {{ batch|default:"On-going" }}, {{ semester }}, AY {{ ay }}.
+            {{ semester }}, AY {{ ay }}{% if not school_year %} — every school year on record{% endif %}.
+            Both amount columns export blank: CHED sets what each grantee is paid, so the office
+            enters those figures in the workbook rather than the system assuming a rate.
           {% else %}
-            No approved TES grantees yet — the form previews empty. Approve applications under
-            <a href="/unifast/tes-applications/">TES Applications</a> and they appear here.
+            No approved TES grantees{% if school_year %} for {{ school_year }}{% endif %} yet — the form previews empty.
+            Approve applications under <a href="/unifast/tes-applications/">TES Applications</a> and they appear here.
           {% endif %}
         </p>
       </div>
       <div class="report-preview-actions">
-        <a href="/unifast/reports/preview/{% if batch %}?batch={{ batch|urlencode }}{% endif %}"
-           target="_blank" rel="noopener" class="btn btn-outline">Open PDF in a new tab</a>
+        {% if template_available %}
+        <a href="/unifast/reports/download/tes/?sy={{ school_year|urlencode }}"
+           class="btn btn-primary flex items-center gap-1">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          CHED workbook (.xlsx)
+        </a>
+        {% else %}
+        <span class="badge badge-destructive">Workbook template missing</span>
+        {% endif %}
+        {% if annex1_available %}
+        <a href="/unifast/tes-applications/report/?sy={{ school_year|urlencode }}" class="btn btn-outline">
+          Annex 1 — applicants (.xlsm)
+        </a>
+        {% endif %}
+        <a href="/unifast/reports/preview/?sy={{ school_year|urlencode }}"
+           target="_blank" rel="noopener" class="btn btn-outline">Open PDF</a>
       </div>
     </div>
     <iframe class="report-preview-frame"
-            src="/unifast/reports/preview/{% if batch %}?batch={{ batch|urlencode }}{% endif %}"
+            src="/unifast/reports/preview/?sy={{ school_year|urlencode }}"
             title="CHED Official List — preview">
       <p class="report-preview-fallback">
         This browser will not display a PDF here.
@@ -98,21 +116,46 @@
     </iframe>
   </div>
 
-  <!-- Plain masterlist, kept for the TDP side -->
-  <div class="card p-6">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-      <h3 class="font-semibold">TDP / TES masterlist</h3>
-      <span class="badge badge-muted">{{ grand_total }} scholar{{ grand_total|pluralize }}</span>
+  {% comment %} ── TDP ──────────────────────────────────────────────────── {% endcomment %}
+  <div class="grid sm:grid-cols-3 gap-4">
+    <div class="card p-5"><p class="report-stat-label">TDP scholars</p><p class="report-stat-value">{{ tdp_total }}</p></div>
+    <div class="card p-5"><p class="report-stat-label">Female</p><p class="report-stat-value report-stat-value-accent">{{ tdp_female }}</p></div>
+    <div class="card p-5"><p class="report-stat-label">Male</p><p class="report-stat-value report-stat-value-accent">{{ tdp_male }}</p></div>
+  </div>
+
+  <div class="card report-preview">
+    <div class="report-preview-bar">
+      <div>
+        <p class="report-preview-label">TDP — Tulong Dunong Program masterlist</p>
+        <p class="report-preview-sub">
+          {% if tdp_total %}
+            {{ semester }}, AY {{ ay }}{% if not school_year %} — every school year on record{% endif %}.
+            Approved TDP scholars, split by gender the way the office's masterlist reads.
+          {% else %}
+            No approved TDP scholars{% if school_year %} for {{ school_year }}{% endif %} yet — the list previews empty.
+            TDP scholars are recorded from the office's own import under
+            <a href="/unifast/archives/">Archives</a>.
+          {% endif %}
+        </p>
+      </div>
+      <div class="report-preview-actions">
+        <a href="/unifast/reports/download/tdp/?sy={{ school_year|urlencode }}"
+           class="btn btn-primary flex items-center gap-1">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          TDP masterlist (.xlsx)
+        </a>
+        <a href="/unifast/reports/preview/tdp/?sy={{ school_year|urlencode }}"
+           target="_blank" rel="noopener" class="btn btn-outline">Open PDF</a>
+      </div>
     </div>
-    <p class="report-preview-sub">
-      The internal BiPSU masterlist across both programs UniFAST administers, split by gender.
-      Use the CHED workbook above for anything submitted to CHEDRO.
-    </p>
-    <div class="mt-3 flex flex-wrap gap-4 text-xs">
-      {% for section in sections %}
-      <span class="report-preview-sub"><strong class="report-preview-label">{{ section.title }}</strong> — {{ section.total }}</span>
-      {% endfor %}
-    </div>
+    <iframe class="report-preview-frame"
+            src="/unifast/reports/preview/tdp/?sy={{ school_year|urlencode }}"
+            title="TDP masterlist — preview">
+      <p class="report-preview-fallback">
+        This browser will not display a PDF here.
+        <a href="/unifast/reports/preview/tdp/">Open the preview in a new tab</a> instead.
+      </p>
+    </iframe>
   </div>
 
 </div>

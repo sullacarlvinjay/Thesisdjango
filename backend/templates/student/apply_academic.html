@@ -19,6 +19,16 @@
 {% endblock %}
 
 {% block content %}
+{% if editing %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm" style="background:var(--info-bg,#eff6ff);color:#1971c2;border:1px solid #bfdbfe;">
+  <strong>{% if editing.status == 'Needs Revision' %}The office asked for a correction.{% else %}Your application is waiting for review.{% endif %}</strong>
+  You can still change it here — sending it again replaces what the office has.
+  {% if editing.remarks %}<br />Remarks: {{ editing.remarks }}{% endif %}
+  {% if submitted_documents %}
+  <br />On file: {% for d in submitted_documents %}{{ d.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+  {% endif %}
+</div>
+{% endif %}
 {% if blocked %}
 <div class="card p-5 flex items-center gap-3 mb-6" style="border-color:#e03131;background:#fff5f5;">
   <svg class="h-5 w-5 shrink-0" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
@@ -146,7 +156,7 @@
         {% endcomment %}
         <div id="validationResult" class="p-4 rounded-xl {% if eligible %}bg-green-50{% else %}bg-red-50{% endif %}">
           <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
-          <p class="text-xl font-bold mt-1 {% if eligible %}text-green-600{% else %}text-red-600{% endif %}" id="classificationText">{{ classification|default:"Enter your GWA" }}</p>
+          <p class="text-xl font-bold mt-1 {% if eligible %}text-green-600{% else %}text-red-600{% endif %}" id="classificationText">{{ classification|default:"Enter your GWA below" }}</p>
           <p class="text-xs mt-2" id="gwaReadout">GWA {{ profile.gwa|floatformat:2 }}</p>
         </div>
         <div class="mt-4 space-y-2 text-xs">
@@ -157,7 +167,13 @@
             <span class="badge badge-muted" id="ruleCollege">—</span>
           </div>
         </div>
-        <button type="submit" name="action" value="submit" class="btn btn-primary w-full mt-6">Submit Application</button>
+        <button type="submit" name="action" value="submit" class="btn btn-primary w-full mt-6">{% if editing %}Update Application{% else %}Submit Application{% endif %}</button>
+        {% if editing %}
+        <p class="text-xs mt-2" style="color:var(--text-muted);">
+          Re-uploading a document replaces the one on file. You can keep correcting
+          this until the office decides on it.
+        </p>
+        {% endif %}
         <p class="text-xs mt-3 text-center" style="color:#6b7a99;" id="cacheStatus"></p>
       </div>
     </div>
@@ -216,7 +232,7 @@
     mark(ruleCollege, entered && gwa <= COLLEGE_MAX);
 
     let label, ok;
-    if (!entered) { label = 'Enter your GWA'; ok = null; }
+    if (!entered) { label = 'Enter your GWA below'; ok = null; }
     else if (gwa <= UNIVERSITY_MAX) { label = 'University Scholar'; ok = true; }
     else if (gwa <= COLLEGE_MAX) { label = 'College Scholar'; ok = true; }
     else { label = 'Not Eligible'; ok = false; }

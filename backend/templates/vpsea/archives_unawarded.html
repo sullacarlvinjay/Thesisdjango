@@ -84,8 +84,6 @@
             <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">
               {% if row.state == 'never' %}
                 <span style="color:#6b7a99;">Never applied</span>
-              {% elif row.state == 'draft' %}
-                <span style="color:#b45309;font-weight:600;">Draft</span>
                 <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
               {% elif row.state == 'rejected' %}
                 <span style="color:#e03131;font-weight:600;">Rejected</span>

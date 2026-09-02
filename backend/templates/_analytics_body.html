@@ -85,6 +85,31 @@
     </div>
     {% endif %}
 
+    <!-- Scholars by School -->
+    <div class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 class="font-semibold">Scholars by School</h3>
+        <div class="flex items-center gap-2">
+          {% if school_dist %}<div class="flex gap-1" id="schoolChartToggle"></div>{% endif %}
+          {% if school_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="schoolChart" data-png-name="scholars-by-school">&#8681; PNG</button>{% endif %}
+        </div>
+      </div>
+      <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
+      {% if school_dist %}
+      <canvas id="schoolChart" height="180"></canvas>
+      <table class="school-tally">
+        <thead><tr><th>School</th><th>Scholars</th></tr></thead>
+        <tbody>
+          {% for s in school_dist %}
+          <tr><td>{{ s.school }}</td><td class="school-tally__count">{{ s.scholars }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:#6b7a99;font-size:0.875rem;">No scholars on record for this selection.</p>
+      {% endif %}
+    </div>
+
     <!-- Scholars by Course -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">

@@ -38,7 +38,6 @@
             <td style="padding:0.7rem 1rem;">
               {% if a.status == "Approved" or a.status == "Endorsed" %}<span class="badge badge-success">{{ a.status }}</span>
               {% elif a.status == "Rejected" or a.status == "Disqualified" %}<span class="badge badge-destructive">{{ a.status }}</span>
-              {% elif a.status == "Draft" %}<span class="badge badge-muted">{{ a.status }}</span>
               {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
             </td>
             <td style="padding:0.7rem 1rem;font-size:0.85rem;color:#6b7a99;">{{ a.remarks|default:"—" }}</td>
@@ -188,11 +187,6 @@
       <div class="detail-field"><label>Last Updated</label><span>{{ a.updated_at|date:"M d, Y" }}</span></div>
     </div>
 
-    {% if a.status == "Draft" %}
-    <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
-      <a href="/nsu-staff/apply/" class="btn btn-primary" style="font-size:0.875rem;">Continue Draft →</a>
-    </div>
-    {% endif %}
 
   </div>
   {% endfor %}

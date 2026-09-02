@@ -187,10 +187,20 @@
             <input name="school_id" value="{{ post.school_id }}" placeholder="e.g. 32-1-213313" />
           </div>
 
+          <div class="space-y-1.5">
+            <label>School</label>
+            <select name="staff_school">
+              <option value="">— Select School —</option>
+              {% for val, label in bipsu_schools %}
+              <option value="{{ val }}" {% if post.staff_school == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Department</label>
-              <input name="department" value="{{ post.department }}" placeholder="e.g. School of Engineering" />
+              <input name="department" value="{{ post.department }}" placeholder="e.g. Computer Science Department" />
             </div>
             <div class="space-y-1.5">
               <label>Position</label>

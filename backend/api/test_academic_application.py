@@ -102,17 +102,22 @@ class DraftingIsGoneTest(TestCase):
         self.assertIn('form-cache.js', html)
 
     def test_a_posted_draft_action_is_submitted_anyway_not_parked(self):
-        # Nothing renders this button any more, but a stale tab might still post
-        # it — it must not create a half-finished row the office has to chase.
+        # The Draft status is gone, but a stale tab can still post the button
+        # that used to save one — it must land as a real submission rather than
+        # a half-finished row the office has to chase.
         self.c.post('/student/apply/academic/',
                     {'action': 'draft', 'gwa': '1.4', 'semester': '1st Semester'})
         app = Application.objects.get(student=self.profile)
         self.assertEqual(app.status, 'Pending Validation')
 
     def test_the_blocked_page_does_not_ship_a_broken_script(self):
+        # Approved is what blocks the page now: a pending application renders
+        # the form again so the student can correct it. Approved has no GWA
+        # ceilings in its context, and rendering the script anyway produced
+        # `const UNIVERSITY_MAX = ;`.
         Application.objects.create(
             student=self.profile, scholarship=Scholarship.objects.first(),
-            status='Pending Validation', form_data={})
+            status='Approved', form_data={})
         html = self.c.get('/student/apply/academic/').content.decode()
         # The GWA ceilings are not in a blocked page's context; rendering the
         # script anyway produced `const UNIVERSITY_MAX = ;`.

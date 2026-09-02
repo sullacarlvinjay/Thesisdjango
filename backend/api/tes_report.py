@@ -45,12 +45,36 @@ def _is_pwd(tes):
     return bool(value) and value not in ('n/a', 'na', 'none', 'not applicable')
 
 
-def grantee_rows(batch=''):
+def school_year_options():
+    """The school years a TES report can be generated for, newest first.
+
+    Every year TES applications were actually submitted in, plus the active
+    term from SystemSettings — so the year the office is working in is always
+    on the list even before the first application of it comes in. Shared by
+    both TES reports; :mod:`api.annex1_report` reads the same list.
+    """
+    from .models import SystemSettings, TESApplication
+
+    years = set(
+        TESApplication.objects
+        .exclude(school_year='')
+        .values_list('school_year', flat=True)
+    )
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    active = SystemSettings.parse_label(settings_obj.academic_year)['sy']
+    if active:
+        years.add(active)
+    return sorted(years, reverse=True)
+
+
+def grantee_rows(batch='', school_year=''):
     """Approved TES grantees in the column order the CHED form expects.
 
     Sourced from the TES applications this portal reviews. The award number is
     read directly from TESApplication.award_number (set by UniFAST staff during
-    the review decision).
+    the review decision). ``school_year`` is the expanded '2026-2027' form;
+    blank means every year, which is what this returned before the office could
+    pick one.
     """
     from .models import TESApplication
 
@@ -60,6 +84,8 @@ def grantee_rows(batch=''):
         .select_related('student__user')
         .order_by('student__user__last_name', 'student__user__first_name')
     )
+    if school_year:
+        grantees = grantees.filter(school_year=school_year)
     for seq, tes in enumerate(grantees, 1):
         p = tes.student
         u = p.user
@@ -132,8 +158,14 @@ def _fill(ws, spec, rows, layout):
     return written
 
 
-def build_workbook(academic_year, semester, batch=''):
-    """Return ``(BytesIO, written, overflow)`` for the filled CHED workbook."""
+def build_workbook(academic_year, semester, batch='', school_year=''):
+    """Return ``(BytesIO, written, overflow)`` for the filled CHED workbook.
+
+    ``academic_year`` is what gets printed in the sheet headers; ``school_year``
+    is what the grantee list is filtered on. They are the same value whenever
+    the office picks a year, and are kept apart only so a caller can still print
+    a header over an unfiltered list, as this did before the picker existed.
+    """
     import openpyxl
     from io import BytesIO
 
@@ -143,7 +175,7 @@ def build_workbook(academic_year, semester, batch=''):
             'Restore it from the office copy before generating this report.'
         )
 
-    all_rows = grantee_rows(batch=batch)
+    all_rows = grantee_rows(batch=batch, school_year=school_year)
     # Both sheets must list the same grantees, so the smaller pre-formatted
     # range is the real capacity. Anything past it is reported, not silently
     # dropped — the office would need extra lines inserted in the template.

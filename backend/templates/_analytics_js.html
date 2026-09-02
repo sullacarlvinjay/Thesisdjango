@@ -187,6 +187,45 @@ gwaRef.chart = buildGwaChart('bar');
 makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
 {% endif %}
 
+// ── School Chart ──────────────────────────────────────────────────────────────
+{% if school_dist %}
+const sLabels = [{% for s in school_dist %}'{{ s.school|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const sData   = [{% for s in school_dist %}{{ s.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const schoolRef = {};
+function buildSchoolChart(type) {
+  const isPie = type === 'pie' || type === 'doughnut';
+  return new Chart(document.getElementById('schoolChart'), {
+    type: isPie ? type : 'bar',
+    data: {
+      labels: sLabels,
+      datasets: [{
+        label: 'Scholars',
+        data: sData,
+        backgroundColor: isPie ? PIE_COLORS : '#7048e8',
+        borderColor: '#7048e8',
+        borderWidth: isPie ? 1 : 2,
+        borderRadius: isPie ? 0 : 6,
+        fill: type === 'line',
+        tension: 0.4,
+      }],
+    },
+    options: {
+      // Horizontal by default: a school's name is a sentence, and it has room
+      // to be read on the y-axis where it would be turned on its side below.
+      indexAxis: (!isPie && type !== 'line') ? 'y' : 'x',
+      responsive: true,
+      plugins: { legend: { display: isPie } },
+      scales: isPie ? {} : {
+        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
+        y: { grid: { color: gridColor } },
+      },
+    },
+  });
+}
+schoolRef.chart = buildSchoolChart('bar');
+makeToggle('schoolChartToggle', schoolRef, ['bar','pie','doughnut','line'], buildSchoolChart);
+{% endif %}
+
 // ── Course Chart ──────────────────────────────────────────────────────────────
 {% if course_dist %}
 const cLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];

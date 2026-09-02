@@ -359,11 +359,56 @@ TES_INSTRUCTIONS = [
 ]
 
 
-def tes_official_list_pdf(academic_year, semester, batch=''):
+def programme_masterlist_pdf(heading, sections, academic_year, semester):
+    """Return a BytesIO — one UniFAST programme's scholars laid out as a page.
+
+    ``sections`` is what ``_unifast_report_sections`` builds, so the page and the
+    workbook it stands in for are drawn from the same rows. Used for the TDP
+    frame on the Reports tab where no converter is installed to render the
+    workbook itself.
+    """
+    story = _letterhead([
+        ('Republic of the Philippines', SUBTITLE),
+        ('BILIRAN PROVINCE STATE UNIVERSITY', TITLE),
+        ('Naval, Biliran', SUBTITLE),
+        (f'{heading} — {semester} SY: {academic_year}', PERIOD),
+    ])
+
+    for section in sections:
+        # Numbered per group, the way the workbook numbers them.
+        groups = [(label, [_masterlist_cells(i, r) for i, r in enumerate(rows, 1)])
+                  for label, rows in section['groups']]
+        # One width set for the whole programme, so its FEMALE and MALE tables
+        # line up column for column instead of drifting apart on row content.
+        widths = _column_widths(
+            section['headers'], [r for _label, rows in groups for r in rows])
+
+        story.append(CondPageBreak(1.2 * inch))
+        story.append(_banner(f"{section['title']}  ({section['total']} scholars)"))
+        for label, rows in groups:
+            story.append(Paragraph(label, GROUP))
+            story.append(_table(section['headers'], rows, widths))
+        story.append(Spacer(1, 12))
+
+    story.append(CondPageBreak(1.4 * inch))
+    story.extend(_signatories(MASTERLIST_SIGNATORIES))
+    return _build(story, f'{heading} {academic_year}')
+
+
+def _masterlist_cells(number, row):
+    """One section row in the column order ``_unifast_report_sections`` heads it."""
+    return [
+        number, row['award'], row['last'], row['first'], row['mi'], row['sex'],
+        row['brgy'], row['mun'], row['prov'], row['cong'], row['student_no'],
+        row['course'], row['yr'], row['scholarship'],
+    ]
+
+
+def tes_official_list_pdf(academic_year, semester, batch='', school_year=''):
     """Return ``(BytesIO, rows)`` — the CHED 'Official List' sheet as a page."""
     from . import tes_report
 
-    rows = tes_report.grantee_rows(batch=batch)
+    rows = tes_report.grantee_rows(batch=batch, school_year=school_year)
     headers = tes_report.OFFICIAL_LIST_HEADERS
     values = [tes_report.row_values(r) for r in rows]
 

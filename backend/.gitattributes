@@ -15,3 +15,4 @@
 *.jpeg binary
 *.ico binary
 *.sqlite3 binary
+*.xlsm binary
