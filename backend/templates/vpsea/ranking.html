@@ -14,7 +14,6 @@
 
 {# ── Passing-threshold + Re-evaluate controls ─────────────────────────── #}
 <form method="get" action="/vpsea/ranking/" class="card p-4 mb-5 flex flex-wrap items-end gap-4">
-  <input type="hidden" name="tab" value="{{ tab }}">
   <div class="space-y-1">
     <label class="text-xs font-medium" style="color:#6b7a99;">Passing GPA threshold (%)</label>
     <input name="passing" type="number" step="0.5" min="50" max="100"
@@ -23,138 +22,7 @@
   <button type="submit" class="btn btn-outline">Apply</button>
 </form>
 
-{# ── Page-level tabs: Applicants | Recommended Students ───────────────── #}
-<div class="flex gap-0 mb-5 border-b" style="border-color:#e8ecf0;">
-  <a href="/vpsea/ranking/?tab=applicants&passing={{ passing_threshold }}"
-     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px
-            {% if tab == 'applicants' %}border-blue-600" style="color:#3b5bdb;border-color:#3b5bdb;
-            {% else %}border-transparent" style="color:#6b7a99;
-            {% endif %}">
-    Applicants
-    <span class="ml-1 rounded-full px-2 py-0.5 text-xs" style="background:#e8ecf0;">{{ total_applicants }}</span>
-  </a>
-  <a href="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}"
-     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px
-            {% if tab == 'recommended' %}border-blue-600{% else %}border-transparent{% endif %}"
-     style="{% if tab == 'recommended' %}color:#3b5bdb;border-color:#3b5bdb;{% else %}color:#6b7a99;{% endif %}">
-    Recommended Students
-    <span class="ml-1 rounded-full px-2 py-0.5 text-xs"
-          style="background:{% if eligible_count %}#bbf7d0;color:#2f9e44;{% else %}#e8ecf0;color:#6b7a99;{% endif %}">
-      {{ eligible_count }}
-    </span>
-  </a>
-</div>
-
-{# ═══════════════════ TAB: APPLICANTS ════════════════════════════════════ #}
-{% if tab == 'applicants' %}
-<div class="card p-6">
-  <div class="flex items-center justify-between mb-4">
-    <div>
-      <h3 class="font-semibold">
-        Affirmative Action — Applicant Rankings
-      </h3>
-      <p class="text-xs mt-0.5" style="color:#6b7a99;">
-        {{ applicant_rows|length }} pending applicant{{ applicant_rows|length|pluralize }} · excludes already-approved
-      </p>
-    </div>
-    <input id="appSearch" placeholder="Search name…" style="width:14rem;" oninput="filterTable('appSearch','appTable','data-name')" />
-  </div>
-
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
-      <thead>
-        <tr style="border-bottom:1px solid #e8ecf0;">
-          <th class="th-cell" style="width:3rem;">Rank</th>
-          <th class="th-cell">Name</th>
-          <th class="th-cell">Course / Year</th>
-          <th class="th-cell">SHS GPA</th>
-          <th class="th-cell">SUC Exam</th>
-          <th class="th-cell">TES?</th>
-          <th class="th-cell">Eligible</th>
-          <th class="th-cell">Status</th>
-          <th class="th-cell">Fit Score</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for s in applicant_rows %}
-        <tr class="trow" data-name="{{ s.applicant.full_name|lower }}"
-            style="border-bottom:1px solid #f1f3f9;{% if s.rules and not s.rules.eligible %}opacity:.65;{% endif %}">
-          <td class="td-cell">
-            {% if s.rank == 1 %}<span style="font-size:1.1rem;">🥇</span>
-            {% elif s.rank == 2 %}<span style="font-size:1.1rem;">🥈</span>
-            {% elif s.rank == 3 %}<span style="font-size:1.1rem;">🥉</span>
-            {% else %}<span class="font-mono text-sm" style="color:#6b7a99;">#{{ s.rank }}</span>
-            {% endif %}
-          </td>
-          <td class="td-cell">
-            <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-                   style="background:#f59f00;">{{ s.applicant.full_name|first }}</div>
-              <div>
-                <p class="font-medium leading-tight">{{ s.applicant.full_name }}</p>
-                <p class="text-xs" style="color:#6b7a99;">{{ s.applicant.email }}</p>
-              </div>
-            </div>
-          </td>
-          <td class="td-cell">{{ s.applicant.course }}<br><span class="text-xs" style="color:#6b7a99;">Year {{ s.applicant.year_level }}</span></td>
-          <td class="td-cell">
-            {% if s.applicant.shs_gpa is not None %}
-              <span class="badge {% if s.rules.gpa_pass %}badge-success{% else %}badge-danger{% endif %}">
-                {{ s.applicant.shs_gpa }}%
-              </span>
-            {% else %}<span style="color:#aaa;">—</span>{% endif %}
-          </td>
-          <td class="td-cell">
-            {% if s.applicant.suc_exam_percent is not None %}
-              <span class="badge {% if s.rules.exam_pass %}badge-success{% else %}badge-danger{% endif %}">
-                {{ s.applicant.suc_exam_display }}
-              </span>
-            {% else %}<span style="color:#aaa;">—</span>{% endif %}
-          </td>
-          <td class="td-cell">
-            {% if s.applicant.is_tes_beneficiary %}
-              <span class="badge badge-danger">Yes</span>
-            {% else %}
-              <span class="badge badge-success">No</span>
-            {% endif %}
-          </td>
-          <td class="td-cell">
-            {% if s.rules.eligible %}
-              <span class="badge badge-success">✓ Yes</span>
-            {% else %}
-              <span class="badge badge-danger">✗ No</span>
-            {% endif %}
-          </td>
-          <td class="td-cell">
-            <span class="badge {% if s.applicant.status == 'Pending Validation' %}badge-warning{% else %}badge-info{% endif %}">
-              {{ s.applicant.status }}
-            </span>
-          </td>
-          <td class="td-cell">
-            <div class="flex items-center gap-2">
-              <div style="width:5rem;background:#e8ecf0;border-radius:9999px;height:0.5rem;">
-                <div style="height:0.5rem;border-radius:9999px;width:{{ s.score }}%;
-                     background:{% if s.score >= 80 %}#2f9e44{% elif s.score >= 50 %}#f59f00{% else %}#dc2626{% endif %};"></div>
-              </div>
-              <span class="font-semibold text-sm">{{ s.score }}%</span>
-            </div>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">
-            No pending applicants found.
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{# ═══════════════════ TAB: RECOMMENDED STUDENTS ══════════════════════════ #}
-{% if tab == 'recommended' %}
+{# ── Enrolled students, ranked by the eligibility rules ───────────────── #}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
     <div>
@@ -169,7 +37,7 @@
       <input id="recSearch" placeholder="Search name or ID…" style="width:14rem;"
              oninput="filterTable('recSearch','recTable','data-name')" />
       {# Re-evaluate button #}
-      <form method="post" action="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}">
+      <form method="post" action="/vpsea/ranking/?passing={{ passing_threshold }}">
         {% csrf_token %}
         <input type="hidden" name="action" value="resync">
         <button type="submit" class="btn btn-outline text-xs">↻ Re-evaluate</button>
@@ -197,7 +65,6 @@
           </th>
           <th class="th-cell">Fit Score</th>
           <th class="th-cell">Status</th>
-          <th class="th-cell">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -294,9 +161,7 @@
           </td>
           {# Recommendation status #}
           <td class="td-cell">
-            {% if r.rec.status == 'Endorsed' %}
-              <span class="badge badge-success">Endorsed</span>
-            {% elif r.rec.status == 'Disqualified' %}
+            {% if r.rec.status == 'Disqualified' %}
               <span class="badge badge-danger">Disqualified</span>
             {% elif r.eligible %}
               <span class="badge badge-info">Recommended</span>
@@ -305,45 +170,10 @@
             {% endif %}
           </td>
 
-          {# Actions (only shown to VPSEA — never to student) #}
-          <td class="td-cell">
-            {% if r.eligible and r.rec.status != 'Endorsed' %}
-            <form method="post"
-                  action="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}"
-                  style="display:inline;">
-              {% csrf_token %}
-              <input type="hidden" name="rec_id" value="{{ r.rec.id }}">
-              <input type="hidden" name="action" value="endorse">
-              <button type="submit" class="btn btn-outline text-xs"
-                      style="color:#2f9e44;border-color:#2f9e44;"
-                      data-confirm="Endorse {{ r.profile.user.get_full_name }}?"
-                      data-confirm-detail="They will be recommended for the Affirmative Action scholarship."
-                      data-confirm-label="Endorse">
-                Endorse
-              </button>
-            </form>
-            {% endif %}
-            {% if r.rec.status != 'Disqualified' %}
-            <form method="post"
-                  action="/vpsea/ranking/?tab=recommended&passing={{ passing_threshold }}"
-                  style="display:inline;">
-              {% csrf_token %}
-              <input type="hidden" name="rec_id" value="{{ r.rec.id }}">
-              <input type="hidden" name="action" value="disqualify">
-              <button type="submit" class="btn btn-outline text-xs"
-                      style="color:#dc2626;border-color:#dc2626;"
-                      data-confirm="Mark as disqualified?"
-                      data-confirm-detail="They will no longer appear as recommended for this scholarship."
-                      data-confirm-tone="danger" data-confirm-label="Disqualify">
-                Disqualify
-              </button>
-            </form>
-            {% endif %}
-          </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">
+          <td colspan="8" style="padding:3rem;text-align:center;color:#6b7a99;">
             No enrolled students have submitted eligibility data yet.<br>
             <span class="text-xs">Students must fill in SHS GPA and SUC Exam Score in their profile.</span>
           </td>
@@ -353,7 +183,6 @@
     </table>
   </div>
 </div>
-{% endif %}
 
 {% endblock %}
 

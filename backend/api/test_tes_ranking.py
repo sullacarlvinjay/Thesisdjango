@@ -202,7 +202,13 @@ class PriorityLevelTest(TestCase):
         self.assertIn('4Ps beneficiary', e.priority_markers)
 
     def test_pwd_ip_and_solo_parent_each_reach_priority_1(self):
-        self.assertEqual(self._evaluate(is_pwd=True).priority, tes_ranking.PRIORITY_1)
+        # Naming a disability is the PWD declaration — there is no separate
+        # is_pwd column to set. StudentProfile.is_pwd derives from this, and
+        # tes_ranking reads profile.disability_type before falling back to the
+        # application's.
+        self.assertEqual(
+            self._evaluate(disability_type='Visual Disability').priority,
+            tes_ranking.PRIORITY_1)
         self.assertEqual(self._evaluate(indigenous_group='Aeta').priority, tes_ranking.PRIORITY_1)
         e = self._evaluate(application={'is_solo_parent_dependent': True})
         self.assertEqual(e.priority, tes_ranking.PRIORITY_1)
@@ -272,9 +278,16 @@ class ConflictingAssistanceTest(TestCase):
             tes_ranking.evaluate(self.profile).rule('other_assistance').verdict,
             tes_ranking.PASS)
 
-    def test_an_undeclared_other_scholarship_needs_verification_not_rejection(self):
-        self.profile.has_other_scholarship = True
-        self.profile.save()
+    def test_an_unverified_declaration_needs_verification_not_rejection(self):
+        """Declared at registration, not yet decided by the office.
+
+        It may be ongoing government assistance, which disqualifies, or
+        one-time emergency help, which does not. Nobody knows until the proof
+        is looked at — so the rule reports that rather than guessing.
+        """
+        ScholarshipLinkRequest.objects.create(
+            student=self.profile, scholarship_type='DOST', status='Pending',
+            proof_document='x.pdf')
         e = tes_ranking.evaluate(self.profile)
         self.assertEqual(e.rule('other_assistance').verdict, tes_ranking.NEEDS_VERIFICATION)
         self.assertEqual(e.status, tes_ranking.FOR_VERIFICATION)

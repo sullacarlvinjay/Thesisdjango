@@ -1,13 +1,14 @@
-// Report preview: show the exact rows a report will export, before exporting.
+// Open a dialog that is already on the page.
 //
-// The office generates a workbook it then signs and submits, and until now the
-// only way to see what was in it was to download it and open Excel. A button
-// carrying data-preview-open="<id>" opens the .modal-overlay with that id, so
-// the rows can be read on screen first.
+// A button carrying data-preview-open="<id>" opens the .modal-overlay with that
+// id; anything with data-preview-close inside one closes it, as do Escape and a
+// click on the backdrop — which is what every other dialog here does.
 //
-// Driven entirely by attributes, so any page that wants a preview adds the
-// button and the overlay and nothing else. Escape and a click on the backdrop
-// close it, which is what every other dialog in this system does.
+// Driven entirely by attributes, so a page adds the button and the overlay and
+// nothing else. Used where the dialog's contents are rendered by the server
+// rather than assembled in JavaScript: the TES report preview, and the link
+// request review form, whose imported-row checkboxes are built per request and
+// would be miserable to rebuild from data attributes.
 (function () {
   var openers = document.querySelectorAll('[data-preview-open]');
   if (!openers.length) return;

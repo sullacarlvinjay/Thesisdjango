@@ -619,15 +619,15 @@ tr:hover td      { background: var(--surface-sunken); }
 }
 .hero-facade {
   background-image: linear-gradient(135deg, var(--wash-strong), var(--wash-soft)),
-                    url('/media/backgrounds/Facade.jpg');
+                    url('../img/backgrounds/Facade.jpg');
 }
 .hero-student {
   background-image: linear-gradient(135deg, var(--wash-strong), var(--wash-soft)),
-                    url('/media/backgrounds/Student.JPG');
+                    url('../img/backgrounds/Student.JPG');
 }
 .hero-registration {
   background-image: linear-gradient(135deg, var(--wash-soft), var(--wash-strong)),
-                    url('/media/backgrounds/registration-campus.jpg');
+                    url('../img/backgrounds/registration-campus.jpg');
 }
 
 .hero h1, .hero h2 { color: #fff; }
@@ -650,7 +650,7 @@ tr:hover td      { background: var(--surface-sunken); }
   position: relative;
   background-color: var(--brand);
   background-image: linear-gradient(180deg, var(--wash-soft), var(--wash-strong)),
-                    url('/media/backgrounds/Student.JPG');
+                    url('../img/backgrounds/Student.JPG');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -698,7 +698,7 @@ tr:hover td      { background: var(--surface-sunken); }
      only overflows the viewport by a fraction of the height. Cutting it in the
      file is also what let the sign-in page stop shipping a 6 MB photograph. */
   background-image: linear-gradient(135deg, var(--wash-soft), var(--wash-strong)),
-                    url('/media/backgrounds/registration-campus.jpg');
+                    url('../img/backgrounds/registration-campus.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -768,7 +768,7 @@ tr:hover td      { background: var(--surface-sunken); }
 .dark .auth-page {
   background-color: #080b20;
   background-image: linear-gradient(135deg, rgba(12, 16, 58, 0.93), rgba(5, 7, 26, 0.84)),
-                    url('/media/backgrounds/registration-campus.jpg');
+                    url('../img/backgrounds/registration-campus.jpg');
 }
 .dark .auth-card {
   background: #12141f;
@@ -962,6 +962,25 @@ tr:hover td      { background: var(--surface-sunken); }
 }
 .report-error svg { flex-shrink: 0; }
 .report-error p   { font-size: 0.875rem; font-weight: 500; }
+
+/* A status tab that carries how many rows are behind it. A row of unlabelled
+   tabs beside an empty queue reads as 'there is nothing', which is the opposite
+   of what three decided requests one click away means. */
+.tab-filter {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  gap: 0.4rem;
+}
+.tab-count {
+  display: inline-block;
+  min-width: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.18);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: center;
+}
 
 /* The report controls sit in the head of the card holding the list they act
    on — the school year, the download and the preview beside the table they
@@ -2220,3 +2239,145 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-variant-numeric: tabular-nums;
 }
 .filter-scheme__clear { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
+
+
+/* ── Notices ───────────────────────────────────────────────────────────────
+   A saved / warned / refused banner, in the tokens rather than in the markup.
+   Written against --ok, --warn and --danger so dark mode is a token swap and
+   not another [style*="background:#f0fdf4"] override down in section 12. */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.notice svg { height: 1.25rem; width: 1.25rem; flex-shrink: 0; margin-top: 0.05rem; }
+.notice__title { font-size: 0.875rem; font-weight: 600; }
+.notice__body  { font-size: 0.8125rem; margin-top: 0.2rem; }
+
+.notice--ok      { background: var(--ok-bg);     border-color: var(--ok-border); }
+.notice--ok,
+.notice--ok svg  { color: var(--ok); }
+.notice--warn    { background: var(--warn-bg);   border-color: var(--warn-border); }
+.notice--warn,
+.notice--warn svg { color: var(--warn); }
+.notice--danger  { background: var(--danger-bg); border-color: var(--danger-border); }
+.notice--danger,
+.notice--danger svg { color: var(--danger); }
+.notice a { text-decoration: underline; color: inherit; }
+
+
+/* ── TES liquidation ───────────────────────────────────────────────────────
+   The reconciliation half of the UniFAST billing pair: what CHED remitted,
+   what the cashier released, what is still in hand. Figures are tabular-nums
+   throughout — these columns get read down, and proportional digits make two
+   equal totals look unequal. */
+
+.liq-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+.liq-figure {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+.liq-figure__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.liq-figure__value {
+  margin-top: 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.liq-figure__note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+/* The balance is the number the report is signed against, so it carries the
+   verdict: settled, still holding money, or paid out more than arrived. */
+.liq-figure--balance     { border-color: var(--border-strong); background: var(--surface); }
+.liq-figure--settled     { border-color: var(--ok-border);     background: var(--ok-bg); }
+.liq-figure--settled .liq-figure__value { color: var(--ok); }
+.liq-figure--over        { border-color: var(--danger-border); background: var(--danger-bg); }
+.liq-figure--over .liq-figure__value    { color: var(--danger); }
+
+/* The statement, mirroring the arithmetic on the Billing tab. */
+.liq-statement { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.liq-statement td { padding: 0.6rem 0; border-bottom: 1px solid var(--surface-2); }
+.liq-statement tr:last-child td { border-bottom: none; }
+.liq-statement tr:hover td { background: transparent; }
+.liq-statement .liq-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.liq-statement .liq-sub,
+.liq-statement .liq-sub .liq-amount { color: var(--text-muted); }
+.liq-statement .liq-hint { color: var(--text-muted); font-size: 0.8rem; }
+.liq-statement .liq-total td {
+  padding-top: 0.8rem;
+  font-weight: 700;
+  border-top: 1px solid var(--border-strong);
+}
+.liq-statement .liq-total .liq-amount { font-size: 1.05rem; }
+
+/* Per-grantee rows. Narrow inputs so the table still fits without the money
+   column wrapping mid-figure. */
+.liq-table td { vertical-align: middle; }
+.liq-table .liq-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.liq-input {
+  width: 100%;
+  min-width: 6rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8125rem;
+}
+.liq-input--amount { text-align: right; font-variant-numeric: tabular-nums; }
+.liq-input--date   { min-width: 8.5rem; }
+.liq-select        { width: auto; min-width: 7.5rem; padding: 0.3rem 0.5rem; font-size: 0.8125rem; }
+
+/* A grantee nobody has accounted for yet. Marked rather than coloured red:
+   this is work outstanding, not an error. */
+.liq-table .liq-row--todo td { background: var(--warn-bg); }
+.liq-table .liq-row--todo:hover td { background: var(--warn-bg); }
+
+.liq-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.liq-actions__hint { font-size: 0.75rem; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .liq-actions > .btn { width: 100%; justify-content: center; }
+}
+
+
+/* ── "Optional" field marker ───────────────────────────────────────────────
+   Registration asks for a great deal and needs almost none of it. Marking what
+   can be skipped is what makes the form finishable in one sitting.
+
+   The marker is quiet on purpose — it is permission to skip, not a heading, and
+   at this density anything louder would read as the label itself. Normal weight
+   so it cannot be mistaken for part of the field name. */
+
+.label-optional {
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 400;
+  font-style: normal;
+  color: var(--text-muted);
+  white-space: nowrap;
+}

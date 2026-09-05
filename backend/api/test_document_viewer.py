@@ -65,27 +65,19 @@ class DocumentViewerTest(TestCase):
         self.assertEqual(r.content.decode().count('target="_blank"'), 1,
                          "only the viewer's own Open-in-new-tab control may use it")
 
-    def test_student_link_request_proof_uses_the_overlay(self):
-        ScholarshipLinkRequest.objects.create(
-            student=self.profile, scholarship_type='DOST',
-            proof_document=_upload('award.pdf'), term_label='26-1',
-        )
-        c = Client()
-        c.login(email='juan@bipsu.edu.ph', password='pw')
-        r = c.get('/student/link-scholarship/')
-        self.assertContains(r, 'data-doc=')
-        self.assertEqual(r.content.decode().count('target="_blank"'), 1,
-                         "only the viewer's own Open-in-new-tab control may use it")
-
-    def test_vpsea_link_request_proof_uses_the_overlay(self):
+    def test_declared_scholarship_proof_uses_the_overlay(self):
+        """The proof arrives with the registration and is read on the queue
+        that decides it — there is no separate link-request page any more."""
+        self.student_user.verification_status = 'pending'
+        self.student_user.save(update_fields=['verification_status'])
         ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST',
             proof_document=_upload('award.pdf'), term_label='26-1',
         )
         c = Client()
         c.login(email='vpsea@bipsu.edu.ph', password='pw')
-        r = c.get('/vpsea/link-requests/')
-        self.assertContains(r, 'proof of scholarship')
+        r = c.get('/vpsea/accounts/')
+        self.assertContains(r, 'data-doc="DOST Scholarship — proof"')
         self.assertEqual(r.content.decode().count('target="_blank"'), 1,
                          "only the viewer's own Open-in-new-tab control may use it")
 

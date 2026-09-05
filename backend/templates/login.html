@@ -6,7 +6,7 @@
   <title>Sign In — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=11" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=15" />
   <script>
     // Read before first paint so the page never flashes light before switching.
     if (localStorage.getItem('theme') === 'dark' ||
@@ -53,7 +53,7 @@
         {% if verification_note %}
         <p><span class="font-medium">Reason from the SDSO:</span> {{ verification_note }}</p>
         {% endif %}
-        <p class="mt-2">Contact the SDSO office to sort it out — they can verify the account once the details check out.</p>
+        <p class="mt-2">If a detail was wrong, <a href="/register/" style="text-decoration:underline;font-weight:600;">register again with the correction</a> — this address is free to use. Otherwise contact the SDSO office; they can verify the account as it stands once the details check out.</p>
       </div>
       {% endif %}
 

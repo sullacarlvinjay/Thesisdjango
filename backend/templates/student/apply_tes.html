@@ -4,19 +4,7 @@
 {% block page_title %}TES Application{% endblock %}
 {% block page_subtitle %}Tertiary Education Subsidy — UniFAST{% endblock %}
 
-{% block nav %}
-  <a href="/student/profile/" class="sidebar-link {% if '/profile' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>My Profile</a>
-  {% if not enrolled %}
-  <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>Apply: Academic</a>
-
-  <a href="/student/apply/tes/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
-
-  <a href="/student/link-scholarship/" class="sidebar-link {% if '/link-scholarship' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
-  {% endif %}
-  <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
-  <a href="/student/notifications/" class="sidebar-link {% if '/notifications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
-  <a href="/student/renewal/academic/" class="sidebar-link {% if '/renewal' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal</a>
-{% endblock %}
+{% block nav %}{% include "student/_nav.html" %}{% endblock %}
 
 {% block content %}
 {% if submitted %}
@@ -38,6 +26,16 @@
   {% for e in errors %}<p>{{ e }}</p>{% endfor %}
 </div>
 {% endif %}
+
+{% if blocked %}
+<div class="card p-5 flex items-center gap-3 mb-6" style="border-color:#e03131;background:#fff5f5;">
+  <svg class="h-5 w-5 shrink-0" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+  <div>
+    <p class="text-sm font-semibold" style="color:#e03131;">Application Not Allowed</p>
+    <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
+  </div>
+</div>
+{% else %}
 
 {% comment %}
   Every box on this form is the student's to fill in or correct. The ones that
@@ -327,6 +325,7 @@
     </div>
   </div>
 </form>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}

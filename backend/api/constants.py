@@ -63,6 +63,26 @@ REVIEW_STATUSES = [
     ('Rejected', 'Rejected'),
 ]
 
+# What became of one grantee's share of the money CHED remitted, on the
+# liquidation report. Not a review lifecycle: nobody is deciding anything here,
+# the office is stating what the cashier did.
+#
+# 'Unclaimed' is the status that earns its place. A grantee who never collected
+# is the whole reason a liquidation can fail to balance, and recording them as
+# simply not-released loses the distinction between money still sitting in the
+# office and money that went out. Both are 'not disbursed'; only one is a
+# grantee the office still owes.
+TES_DISBURSEMENT_STATUSES = [
+    ('Released', 'Released'),
+    ('Unclaimed', 'Unclaimed'),
+    ('Returned', 'Returned to CHED'),
+]
+
+# The one that moves money out to a grantee. Kept as a name rather than the
+# literal repeated in three modules, because the totals on the liquidation page,
+# the balance it reconciles and the tests all have to agree on it.
+TES_RELEASED = 'Released'
+
 # A decision is made once. These are the statuses that record one, so a review
 # screen must refuse to overwrite them: an approval quietly turned into a
 # rejection days later leaves the applicant holding a notification that no
@@ -82,9 +102,12 @@ DECIDED_REVIEW_STATUSES = ('Approved', 'Rejected')
 EDITABLE_APPLICATION_STATUSES = ('Pending Validation', 'Needs Revision')
 EDITABLE_REVIEW_STATUSES = ('Pending',)
 
+# A recommendation says whether the rules pass, and nothing else. There is no
+# 'Endorsed' any more: the award itself is recorded on the Archives page like
+# every other programme's, so a separate endorsement flag here was a second,
+# private status for a decision already written down somewhere the reports read.
 RECOMMENDATION_STATUSES = [
     ('Recommended', 'Recommended'),
-    ('Endorsed', 'Endorsed'),          # VPSEA formally endorses the student
     ('Disqualified', 'Disqualified'),
 ]
 
@@ -132,6 +155,36 @@ SCHOLARSHIP_GROUPS = [
     ('external', 'External'),
     ('institutional', 'Institutional'),
 ]
+
+# Which agency's seal belongs on a programme, keyed by the same type key.
+#
+# The landing page showed the BiPSU seal on every card, including the ones BiPSU
+# does not fund — a DOST scholarship advertised under the university's own logo,
+# which is the sort of thing an accrediting body reads as a claim. The mapping
+# follows the university's own programme chart: DOST runs the S&T undergraduate
+# scholarships and JLSS; CHED runs CHED-Merit and CoScho; TES and TDP are
+# UniFAST's, not CHED's, however often the two are spoken of together.
+#
+# The seals live in media/logos/ and are public branding — see
+# api.media_views.PUBLIC_PREFIXES — so an anonymous visitor can load them.
+# A type absent here falls back to BiPSU's seal, which is right for the
+# programmes BiPSU funds itself and a neutral placeholder for an agency whose
+# logo the office has not supplied (GSIS today).
+SCHOLARSHIP_LOGO_DEFAULT = 'BiPSU.png'
+SCHOLARSHIP_LOGOS = {
+    # BiPSU's own — Academic (University/College Scholar), Staff, Sports and
+    # Cultural, Affirmative Action.
+    'Academic':    'BiPSU.png',
+    'Staff':       'BiPSU.png',
+    'Sports':      'BiPSU.png',
+    'Affirmative': 'BiPSU.png',
+    # Externally funded, by the agency that funds them.
+    'DOST':        'DOST.png',
+    'CHED':        'CHED.png',
+    'CoScho':      'CHED.png',
+    'TES':         'UniFAST.png',
+    'TDP':         'UniFAST.png',
+}
 
 # What an AffirmativeStaffApplication was found to qualify for.
 QUALIFICATION_CHOICES = [

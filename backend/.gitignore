@@ -19,15 +19,19 @@ staticfiles/
 
 # Uploaded files. Production keeps these in Supabase Storage; the local copy is
 # scratch data and, unlike the rest of the repo, it is real student documents.
-media/
+#
+# 'media/*', not 'media/'. Git will not descend into an excluded *directory*, so
+# a later '!media/logos/' could never take effect — the negations below read as
+# though they worked while every new branding file was silently unstageable, and
+# a background added that way reached Render as a 404. Excluding the children
+# instead leaves the directory itself visible, which is what lets a negation in.
+media/*
 
-# ...except the university's own branding. Templates and srms.css reference
-# these by fixed /media/ paths, and they are part of the application rather
-# than anything a user uploaded, so they ship with the code.
+# ...except the university's own branding. Templates reference these by fixed
+# /media/ paths and they are part of the application rather than anything a user
+# uploaded, so they ship with the code. Page backgrounds used to live here too;
+# they are static/img/backgrounds/ now, where assets of this kind belong.
 !media/logos/
-!media/logos/**
-!media/backgrounds/
-!media/backgrounds/**
 
 # Secrets — only .env.example belongs in git
 .env

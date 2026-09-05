@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Billing — UniFAST Portal{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}TES Billing{% endblock %}
+{% block page_subtitle %}What CHED pays each grantee, and the statement that follows{% endblock %}
+{% block nav %}{% include "unifast/_nav.html" with active="billing" %}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  {% if saved %}
+  <div class="card p-4 flex items-center gap-3" style="border-color:#2f9e44;background:#f0fdf4;">
+    <svg class="h-5 w-5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p class="text-sm font-medium" style="color:#2f9e44;">Saved. The CHED workbook now downloads with these amounts filled in.</p>
+  </div>
+  {% endif %}
+
+  {% if errors %}
+  <div class="card p-4" style="border-color:#e03131;background:#fff5f5;">
+    {% for e in errors %}<p class="text-sm font-medium" style="color:#e03131;">{{ e }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% comment %}
+    Why this page exists at all, said where the person entering a number can
+    read it. The amounts are not the system's to choose and never were.
+  {% endcomment %}
+  <div class="card p-5 report-note">
+    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+      <p class="report-note-title">These figures come from CHED, not from this system</p>
+      <p class="report-note-body">
+        Enter what CHEDRO has advised for this term and the Annex 2 workbook downloads with the
+        amount columns filled, its totals and the 1% management fee computed. Leave them blank and
+        the workbook exports blank, exactly as it did before this page existed — a rate this system
+        invented would be a guess with an officer's signature under it.
+      </p>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+
+    <!-- What the office was told -->
+    <div class="card p-6 space-y-5">
+
+      {% comment %}
+        The year picker is its own GET form and sits outside the POST one below:
+        a form nested in a form is not valid HTML, and browsers resolve it by
+        dropping one of them.
+      {% endcomment %}
+      <div class="report-gen-head">
+        <h3 class="report-gen-title">CHED advice for this term</h3>
+        <form method="get" class="report-gen-actions">
+          <select name="sy" onchange="this.form.submit()" class="filter-scheme__select" aria-label="School year">
+            {% for year in school_years %}
+            <option value="{{ year }}" {% if year == school_year %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button type="submit" class="btn btn-outline">Go</button></noscript>
+        </form>
+      </div>
+
+      <form method="post" class="space-y-5">
+      {% csrf_token %}
+      <input type="hidden" name="sy" value="{{ school_year }}" />
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="space-y-1.5">
+          <label for="tesAmount">TES amount, per grantee</label>
+          <input name="tes_amount" id="tesAmount" inputmode="decimal"
+                 value="{{ form.tes_amount }}"
+                 placeholder="e.g. 10000" />
+          <p class="text-xs" style="color:#6b7a99;">The SUC figure on CHED's own form is 20,000 or 10,000 — confirm which applies before entering it.</p>
+        </div>
+        <div class="space-y-1.5">
+          <label for="tes3aAmount">TES-3A top-up, per grantee with a disability</label>
+          <input name="tes_3a_amount" id="tes3aAmount" inputmode="decimal"
+                 value="{{ form.tes_3a_amount }}"
+                 placeholder="Leave blank if none advised" />
+          <p class="text-xs" style="color:#6b7a99;">Applied only to the {{ pwd }} grantee{{ pwd|pluralize }} whose application records a disability.</p>
+        </div>
+        <div class="space-y-1.5">
+          <label for="referenceNo">Billing statement reference no.</label>
+          <input name="reference_no" id="referenceNo"
+                 value="{{ form.reference_no }}"
+                 placeholder="e.g. 08-HEI Code-2026-1-2" />
+        </div>
+        <div class="space-y-1.5">
+          <label for="statementDate">Statement date</label>
+          <input type="date" name="statement_date" id="statementDate"
+                 value="{{ form.statement_date }}" />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save for {{ school_year }}</button>
+      </form>
+
+      {% if billing.updated_at %}
+      <p class="text-xs" style="color:#6b7a99;">
+        Last set {{ billing.updated_at|date:"M d, Y H:i" }}{% if billing.updated_by %}
+        by {{ billing.updated_by.get_full_name|default:billing.updated_by.email }}{% endif %}.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- What that adds up to -->
+    <div class="card p-6">
+      <h3 class="report-gen-title mb-1">Billing statement — {{ school_year }}</h3>
+      <p class="text-xs mb-4" style="color:#6b7a99;">
+        The same arithmetic Form 1 does. {{ grantees }} approved grantee{{ grantees|pluralize }},
+        {{ pwd }} with a disability.
+      </p>
+
+      {% if ready %}
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <tbody>
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.6rem 0;">TES benefits<span style="color:#6b7a99;font-size:0.8rem;"> — {{ grantees }} × {{ rate|floatformat:2 }}</span></td>
+            <td style="padding:0.6rem 0;text-align:right;font-variant-numeric:tabular-nums;">PhP {{ benefits|floatformat:2 }}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.6rem 0;">TES-3A (disability)<span style="color:#6b7a99;font-size:0.8rem;"> — {{ pwd }} × {{ top_up|default_if_none:0|floatformat:2 }}</span></td>
+            <td style="padding:0.6rem 0;text-align:right;font-variant-numeric:tabular-nums;">PhP {{ tes_3a|floatformat:2 }}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.6rem 0;color:#6b7a99;">Subtotal</td>
+            <td style="padding:0.6rem 0;text-align:right;color:#6b7a99;font-variant-numeric:tabular-nums;">PhP {{ subtotal|floatformat:2 }}</td>
+          </tr>
+          {% comment %}
+            One percent of the TES benefits, not of the subtotal — Form 2's own
+            formula is =SUM(N1101)*0.01, so the disability top-ups are outside it.
+          {% endcomment %}
+          <tr style="border-bottom:1px solid #f1f3f9;">
+            <td style="padding:0.6rem 0;">Add: 1% management fee<span style="color:#6b7a99;font-size:0.8rem;"> — of TES benefits</span></td>
+            <td style="padding:0.6rem 0;text-align:right;font-variant-numeric:tabular-nums;">PhP {{ fee|floatformat:2 }}</td>
+          </tr>
+          <tr>
+            <td style="padding:0.8rem 0;font-weight:700;">TOTAL TES billing amount</td>
+            <td style="padding:0.8rem 0;text-align:right;font-weight:700;font-size:1.05rem;font-variant-numeric:tabular-nums;">PhP {{ total|floatformat:2 }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <a href="/unifast/reports/download/tes/?sy={{ school_year|urlencode }}"
+         class="btn btn-primary mt-5 flex items-center gap-1" style="width:fit-content;">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        CHED workbook, filled (.xlsx)
+      </a>
+
+      {% else %}
+      <div class="p-4 rounded-lg text-sm" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+        {% if not grantees %}
+        <p class="font-semibold">No approved grantees for {{ school_year }}.</p>
+        <p class="mt-1">There is nothing to bill yet. Approve TES applications under
+          <a href="/unifast/tes-applications/" style="color:#92400e;text-decoration:underline;">TES Applications</a>
+          and they are counted here.</p>
+        {% else %}
+        <p class="font-semibold">No TES amount set for {{ school_year }}.</p>
+        <p class="mt-1">{{ grantees }} grantee{{ grantees|pluralize }} are waiting on a figure. Until one is
+          entered the workbook's amount columns download blank for the office to complete in Excel,
+          which is what it has always done.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@
   <title>Register — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=11" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=15" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -42,7 +42,19 @@
     </div>
     {% endif %}
 
-    <form method="post" class="space-y-4" id="registerForm">
+    {% comment %}
+      The whole student record is collected here rather than on an empty
+      profile the student is asked to come back and fill in. Two reasons, both
+      the office's: the SDSO verifies a registration against their enrolment
+      list, and a registration that says nothing but a name and a number gives
+      them nothing to check; and everything below feeds a form later — the TES
+      application, the masterlist exports, the Affirmative ranking — so asking
+      once here is asking once, full stop.
+
+      Only email and password are the account's own. Everything else is the
+      student record, and My Profile is the window onto it afterwards.
+    {% endcomment %}
+    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm">
       {% csrf_token %}
 
       {# ── Account type selector ─────────────────────────────────────────── #}
@@ -77,7 +89,7 @@
                value="{{ post.account_type|default:'student' }}" />
       </div>
 
-      {# ── Shared: name + email + contact + password ─────────────────────── #}
+      {# ── Personal Information ──────────────────────────────────────────── #}
       <div class="auth-card mb-4">
         <p class="text-xs font-semibold uppercase tracking-wider mb-4" id="section-title"
            style="color:var(--brand);">Personal Information</p>
@@ -96,11 +108,11 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Middle Name</label>
+              <label>Middle Name <span class="label-optional">Optional</span></label>
               <input name="middle_name" value="{{ post.middle_name }}" placeholder="Ramirez" />
             </div>
             <div class="space-y-1.5">
-              <label>Suffix</label>
+              <label>Suffix <span class="label-optional">Optional</span></label>
               <input name="suffix" value="{{ post.suffix }}" placeholder="Jr., III — if any" />
             </div>
           </div>
@@ -111,41 +123,111 @@
           </div>
 
           <div class="space-y-1.5">
-            <label>Contact Number</label>
+            <label>Contact Number <span class="label-optional">Optional</span></label>
             <input name="contact_number" value="{{ post.contact_number }}" placeholder="09XXXXXXXXX" />
           </div>
 
+          {% comment %}
+            The rest of a student's personal record. Staff keep their details
+            on a StaffProfile, which asks for its own.
+          {% endcomment %}
+          <div data-student-only class="space-y-3"
+               {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1.5">
+                <label>Date of Birth <span class="label-optional">Optional</span></label>
+                <input type="date" name="date_of_birth" value="{{ post.date_of_birth }}" />
+              </div>
+              <div class="space-y-1.5">
+                <label>Gender <span class="label-optional">Optional</span></label>
+                <select name="gender">
+                  <option value="">— Select —</option>
+                  {% for value, label in genders %}
+                  <option value="{{ value }}" {% if post.gender == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1.5">
+                <label>Birth Place <span class="label-optional">Optional</span></label>
+                <input name="birth_place" value="{{ post.birth_place }}" placeholder="e.g. Naval, Biliran" />
+              </div>
+              <div class="space-y-1.5">
+                <label>Civil Status <span class="label-optional">Optional</span></label>
+                <select name="civil_status">
+                  <option value="">— Select —</option>
+                  {% for value, label in civil_statuses %}
+                  <option value="{{ value }}" {% if post.civil_status == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            {% comment %}
+              Asked from CHED's own Disability_List, the same list the TES
+              application uses, so the two records cannot disagree about the
+              same student. 'NO' is how that list spells not applicable.
+            {% endcomment %}
+            <div class="space-y-1.5">
+              <label for="disabilityType">Disability Type <span class="label-optional">Optional</span></label>
+              <select name="disability_type" id="disabilityType"
+                      data-reveals="#disabilityOther" data-reveal-on="{{ other_option }}">
+                <option value="" {% if not disability_value %}selected{% endif %}>— Not answered yet —</option>
+                {% for option in disabilities %}
+                <option value="{{ option }}" {% if option == disability_value %}selected{% endif %}>
+                  {% if option == 'NO' %}NO — not a person with disability{% else %}{{ option }}{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="space-y-1.5" id="disabilityOther" {% if disability_value != other_option %}hidden{% endif %}>
+              <label>Please specify the disability</label>
+              <input name="disability_type_other" value="{{ disability_other }}" maxlength="100"
+                     placeholder="Type the disability as you would write it on a form" />
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div class="space-y-1.5">
+                <label>Barangay / Street <span class="label-optional">Optional</span></label>
+                <input name="barangay" value="{{ post.barangay }}" placeholder="e.g. Brgy. Larrazabal" />
+              </div>
+              <div class="space-y-1.5">
+                <label>Municipality <span class="label-optional">Optional</span></label>
+                <input name="municipality" value="{{ post.municipality }}" placeholder="e.g. Naval" />
+              </div>
+              <div class="space-y-1.5">
+                <label>Province <span class="label-optional">Optional</span></label>
+                <input name="province" value="{{ post.province }}" placeholder="e.g. Biliran" />
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 
-      {# ── Student-only fields ───────────────────────────────────────────── #}
-      <div id="student-fields" class="card" style="padding:1.5rem;
-           {% if post.account_type == 'nsu_staff' %}display:none;{% endif %}">
+      {# ── Student: Academic Information ─────────────────────────────────── #}
+      <div data-student-only class="card mb-4" style="padding:1.5rem;"
+           {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
         <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Academic Information</p>
         <div class="space-y-3">
 
           <div class="space-y-1.5">
             <label>Student ID</label>
-            <input name="student_id" value="{{ post.student_id }}" placeholder="e.g. 2021-00001" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div class="space-y-1.5">
-              <label>Date of Birth</label>
-              <input type="date" name="date_of_birth" value="{{ post.date_of_birth }}" />
-            </div>
-            <div class="space-y-1.5">
-              <label>Gender</label>
-              <select name="gender">
-                <option value="">— Select —</option>
-                <option value="Male"   {% if post.gender == "Male"   %}selected{% endif %}>Male</option>
-                <option value="Female" {% if post.gender == "Female" %}selected{% endif %}>Female</option>
-              </select>
-            </div>
+            {% comment %}
+              Required, and now says so to the browser as well as to the server,
+              which has always refused a student registration without it. It sits
+              in a data-student-only card, so setBlocksHidden lifts this again on
+              the staff form — a required field inside a hidden block blocks the
+              submit with a message nobody can see.
+            {% endcomment %}
+            <input name="student_id" value="{{ post.student_id }}" placeholder="e.g. 2021-00001" required />
           </div>
 
           <div class="space-y-1.5">
-            <label>School</label>
+            <label>School <span class="label-optional">Optional</span></label>
             <select name="school" id="schoolSelect" onchange="updateCourseDropdown()">
               <option value="">— Select School —</option>
               {% for val, label in bipsu_schools %}
@@ -156,13 +238,13 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Course</label>
+              <label>Course <span class="label-optional">Optional</span></label>
               <select name="course" id="courseSelect">
                 <option value="">— Select your school first —</option>
               </select>
             </div>
             <div class="space-y-1.5">
-              <label>Year Level</label>
+              <label>Year Level <span class="label-optional">Optional</span></label>
               <select name="year_level">
                 <option value="1" {% if post.year_level == "1" %}selected{% endif %}>1st Year</option>
                 <option value="2" {% if post.year_level == "2" %}selected{% endif %}>2nd Year</option>
@@ -175,20 +257,257 @@
         </div>
       </div>
 
+      {# ── Student: Educational Background ───────────────────────────────── #}
+      <div data-student-only class="card mb-4" style="padding:1.5rem;"
+           {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Educational Background</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">Where you studied before BiPSU. Locked once saved — the SDSO can correct it.</p>
+        <div class="space-y-3">
+          <div class="space-y-1.5">
+            <label>Elementary School <span class="label-optional">Optional</span></label>
+            <input name="elementary" value="{{ post.elementary }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>High School <span class="label-optional">Optional</span></label>
+            <input name="highschool" value="{{ post.highschool }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label>Last School Attended <span class="label-optional">Optional</span></label>
+            <input name="last_school" value="{{ post.last_school }}" />
+          </div>
+        </div>
+      </div>
+
+      {# ── Student: Socioeconomic Information ────────────────────────────── #}
+      <div data-student-only class="card mb-4" style="padding:1.5rem;"
+           {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Socioeconomic Information</p>
+        <div class="space-y-3">
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label>Annual Family Income (₱) <span class="label-optional">Optional</span></label>
+              <input name="family_income" type="number" step="0.01" min="0"
+                     value="{{ post.family_income }}" placeholder="e.g. 180000" />
+            </div>
+            <div class="space-y-1.5">
+              <label>Indigenous Group <span class="label-optional">Optional</span></label>
+              <input name="indigenous_group" value="{{ post.indigenous_group }}" />
+            </div>
+          </div>
+
+          {% comment %}
+            Which scholarship, not merely whether there is one. "Has another
+            scholarship" was a box the office could not act on: it named
+            nothing, so nobody could check it and the TES rules could not tell
+            ongoing government assistance from one-time emergency help. Naming
+            it opens Scholarship Data below, where the proof goes.
+          {% endcomment %}
+          <div class="space-y-1.5">
+            <label class="flex items-center gap-2 cursor-pointer text-sm" style="font-weight:600;">
+              <input type="checkbox" name="has_scholarship" id="hasScholarship"
+                     {% if post.has_scholarship %}checked{% endif %} style="width:auto;" />
+              I already hold a scholarship
+            </label>
+            <select name="scholarship_type" id="scholarshipType">
+              <option value="">— Which scholarship? —</option>
+              {% for value, label in scholarship_types %}
+              <option value="{{ value }}" {% if post.scholarship_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <p class="text-xs" style="color:var(--text-muted);">
+              Tick this only for a scholarship you hold now. TES and an Academic scholarship
+              may be held together; every other programme is held on its own.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      {# ── Student: Scholarship Data ─────────────────────────────────────── #}
+      <div data-student-only class="card mb-4" id="scholarshipData" style="padding:1.5rem;"
+           {% if post.account_type == 'nsu_staff' or not post.has_scholarship %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Data</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">
+          The SDSO verifies this against their records when they verify your account. Once
+          approved it is recorded as your award and appears under My Applications.
+        </p>
+        <div class="space-y-3">
+
+          {% comment %}
+            CHED grants two tiers under one programme and the office reports
+            them as separate blocks, so a CHED award has to say which one it is.
+            Shown only for CHED; the server ignores the field for every other
+            programme.
+          {% endcomment %}
+          <div class="space-y-1.5" id="chedTier" {% if post.scholarship_type != 'CHED' %}hidden{% endif %}>
+            <label>CHED Award Tier</label>
+            <p class="text-xs" style="color:var(--text-muted);">Your award letter says which. Full Merit covers full tuition; Half Merit is the partial grant.</p>
+            <select name="award_tier">
+              <option value="">— Select tier —</option>
+              {% for value, label in ched_tiers %}
+              <option value="{{ value }}" {% if post.award_tier == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>Award / Scholar Number <span class="label-optional">Optional</span></label>
+            <input name="award_number" value="{{ post.award_number }}" placeholder="e.g. 2026-DOST-00194"
+                   class="font-mono" />
+            <p class="text-xs" style="color:var(--text-muted);">If your award letter has one, it lets the office match you to their records automatically.</p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>Proof Document</label>
+            <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png" />
+            <p class="text-xs" style="color:var(--text-muted);">Your award letter, certificate, or any official document proving the scholarship. PDF, JPG or PNG · maximum {{ max_upload_mb }} MB.</p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>Additional Notes <span class="label-optional">Optional</span></label>
+            <textarea name="notes" rows="3" placeholder="Anything the office should know about this award">{{ post.notes }}</textarea>
+          </div>
+
+        </div>
+      </div>
+
+      {% comment %}
+        These two come last, and only for a student who holds nothing yet. They
+        ask what someone might qualify for; a student who has just declared an
+        award in Scholarship Data above has already answered that, and asking
+        anyway invited two accounts of the same fact that could disagree.
+        static/js/register-scholarship.js hides them the moment the box is
+        ticked and disables their fields, because a hidden input still posts.
+      {% endcomment %}
+      {# ── Student: Scholarship Eligibility Information ──────────────────── #}
+      <div data-student-only class="card mb-4" id="scholarshipEligibility" style="padding:1.5rem;"
+           {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">Used for scholarship matching. Upload the certified documents as proof — you can add them later under My Profile.</p>
+        <div class="space-y-3">
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label>SHS Grade Point Average (%) <span class="label-optional">Optional</span></label>
+              <input name="shs_gpa" type="number" step="0.01" min="0" max="100"
+                     value="{{ post.shs_gpa }}" placeholder="e.g. 88.5" />
+            </div>
+            <div class="space-y-1.5">
+              <label>SHS GPA Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span> <span class="label-optional">Optional</span></label>
+              <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+            </div>
+          </div>
+
+          {% comment %}
+            Score and total, because the exam is not always out of 100 and every
+            rule reads a percentage. Leaving the total blank means the score is
+            a percentage already.
+          {% endcomment %}
+          <div class="space-y-1.5">
+            <label>SUC Admission Exam Score <span class="label-optional">Optional</span></label>
+            <div class="suc-score-pair">
+              <input name="suc_exam_score" type="number" step="0.01" min="0"
+                     value="{{ post.suc_exam_score }}" placeholder="score, e.g. 35" aria-label="SUC exam score" />
+              <span class="suc-score-of">out of</span>
+              <input name="suc_exam_total" type="number" step="0.01" min="1"
+                     value="{{ post.suc_exam_total }}" placeholder="total, e.g. 50" aria-label="Total items" />
+            </div>
+            <p class="text-xs" style="color:var(--text-muted);">Leave the total blank if your certificate already gives a percentage.</p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>SUC Exam Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span> <span class="label-optional">Optional</span></label>
+            <input name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+          </div>
+
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="checkbox" name="is_tes_beneficiary" {% if post.is_tes_beneficiary %}checked{% endif %} style="width:auto;" />
+            I am a current TES (Tertiary Education Subsidy) beneficiary
+          </label>
+
+        </div>
+      </div>
+
+      {# ── Student: TES Eligibility Information ──────────────────────────── #}
+      <div data-student-only class="card mb-4" id="tesEligibility" style="padding:1.5rem;"
+           {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">TES Eligibility Information</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">
+          Leave anything you are unsure of as <em>Not answered yet</em> — an unanswered question is
+          recorded as needing verification and never counts against you. Guessing does.
+        </p>
+        <div class="space-y-3">
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label>Citizenship <span class="label-optional">Optional</span></label>
+              <select name="citizenship">
+                <option value="" {% if not post.citizenship %}selected{% endif %}>— Not answered yet —</option>
+                <option value="Filipino" {% if post.citizenship == 'Filipino' %}selected{% endif %}>Filipino</option>
+                <option value="Non-Filipino" {% if post.citizenship == 'Non-Filipino' %}selected{% endif %}>Non-Filipino</option>
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label>Household Size <span class="label-optional">Optional</span></label>
+              <input name="household_size" type="number" min="1" step="1" placeholder="e.g. 5"
+                     value="{{ post.household_size }}" />
+              <p class="text-xs" style="color:var(--text-muted);">Everyone your family income supports, including you.</p>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>Year You First Enrolled in This Course <span class="label-optional">Optional</span></label>
+            <input name="year_first_enrolled" type="number" min="1980" step="1" placeholder="e.g. 2023"
+                   value="{{ post.year_first_enrolled }}" />
+            <p class="text-xs" style="color:var(--text-muted);">Not the current year — the year you started the programme.</p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>Listed in the DSWD Listahanan? <span class="label-optional">Optional</span></label>
+            <select name="is_listahanan_household">
+              <option value="unknown" {% if not post.is_listahanan_household or post.is_listahanan_household == 'unknown' %}selected{% endif %}>— Not answered yet —</option>
+              <option value="yes" {% if post.is_listahanan_household == 'yes' %}selected{% endif %}>Yes</option>
+              <option value="no" {% if post.is_listahanan_household == 'no' %}selected{% endif %}>No</option>
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>4Ps (Pantawid Pamilya) Beneficiary? <span class="label-optional">Optional</span></label>
+            <select name="is_4ps_beneficiary">
+              <option value="unknown" {% if not post.is_4ps_beneficiary or post.is_4ps_beneficiary == 'unknown' %}selected{% endif %}>— Not answered yet —</option>
+              <option value="yes" {% if post.is_4ps_beneficiary == 'yes' %}selected{% endif %}>Yes</option>
+              <option value="no" {% if post.is_4ps_beneficiary == 'no' %}selected{% endif %}>No</option>
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label>Do you already hold a college degree? <span class="label-optional">Optional</span></label>
+            <select name="has_previous_degree">
+              <option value="unknown" {% if not post.has_previous_degree or post.has_previous_degree == 'unknown' %}selected{% endif %}>— Not answered yet —</option>
+              <option value="yes" {% if post.has_previous_degree == 'yes' %}selected{% endif %}>Yes</option>
+              <option value="no" {% if post.has_previous_degree == 'no' %}selected{% endif %}>No</option>
+            </select>
+            <p class="text-xs" style="color:var(--text-muted);">TES is for a first undergraduate degree.</p>
+          </div>
+
+        </div>
+      </div>
+
       {# ── Staff-only fields ─────────────────────────────────────────────── #}
-      <div id="staff-fields" class="card" style="padding:1.5rem;
-           {% if post.account_type != 'nsu_staff' %}display:none;{% endif %}">
+      <div data-staff-only class="card mb-4" style="padding:1.5rem;"
+           {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
         <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Employment Information</p>
         <p class="text-xs mb-4" style="color:var(--text-muted);">Saved to your staff profile. You can correct any of it later under My Profile.</p>
         <div class="space-y-3">
 
           <div class="space-y-1.5">
-            <label>School / Employee ID</label>
+            <label>School / Employee ID <span class="label-optional">Optional</span></label>
             <input name="school_id" value="{{ post.school_id }}" placeholder="e.g. 32-1-213313" />
           </div>
 
           <div class="space-y-1.5">
-            <label>School</label>
+            <label>School <span class="label-optional">Optional</span></label>
             <select name="staff_school">
               <option value="">— Select School —</option>
               {% for val, label in bipsu_schools %}
@@ -199,11 +518,11 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Department</label>
+              <label>Department <span class="label-optional">Optional</span></label>
               <input name="department" value="{{ post.department }}" placeholder="e.g. Computer Science Department" />
             </div>
             <div class="space-y-1.5">
-              <label>Position</label>
+              <label>Position <span class="label-optional">Optional</span></label>
               <input name="position" value="{{ post.position }}" placeholder="e.g. Instructor I" />
             </div>
           </div>
@@ -272,21 +591,46 @@ function updateCourseDropdown() {
   updateCourseDropdown();
 })();
 
+// Hidden with the `hidden` attribute rather than a style, so the browser skips
+// what is inside — and requiredness is lifted with the block and put back when
+// it returns, because a required field in a hidden div blocks the submit with a
+// message nobody can see. Switching to Staff after ticking "I already hold a
+// scholarship" is exactly that trap.
+function setBlocksHidden(selector, hide) {
+  document.querySelectorAll(selector).forEach(function (el) {
+    el.hidden = hide;
+    if (hide) {
+      el.querySelectorAll('[required]').forEach(function (field) {
+        field.dataset.wasRequired = '1';
+        field.required = false;
+      });
+    } else {
+      el.querySelectorAll('[data-was-required]').forEach(function (field) {
+        field.required = true;
+        delete field.dataset.wasRequired;
+      });
+    }
+  });
+}
+
 function selectType(type) {
   document.getElementById('account_type').value = type;
 
   const cardStudent = document.getElementById('card-student');
   const cardStaff   = document.getElementById('card-staff');
-  const studentFields = document.getElementById('student-fields');
-  const staffFields   = document.getElementById('staff-fields');
   const btn = document.getElementById('submit-btn');
   const title = document.getElementById('section-title');
+  const student = type === 'student';
 
-  if (type === 'student') {
+  // Every block belonging to one account type carries its own marker, so a
+  // block added later is shown and hidden without touching this function.
+  setBlocksHidden('[data-student-only]', !student);
+  setBlocksHidden('[data-staff-only]', student);
+  syncScholarshipData();
+
+  if (student) {
     cardStudent.className = 'type-card selected-student';
     cardStaff.className   = 'type-card';
-    studentFields.style.display = '';
-    staffFields.style.display   = 'none';
     // The button keeps the yellow call-to-action of the landing identity; only
     // the section heading changes to mark which kind of account is selected.
     btn.style.background = '';
@@ -295,18 +639,20 @@ function selectType(type) {
   } else {
     cardStaff.className   = 'type-card selected-staff';
     cardStudent.className = 'type-card';
-    studentFields.style.display = 'none';
-    staffFields.style.display   = '';
     btn.style.background = '#2f9e44';
     btn.style.color      = '#fff';
     title.style.color    = '#2f9e44';
   }
 }
-// Set initial button/title colour on load
+</script>
+<script src="{% static 'js/register-scholarship.js' %}?v=2"></script>
+<script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
+<script>
+// Last, so the two scripts above have registered their handlers before the
+// initial state is painted.
 (function() {
   var t = document.getElementById('account_type').value;
-  if (t === 'nsu_staff') selectType('nsu_staff');
-  else selectType('student');
+  selectType(t === 'nsu_staff' ? 'nsu_staff' : 'student');
 })();
 </script>
 </body>

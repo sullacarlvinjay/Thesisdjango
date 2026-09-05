@@ -18,9 +18,9 @@ Two defaults in the existing schema are traps this module works around:
     entered anything looks identical to one earning nothing. Ranking that
     student as the poorest applicant is exactly the error the TES rules warn
     about, so 0.0 is read as missing.
-  * ``StudentProfile.is_pwd`` and ``has_other_scholarship`` are two-state
-    booleans. False is treated as an answer only where the system has positive
-    evidence behind it — see the individual rules.
+  * ``StudentProfile.is_pwd`` is read off the disability the student named, so
+    'no disability' and 'never asked' look alike. It is treated as an answer
+    only where there is positive evidence behind it — see the individual rules.
 
 Field mapping (requirement -> the field actually used):
 
@@ -28,14 +28,14 @@ Field mapping (requirement -> the field actually used):
     Enrolled / CHED-recog.  StudentProfile.year_level, .school
     First degree            StudentProfile.has_previous_degree
     Maximum years           StudentProfile.year_first_enrolled + PROGRAM_YEARS
-    Other gov. assistance   Application / ScholarshipLinkRequest rows,
-                            StudentProfile.has_other_scholarship
+    Other gov. assistance   Application / ScholarshipLinkRequest rows
     Listahanan              StudentProfile.is_listahanan_household
     4Ps (fallback)          StudentProfile.is_4ps_beneficiary
     Solo parent dependent   TESApplication.is_solo_parent_dependent
     ICC / IP                StudentProfile.indigenous_group,
                             TESApplication.indigenous_people_group
-    PWD                     StudentProfile.is_pwd, TESApplication.disability_type
+    PWD                     StudentProfile.disability_type,
+                            TESApplication.disability_type
     Household income        StudentProfile.family_income
     Household size          StudentProfile.household_size
 """
@@ -244,13 +244,14 @@ def _maximum_years_rule(profile, today=None):
 
 
 def _other_assistance_rule(profile):
-    """Read from the office's own award records first, then the declaration.
+    """Read from the office's own award records first, then the undecided ones.
 
     An approved application or link request for a conflicting programme is hard
-    evidence. A student who ticked 'has other scholarship' without such a record
-    is unresolved rather than disqualified: the system cannot tell whether what
-    they hold is government assistance, a private grant, or one-time emergency
-    help, which the rules say must not disqualify anyone.
+    evidence. A scholarship the student declared at registration that nobody has
+    verified yet leaves them unresolved rather than disqualified: the system
+    cannot tell whether what they hold is government assistance, a private
+    grant, or one-time emergency help, which the rules say must not disqualify
+    anyone.
     """
     from .models import Application, ScholarshipLinkRequest
 
@@ -273,18 +274,25 @@ def _other_assistance_rule(profile):
             f'Currently holds {names} through this office — ongoing government assistance '
             'that TES cannot be held alongside.',
             source='Application / ScholarshipLinkRequest')
-    if profile.has_other_scholarship:
+    declared = list(
+        ScholarshipLinkRequest.objects
+        .filter(student=profile, status='Pending')
+        .values_list('scholarship_type', flat=True)
+    )
+    if declared:
+        names = ', '.join(sorted(set(declared)))
         return RuleResult(
             'other_assistance', 'Other Government Assistance', NEEDS_VERIFICATION,
-            'The student declared another scholarship, but no award record identifies it. '
-            'Whether it is ongoing government assistance or one-time emergency help '
-            '(DSWD AICS, CHED SMART — neither disqualifying) needs checking.',
-            source='StudentProfile.has_other_scholarship',
-            missing=('Which scholarship the student holds',))
+            f'The student declared {names} at registration, but the office has not '
+            'verified the proof yet. Whether it is ongoing government assistance or '
+            'one-time emergency help (DSWD AICS, CHED SMART — neither disqualifying) '
+            'cannot be settled until it is reviewed.',
+            source='ScholarshipLinkRequest (Pending)',
+            missing=('A decision on the declared scholarship',))
     return RuleResult(
         'other_assistance', 'Other Government Assistance', PASS,
         'No approved TDP, DOST or CHED award on file and none declared.',
-        source='Application / StudentProfile.has_other_scholarship')
+        source='Application / ScholarshipLinkRequest')
 
 
 # ── priority ────────────────────────────────────────────────────────────────
@@ -325,10 +333,11 @@ def _priority_signals(profile, application):
     if ip_group:
         markers.append(f'ICC/IP ({ip_group})')
 
-    if profile.is_pwd:
-        markers.append('PWD')
-    elif application is not None and _stated(application.disability_type):
-        markers.append(f'PWD ({_stated(application.disability_type)})')
+    disability = _stated(profile.disability_type)
+    if not disability and application is not None:
+        disability = _stated(application.disability_type)
+    if disability:
+        markers.append(f'PWD ({disability})')
 
     return markers, unknown
 

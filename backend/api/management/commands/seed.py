@@ -72,7 +72,6 @@ class Command(BaseCommand):
                 'gender': 'Male',
                 'family_income': 180000,
                 'parent_employment': 'Farmer',
-                'is_coconut_farmer_family': True,
             }
         )
 
@@ -131,8 +130,8 @@ class Command(BaseCommand):
             ('jose.reyes@bipsu.edu.ph', 'Jose', 'Reyes', '2022-00102', 'BS Agriculture', 3, 1.75, 'Male', 'Almeria', 'Biliran', 90000, {'family_income': 90000}),
             ('ana.garcia@bipsu.edu.ph', 'Ana', 'Garcia', '2022-00103', 'BS Biology', 2, 1.40, 'Female', 'Naval', 'Biliran', 200000, {}),
             ('pedro.lim@bipsu.edu.ph', 'Pedro', 'Lim', '2022-00104', 'BS Nursing', 3, 1.60, 'Male', 'Kawayan', 'Biliran', 250000, {}),
-            ('rosa.cruz@bipsu.edu.ph', 'Rosa', 'Cruz', '2022-00105', 'BS Forestry', 1, 1.80, 'Female', 'Culaba', 'Biliran', 120000, {'is_coconut_farmer_family': True}),
-            ('carlo.mendoza@bipsu.edu.ph', 'Carlo', 'Mendoza', '2022-00106', 'BS Physical Education', 2, 2.00, 'Male', 'Biliran', 'Biliran', 180000, {'is_athlete': True}),
+            ('rosa.cruz@bipsu.edu.ph', 'Rosa', 'Cruz', '2022-00105', 'BS Forestry', 1, 1.80, 'Female', 'Culaba', 'Biliran', 120000, {}),
+            ('carlo.mendoza@bipsu.edu.ph', 'Carlo', 'Mendoza', '2022-00106', 'BS Physical Education', 2, 2.00, 'Male', 'Biliran', 'Biliran', 180000, {'disability_type': 'Visual Disability'}),
             ('liza.torres@bipsu.edu.ph', 'Liza', 'Torres', '2022-00107', 'BS Criminology', 4, 1.55, 'Female', 'Maripipi', 'Biliran', 160000, {}),
         ]
         scholarship_types = ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'GSIS']

@@ -36,7 +36,7 @@
             <td style="padding:0.7rem 1rem;font-weight:500;">BiPSU Staff Scholarship</td>
             <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ a.submitted_at|date:"M d, Y" }}</td>
             <td style="padding:0.7rem 1rem;">
-              {% if a.status == "Approved" or a.status == "Endorsed" %}<span class="badge badge-success">{{ a.status }}</span>
+              {% if a.status == "Approved" %}<span class="badge badge-success">{{ a.status }}</span>
               {% elif a.status == "Rejected" or a.status == "Disqualified" %}<span class="badge badge-destructive">{{ a.status }}</span>
               {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
             </td>

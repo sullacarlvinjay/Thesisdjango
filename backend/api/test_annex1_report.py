@@ -1,12 +1,14 @@
-"""The CHED Annex 1 report — the list of TES applicants — and the year picker.
+"""The TES applicants report — a plain table — and the school-year picker.
 
-Two things are being guarded here. The workbook: that it is the office's own
-template with the applicant rows written into it, macros and dropdowns intact,
-rather than a sheet recreated in code. And the school year: that picking one
-scopes the applicants page, the Annex 1 download and the Annex 2 report alike,
-so what an officer looks at is what they generate.
+Two things are being guarded here. That the report is generated rather than
+being CHED's Annex 1 workbook with rows poured into it: that file is the guide
+this takes its columns and its lookup lists from, and none of its sheets,
+dropdowns or macros belong in the output. And the school year: that picking one
+scopes the applicants page, this download and the Annex 2 report alike, so what
+an officer looks at is what they generate.
 """
 import openpyxl
+from unittest import mock
 from datetime import date
 from io import BytesIO
 
@@ -142,62 +144,101 @@ class Annex1ReportTest(TestCase):
         values = annex1_report.row_values(annex1_report.applicant_rows()[0])
         self.assertEqual(len(values), len(annex1_report.ANNEX1_HEADERS))
 
-    # ── The workbook ────────────────────────────────────────────────────────
+    # ── The sheet ───────────────────────────────────────────────────────────
 
-    def test_workbook_is_the_office_template_with_rows_written_in(self):
-        self._applicant('Cruz', 'S1')
-        buf, written, overflow = annex1_report.build_workbook('2026-2027')
-        self.assertEqual((written, overflow), (1, 0))
-
+    def _sheet(self, school_year='2026-2027', **kwargs):
+        buf, written = annex1_report.build_workbook(school_year, **kwargs)
         wb = openpyxl.load_workbook(BytesIO(buf.getvalue()))
-        # The template's own sheets, not a workbook built here.
-        self.assertIn('Annex 1', wb.sheetnames)
-        self.assertIn('General Instructions', wb.sheetnames)
-        self.assertIn('Registry_Courses', wb.sheetnames)
+        return wb, wb[annex1_report.SHEET], written
 
-        ws = wb['Annex 1']
-        self.assertEqual(ws['A1'].value, 'Academic Year 2026-2027')
-        self.assertEqual(ws['A3'].value, 'LIST OF TES APPLICANTS')
+    def test_it_is_a_plain_table_not_cheds_workbook(self):
+        """The Annex 1 file is the guide for the columns, not the output."""
+        self._applicant('Cruz', 'S1')
+        wb, ws, written = self._sheet()
+        self.assertEqual(written, 1)
+
+        # One sheet of our own — none of the form's tabs come along.
+        self.assertEqual(wb.sheetnames, [annex1_report.SHEET])
+        for tab in ('Annex 1', 'General Instructions', 'Registry_Courses'):
+            self.assertNotIn(tab, wb.sheetnames)
+        # Nothing inherited from the form: no dropdowns, no macros.
+        self.assertEqual(len(ws.data_validations.dataValidation), 0)
+        self.assertIsNone(wb.vba_archive)
+
+    def test_the_header_row_is_the_columns_the_guide_names(self):
+        self._applicant('Cruz', 'S1')
+        _wb, ws, _ = self._sheet()
+
+        row = annex1_report.HEADER_ROW
+        headings = [ws.cell(row=row, column=c).value
+                    for c in range(1, len(annex1_report.ANNEX1_HEADERS) + 1)]
+        self.assertEqual(headings, annex1_report.ANNEX1_HEADERS)
+
+    def test_one_row_per_applicant_under_the_headings(self):
+        self._applicant('Cruz', 'S1')
+        self._applicant('Bautista', 'S2')
+        _wb, ws, written = self._sheet()
+        self.assertEqual(written, 2)
 
         first = annex1_report.FIRST_ROW
-        self.assertEqual(ws.cell(row=first, column=1).value, 1)      # SEQ
-        self.assertEqual(ws.cell(row=first, column=2).value, 'S1')   # STUDENT ID
-        self.assertEqual(ws.cell(row=first, column=6).value, 'Cruz')  # LAST NAME
-        self.assertEqual(ws.cell(row=first, column=10).value, 1)     # SEX
+        self.assertEqual(ws.cell(row=first, column=1).value, 1)          # SEQ
+        self.assertEqual(ws.cell(row=first, column=2).value, 'S2')       # alphabetical
+        self.assertEqual(ws.cell(row=first, column=6).value, 'Bautista')
+        self.assertEqual(ws.cell(row=first + 1, column=6).value, 'Cruz')
+        # And nothing past the last applicant.
+        self.assertIsNone(ws.cell(row=first + 2, column=2).value)
+
+    def test_the_computed_columns_land_where_the_guide_puts_them(self):
+        self._applicant('Cruz', 'S1')
+        _wb, ws, _ = self._sheet()
+        first = annex1_report.FIRST_ROW
+        self.assertEqual(ws.cell(row=first, column=10).value, 1)          # SEX, female
         self.assertEqual(ws.cell(row=first, column=25).value, '9171234567')
+        self.assertEqual(ws.cell(row=first, column=27).value, 'NO')       # disability
 
-    def test_workbook_keeps_its_dropdowns(self):
-        """The Sex, Program and Disability validations must survive the fill."""
+    def test_the_title_says_what_the_table_is_and_which_year(self):
         self._applicant('Cruz', 'S1')
-        buf, _written, _overflow = annex1_report.build_workbook('2026-2027')
-        ws = openpyxl.load_workbook(BytesIO(buf.getvalue()))['Annex 1']
-        sources = {dv.formula1 for dv in ws.data_validations.dataValidation}
-        self.assertIn('Sex_Code!$A$2:$A$3', sources)
-        self.assertIn('Registry_Courses!$A$2:$A$41', sources)
-        self.assertIn('Disability_List!$A$2:$A$12', sources)
+        _wb, ws, _ = self._sheet()
+        title = ws['A1'].value
+        self.assertIn('LIST OF TES APPLICANTS', title)
+        self.assertIn('Biliran Province State University', title)
+        self.assertIn('2026-2027', title)
 
-    def test_workbook_keeps_its_macros(self):
-        """It ships as .xlsm; a save that dropped the VBA would break the form."""
+    def test_the_birthdate_column_is_formatted_as_a_date(self):
+        """Otherwise Excel shows it in whatever the reader's locale prefers."""
         self._applicant('Cruz', 'S1')
-        buf, _written, _overflow = annex1_report.build_workbook('2026-2027')
-        wb = openpyxl.load_workbook(BytesIO(buf.getvalue()), keep_vba=True)
-        self.assertIsNotNone(wb.vba_archive)
+        _wb, ws, _ = self._sheet()
+        self.assertEqual(ws.cell(row=annex1_report.FIRST_ROW, column=11).number_format,
+                         'yyyy-mm-dd')
 
-    def test_workbook_scopes_itself_to_the_year_it_is_titled_with(self):
+    def test_the_headings_freeze_and_the_table_filters(self):
+        """A thirty-column list is unreadable without both."""
+        self._applicant('Cruz', 'S1')
+        _wb, ws, _ = self._sheet()
+        self.assertEqual(ws.freeze_panes, f'A{annex1_report.FIRST_ROW}')
+        self.assertIsNotNone(ws.auto_filter.ref)
+
+    def test_it_scopes_itself_to_the_year_it_is_titled_with(self):
         self._applicant('Cruz', 'S1', school_year='2026-2027')
         self._applicant('Reyes', 'S2', school_year='2025-2026')
 
-        buf, written, _overflow = annex1_report.build_workbook('2025-2026')
+        _wb, ws, written = self._sheet('2025-2026')
         self.assertEqual(written, 1)
-        ws = openpyxl.load_workbook(BytesIO(buf.getvalue()))['Annex 1']
-        self.assertEqual(ws['A1'].value, 'Academic Year 2025-2026')
+        self.assertIn('2025-2026', ws['A1'].value)
         self.assertEqual(ws.cell(row=annex1_report.FIRST_ROW, column=6).value, 'Reyes')
 
-    def test_a_year_with_no_applicants_builds_an_empty_form(self):
-        buf, written, overflow = annex1_report.build_workbook('2024-2025')
-        self.assertEqual((written, overflow), (0, 0))
-        ws = openpyxl.load_workbook(BytesIO(buf.getvalue()))['Annex 1']
-        self.assertIsNone(ws.cell(row=annex1_report.FIRST_ROW, column=2).value)
+    def test_a_year_with_no_applicants_still_builds_the_table(self):
+        _wb, ws, written = self._sheet('2024-2025')
+        self.assertEqual(written, 0)
+        # The headings are there to be read even with nothing under them.
+        self.assertEqual(ws.cell(row=annex1_report.HEADER_ROW, column=1).value, 'SEQ')
+        self.assertIsNone(ws.cell(row=annex1_report.FIRST_ROW, column=1).value)
+
+    def test_it_builds_without_the_guide_file(self):
+        """The guide feeds the apply form's dropdowns; the report does not need it."""
+        with mock.patch.object(annex1_report, 'TEMPLATE_PATH', '/nowhere/missing.xlsm'):
+            _buf, written = annex1_report.build_workbook('2026-2027')
+        self.assertEqual(written, 0)
 
     # ── The school-year options ─────────────────────────────────────────────
 
@@ -241,21 +282,20 @@ class Annex1ReportTest(TestCase):
         self.assertContains(r, 'Reyes')
         self.assertNotContains(r, 'S1')
 
-    def test_download_is_an_xlsm_named_for_the_year(self):
+    def test_download_is_an_xlsx_named_for_the_year(self):
         self._applicant('Cruz', 'S1')
         r = self.c.get('/unifast/tes-applications/report/?sy=2026-2027')
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(r['Content-Type'],
-                         'application/vnd.ms-excel.sheet.macroEnabled.12')
-        self.assertIn('TES_Annex1_Applicants_2026_2027.xlsm', r['Content-Disposition'])
+        self.assertIn('spreadsheetml', r['Content-Type'])
+        self.assertIn('TES_Applicants_2026_2027.xlsx', r['Content-Disposition'])
 
-        ws = openpyxl.load_workbook(BytesIO(r.content))['Annex 1']
+        ws = openpyxl.load_workbook(BytesIO(r.content))[annex1_report.SHEET]
         self.assertEqual(ws.cell(row=annex1_report.FIRST_ROW, column=6).value, 'Cruz')
 
     def test_download_without_a_year_says_so_in_the_filename(self):
         self._applicant('Cruz', 'S1')
         r = self.c.get('/unifast/tes-applications/report/')
-        self.assertIn('TES_Annex1_Applicants_all_years.xlsm', r['Content-Disposition'])
+        self.assertIn('TES_Applicants_all_years.xlsx', r['Content-Disposition'])
 
     def test_report_is_the_unifast_office_only(self):
         student = User.objects.create_user(

@@ -109,7 +109,7 @@ class EditAnApplicationTest(StudentMixin, TestCase):
         app.status = 'Approved'
         app.save(update_fields=['status'])
         html = self.c.get('/student/apply/academic/').content.decode()
-        self.assertIn('cannot apply to another scholarship', html)
+        self.assertIn('There is nothing to apply for', html)
         self.assertNotIn('Update Application', html)
 
     def test_an_approved_application_cannot_be_edited_by_posting_anyway(self):

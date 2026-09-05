@@ -1,15 +1,16 @@
-"""TES applicants report — the CHED 'Annex 1' workbook.
+"""TES applicants report — a plain table of everyone who applied.
 
-The office's own Annex 1 template is bundled at ``templates/xlsx/`` and used as
-the template, the same way :mod:`api.tes_report` uses the Annex 2 workbook: it
-is opened, applicant rows are written into the pre-formatted data range, and the
-title row is stamped with the school year being reported. Nothing about the
-layout, the General Instructions tab, the hidden lookup sheets or the macros is
-recreated in code, so the download is the form CHED expects apart from the data.
+**The bundled Annex 1 workbook is a guide, not the output.** It is the office's
+copy of CHED's form, and what this module takes from it is two things: the list
+of columns a TES applicant record has to carry, and the lookup sheets that fill
+the apply form's Programme and Disability dropdowns. The report itself is
+generated here — one header row and one row per applicant — rather than being
+that workbook with rows written into it.
 
-The file is macro-enabled (.xlsm). openpyxl is told to keep the VBA project, so
-the sheet's own sequence-number macro and the three dropdown validations —
-Sex_Code, Registry_Courses and Disability_List — survive the round trip.
+That is the whole difference from :mod:`api.tes_report`, which really does fill
+CHED's Annex 2 in place, because Annex 2 is submitted to CHED as-is and carries
+formulas and signatory blocks that must survive. Nothing here is submitted on a
+CHED form, so nothing here needs the form.
 
 Where Annex 2 lists the grantees the office bills for, this one lists everybody
 who *applied*: a decision has not necessarily been made yet, so the default is
@@ -17,24 +18,18 @@ every application in the chosen school year rather than the approved ones only.
 """
 import os
 
+# The guide. Still read — see registry_programs() and disability_types() — but
+# never written to and never handed to anybody as the report.
 TEMPLATE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'templates', 'xlsx', 'tes_annex1_applicants_template.xlsm',
 )
 
-SHEET = 'Annex 1'
+SHEET = 'TES Applicants'
 
-# Where the applicant table starts and stops. Row 1 carries the academic year,
-# rows 5-8 the three-deep merged header, and the data range below runs to the
-# end of the sheet's own formatting and validation.
-TITLE_CELL = 'A1'
-FIRST_ROW = 9
-LAST_ROW = 2008
-CAPACITY = LAST_ROW - FIRST_ROW + 1
-
-# Column order of the 'Annex 1' sheet, A..AD. Kept flat rather than nested the
-# way the merged header draws it, because this is also what the on-screen
-# preview and the tests read.
+# The columns, in the order CHED's form lists them. Taken from the guide, kept
+# flat rather than nested the way its merged header draws them, because a simple
+# table is what this produces and what the on-screen preview shows.
 ANNEX1_HEADERS = [
     'SEQ', 'STUDENT ID', 'LRN', 'PHILSYS ID', '4PS ID',
     'LAST NAME', 'GIVEN NAME', 'EXT. NAME', 'MIDDLE NAME',
@@ -237,40 +232,88 @@ def row_values(row):
     ]
 
 
+# Roughly how wide each column needs to be, in the header order above. Set once
+# here rather than measured per run, so two reports of the same list look the
+# same however long one person's address happens to be.
+COLUMN_WIDTHS = [
+    5, 14, 16, 16, 14,          # seq, ids
+    16, 16, 9, 16,              # student name
+    5, 12, 40, 6,               # sex, birthdate, programme, year
+    16, 16, 16,                 # father
+    16, 16, 16,                 # mother
+    26, 18, 14, 12, 8,          # address
+    15, 26, 22,                 # contact, email, disability
+    10, 10, 22,                 # flags, IP group
+]
+
+# The header row starts here. Two rows above it say what the table is and which
+# year it covers — a sheet handed to somebody has to answer that on its face.
+HEADER_ROW = 3
+FIRST_ROW = HEADER_ROW + 1
+
+
 def build_workbook(school_year, status=''):
-    """Return ``(BytesIO, written, overflow)`` for the filled Annex 1 workbook."""
+    """Return ``(BytesIO, written)`` — the applicant list as a plain table.
+
+    One title line, one header row, one row per applicant. Not CHED's workbook
+    with data poured into it: that file is the guide this takes its columns
+    from, and nothing here is submitted on a CHED form.
+    """
     import openpyxl
     from io import BytesIO
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
 
-    if not os.path.exists(TEMPLATE_PATH):
-        raise FileNotFoundError(
-            f'The TES Annex 1 workbook template is missing at {TEMPLATE_PATH}. '
-            'Restore it from the office copy before generating this report.'
+    rows = applicant_rows(school_year=school_year, status=status)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = SHEET
+
+    thin = Side(style='thin', color='D9D9D9')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    title = ws.cell(row=1, column=1)
+    title.value = (
+        'LIST OF TES APPLICANTS — Biliran Province State University'
+        + (f' — Academic Year {school_year}' if school_year else '')
+        + (f' — {status}' if status else '')
+    )
+    title.font = Font(bold=True, size=12)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=_NCOLS)
+
+    for column, heading in enumerate(ANNEX1_HEADERS, 1):
+        cell = ws.cell(row=HEADER_ROW, column=column, value=heading)
+        cell.font = Font(bold=True, size=9, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='1F4E79')
+        cell.alignment = Alignment(horizontal='center', vertical='center',
+                                   wrap_text=True)
+        cell.border = border
+    ws.row_dimensions[HEADER_ROW].height = 30
+
+    for offset, row in enumerate(rows):
+        for column, value in enumerate(row_values(row), 1):
+            cell = ws.cell(row=FIRST_ROW + offset, column=column, value=value)
+            cell.font = Font(size=9)
+            cell.border = border
+            # The one column openpyxl would otherwise write as a datetime and
+            # Excel would show in whatever the reader's locale prefers.
+            if ANNEX1_HEADERS[column - 1] == 'BIRTHDATE':
+                cell.number_format = 'yyyy-mm-dd'
+
+    for column, width in enumerate(COLUMN_WIDTHS, 1):
+        ws.column_dimensions[get_column_letter(column)].width = width
+
+    # Headings stay put while the office scrolls a long list, and every column
+    # gets a filter dropdown — the two things anyone does with a table this wide.
+    ws.freeze_panes = ws.cell(row=FIRST_ROW, column=1)
+    if rows:
+        ws.auto_filter.ref = (
+            f'A{HEADER_ROW}:'
+            f'{get_column_letter(_NCOLS)}{FIRST_ROW + len(rows) - 1}'
         )
-
-    all_rows = applicant_rows(school_year=school_year, status=status)
-    rows = all_rows[:CAPACITY]
-    # Anything past the pre-formatted range is reported rather than silently
-    # dropped — the office would need extra lines inserted in the template.
-    overflow = len(all_rows) - len(rows)
-
-    # keep_vba, so the sheet's sequence-number macro comes back out with it.
-    wb = openpyxl.load_workbook(TEMPLATE_PATH, keep_vba=True)
-    ws = wb[SHEET]
-    ws[TITLE_CELL] = f'Academic Year {school_year}' if school_year else 'Academic Year'
-
-    for i, row in enumerate(rows):
-        r = FIRST_ROW + i
-        for j, value in enumerate(row_values(row)):
-            ws.cell(row=r, column=1 + j).value = value
-
-    # The template ships empty, but clearing the tail keeps a regenerated report
-    # from ever showing a longer previous run's leftovers.
-    for r in range(FIRST_ROW + len(rows), LAST_ROW + 1):
-        for c in range(1, _NCOLS + 1):
-            ws.cell(row=r, column=c).value = None
 
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return buf, len(rows), overflow
+    return buf, len(rows)

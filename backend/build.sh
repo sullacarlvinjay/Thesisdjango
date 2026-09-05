@@ -22,6 +22,11 @@ python manage.py migrate
 # the password of an account that already exists.
 python manage.py bootstrap
 
+# Configuration that would otherwise fail quietly once the site is live. Nothing
+# here stops the deploy: the warnings are for things the site survives without
+# but nobody would notice were missing. See api/checks.py.
+python manage.py check
+
 # settings.py only checks the SUPABASE_S3_* variables are set, not that they
 # work: a wrong region or a mistyped secret starts the site fine and fails the
 # first time a student uploads something. One round trip against the bucket

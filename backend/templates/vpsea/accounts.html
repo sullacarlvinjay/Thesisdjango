@@ -52,6 +52,7 @@
   <p class="text-xs mb-4" style="color:#6b7a99;">
     Someone who registers on the public form cannot sign in until you decide here. Check what they entered
     against your records — an unverified account is the only thing standing between a stranger and a student portal.
+    A registration that declares a scholarship is decided here too: verifying the account records the award.
   </p>
 
   {% if pending %}
@@ -84,35 +85,155 @@
         </div>
       </div>
 
-      {# What they claimed about themselves, so it can be checked without leaving the page. #}
+      {% comment %}
+        Everything the registration form sent, so the officer can check it
+        against their enrolment list without opening another page. That form
+        asks for the whole student record now — see templates/register.html —
+        and a queue showing six of those fields was asking them to verify a
+        registration they could not read.
+      {% endcomment %}
+      {% with p=account.student_profile %}
+      {% if p %}
+      <div class="mb-3">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">Identity &amp; enrolment</p>
+        <div class="grid sm:grid-cols-3 gap-3 text-xs" style="color:#374151;">
+          <div><span style="color:#6b7a99;">Student ID</span><br />{{ p.student_id|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">School</span><br />{{ p.school|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Course / Year</span><br />{{ p.course|default:"—" }} · {{ p.year_level }}</div>
+          <div><span style="color:#6b7a99;">Middle Name</span><br />{{ p.middle_name|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Suffix</span><br />{{ p.suffix|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Contact</span><br />{{ p.contact_number|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Date of Birth</span><br />{{ p.date_of_birth|date:"M j, Y"|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Birth Place</span><br />{{ p.birth_place|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Gender</span><br />{{ p.gender|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Civil Status</span><br />{{ p.civil_status|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Disability</span><br />{{ p.disability_type|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Address</span><br />{{ p.address|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Registered</span><br />{{ p.term_display|default:"—" }}</div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color:#6b7a99;">Educational background</p>
+        <div class="grid sm:grid-cols-3 gap-3 text-xs" style="color:#374151;">
+          <div><span style="color:#6b7a99;">Elementary</span><br />{{ p.elementary|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">High School</span><br />{{ p.highschool|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Last School</span><br />{{ p.last_school|default:"—" }}</div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color:#6b7a99;">Scholarship eligibility</p>
+        <div class="grid sm:grid-cols-3 gap-3 text-xs" style="color:#374151;">
+          <div><span style="color:#6b7a99;">SHS GPA</span><br />{{ p.shs_gpa|default:"—" }}</div>
+          <div>
+            <span style="color:#6b7a99;">SHS Certificate</span><br />
+            {% if p.shs_gpa_cert %}<a href="{{ p.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:#3b5bdb;">View</a>{% else %}—{% endif %}
+          </div>
+          <div><span style="color:#6b7a99;">SUC Exam</span><br />{{ p.suc_exam_display|default:"—" }}</div>
+          <div>
+            <span style="color:#6b7a99;">SUC Certificate</span><br />
+            {% if p.suc_exam_cert %}<a href="{{ p.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:#3b5bdb;">View</a>{% else %}—{% endif %}
+          </div>
+          <div><span style="color:#6b7a99;">Current TES beneficiary</span><br />{% if p.is_tes_beneficiary %}Yes{% else %}No{% endif %}</div>
+        </div>
+
+        <p class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color:#6b7a99;">Socioeconomic &amp; TES eligibility</p>
+        <div class="grid sm:grid-cols-3 gap-3 text-xs" style="color:#374151;">
+          <div><span style="color:#6b7a99;">Annual Family Income</span><br />{% if p.family_income %}₱{{ p.family_income|floatformat:"-2" }}{% else %}—{% endif %}</div>
+          <div><span style="color:#6b7a99;">Household Size</span><br />{{ p.household_size|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Indigenous Group</span><br />{{ p.indigenous_group|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Citizenship</span><br />{{ p.citizenship|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Year First Enrolled</span><br />{{ p.year_first_enrolled|default:"—" }}</div>
+          <div><span style="color:#6b7a99;">Listahanan</span><br />{% if p.is_listahanan_household is None %}Not answered{% elif p.is_listahanan_household %}Yes{% else %}No{% endif %}</div>
+          <div><span style="color:#6b7a99;">4Ps Beneficiary</span><br />{% if p.is_4ps_beneficiary is None %}Not answered{% elif p.is_4ps_beneficiary %}Yes{% else %}No{% endif %}</div>
+          <div><span style="color:#6b7a99;">Holds a Degree</span><br />{% if p.has_previous_degree is None %}Not answered{% elif p.has_previous_degree %}Yes{% else %}No{% endif %}</div>
+        </div>
+      </div>
+      {% elif account.employee_profile %}
       <div class="grid sm:grid-cols-3 gap-3 mb-3 text-xs" style="color:#374151;">
-        {% if account.student_profile %}
-        <div><span style="color:#6b7a99;">Student ID</span><br />{{ account.student_profile.student_id|default:"—" }}</div>
-        <div><span style="color:#6b7a99;">School</span><br />{{ account.student_profile.school|default:"—" }}</div>
-        <div><span style="color:#6b7a99;">Course / Year</span><br />{{ account.student_profile.course|default:"—" }} · {{ account.student_profile.year_level }}</div>
-        <div><span style="color:#6b7a99;">Contact</span><br />{{ account.student_profile.contact_number|default:"—" }}</div>
-        <div><span style="color:#6b7a99;">Date of Birth</span><br />{{ account.student_profile.date_of_birth|date:"M j, Y"|default:"—" }}</div>
-        <div><span style="color:#6b7a99;">Middle Name</span><br />{{ account.student_profile.middle_name|default:"—" }}</div>
-        <div><span style="color:#6b7a99;">Registered</span><br />{{ account.student_profile.term_display|default:"—" }}</div>
-        {% elif account.employee_profile %}
         <div><span style="color:#6b7a99;">Employee ID</span><br />{{ account.employee_profile.employee_id|default:"—" }}</div>
+        <div><span style="color:#6b7a99;">School</span><br />{{ account.employee_profile.school|default:"—" }}</div>
         <div><span style="color:#6b7a99;">Department</span><br />{{ account.employee_profile.department|default:"—" }}</div>
         <div><span style="color:#6b7a99;">Position</span><br />{{ account.employee_profile.position|default:"—" }}</div>
         <div><span style="color:#6b7a99;">Contact</span><br />{{ account.employee_profile.contact_number|default:"—" }}</div>
-        {% else %}
-        <div class="sm:col-span-3" style="color:#92400e;">No profile was created with this account — worth asking why before verifying it.</div>
-        {% endif %}
       </div>
+      {% else %}
+      <div class="mb-3 text-xs" style="color:#92400e;">No profile was created with this account — worth asking why before verifying it.</div>
+      {% endif %}
+      {% endwith %}
 
-      <form method="post" class="flex flex-wrap items-end gap-2">
+      <form method="post" class="space-y-3">
         {% csrf_token %}
         <input type="hidden" name="user_id" value="{{ account.id }}" />
-        <div class="space-y-1.5" style="flex:1 1 20rem;min-width:14rem;">
-          <label>Message to them <span style="color:#6b7a99;font-weight:400;">(required to reject)</span></label>
-          <input name="message" placeholder="e.g. Student ID does not match our enrolment list for this semester." />
+
+        {% comment %}
+          A scholarship the student says they already hold. It is decided with
+          the account rather than on a queue of its own — verifying the account
+          is what writes the award and claims the matching imported row, and
+          rejecting it turns the declaration down in the same words.
+        {% endcomment %}
+        {% if account.declared %}
+        <div class="p-4 rounded-xl" style="background:#fffbeb;border:1px solid #fde68a;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#92400e;">Scholarship declared at registration</p>
+          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:#374151;">
+            <div><span style="color:#6b7a99;">Scholarship</span><br />{{ account.declared.get_scholarship_type_display }}</div>
+            <div><span style="color:#6b7a99;">Award Number</span><br /><span class="font-mono">{{ account.declared.award_number|default:"—" }}</span></div>
+            <div>
+              <span style="color:#6b7a99;">Proof</span><br />
+              {% if account.declared.proof_document %}
+              <a href="{{ account.declared.proof_document.url }}" data-doc="{{ account.declared.get_scholarship_type_display }} — proof" style="color:#3b5bdb;">View document</a>
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          {% if account.declared.notes %}
+          <p class="text-xs mb-3" style="color:#6b7a99;"><strong>Their note:</strong> {{ account.declared.notes }}</p>
+          {% endif %}
+
+          {% if account.declared.scholarship_type == 'CHED' %}
+          <div class="space-y-1.5 mb-3">
+            <label>CHED Award Tier</label>
+            <p class="text-xs" style="color:#92400e;">
+              The student declared
+              <strong>{{ account.declared.get_award_tier_display|default:"nothing" }}</strong>.
+              Correct it here if the proof says otherwise — the masterlists report the two tiers separately.
+            </p>
+            <select name="award_tier">
+              {% for value, label in ched_tiers %}
+              <option value="{{ value }}" {% if account.declared.award_tier == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          {% if account.archive_candidates %}
+          <div class="space-y-1.5">
+            <label>Merge with an imported row <span style="color:#6b7a99;font-weight:400;">(optional)</span></label>
+            <p class="text-xs" style="color:#6b7a99;">Rows from this term's uploaded list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
+            <select name="archive_id">
+              <option value="">— No imported row —</option>
+              {% for row in account.archive_candidates %}
+              <option value="{{ row.id }}">{{ row.last_name }}, {{ row.first_name }}{% if row.student_id %} · {{ row.student_id }}{% endif %}{% if row.award_number %} · {{ row.award_number }}{% endif %}{% if row.imported_from %} · {{ row.imported_from }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% else %}
+          <p class="text-xs" style="color:#92400e;">No row in this term's imported list ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
+          {% endif %}
+
+          {% if account.other_semester_rows %}
+          <p class="text-xs mt-2" style="color:#6b7a99;">
+            Same scholar in earlier imports, as evidence only:
+            {% for row in account.other_semester_rows %}{{ row.term_label }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </p>
+          {% endif %}
         </div>
-        <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
-        <button type="submit" name="action" value="reject" class="btn btn-outline" style="color:#dc2626;border-color:#fecaca;">Reject</button>
+        {% endif %}
+
+        <div class="flex flex-wrap items-end gap-2">
+          <div class="space-y-1.5" style="flex:1 1 20rem;min-width:14rem;">
+            <label>Message to them <span style="color:#6b7a99;font-weight:400;">(required to reject)</span></label>
+            <input name="message" placeholder="e.g. Student ID does not match our enrolment list for this semester." />
+          </div>
+          <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
+          <button type="submit" name="action" value="reject" class="btn btn-outline" style="color:#dc2626;border-color:#fecaca;">Reject</button>
+        </div>
       </form>
     </div>
     {% endfor %}
@@ -181,6 +302,6 @@
 
 {% block extra_js %}
 {% load static %}
-<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-filter.js' %}?v=2"></script>
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 {% endblock %}

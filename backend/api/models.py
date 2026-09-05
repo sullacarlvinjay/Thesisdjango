@@ -17,9 +17,9 @@ top to bottom, the classes below are the entity-relationship diagram:
     group of facts about them, each keyed back to it:
 
     StudentProfile ─1:1─ EnrollmentData          course, year level, entry, exam
-                   ├─1:1─ PersonalInformation    birth, sex, civil status
+                   ├─1:1─ PersonalInformation    birth, sex, civil status, disability
                    ├─1:1─ AffirmativeEligibility SHS GPA, SUC exam, TES status
-                   ├─1:1─ SocioEconomicProfile   income, household, indicators
+                   ├─1:1─ SocioEconomicProfile   income, household, indigenous group
                    ├─1:1─ TESEligibility         the UniFAST rules
                    ├─1:1─ EducationalBackground  elementary / high school
                    └─1:1─ FamilyBackground       parents' names and work
@@ -30,12 +30,21 @@ top to bottom, the classes below are the entity-relationship diagram:
     :class:`DetailField` proxies, so the views, templates and reports did not
     have to move with them.
 
-    User ─1:1─ StaffProfile
+    User ─1:1─ StaffProfile ──1:1─ StaffEmployment           the appointment
+                                ├─1:1─ StaffPersonalInformation  birth, sex, civil status
+                                └─1:1─ StaffEducation            what they have studied
 
     AffirmativeStaffApplication and StaffRenewal cover the Affirmative / BiPSU Staff
     programs, which are applied for outside the student portal. StaffProfile holds
     the employee's own details; the application keeps the snapshot it was approved
-    on.
+    on. Both are split the same way StudentProfile is, and proxy their columns the
+    same way, so ``staff.position`` and ``app.course`` still read as columns.
+
+    AffirmativeStaffApplication ──1:1─ ApplicantInformation
+                                ├─1:1─ ApplicantEnrollment
+                                ├─1:1─ ApplicantStaffEligibility
+                                ├─1:1─ ApplicantEmployment
+                                └─1:1─ ApplicantAffirmativeEligibility
 
 Every record a person submits carries the term it belongs to. Registration, an
 application, a renewal, a link request and a TES application are all stamped by
@@ -58,22 +67,30 @@ from .constants import (
     DEFAULT_APPROVAL_MESSAGE, VERIFICATION_STATUSES,
     DESIGNATIONS, EMPLOYMENT_STATUSES, NOTIFICATION_TYPES,
     QUALIFICATION_CHOICES, RECOMMENDATION_STATUSES, REVIEW_STATUSES,
-    SCHOLARSHIP_CATEGORIES, SCHOLARSHIP_GROUPS, SCHOLARSHIP_TYPE_CHOICES,
+    SCHOLARSHIP_CATEGORIES, SCHOLARSHIP_GROUPS, SCHOLARSHIP_LOGO_DEFAULT,
+    SCHOLARSHIP_LOGOS, SCHOLARSHIP_TYPE_CHOICES,
+    TES_DISBURSEMENT_STATUSES, TES_RELEASED,
     SEMESTERS, STUDENT_LEVELS, USER_ROLES,
+    school_for_course, school_for_registry_program,
 )
 
 # Re-exported so existing `from .models import BIPSU_SCHOOLS` imports keep working.
 __all__ = [
     'BIPSU_COURSES', 'BIPSU_SCHOOLS', 'CHED_TIER_CHOICES', 'SCHOLARSHIP_TYPE_CHOICES',
-    'ched_tier', 'split_ched', 'suc_exam_percent',
+    'ched_tier', 'split_ched', 'states_a_disability', 'suc_exam_percent',
     'AcademicRenewal', 'ActivityLog', 'AffirmativeEligibility',
     'AffirmativeRecommendation', 'AffirmativeStaffApplication', 'Announcement',
+    'ApplicantAffirmativeEligibility', 'ApplicantEmployment',
+    'ApplicantEnrollment', 'ApplicantInformation', 'ApplicantStaffEligibility',
     'Application', 'ApplicationDocument', 'EducationalBackground',
     'EnrollmentData', 'FamilyBackground', 'ImportedScholar', 'Notification',
     'PersonalInformation', 'Scholarship', 'ScholarListImport',
-    'ScholarshipLinkRequest', 'SocioEconomicProfile', 'StaffProfile',
-    'StaffRenewal', 'STUDENT_DETAILS', 'StudentProfile', 'SystemSettings',
-    'TESApplication', 'TESEligibility', 'TermStamped', 'User',
+    'ScholarshipLinkRequest', 'SocioEconomicProfile', 'STAFF_APPLICATION_DETAILS',
+    'StaffEducation', 'StaffEmployment', 'StaffPersonalInformation',
+    'StaffProfile', 'StaffRenewal', 'STUDENT_DETAILS', 'StudentProfile',
+    'SystemSettings', 'TESApplication', 'TESBilling', 'TESDisbursement',
+    'TESEligibility', 'TESLiquidation',
+    'TermStamped', 'User',
 ]
 
 
@@ -97,6 +114,20 @@ class PhilippineAddress(models.Model):
     def address(self):
         parts = [p for p in [self.barangay, self.municipality, self.province] if p]
         return ', '.join(parts)
+
+
+# How a disability answer spells "none". 'NO' is CHED's own Disability_List
+# wording, which the student profile and the TES form both offer; 'N/A' is what
+# records written before the dropdown existed hold. Both mean the same thing, so
+# a stored value has to be read rather than merely checked for emptiness — that
+# is what made 'N/A' count as a disability on the priority lists.
+NO_DISABILITY = frozenset({'', 'n/a', 'na', 'n.a.', 'none', 'no', 'not applicable',
+                           'wala', '-', '--', 'nil'})
+
+
+def states_a_disability(value):
+    """True when a disability type names a condition rather than declining one."""
+    return (value or '').strip().casefold() not in NO_DISABILITY
 
 
 def middle_initial_of(middle_name):
@@ -503,6 +534,7 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
     gender = DetailField('personal', 'gender')
     civil_status = DetailField('personal', 'civil_status')
     contact_number = DetailField('personal', 'contact_number')
+    disability_type = DetailField('personal', 'disability_type')
 
     # ── Affirmative eligibility
     shs_gpa = DetailField('affirmative_eligibility', 'shs_gpa')
@@ -517,10 +549,6 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
     household_size = DetailField('socioeconomic', 'household_size')
     indigenous_group = DetailField('socioeconomic', 'indigenous_group')
     parent_employment = DetailField('socioeconomic', 'parent_employment')
-    is_pwd = DetailField('socioeconomic', 'is_pwd')
-    is_athlete = DetailField('socioeconomic', 'is_athlete')
-    is_coconut_farmer_family = DetailField('socioeconomic', 'is_coconut_farmer_family')
-    has_other_scholarship = DetailField('socioeconomic', 'has_other_scholarship')
 
     # ── TES eligibility
     citizenship = DetailField('tes_eligibility', 'citizenship')
@@ -546,6 +574,17 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.student_id})"
+
+    @property
+    def is_pwd(self):
+        """Derived from :attr:`disability_type`, never stored beside it.
+
+        It was a checkbox of its own, which could — and did — disagree with the
+        disability the same student named on their TES form. Asking which
+        disability answers both questions at once: naming one is the PWD
+        declaration, and 'NO' is how the form declines it.
+        """
+        return states_a_disability(self.disability_type)
 
     # ── Derived values ──────────────────────────────────────────────────────
 
@@ -641,6 +680,12 @@ class PersonalInformation(PersonalInfo, StudentDetail):
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='personal')
     birth_place = models.CharField(max_length=200, blank=True)
+    # CHED's own Disability_List value, or the free text a student typed under
+    # 'Other'. Blank and 'NO' both mean no disability — see states_a_disability,
+    # which StudentProfile.is_pwd is built on.
+    disability_type = models.CharField(
+        max_length=100, blank=True,
+        help_text="A value from CHED's Disability_List, or 'NO' for none.")
 
     class Meta:
         verbose_name = 'personal information'
@@ -685,7 +730,7 @@ class AffirmativeEligibility(StudentDetail):
 
 
 class SocioEconomicProfile(StudentDetail):
-    """Household means and the priority groups a student belongs to.
+    """Household means, and the indigenous group a student belongs to.
 
     ``family_income`` is the household's ANNUAL income and defaults to 0.0, which
     is indistinguishable from 'never entered' — so the TES recommender reads 0.0
@@ -701,10 +746,6 @@ class SocioEconomicProfile(StudentDetail):
     household_size = models.IntegerField(null=True, blank=True)
     indigenous_group = models.CharField(max_length=100, blank=True)
     parent_employment = models.CharField(max_length=100, blank=True)
-    is_pwd = models.BooleanField(default=False)
-    is_athlete = models.BooleanField(default=False)
-    is_coconut_farmer_family = models.BooleanField(default=False)
-    has_other_scholarship = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'socio-economic profile'
@@ -788,7 +829,7 @@ class FamilyBackground(StudentDetail):
                                 self.mother_middle_name)
 
 
-class StaffProfile(PersonalInfo, PhilippineAddress):
+class StaffProfile(PhilippineAddress, DetailRows):
     """A BiPSU employee's own record — one row per staff member, kept current.
 
     The employment details used to live on whichever ``AffirmativeStaffApplication``
@@ -797,14 +838,28 @@ class StaffProfile(PersonalInfo, PhilippineAddress):
     read an employee ID off. They live here now, and the application reads from
     this profile.
 
+    Split the way a student's record is: identity and address are columns here,
+    and the three subjects an employee record covers — the appointment, the
+    personal details, what they have studied and are studying — are
+    :class:`StaffDetail` rows keyed back to this one. Every one of them still reads and writes off the profile
+    through :class:`DetailField`, so ``staff.position`` and
+    ``staff.save(update_fields=['school'])`` mean what they always did.
+
     Applications still keep their own copies on purpose: an approved award has
     to keep the details it was approved on, so editing this profile never
     rewrites a record the VPSEA office already reviewed.
 
     ``employee_id`` is not unique at the database level — the records this was
     backfilled from allow blanks and duplicates. The views that write it check
-    for a clash first.
+    for a clash first, and that check is a query, which is why it stays a column
+    here rather than moving onto the appointment row with the rest.
     """
+    DETAIL_RELATIONS = ('employment', 'personal', 'education')
+    DETAIL_LINK = 'staff'
+    # Written by __set_name__ on each DetailField below. Declared per class, or
+    # every model using DetailRows would be filling in the same dict.
+    DETAIL_FIELDS = {}
+
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='staff_profile',
         limit_choices_to={'role': 'nsu_staff'},
@@ -812,27 +867,32 @@ class StaffProfile(PersonalInfo, PhilippineAddress):
     employee_id = models.CharField(max_length=50, blank=True, db_index=True,
                                    help_text='School / employee ID, e.g. 32-1-213313')
 
-    # Employment
-    school = models.CharField(max_length=100, choices=BIPSU_SCHOOLS, blank=True)
-    department = models.CharField(max_length=200, blank=True)
-    position = models.CharField(max_length=200, blank=True)
-    employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
-    designation = models.CharField(max_length=30, choices=DESIGNATIONS, blank=True)
-    date_hired = models.DateField(null=True, blank=True)
-    date_of_regularization = models.DateField(null=True, blank=True)
-    declared_years_of_service = models.IntegerField(
-        null=True, blank=True,
-        help_text='Only read when date_hired is blank — see the years_of_service property.',
-    )
-    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True, validators=validate_document)
+    # ── Employment
+    school = DetailField('employment', 'school')
+    department = DetailField('employment', 'department')
+    position = DetailField('employment', 'position')
+    employment_status = DetailField('employment', 'employment_status')
+    designation = DetailField('employment', 'designation')
+    date_hired = DetailField('employment', 'date_hired')
+    date_of_regularization = DetailField('employment', 'date_of_regularization')
+    declared_years_of_service = DetailField('employment', 'declared_years_of_service')
+    appointment_paper = DetailField('employment', 'appointment_paper')
+    is_active = DetailField('employment', 'is_active')
+    separated_on = DetailField('employment', 'separated_on')
 
-    # Study background, for the staff scholarship
-    highest_education = models.CharField(max_length=200, blank=True)
-    has_baccalaureate = models.BooleanField(default=False)
+    # ── Personal
+    middle_name = DetailField('personal', 'middle_name')
+    suffix = DetailField('personal', 'suffix')
+    date_of_birth = DetailField('personal', 'date_of_birth')
+    gender = DetailField('personal', 'gender')
+    civil_status = DetailField('personal', 'civil_status')
+    contact_number = DetailField('personal', 'contact_number')
 
-    # A separated employee keeps their record for the archives; only the flag changes.
-    is_active = models.BooleanField(default=True)
-    separated_on = models.DateField(null=True, blank=True)
+    # ── Study background, for the staff scholarship
+    highest_education = DetailField('education', 'highest_education')
+    has_baccalaureate = DetailField('education', 'has_baccalaureate')
+    course = DetailField('education', 'course')
+    year_level = DetailField('education', 'year_level')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -842,6 +902,12 @@ class StaffProfile(PersonalInfo, PhilippineAddress):
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.employee_id or 'no ID'})"
+
+    # ── Derived values ──────────────────────────────────────────────────────
+
+    @property
+    def middle_initial(self):
+        return middle_initial_of(self.middle_name)
 
     @property
     def full_name(self):
@@ -870,6 +936,86 @@ class StaffProfile(PersonalInfo, PhilippineAddress):
         :meth:`AffirmativeStaffApplication.is_regular_staff`, which decides the
         same question for an applicant who is a dependent rather than staff."""
         return self.employment_status == 'Regular'
+
+
+class StaffDetail(models.Model):
+    """One group of facts about an employee, keyed back to their profile.
+
+    The staff-side counterpart of :class:`StudentDetail`, abstract for the same
+    reason: every subclass is a 1:1 table whose only job is to hold columns that
+    belong together and are filled in together.
+    """
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f'{self.staff.employee_id or self.staff_id} — {self._meta.verbose_name}'
+
+
+class StaffEmployment(StaffDetail):
+    """The appointment: where they work, what they do, and since when.
+
+    Separation is an employment fact and lives here rather than on the profile.
+    A separated employee keeps their whole record for the archives — only
+    ``is_active`` changes.
+    """
+    staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
+                                 related_name='employment')
+    school = models.CharField(max_length=100, choices=BIPSU_SCHOOLS, blank=True)
+    department = models.CharField(max_length=200, blank=True)
+    position = models.CharField(max_length=200, blank=True)
+    employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
+    designation = models.CharField(max_length=30, choices=DESIGNATIONS, blank=True)
+    date_hired = models.DateField(null=True, blank=True)
+    date_of_regularization = models.DateField(null=True, blank=True)
+    declared_years_of_service = models.IntegerField(
+        null=True, blank=True,
+        help_text='Only read when date_hired is blank — see StaffProfile.years_of_service.',
+    )
+    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True, validators=validate_document)
+    is_active = models.BooleanField(default=True)
+    separated_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'staff employment'
+        verbose_name_plural = 'staff employment'
+
+
+class StaffPersonalInformation(PersonalInfo, StaffDetail):
+    """Birth, sex and civil status — the group a student carries on
+    :class:`PersonalInformation`, held the same way for an employee."""
+    staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
+                                 related_name='personal')
+
+    class Meta:
+        verbose_name = 'staff personal information'
+        verbose_name_plural = 'staff personal information'
+
+
+class StaffEducation(StaffDetail):
+    """What the employee has studied, and what they are studying now.
+
+    Kept apart from the appointment because it answers a different question:
+    the programme asks what an employee has finished and what they are enrolled
+    in, not what they were hired as. ``department`` and ``position`` on
+    :class:`StaffEmployment` describe the job; ``course`` here describes the
+    degree the scholarship is paying for.
+
+    The same pair a student carries on :class:`EnrollmentData`, and named to
+    match so a report that prints "course, year level" reads the same field off
+    either record.
+    """
+    staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
+                                 related_name='education')
+    highest_education = models.CharField(max_length=200, blank=True)
+    has_baccalaureate = models.BooleanField(default=False)
+    course = models.CharField(max_length=100, blank=True,
+                              help_text='The programme the employee is enrolled in as a scholar.')
+    year_level = models.IntegerField(default=1)
+
+    class Meta:
+        verbose_name = 'staff education'
+        verbose_name_plural = 'staff education'
 
 
 class Scholarship(models.Model):
@@ -901,6 +1047,22 @@ class Scholarship(models.Model):
         default=list, blank=True,
         help_text="Columns the office added, as [{'key', 'label'}].")
 
+    @property
+    def logo_url(self):
+        """The seal of whoever funds this programme, for the pages that show it.
+
+        A property rather than a column because the answer follows from the
+        programme's type and nothing about it is per-row: DOST's scholarships
+        carry DOST's seal wherever they are rendered. Storing it would mean a
+        migration, an admin field and a way for one card to disagree with the
+        rest of the system about who funds it.
+
+        Falls back to BiPSU's own seal for a type with no agency logo on file,
+        which is what every card showed before this existed.
+        """
+        return '/media/logos/' + SCHOLARSHIP_LOGOS.get(
+            self.type, SCHOLARSHIP_LOGO_DEFAULT)
+
     def match_score(self, profile):
         if not profile:
             return 0
@@ -908,8 +1070,6 @@ class Scholarship(models.Model):
         if self.type == 'Academic' and profile.gwa <= 1.50:
             score += 30 if profile.gwa <= 1.29 else 15
         if self.type == 'TDP' and profile.family_income < 60000:
-            score += 30
-        if profile.is_athlete and self.type == 'Sports':
             score += 30
         return min(score, 100)
 
@@ -1078,7 +1238,7 @@ class ImportedScholar(PhilippineAddress):
         return f'{self.full_name} — {self.scholarship_type}'
 
 
-class AffirmativeStaffApplication(PhilippineAddress, TermStamped):
+class AffirmativeStaffApplication(PhilippineAddress, DetailRows, TermStamped):
     """Affirmative Action / BiPSU Staff application.
 
     Applied for outside the student portal, so it carries its own copy of the
@@ -1090,7 +1250,28 @@ class AffirmativeStaffApplication(PhilippineAddress, TermStamped):
     student's own profile by :meth:`AffirmativeRecommendation.evaluate_and_sync`,
     which reads the SHS GPA, SUC exam score and TES status the student entered
     in My Profile; this model only records the resulting application.
+
+    One table serving two programmes is why the columns are grouped onto
+    :class:`StaffApplicationDetail` rows. Which half of them a row fills depends
+    on ``qualified_for``: a Staff row fills the employment and staff-eligibility
+    groups and leaves the affirmative one blank, and an Affirmative row does the
+    reverse. Splitting them means neither programme's screen has to read the
+    other's forty columns to show its own six.
+
+    Identity and outcome stay columns here — ``full_name`` is ordered on,
+    ``email`` is what an application is looked up by, and ``status`` /
+    ``qualified_for`` are filtered on by nearly every office view. Those are
+    queries, and a query cannot go through the :class:`DetailField` proxies.
     """
+    DETAIL_RELATIONS = (
+        'applicant', 'enrollment', 'staff_eligibility', 'employment',
+        'affirmative_eligibility',
+    )
+    DETAIL_LINK = 'application'
+    # Written by __set_name__ on each DetailField below. Declared per class, or
+    # every model using DetailRows would be filling in the same dict.
+    DETAIL_FIELDS = {}
+
     # Personal
     full_name = models.CharField(max_length=200)
     # Not unique. The constraint served the public apply portal, which no longer
@@ -1098,43 +1279,42 @@ class AffirmativeStaffApplication(PhilippineAddress, TermStamped):
     # application already used the address, and forced the archive-add view to
     # fabricate one in a dedupe loop for records that have no email at all.
     email = models.EmailField(blank=True)
-    contact_number = models.CharField(max_length=20)
-    date_of_birth = models.DateField()
-    gender = models.CharField(max_length=10, choices=GENDERS, blank=True)
-    school = models.CharField(max_length=100, blank=True)
-    course = models.CharField(max_length=100)
-    year_level = models.IntegerField(default=1)
-    student_id = models.CharField(max_length=30, blank=True)
 
-    # BiPSU Staff eligibility. staff_* fields describe the sponsoring staff member
-    # when the applicant is a dependent, not the applicant themselves.
-    is_nsu_staff = models.BooleanField(default=False)
-    is_nsu_dependent = models.BooleanField(default=False)
-    staff_name = models.CharField(max_length=200, blank=True)
-    staff_employee_id = models.CharField(max_length=50, blank=True)
-    relationship_to_staff = models.CharField(max_length=50, blank=True)
-    has_baccalaureate = models.BooleanField(default=False)
+    # ── Applicant
+    contact_number = DetailField('applicant', 'contact_number')
+    date_of_birth = DetailField('applicant', 'date_of_birth')
+    gender = DetailField('applicant', 'gender')
 
-    # Employment details, filled from the NSU staff portal
-    employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
-    designation = models.CharField(max_length=30, choices=DESIGNATIONS, blank=True)
-    department = models.CharField(max_length=200, blank=True)
-    position = models.CharField(max_length=200, blank=True)
-    years_of_service = models.IntegerField(null=True, blank=True)
-    date_of_regularization = models.DateField(null=True, blank=True)
-    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True, validators=validate_document)
+    # ── Enrolment
+    school = DetailField('enrollment', 'school')
+    course = DetailField('enrollment', 'course')
+    year_level = DetailField('enrollment', 'year_level')
+    student_id = DetailField('enrollment', 'student_id')
 
-    # Affirmative eligibility
-    shs_gpa = models.FloatField(null=True, blank=True)
-    shs_certificate = models.FileField(upload_to='affirmative/shs/', null=True, blank=True, validators=validate_document)
-    suc_exam_score = models.FloatField(
-        null=True, blank=True,
-        help_text='Raw score. A percentage when suc_exam_total is blank.')
-    suc_exam_total = models.FloatField(
-        null=True, blank=True,
-        help_text='Items the exam was out of. Blank means the score is already a percentage.')
-    suc_exam_certificate = models.FileField(upload_to='affirmative/suc/', null=True, blank=True, validators=validate_document)
-    is_tes_beneficiary = models.BooleanField(default=False)
+    # ── BiPSU Staff eligibility
+    is_nsu_staff = DetailField('staff_eligibility', 'is_nsu_staff')
+    is_nsu_dependent = DetailField('staff_eligibility', 'is_nsu_dependent')
+    staff_name = DetailField('staff_eligibility', 'staff_name')
+    staff_employee_id = DetailField('staff_eligibility', 'staff_employee_id')
+    relationship_to_staff = DetailField('staff_eligibility', 'relationship_to_staff')
+    has_baccalaureate = DetailField('staff_eligibility', 'has_baccalaureate')
+
+    # ── Employment, filled from the NSU staff portal
+    employment_status = DetailField('employment', 'employment_status')
+    designation = DetailField('employment', 'designation')
+    department = DetailField('employment', 'department')
+    position = DetailField('employment', 'position')
+    years_of_service = DetailField('employment', 'years_of_service')
+    date_of_regularization = DetailField('employment', 'date_of_regularization')
+    appointment_paper = DetailField('employment', 'appointment_paper')
+
+    # ── Affirmative eligibility
+    shs_gpa = DetailField('affirmative_eligibility', 'shs_gpa')
+    shs_certificate = DetailField('affirmative_eligibility', 'shs_certificate')
+    suc_exam_score = DetailField('affirmative_eligibility', 'suc_exam_score')
+    suc_exam_total = DetailField('affirmative_eligibility', 'suc_exam_total')
+    suc_exam_certificate = DetailField('affirmative_eligibility', 'suc_exam_certificate')
+    is_tes_beneficiary = DetailField('affirmative_eligibility', 'is_tes_beneficiary')
 
     # Values for the custom columns the Affirmative / Staff table has added.
     extra_data = models.JSONField(default=dict, blank=True)
@@ -1192,6 +1372,17 @@ class AffirmativeStaffApplication(PhilippineAddress, TermStamped):
         return middle_initial_of(self.middle_name)
 
     @property
+    def course_school(self):
+        """The BiPSU school this applicant's course belongs to.
+
+        The staff portal asks for a course and not a school, so the ``school``
+        column it writes is almost always blank; the course names the school on
+        its own. Read rather than written back, for the same reason
+        :attr:`TESApplication.program_school` is.
+        """
+        return self.school or school_for_course(self.course)
+
+    @property
     def is_regular_staff(self):
         """The only bar for the BiPSU Staff Scholarship: a regular appointment.
 
@@ -1203,6 +1394,139 @@ class AffirmativeStaffApplication(PhilippineAddress, TermStamped):
         if self.is_nsu_dependent:
             return bool(self.staff_employee_id)
         return False
+
+
+# select_related() paths for a queryset of applications. Reading a moved column
+# is a join now, so any view that renders a list of them pulls the detail rows in
+# with the same query rather than one per row. Named like STUDENT_DETAILS, but
+# these are the application's own relations, so they carry no prefix: a caller
+# that reaches applications through a relation prefixes them itself.
+STAFF_APPLICATION_DETAILS = AffirmativeStaffApplication.DETAIL_RELATIONS
+
+
+class StaffApplicationDetail(models.Model):
+    """One group of facts about an Affirmative / Staff application.
+
+    Abstract, like :class:`StudentDetail` and :class:`StaffDetail`. The link
+    back is declared on each subclass so the reverse accessor can be named for
+    what it holds.
+    """
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f'{self.application.full_name} — {self._meta.verbose_name}'
+
+
+class ApplicantInformation(StaffApplicationDetail):
+    """How to reach the applicant, and the details they are identified by."""
+    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+                                       related_name='applicant')
+    contact_number = models.CharField(max_length=20, blank=True)
+    # Nullable, unlike the column it replaced. A detail row is created empty
+    # alongside the application, so a NOT NULL date here would have to be
+    # invented — which is exactly what the apply view's '2000-01-01' fallback
+    # was doing to get past the old constraint.
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDERS, blank=True)
+
+    class Meta:
+        verbose_name = 'applicant information'
+        verbose_name_plural = 'applicant information'
+
+
+class ApplicantEnrollment(StaffApplicationDetail):
+    """Where the applicant studies — their own programme, not the sponsor's.
+
+    A copy rather than a link to :class:`EnrollmentData`: most of these rows
+    are Affirmative scholars the office added by hand, who have no student
+    account behind them at all.
+    """
+    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+                                       related_name='enrollment')
+    school = models.CharField(max_length=100, blank=True)
+    course = models.CharField(max_length=100, blank=True)
+    year_level = models.IntegerField(default=1)
+    student_id = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        verbose_name = 'applicant enrollment'
+        verbose_name_plural = 'applicant enrollment'
+
+
+class ApplicantStaffEligibility(StaffApplicationDetail):
+    """What connects the applicant to BiPSU as an employer.
+
+    ``is_nsu_staff`` means the applicant is the employee; ``is_nsu_dependent``
+    means they are a dependent, and then the ``staff_*`` columns describe the
+    sponsoring staff member rather than the applicant. Read by
+    :meth:`AffirmativeStaffApplication.is_regular_staff`, which is the whole
+    eligibility rule for the programme.
+    """
+    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+                                       related_name='staff_eligibility')
+    is_nsu_staff = models.BooleanField(default=False)
+    is_nsu_dependent = models.BooleanField(default=False)
+    staff_name = models.CharField(max_length=200, blank=True)
+    staff_employee_id = models.CharField(max_length=50, blank=True)
+    relationship_to_staff = models.CharField(max_length=50, blank=True)
+    has_baccalaureate = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'applicant staff eligibility'
+        verbose_name_plural = 'applicant staff eligibility'
+
+
+class ApplicantEmployment(StaffApplicationDetail):
+    """The applicant's own appointment, as it stood when they applied.
+
+    The snapshot half of the arrangement described on :class:`StaffProfile`:
+    these are filled from the staff portal at submission and then left alone,
+    so an approved award keeps the appointment it was approved on even after
+    the employee's live record moves on.
+    """
+    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+                                       related_name='employment')
+    employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
+    designation = models.CharField(max_length=30, choices=DESIGNATIONS, blank=True)
+    department = models.CharField(max_length=200, blank=True)
+    position = models.CharField(max_length=200, blank=True)
+    years_of_service = models.IntegerField(null=True, blank=True)
+    date_of_regularization = models.DateField(null=True, blank=True)
+    appointment_paper = models.FileField(upload_to='staff/appointment/', null=True, blank=True, validators=validate_document)
+
+    class Meta:
+        verbose_name = 'applicant employment'
+        verbose_name_plural = 'applicant employment'
+
+
+class ApplicantAffirmativeEligibility(StaffApplicationDetail):
+    """The SHS grade and entrance exam the Affirmative Action programme judges.
+
+    The same group a student carries on :class:`AffirmativeEligibility`, and the
+    reason this is a copy rather than a link is the same as for
+    :class:`ApplicantEnrollment`. No view writes these columns: the numbers the
+    office actually decides on are the ones the student entered in My Profile,
+    which :meth:`AffirmativeRecommendation.evaluate_and_sync` reads. They are
+    kept because the office-added archive rows from before that was true still
+    carry values here.
+    """
+    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+                                       related_name='affirmative_eligibility')
+    shs_gpa = models.FloatField(null=True, blank=True)
+    shs_certificate = models.FileField(upload_to='affirmative/shs/', null=True, blank=True, validators=validate_document)
+    suc_exam_score = models.FloatField(
+        null=True, blank=True,
+        help_text='Raw score. A percentage when suc_exam_total is blank.')
+    suc_exam_total = models.FloatField(
+        null=True, blank=True,
+        help_text='Items the exam was out of. Blank means the score is already a percentage.')
+    suc_exam_certificate = models.FileField(upload_to='affirmative/suc/', null=True, blank=True, validators=validate_document)
+    is_tes_beneficiary = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'applicant affirmative eligibility'
+        verbose_name_plural = 'applicant affirmative eligibility'
 
 
 class AcademicRenewal(TermStamped):
@@ -1360,6 +1684,189 @@ class TESApplication(TermStamped):
 
     def __str__(self):
         return f"{self.student} — TES ({self.status})"
+
+    @property
+    def program_school(self):
+        """The BiPSU school this application's programme sits under.
+
+        The office table groups its Programme filter by this, so it has to
+        follow whichever name that column shows: a CHED registry programme is
+        matched on the words in it, and an application made before the registry
+        list existed shows the student's course instead, whose school is already
+        recorded. Worked out on read rather than stored — a school kept here
+        would be a second copy of a fact the programme name already carries.
+        """
+        if self.complete_program:
+            return school_for_registry_program(self.complete_program)
+        return self.student.school or school_for_course(self.student.course)
+
+
+class TESBilling(models.Model):
+    """What CHED pays a TES grantee for one school year, once the office is told.
+
+    The Annex 2 workbook bills on two per-grantee figures — the TES benefit and
+    the TES-3A top-up for a grantee with a disability — and computes everything
+    else from them: the two column totals, the 1% management fee, and the whole
+    Form 1 billing statement.
+
+    Those columns used to export blank on purpose, because a rate the system
+    invented would have been a guess an officer then signed. That reasoning is
+    unchanged and is why this is a stored, deliberate entry rather than a
+    constant: an amount reaches the workbook only when somebody has been told it
+    by CHED and typed it in. **With no row for a year, the workbook still
+    exports blank**, exactly as before.
+
+    One row per school year. The rate is set per term and CHED revises it, so
+    last year's figure must not quietly bill this year's grantees.
+    """
+    school_year = models.CharField(
+        max_length=20, unique=True, db_index=True,
+        help_text="Expanded school year, e.g. '2026-2027'.")
+
+    # Null, not zero. Zero is a rate of nothing, which is a claim; null is 'we
+    # have not been told', which is the truth before CHED advises the figure.
+    tes_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Per grantee, per the CHED advice for this term.')
+    tes_3a_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Top-up for a grantee with a disability. Decided per case.')
+
+    # Form 1 prints both on the billing statement it sends to CHEDRO.
+    reference_no = models.CharField(max_length=60, blank=True)
+    statement_date = models.DateField(null=True, blank=True)
+
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tes_billing_updates')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-school_year']
+        verbose_name = 'TES billing rate'
+
+    def __str__(self):
+        return f'TES billing {self.school_year}'
+
+    @property
+    def is_set(self):
+        """Whether there is an amount here worth putting on a bill."""
+        return self.tes_amount is not None
+
+    @classmethod
+    def for_year(cls, school_year):
+        """The rate for a year, or None. None means 'export blank', as before."""
+        if not school_year:
+            return None
+        return cls.objects.filter(school_year=school_year).first()
+
+
+class TESLiquidation(models.Model):
+    """What CHED actually remitted for a school year, and the report accounting for it.
+
+    The other half of :class:`TESBilling`. Billing is what the office asked
+    CHEDRO for; this is what arrived and what became of it. They are separate
+    rows because they are separate facts and they routinely disagree — a bill
+    for 120 grantees against a remittance covering 118 is an ordinary month, and
+    a system that stored one number for both would have no way to say so.
+
+    One row per school year, for the same reason billing has one: money is
+    released against a term, and a balance carried silently from last year into
+    this one is the error a liquidation exists to catch.
+
+    Null rather than zero throughout. Zero received is a claim that CHED sent
+    nothing; null is 'nothing has arrived yet', which is the truth for most of
+    the term.
+    """
+    school_year = models.CharField(
+        max_length=20, unique=True, db_index=True,
+        help_text="Expanded school year, e.g. '2026-2027'.")
+
+    funds_received = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text='Total remitted by CHEDRO for this term, per the credit advice.')
+    received_date = models.DateField(null=True, blank=True)
+    credit_advice_no = models.CharField(
+        max_length=60, blank=True,
+        help_text='Credit advice, ADA or cheque reference the funds arrived under.')
+
+    # The liquidation report's own identity, printed on what goes back to CHEDRO.
+    report_no = models.CharField(max_length=60, blank=True)
+    report_date = models.DateField(null=True, blank=True)
+
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tes_liquidation_updates')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-school_year']
+        verbose_name = 'TES liquidation'
+
+    def __str__(self):
+        return f'TES liquidation {self.school_year}'
+
+    @classmethod
+    def for_year(cls, school_year):
+        """The liquidation for a year, or None when the office has not started one."""
+        if not school_year:
+            return None
+        return cls.objects.filter(school_year=school_year).first()
+
+
+class TESDisbursement(models.Model):
+    """What reached one grantee, or did not.
+
+    A row exists once an officer has recorded something about that grantee's
+    share; a grantee with no row is simply one nobody has accounted for yet, and
+    the page counts them as outstanding rather than as zero.
+
+    Keyed to the :class:`TESApplication` rather than to the student, because the
+    application is what the billing counted and what carries the award number
+    CHEDRO reconciles against. ``CASCADE``: a deleted application takes its
+    disbursement row with it — a payment record pointing at no grantee is not
+    something to keep.
+    """
+    liquidation = models.ForeignKey(
+        TESLiquidation, on_delete=models.CASCADE, related_name='disbursements')
+    tes_application = models.ForeignKey(
+        'TESApplication', on_delete=models.CASCADE, related_name='disbursements')
+
+    # What went out. Not defaulted from the billed rate: the billed rate is what
+    # was asked for, and the whole point of a liquidation is to record what was
+    # actually paid, which is sometimes less and occasionally nothing.
+    amount_released = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True)
+    date_released = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=TES_DISBURSEMENT_STATUSES, default='Unclaimed')
+
+    # The grantee's acknowledgement — payroll line, OR number, whatever the
+    # cashier issued. Free text because it is the office's own reference.
+    receipt_no = models.CharField(max_length=60, blank=True)
+    remarks = models.CharField(max_length=200, blank=True)
+
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tes_disbursement_updates')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['tes_application__student__user__last_name']
+        constraints = [
+            # One row per grantee per liquidation. Two would double-count the
+            # money in every total on the page.
+            models.UniqueConstraint(fields=['liquidation', 'tes_application'],
+                                    name='one_disbursement_per_grantee'),
+        ]
+
+    def __str__(self):
+        return f'{self.tes_application} — {self.status}'
+
+    @property
+    def is_released(self):
+        """Whether this row moved money out of the office."""
+        return self.status == TES_RELEASED
 
 
 class AffirmativeRecommendation(models.Model):

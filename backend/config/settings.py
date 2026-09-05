@@ -371,8 +371,21 @@ else:
 # slow; api.notify gives up and logs rather than blocking the office.
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 10))
 
-DEFAULT_FROM_EMAIL = os.environ.get(
-    'DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'BiPSU SRMS <no-reply@bipsu.edu.ph>')
+# Who the message comes from. Derived from the account being logged into unless
+# something is set explicitly, because a From address the sending account is not
+# allowed to use is not honoured — Gmail rewrites it to the authenticated
+# account and delivers under that instead. Setting DEFAULT_FROM_EMAIL to
+# no-reply@bipsu.edu.ph while signing in as a Gmail account therefore does not
+# do what it looks like it does: recipients see the Gmail address, and the
+# configuration says otherwise.
+#
+# Deriving it means the two cannot disagree. Set DEFAULT_FROM_EMAIL only when the
+# address really is one that account may send as — an institutional mailbox, or
+# an alias verified under Gmail's 'Send mail as'.
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', '').strip() or (
+    f'BiPSU SRMS <{EMAIL_HOST_USER}>' if EMAIL_HOST_USER
+    else 'BiPSU SRMS <no-reply@bipsu.edu.ph>'
+)
 
 # Used in the links inside those emails. Without it they carry no link at all
 # rather than pointing at a hostname that only resolves on the office's laptop.

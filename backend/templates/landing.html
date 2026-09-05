@@ -6,7 +6,7 @@
   <title>BiPSU SRMS — Scholarship Portal</title>
   {% load static %}
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=11" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=15" />
   {% comment %}
     Both of these run before the first paint on purpose, so neither is deferred:
     one decides the colour scheme, the other raises the loading screen. Let
@@ -84,7 +84,7 @@
       <div class="card-strip card-strip-internal"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
-          <img src="/media/logos/BiPSU.png" alt="BiPSU" class="card-logo" />
+          <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
           <span class="badge badge-accent">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
@@ -117,7 +117,7 @@
       <div class="card-strip card-strip-institutional"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
-          <img src="/media/logos/BiPSU.png" alt="BiPSU" class="card-logo" />
+          <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
           <span class="badge badge-success">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
@@ -151,7 +151,7 @@
       <div class="card-strip card-strip-external"></div>
       <div class="p-6">
         <div class="flex items-center gap-3 mb-3">
-          <img src="/media/logos/BiPSU.png" alt="BiPSU" class="card-logo" />
+          <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
           <span class="badge badge-brand badge-strong">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
@@ -194,7 +194,7 @@
     <div class="card-strip {% if s.group == 'external' %}card-strip-external{% elif s.group == 'institutional' %}card-strip-institutional{% else %}card-strip-internal{% endif %}"></div>
     <div class="modal-sheet-head">
       <div class="flex items-center gap-3">
-        <img src="/media/logos/BiPSU.png" alt="logo" class="modal-logo" />
+        <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="modal-logo" />
         <div>
           <span class="badge badge-accent badge-block mb-1">{{ s.type }}</span>
           <h2 class="text-xl font-bold modal-title">{{ s.name }}</h2>

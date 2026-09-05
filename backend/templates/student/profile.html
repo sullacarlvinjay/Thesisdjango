@@ -5,19 +5,7 @@
 {% block page_title %}My Profile{% endblock %}
 {% block page_subtitle %}Keep your info up to date so applications are pre-filled automatically{% endblock %}
 
-{% block nav %}
-  <a href="/student/profile/" class="sidebar-link active"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>My Profile</a>
-  {% if not enrolled %}
-  <a href="/student/apply/academic/" class="sidebar-link {% if '/apply/academic' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>Apply: Academic</a>
-
-  <a href="/student/apply/tes/" class="sidebar-link {% if '/apply/tes' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Apply: TES</a>
-
-  <a href="/student/link-scholarship/" class="sidebar-link {% if '/link-scholarship' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Link Scholarship</a>
-  {% endif %}
-  <a href="/student/applications/" class="sidebar-link {% if '/applications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>My Applications</a>
-  <a href="/student/notifications/" class="sidebar-link {% if '/notifications' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Notifications</a>
-  <a href="/student/renewal/academic/" class="sidebar-link {% if '/renewal' in request.path %}active{% endif %}"><svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Renewal</a>
-{% endblock %}
+{% block nav %}{% include "student/_nav.html" %}{% endblock %}
 
 {% block content %}
 
@@ -41,6 +29,12 @@
     </div>
   </div>
 </div>
+
+{% if errors %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fff5f5;color:#e03131;border:1px solid #fecaca;">
+  {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
 
 {% if saved %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
@@ -176,6 +170,30 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         {% else %}
         <input name="province" value="{{ profile.province }}" placeholder="e.g. Biliran" />
         {% endif %}
+      </div>
+      {% comment %}
+        Asked the way CHED asks it, from their own Disability_List, so this
+        answer and the one on the TES application cannot end up disagreeing
+        about the same student. 'NO' is how that list spells not applicable, and
+        choosing it is an answer — leaving the box alone is not.
+      {% endcomment %}
+      <div class="space-y-1.5">
+        <label for="disabilityType">Disability Type</label>
+        <select name="disability_type" id="disabilityType"
+                data-reveals="#disabilityOther" data-reveal-on="{{ other_option }}">
+          <option value="" {% if not disability_value %}selected{% endif %}>— Not answered yet —</option>
+          {% for option in disabilities %}
+          <option value="{{ option }}" {% if option == disability_value %}selected{% endif %}>
+            {% if option == 'NO' %}NO — not a person with disability{% else %}{{ option }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-xs" style="color:#6b7a99;">Used for the PWD priority group on TES and the office's reports.</p>
+      </div>
+      <div class="space-y-1.5" id="disabilityOther" {% if disability_value != other_option %}hidden{% endif %}>
+        <label>Please specify the disability</label>
+        <input name="disability_type_other" value="{{ disability_other }}" maxlength="100"
+               placeholder="Type the disability as you would write it on a form" />
       </div>
       {% if address_locked %}
       <div class="sm:col-span-2">
@@ -332,24 +350,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         <input name="indigenous_group" value="{{ profile.indigenous_group }}" />
       </div>
     </div>
-    <div class="grid sm:grid-cols-2 gap-3 mt-4">
-      <label class="flex items-center gap-2 cursor-pointer text-sm">
-        <input type="checkbox" name="is_pwd" {% if profile.is_pwd %}checked{% endif %} style="width:auto;" />
-        Person with Disability (PWD)
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer text-sm">
-        <input type="checkbox" name="is_athlete" {% if profile.is_athlete %}checked{% endif %} style="width:auto;" />
-        University Athlete
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer text-sm">
-        <input type="checkbox" name="is_coconut_farmer_family" {% if profile.is_coconut_farmer_family %}checked{% endif %} style="width:auto;" />
-        From Coconut Farmer Family
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer text-sm">
-        <input type="checkbox" name="has_other_scholarship" {% if profile.has_other_scholarship %}checked{% endif %} style="width:auto;" />
-        Has Other Scholarship
-      </label>
-    </div>
   </div>
 
   <!-- TES Eligibility Information -->
@@ -475,4 +475,42 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
     <button type="submit" class="btn btn-primary">Save Profile</button>
   </div>
 </form>
+
+{% comment %}
+  Scholarship Data — read-only, and absent entirely for a student holding
+  nothing. Outside the form on purpose: it is a record of decisions the office
+  made, not a field anyone edits here. What it can hold is an approved award, an
+  approved TES subsidy, and the scholarship declared at registration while the
+  SDSO is still checking the proof — see _scholarship_records.
+{% endcomment %}
+{% if scholarships_held %}
+<div class="card p-6 mt-6">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Data</p>
+  <p class="text-xs mb-4" style="color:#6b7a99;">
+    What you hold, as the office recorded it. To correct any of it, contact the SDSO.
+  </p>
+  <div class="space-y-3">
+    {% for s in scholarships_held %}
+    <div class="p-4 rounded-xl" style="background:#f6f8fc;">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-sm font-medium" style="color:#1e2a3a;">{{ s.name }}</p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">
+            {% if s.term %}{{ s.term }}{% endif %}
+            {% if s.award_number %}&nbsp;·&nbsp; Award No. <span class="font-mono">{{ s.award_number }}</span>{% endif %}
+          </p>
+        </div>
+        <span class="badge {% if s.status == 'Approved' %}badge-success{% elif s.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %} shrink-0">{{ s.status }}</span>
+      </div>
+      {% if s.note %}<p class="text-xs mt-2" style="color:#6b7a99;">{{ s.note }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
 {% endblock %}

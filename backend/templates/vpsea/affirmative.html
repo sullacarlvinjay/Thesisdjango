@@ -126,7 +126,7 @@
         <tr style="border-bottom:1px solid #e8ecf0;">
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
-          <th data-filter="Course" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
+          <th data-filter="Course" data-filter-group="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
           <th data-filter="Employment" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Employment</th>
           <th data-filter="Designation" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Designation</th>
@@ -164,7 +164,7 @@
               </div>
             </div>
           </td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.course }}</td>
+          <td data-group="{{ app.course_school }}" style="padding:0.6rem 0.75rem;">{{ app.course }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.year_level }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.employment_status|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.designation|default:"—" }}</td>
@@ -277,7 +277,7 @@
 
 {% block extra_js %}
 {% load static %}
-<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-filter.js' %}?v=2"></script>
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script src="{% static 'js/decision-lock.js' %}?v=1"></script>
 <script>

@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% block title %}Liquidation — UniFAST Portal{% endblock %}
+{% block logo_src %}/media/logos/UniFAST.png{% endblock %}
+{% block brand %}UniFAST{% endblock %}
+{% block page_title %}TES Liquidation{% endblock %}
+{% block page_subtitle %}What CHED remitted, what reached grantees, and what is still in hand{% endblock %}
+{% block nav %}{% include "unifast/_nav.html" with active="liquidation" %}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  {% if saved %}
+  <div class="notice notice--ok">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p class="notice__title">
+      {% if saved == 'rows' %}Saved. The releases below are recorded against {{ school_year }}.
+      {% else %}Saved. The remittance is recorded against {{ school_year }}.{% endif %}
+    </p>
+  </div>
+  {% endif %}
+
+  {% if errors %}
+  <div class="notice notice--danger">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.5 0l-7.1 12.25A2 2 0 004.98 19z"/></svg>
+    <div>{% for e in errors %}<p class="notice__title">{{ e }}</p>{% endfor %}</div>
+  </div>
+  {% endif %}
+
+  {% comment %}
+    Why the page exists, where the person recording a payment can read it. The
+    Billing tab is the claim; this is the account of what happened to the money.
+  {% endcomment %}
+  <div class="card p-5 report-note">
+    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+      <p class="report-note-title">Billing is what was asked for. This is what happened to it.</p>
+      <p class="report-note-body">
+        The grantees below are exactly the ones the
+        <a href="/unifast/billing/?sy={{ school_year|urlencode }}">billing for {{ school_year }}</a>
+        counted, so the two can never drift apart. Record the remittance CHEDRO sent and what
+        the cashier released against it; the balance is what the office is still holding and
+        must account for. Nothing here is assumed from the billed rate — a liquidation that
+        takes it on faith that everyone was paid cannot show that anyone was not.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── The reconciliation ─────────────────────────────────────────────── -->
+  <div class="card p-6 space-y-5">
+
+    {% comment %}
+      The year picker posts nothing and sits outside the forms below it: a form
+      inside a form is not valid HTML and browsers resolve it by dropping one.
+    {% endcomment %}
+    <div class="report-gen-head">
+      <div>
+        <h3 class="report-gen-title">Liquidation for {{ school_year }}</h3>
+        <p class="text-xs text-muted-foreground">
+          {{ grantees }} approved grantee{{ grantees|pluralize }}, {{ semester }}
+        </p>
+      </div>
+      <form method="get" class="report-gen-actions">
+        <select name="sy" onchange="this.form.submit()" class="filter-scheme__select" aria-label="School year">
+          {% for year in school_years %}
+          <option value="{{ year }}" {% if year == school_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-outline">Go</button></noscript>
+      </form>
+    </div>
+
+    <div class="liq-figures">
+      <div class="liq-figure">
+        <p class="liq-figure__label">Billed</p>
+        <p class="liq-figure__value">{% if billed is not None %}PhP {{ billed|floatformat:2 }}{% else %}—{% endif %}</p>
+        <p class="liq-figure__note">
+          {% if billed is not None %}Statement total{% else %}No rate set for this year{% endif %}
+        </p>
+      </div>
+      <div class="liq-figure">
+        <p class="liq-figure__label">Received</p>
+        <p class="liq-figure__value">{% if received is not None %}PhP {{ received|floatformat:2 }}{% else %}—{% endif %}</p>
+        <p class="liq-figure__note">
+          {% if liquidation.received_date %}{{ liquidation.received_date|date:"M d, Y" }}{% else %}Not recorded yet{% endif %}
+        </p>
+      </div>
+      <div class="liq-figure">
+        <p class="liq-figure__label">Released</p>
+        <p class="liq-figure__value">PhP {{ released|floatformat:2 }}</p>
+        <p class="liq-figure__note">{{ released_count }} of {{ grantees }} grantee{{ grantees|pluralize }}</p>
+      </div>
+      <div class="liq-figure">
+        <p class="liq-figure__label">Returned</p>
+        <p class="liq-figure__value">PhP {{ returned|floatformat:2 }}</p>
+        <p class="liq-figure__note">{{ returned_count }} row{{ returned_count|pluralize }} sent back</p>
+      </div>
+      {% comment %}
+        The number the report gets signed against, so it says which of the three
+        states it is in rather than leaving a bare figure to be interpreted.
+      {% endcomment %}
+      <div class="liq-figure liq-figure--balance{% if settled %} liq-figure--settled{% elif over_released %} liq-figure--over{% endif %}">
+        <p class="liq-figure__label">Balance in hand</p>
+        <p class="liq-figure__value">{% if balance is not None %}PhP {{ balance|floatformat:2 }}{% else %}—{% endif %}</p>
+        <p class="liq-figure__note">
+          {% if balance is None %}Awaiting the remittance
+          {% elif over_released %}More released than received
+          {% elif settled %}Fully liquidated
+          {% else %}Still to account for{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {% if over_released %}
+    <div class="notice notice--danger">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.5 0l-7.1 12.25A2 2 0 004.98 19z"/></svg>
+      <div>
+        <p class="notice__title">More has been released than was received.</p>
+        <p class="notice__body">
+          The rows below add up to more than the remittance recorded above. One of the two is
+          wrong — a mistyped amount, or a credit advice entered short — and this will not
+          reconcile against CHEDRO's copy until they agree.
+        </p>
+      </div>
+    </div>
+    {% elif unaccounted and received is not None %}
+    <div class="notice notice--warn">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <p class="notice__title">{{ unaccounted }} grantee{{ unaccounted|pluralize }} not yet accounted for.</p>
+        <p class="notice__body">
+          The balance above cannot be final while a grantee has no row saying what became of
+          their share — released, still unclaimed, or returned.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+
+    <!-- ── What CHED sent ───────────────────────────────────────────────── -->
+    <div class="card p-6 space-y-5">
+      <h3 class="report-gen-title">The remittance</h3>
+
+      <form method="post" class="space-y-5">
+        {% csrf_token %}
+        <input type="hidden" name="sy" value="{{ school_year }}" />
+        <input type="hidden" name="action" value="remittance" />
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label for="fundsReceived">Funds received</label>
+            <input name="funds_received" id="fundsReceived" inputmode="decimal"
+                   value="{{ form.funds_received }}" placeholder="Total remitted by CHEDRO" />
+            <p class="text-xs text-muted-foreground">
+              What actually arrived, which is not always what was billed.
+            </p>
+          </div>
+          <div class="space-y-1.5">
+            <label for="receivedDate">Date received</label>
+            <input type="date" name="received_date" id="receivedDate" value="{{ form.received_date }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label for="creditAdviceNo">Credit advice / ADA no.</label>
+            <input name="credit_advice_no" id="creditAdviceNo"
+                   value="{{ form.credit_advice_no }}" placeholder="Reference the funds arrived under" />
+          </div>
+          <div class="space-y-1.5">
+            <label for="reportNo">Liquidation report no.</label>
+            <input name="report_no" id="reportNo" value="{{ form.report_no }}" />
+          </div>
+          <div class="space-y-1.5">
+            <label for="reportDate">Report date</label>
+            <input type="date" name="report_date" id="reportDate" value="{{ form.report_date }}" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save the remittance</button>
+      </form>
+
+      {% if liquidation.updated_at %}
+      <p class="text-xs text-muted-foreground">
+        Last updated {{ liquidation.updated_at|date:"M d, Y H:i" }}{% if liquidation.updated_by %}
+        by {{ liquidation.updated_by.get_full_name|default:liquidation.updated_by.email }}{% endif %}.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- ── What it adds up to ───────────────────────────────────────────── -->
+    <div class="card p-6">
+      <h3 class="report-gen-title mb-1">Statement of account — {{ school_year }}</h3>
+      <p class="text-xs mb-4 text-muted-foreground">
+        Received, less what has gone out. What remains is the office's to account for.
+      </p>
+
+      <table class="liq-statement">
+        <tbody>
+          <tr>
+            <td>Funds received from CHED</td>
+            <td class="liq-amount">{% if received is not None %}PhP {{ received|floatformat:2 }}{% else %}—{% endif %}</td>
+          </tr>
+          <tr>
+            <td>Less: released to grantees<span class="liq-hint"> — {{ released_count }} grantee{{ released_count|pluralize }}</span></td>
+            <td class="liq-amount">PhP {{ released|floatformat:2 }}</td>
+          </tr>
+          <tr>
+            <td>Less: returned to CHED<span class="liq-hint"> — {{ returned_count }} row{{ returned_count|pluralize }}</span></td>
+            <td class="liq-amount">PhP {{ returned|floatformat:2 }}</td>
+          </tr>
+          {% comment %}
+            Unclaimed money is not subtracted anywhere: it is still in the
+            office's hands, so it is already inside the balance. It is shown
+            because it is the usual reason that balance is not zero.
+          {% endcomment %}
+          <tr class="liq-sub">
+            <td>of which still unclaimed<span class="liq-hint"> — held, not yet paid out</span></td>
+            <td class="liq-amount">{{ unclaimed_count }} grantee{{ unclaimed_count|pluralize }}</td>
+          </tr>
+          <tr class="liq-total">
+            <td>Balance to account for</td>
+            <td class="liq-amount">{% if balance is not None %}PhP {{ balance|floatformat:2 }}{% else %}—{% endif %}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {% if billed is not None and received is not None and billed != received %}
+      <p class="text-xs mt-4 text-muted-foreground">
+        Billed PhP {{ billed|floatformat:2 }} against PhP {{ received|floatformat:2 }} received. A
+        difference is ordinary — CHEDRO releases against its own validation — but the reason
+        belongs in the report that goes back with this.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Per grantee ──────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="p-6 pb-0">
+      <h3 class="report-gen-title">What reached each grantee</h3>
+      <p class="text-xs mt-1 text-muted-foreground">
+        The same {{ grantees }} grantee{{ grantees|pluralize }} the billing counted. A row with no
+        status is one nobody has accounted for yet.
+      </p>
+    </div>
+
+    {% if rows %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="sy" value="{{ school_year }}" />
+      <input type="hidden" name="action" value="disbursements" />
+
+      <div class="table-scroll mt-4">
+        <table class="scholar-table liq-table" data-liquidation-rows>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Grantee</th>
+              <th>Award no.</th>
+              <th class="liq-amount">Billed</th>
+              <th>Status</th>
+              <th class="liq-amount">Amount released</th>
+              <th>Date released</th>
+              <th>Receipt / payroll no.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% comment %}
+              data-entitled is what the "billed amount" button fills in, and
+              data-recorded marks a row somebody has already decided about so
+              that button leaves it alone. Both are read by static/js/liquidation.js.
+            {% endcomment %}
+            <tr data-entitled="{{ row.entitled|default_if_none:'' }}"
+                data-recorded="{% if row.disbursement %}1{% else %}0{% endif %}"
+                class="{% if not row.disbursement %}liq-row--todo{% endif %}">
+              <td class="cell-no">{{ row.seq }}</td>
+              <td class="cell-name">
+                {{ row.last_name }}, {{ row.first_name }}
+                {% if row.is_pwd %}<span class="badge badge-warning">TES-3A</span>{% endif %}
+              </td>
+              <td class="cell-muted">{{ row.award_no|default:"—" }}</td>
+              <td class="liq-amount">{% if row.entitled %}{{ row.entitled|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td>
+                <select name="status-{{ row.app_id }}" class="liq-select" data-field="status"
+                        aria-label="Status for {{ row.last_name }}, {{ row.first_name }}">
+                  <option value="">Not accounted</option>
+                  {% for value, label in statuses %}
+                  <option value="{{ value }}"
+                    {% if row.disbursement.status == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <input name="amount-{{ row.app_id }}" class="liq-input liq-input--amount"
+                       data-field="amount" inputmode="decimal"
+                       value="{{ row.disbursement.amount_released|default_if_none:'' }}"
+                       aria-label="Amount released to {{ row.last_name }}, {{ row.first_name }}" />
+              </td>
+              <td>
+                <input type="date" name="date-{{ row.app_id }}" class="liq-input liq-input--date"
+                       data-field="date"
+                       value="{{ row.disbursement.date_released|date:'Y-m-d' }}"
+                       aria-label="Date released to {{ row.last_name }}, {{ row.first_name }}" />
+              </td>
+              <td>
+                <input name="receipt-{{ row.app_id }}" class="liq-input" data-field="receipt"
+                       value="{{ row.disbursement.receipt_no }}"
+                       aria-label="Receipt number for {{ row.last_name }}, {{ row.first_name }}" />
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-6 pt-0">
+        <div class="liq-actions">
+          <button type="submit" class="btn btn-primary">Save releases</button>
+          {% if entitlement %}
+          <button type="button" class="btn btn-outline" data-fill-billed="{{ today }}">
+            Fill in the billed amount
+          </button>
+          <span class="liq-actions__hint">
+            Fills the unrecorded rows at PhP {{ entitlement|floatformat:2 }} for you to check. Nothing
+            is saved until you press Save.
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+
+    {% else %}
+    <div class="p-6">
+      <div class="notice notice--warn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div>
+          <p class="notice__title">No approved grantees for {{ school_year }}.</p>
+          <p class="notice__body">
+            There is nothing to liquidate yet. Approve TES applications under
+            <a href="/unifast/tes-applications/">TES Applications</a> and they appear here.
+          </p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/liquidation.js' %}?v=1"></script>
+{% endblock %}

@@ -87,6 +87,8 @@ services:
         value: "587"
       - key: EMAIL_USE_TLS
         value: "True"
+      # Optional. Unset, the From line is derived from EMAIL_HOST_USER, which
+      # is the only address the sending account is certain to be allowed to use.
       - key: DEFAULT_FROM_EMAIL
         sync: false
 

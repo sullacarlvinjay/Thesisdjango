@@ -59,7 +59,8 @@
         Each frame below is a stand-in drawn here rather than being the file itself. Install
         LibreOffice and both become the workbooks exactly as they print.
         {% endif %}
-        Annex 1 — the list of TES <em>applicants</em>, decided or not — is generated from
+        The <strong>applicants list</strong> — everyone who applied for TES, decided or not — is a
+        plain table of the columns CHED's Annex 1 asks for. It is generated from
         <a href="/unifast/tes-applications/">TES Applications</a>, and the button below is a shortcut
         to it for whichever school year is selected here.
       </p>
@@ -97,11 +98,9 @@
         {% else %}
         <span class="badge badge-destructive">Workbook template missing</span>
         {% endif %}
-        {% if annex1_available %}
         <a href="/unifast/tes-applications/report/?sy={{ school_year|urlencode }}" class="btn btn-outline">
-          Annex 1 — applicants (.xlsm)
+          Applicants list (.xlsx)
         </a>
-        {% endif %}
         <a href="/unifast/reports/preview/?sy={{ school_year|urlencode }}"
            target="_blank" rel="noopener" class="btn btn-outline">Open PDF</a>
       </div>

@@ -40,7 +40,7 @@
     <h3 class="report-gen-title">TES Applications</h3>
     {% comment %}
       The report controls sit on the list they act on. The school year narrows
-      the table below and the Annex 1 workbook alike, so an officer exports
+      the table below and the exported list alike, so an officer downloads
       exactly the list they have just been reading.
     {% endcomment %}
     <div class="report-gen-actions">
@@ -54,15 +54,11 @@
         </select>
         <button type="submit" class="btn btn-outline">Apply</button>
       </form>
-      {% if annex1_available %}
       <a href="/unifast/tes-applications/report/{% if school_year %}?sy={{ school_year|urlencode }}{% endif %}"
          class="btn btn-primary flex items-center gap-1">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Annex 1 (.xlsm)
+        Applicants list (.xlsx)
       </a>
-      {% else %}
-      <span class="badge badge-destructive">Annex 1 template missing</span>
-      {% endif %}
       <button type="button" class="btn btn-outline" data-preview-open="annex1Preview">Preview the sheet</button>
     </div>
   </div>
@@ -70,6 +66,12 @@
   {% comment %}
     Same filter scheme the SDSO Applications page uses: the search box and one
     dropdown per marked column, built from the values actually in the table.
+
+    Program is grouped by School: the column shows CHED registry names in full,
+    and forty of those cannot be picked out of one list. The school each row
+    belongs to rides along on the cell, so the School dropdown both narrows the
+    table and cuts the Program list down to that school's programmes — the same
+    pair the TES apply form offers the student.
   {% endcomment %}
   <div class="filter-scheme mb-4" data-filter-bar data-filter-search="#tesSearch">
     <input placeholder="Search name or student ID…" id="tesSearch" style="max-width:20rem;" />
@@ -83,7 +85,7 @@
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Student ID</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Last Name</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">First Name</th>
-          <th data-filter="Program" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Program</th>
+          <th data-filter="Program" data-filter-group="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Program</th>
           <th data-filter="Year" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Year</th>
           <th data-filter="Term" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Term</th>
           <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:#6b7a99;font-weight:600;">Submitted</th>
@@ -98,7 +100,7 @@
           <td style="padding:0.55rem 0.75rem;font-family:monospace;font-size:0.8rem;">{{ app.student.student_id }}</td>
           <td style="padding:0.55rem 0.75rem;font-weight:500;">{{ app.student.user.last_name }}</td>
           <td style="padding:0.55rem 0.75rem;">{{ app.student.user.first_name }}</td>
-          <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.complete_program|default:app.student.course }}</td>
+          <td data-group="{{ app.program_school }}" style="padding:0.55rem 0.75rem;font-size:0.8rem;">{{ app.complete_program|default:app.student.course }}</td>
           <td style="padding:0.55rem 0.75rem;">{{ app.student.year_level }}</td>
           <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.term_display|default:"—" }}</td>
           <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.submitted_at|date:"M d, Y" }}</td>
@@ -118,14 +120,15 @@
 </div>
 
 {% comment %}
-  What the download will contain, column for column. Drawn from the same rows
-  the workbook is filled from, so the sheet cannot disagree with this preview.
+  What the download will contain, column for column — drawn from the same rows
+  the sheet is built from, so the two cannot disagree. The columns are the ones
+  CHED's Annex 1 asks for; the file itself is a plain table, not that form.
 {% endcomment %}
 <div class="modal-overlay" id="annex1Preview" data-preview>
   <div class="card modal-sheet report-gen-sheet">
     <div class="modal-sheet-head">
       <h3 class="modal-sheet-title">
-        Annex 1 — List of TES Applicants
+        List of TES Applicants
         {% if school_year %}· AY {{ school_year }}{% endif %}
       </h3>
       <button type="button" data-preview-close class="modal-sheet-close" aria-label="Close">✕</button>
@@ -187,10 +190,8 @@
     <div class="modal-sheet-foot">
       <div class="flex gap-2 justify-end">
         <button type="button" data-preview-close class="btn btn-outline">Close</button>
-        {% if annex1_available %}
         <a href="/unifast/tes-applications/report/{% if school_year %}?sy={{ school_year|urlencode }}{% endif %}"
-           class="btn btn-primary">Download Annex 1 (.xlsm)</a>
-        {% endif %}
+           class="btn btn-primary">Download (.xlsx)</a>
       </div>
     </div>
   </div>
@@ -316,13 +317,13 @@
 
 {% block extra_js %}
 {% load static %}
-<script src="{% static 'js/report-preview.js' %}?v=1"></script>
+<script src="{% static 'js/modal-open.js' %}?v=1"></script>
 {% comment %}
   The search box is wired through the filter bar's data-filter-search, so the
   text search and the column dropdowns narrow the same rows together instead of
   two scripts fighting over which ones are hidden.
 {% endcomment %}
-<script src="{% static 'js/table-filter.js' %}?v=1"></script>
+<script src="{% static 'js/table-filter.js' %}?v=2"></script>
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script>
 function openView(pk) {

@@ -6,43 +6,37 @@ def system_settings(request):
         ctx = {'active_semester': parsed['semester'], 'academic_year': parsed['sy']}
     except Exception:
         ctx = {'active_semester': '', 'academic_year': ''}
-    ctx['pending_link_requests'] = _pending_link_requests(request)
     ctx['pending_accounts'] = _pending_accounts(request)
-    ctx['enrolled'] = _enrolled(request)
+    ctx.update(_scholarship_standing(request))
     return ctx
 
 
-def _enrolled(request):
-    """Does this student already hold a scholarship this term?
+def _scholarship_standing(request):
+    """What this student holds, and which programmes are therefore still open.
 
-    The student nav hides both the Apply pages and Link Scholarship once the
-    answer is yes — there is nothing left to apply for or to link. Individual
-    views used to compute this for their own template, which meant the nav
-    quietly showed the wrong thing on every page that forgot to. Answered here
-    instead so it is right on all of them.
+    The student nav hides an Apply page once that programme is closed to them.
+    Which is not the same question as "are they a scholar": TES and an Academic
+    scholarship may be held together, so holding one leaves the other open.
+    Individual views used to compute this for their own template, which meant
+    the nav quietly showed the wrong thing on every page that forgot to.
+    Answered here instead, so it is right on all of them.
     """
+    closed = {'enrolled': False, 'can_apply_academic': False, 'can_apply_tes': False}
     user = getattr(request, 'user', None)
     if not (user and user.is_authenticated and getattr(user, 'role', '') == 'student'):
-        return False
+        return closed
     from .models import StudentProfile
-    from .student_views import _is_enrolled
+    from .student_views import can_hold_alongside, held_scholarship_types
     try:
-        return _is_enrolled(StudentProfile.objects.filter(user=user).first())
+        held = held_scholarship_types(
+            StudentProfile.objects.filter(user=user).first())
     except Exception:
-        return False
-
-
-def _pending_link_requests(request):
-    """Badge count for the VPSEA sidebar. Only queried for VPSEA users so the
-    student and UniFAST pages do not pay for it."""
-    user = getattr(request, 'user', None)
-    if not (user and user.is_authenticated and getattr(user, 'role', '') == 'vpsea'):
-        return 0
-    from .models import ScholarshipLinkRequest
-    try:
-        return ScholarshipLinkRequest.objects.filter(status='Pending').count()
-    except Exception:
-        return 0
+        return closed
+    return {
+        'enrolled': bool(held),
+        'can_apply_academic': can_hold_alongside(held, 'Academic'),
+        'can_apply_tes': can_hold_alongside(held, 'TES'),
+    }
 
 
 def _pending_accounts(request):

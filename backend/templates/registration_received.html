@@ -14,7 +14,7 @@
   <title>{% if rejected %}Registration Not Accepted{% else %}Registration Received{% endif %} — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=11" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=15" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -57,8 +57,10 @@
       {% endif %}
 
       <p class="text-sm" style="color:var(--text-soft);">
-        Contact the SDSO office to sort it out. Once the details check out they can verify
-        the account, and this same email and password will get you in.
+        If something was simply wrong — a mistyped student number, the wrong course —
+        <a href="/register/" style="color:var(--brand);font-weight:600;">register again with it corrected</a>.
+        This email address is free to use. Otherwise contact the SDSO office; they can verify
+        the account as it stands, and this same email and password will get you in.
       </p>
 
       <a href="/login/" class="mt-5 block text-center" class="btn btn-auth">

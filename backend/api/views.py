@@ -134,42 +134,20 @@ class StudentDashboardView(APIView):
 # â”€â”€ VPSEA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class VPSEAStudentRankingView(APIView):
+    """Who the Affirmative Action rules currently pass, and on what.
+
+    Recommendations only. Nobody applies for this programme -- eligibility is
+    decided from the student's own profile -- so there is no applicant list to
+    return beside them; see vpsea_ranking, which renders the same thing.
+    """
+
     def get(self, request):
-        from .models import AffirmativeStaffApplication, AffirmativeRecommendation
-        scholarship_type = request.query_params.get('type', 'Affirmative')
-        if scholarship_type not in ('Affirmative', 'Staff'):
-            scholarship_type = 'Affirmative'
+        from .models import AffirmativeRecommendation
         try:
             passing = float(request.query_params.get('passing', 75.0))
         except (TypeError, ValueError):
             passing = 75.0
 
-        # ── Applicants tab ──
-        applicants = AffirmativeStaffApplication.objects.exclude(status='Approved').filter(
-            qualified_for=scholarship_type
-        )
-        def score(a):
-            if scholarship_type == 'Affirmative':
-                s = 0.0
-                if a.shs_gpa: s += min((a.shs_gpa / 100) * 50, 50)
-                if a.suc_exam_percent: s += min((a.suc_exam_percent / 100) * 50, 50)
-                return round(s)
-            return 100 if a.is_nsu_staff else 75
-
-        ranked = sorted(applicants, key=score, reverse=True)
-        applicant_data = [{
-            'rank': i + 1, 'name': a.full_name, 'course': a.course,
-            'year_level': a.year_level, 'shs_gpa': a.shs_gpa,
-            'suc_exam_score': a.suc_exam_score, 'suc_exam_total': a.suc_exam_total,
-            'suc_exam_percent': a.suc_exam_percent, 'score': score(a),
-            'eligible': (
-                a.shs_gpa is not None and a.shs_gpa >= passing and
-                a.suc_exam_percent is not None and a.suc_exam_percent >= 50.0 and
-                not a.is_tes_beneficiary
-            ) if scholarship_type == 'Affirmative' else True,
-        } for i, a in enumerate(ranked)]
-
-        # ── Recommendations tab (enrolled students) ──
         AffirmativeRecommendation.evaluate_and_sync(passing)
         recs = AffirmativeRecommendation.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-fit_score')
         rec_data = [{
@@ -191,7 +169,6 @@ class VPSEAStudentRankingView(APIView):
         } for r in recs]
 
         return Response({
-            'applicants': applicant_data,
             'recommendations': rec_data,
             'passing_threshold': passing,
         })

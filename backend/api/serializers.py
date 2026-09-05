@@ -28,10 +28,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     family_income = serializers.FloatField(required=False, default=0.0)
     indigenous_group = serializers.CharField(required=False, allow_blank=True)
     parent_employment = serializers.CharField(required=False, allow_blank=True)
-    is_pwd = serializers.BooleanField(required=False, default=False)
-    is_athlete = serializers.BooleanField(required=False, default=False)
-    is_coconut_farmer_family = serializers.BooleanField(required=False, default=False)
-    has_other_scholarship = serializers.BooleanField(required=False, default=False)
+    disability_type = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
@@ -42,7 +39,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'middle_name', 'suffix',
             'date_of_birth', 'gender',
             'family_income', 'indigenous_group', 'parent_employment',
-            'is_pwd', 'is_athlete', 'is_coconut_farmer_family', 'has_other_scholarship',
+            'disability_type',
         ]
 
     def create(self, validated_data):
@@ -50,8 +47,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'student_id', 'course', 'year_level', 'gwa', 'contact_number',
             'barangay', 'municipality', 'province',
             'middle_name', 'suffix', 'date_of_birth', 'gender', 'family_income',
-            'indigenous_group', 'parent_employment', 'is_pwd',
-            'is_athlete', 'is_coconut_farmer_family', 'has_other_scholarship',
+            'indigenous_group', 'parent_employment', 'disability_type',
         ]
         profile_data = {f: validated_data.pop(f, None) for f in profile_fields}
         password = validated_data.pop('password')
@@ -119,6 +115,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     gender = serializers.CharField(required=False, allow_blank=True)
     civil_status = serializers.CharField(required=False, allow_blank=True)
     contact_number = serializers.CharField(required=False, allow_blank=True)
+    disability_type = serializers.CharField(required=False, allow_blank=True)
 
     # ── Affirmative eligibility
     shs_gpa = serializers.FloatField(required=False, allow_null=True)
@@ -131,10 +128,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     household_size = serializers.IntegerField(required=False, allow_null=True)
     indigenous_group = serializers.CharField(required=False, allow_blank=True)
     parent_employment = serializers.CharField(required=False, allow_blank=True)
-    is_pwd = serializers.BooleanField(required=False)
-    is_athlete = serializers.BooleanField(required=False)
-    is_coconut_farmer_family = serializers.BooleanField(required=False)
-    has_other_scholarship = serializers.BooleanField(required=False)
 
     # ── TES eligibility. Three-state, so null has to survive the round trip.
     citizenship = serializers.CharField(required=False, allow_blank=True)

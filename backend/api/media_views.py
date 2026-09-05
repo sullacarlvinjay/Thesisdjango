@@ -29,7 +29,14 @@ PUBLIC_PREFIXES = ('logos/', 'backgrounds/')
 OFFICE_ROLES = frozenset({'vpsea', 'unifast', 'super'})
 
 
-# How each model reaches the User that owns its files.
+# How each model reaches the User that owns its files. A field name below may
+# be a lookup path rather than a column: the record splits described in
+# api/models.py moved several of these onto detail rows, and a queryset resolves
+# names against the table, so it has to name the relation.
+#
+# Getting one wrong is a 500 on a document the owner is entitled to read, and it
+# will not show up in office testing -- an office role is allowed through before
+# ownership is ever resolved.
 _STUDENT_USER_PATH = {
     'StudentProfile': 'user_id',
     'ApplicationDocument': 'application__student__user_id',
@@ -42,13 +49,13 @@ _STUDENT_USER_PATH = {
 # upload_to prefix -> (model, field name). Order matters only in that the
 # longest matching prefix wins, which _resolve_owners handles.
 _OWNER_RESOLVERS = {
-    'profile/shs_cert/':   [('StudentProfile', 'shs_gpa_cert')],
-    'profile/suc_cert/':   [('StudentProfile', 'suc_exam_cert')],
+    'profile/shs_cert/':   [('StudentProfile', 'affirmative_eligibility__shs_gpa_cert')],
+    'profile/suc_cert/':   [('StudentProfile', 'affirmative_eligibility__suc_exam_cert')],
     'documents/':          [('ApplicationDocument', 'file')],
     'renewals/academic/':  [('AcademicRenewal', 'certificate_of_grades'),
                             ('AcademicRenewal', 'certificate_of_enrollment')],
     'renewals/staff/':     [('StaffRenewal', 'supporting_document')],
-    'staff/appointment/':  [('StaffProfile', 'appointment_paper')],
+    'staff/appointment/':  [('StaffProfile', 'employment__appointment_paper')],
     'link_requests/':      [('ScholarshipLinkRequest', 'proof_document')],
 }
 
@@ -59,8 +66,8 @@ _OFFICE_ONLY_PREFIXES = ('rollovers/', 'masterlist/')
 # Applications submitted outside the student portal carry an email rather than
 # an account, so they are matched by address instead of by user id.
 _EMAIL_OWNED = {
-    'affirmative/shs/': ('AffirmativeStaffApplication', 'shs_certificate'),
-    'affirmative/suc/': ('AffirmativeStaffApplication', 'suc_exam_certificate'),
+    'affirmative/shs/': ('AffirmativeStaffApplication', 'affirmative_eligibility__shs_certificate'),
+    'affirmative/suc/': ('AffirmativeStaffApplication', 'affirmative_eligibility__suc_exam_certificate'),
 }
 
 

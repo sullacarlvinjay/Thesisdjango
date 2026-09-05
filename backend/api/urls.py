@@ -22,7 +22,6 @@ urlpatterns = [
     path('student/applications/', student_views.student_applications),
     path('student/notifications/', student_views.student_notifications),
     path('student/renewal/academic/', student_views.student_renewal_academic),
-    path('student/link-scholarship/', student_views.student_link_scholarship),
     path('student/profile/', student_views.student_profile),
 
     # REST API
@@ -51,7 +50,6 @@ urlpatterns = [
     path('vpsea/', student_views.vpsea_dashboard),
     path('vpsea/affirmative/', student_views.vpsea_affirmative_applications),
     path('vpsea/renewals/', student_views.vpsea_renewals),
-    path('vpsea/link-requests/', student_views.vpsea_link_requests),
     path('vpsea/archives/', student_views.vpsea_archives),
     path('vpsea/archives/add/', student_views.vpsea_archive_add),
     path('vpsea/archives/imported/<int:pk>/delete/', student_views.vpsea_imported_delete),
@@ -103,6 +101,8 @@ urlpatterns = [
     path('unifast/tes-ranking/', student_views.unifast_tes_ranking),
     path('unifast/announcements/', student_views.unifast_announcements),
     path('unifast/analytics/', student_views.unifast_analytics),
+    path('unifast/billing/', student_views.unifast_billing),
+    path('unifast/liquidation/', student_views.unifast_liquidation),
     path('unifast/reports/', student_views.unifast_reports),
     path('unifast/reports/preview/', student_views.unifast_report_preview_pdf),
     path('unifast/reports/download/excel/', student_views.unifast_report_download_excel),
