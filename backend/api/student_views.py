@@ -5534,6 +5534,22 @@ def _column_picker_context(posted=None, scholarship=None, stype='', portal=''):
     }
 
 
+def _column_name_errors(posted):
+    """A sentence per typed column name the archive already has a column for.
+
+    Refusing the name inside clean_custom keeps the duplicate out of the
+    database; this is what keeps the officer from typing it again. The column
+    they were reaching for is on the tick-list above, so the message says to
+    look there rather than only that the name is taken.
+    """
+    return [
+        f'"{label}" is already a column the archive fills — tick it in the '
+        'list above instead of adding it.'
+        for label in scholar_columns.catalogue_clashes(
+            posted.getlist('extra_columns'))
+    ]
+
+
 def _posted_custom_columns(posted):
     """The office's own columns as one submission of the form describes them.
 
@@ -5622,6 +5638,7 @@ def vpsea_scholarship_add(request):
         benefits = [l.strip() for l in p.get('benefits','').splitlines() if l.strip()]
         if not name: errors.append('Name is required.')
         if not stype: errors.append('Type is required.')
+        errors += _column_name_errors(p)
         # No window here: a new programme is open, and the office says when it
         # runs on the Applications and Renewal Applications tabs. See the
         # comment on that block in vpsea/scholarship_form.html.
@@ -5667,6 +5684,7 @@ def vpsea_scholarship_edit(request, pk):
         s.extra_columns = _posted_custom_columns(p)
         if not s.name: errors.append('Name is required.')
         if not s.type: errors.append('Type is required.')
+        errors += _column_name_errors(p)
         # The two windows are deliberately untouched here. This form no longer
         # asks for them, and writing what it did not ask for would close every
         # programme the first time somebody corrected a typo in its name.
@@ -7106,32 +7124,22 @@ def partner_columns(request, office):
 
 
 @_partner_required
-def partner_reports(request, office):
-    """A scholars list the partner can take away, for its own programmes."""
-    from .models import SystemSettings
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    return render(request, 'partner/reports.html', {
-        'office': office,
-        'scholarships': office.scholarships.order_by('name'),
-        'semester': parsed['semester'],
-        'ay': parsed['sy'],
-        'term': settings_obj.academic_year,
-        'error': request.GET.get('error'),
-    })
-
-
-@_partner_required
 def partner_report_download(request, office):
-    """The partner's scholars for one of its programmes, as a workbook."""
+    """The partner's scholars for one of its programmes, as a workbook.
+
+    Reached from the Download Excel menu on the Scholars tab, which is the only
+    place it is offered. There used to be a Reports tab beside it listing the
+    same programmes behind the same download — the partner could take the same
+    workbook away from two places, and the second one carried nothing the first
+    did not.
+    """
     from urllib.parse import quote
 
     from .models import SystemSettings
 
     stype = request.GET.get('type', '')
     if stype not in office.visible_types():
-        return redirect('/partner/reports/?error=' + quote(
+        return redirect('/partner/archives/?error=' + quote(
             'That programme is not one this account can read.'))
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)

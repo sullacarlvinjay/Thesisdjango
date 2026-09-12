@@ -297,7 +297,7 @@ class PartnerSeesOnlyItsOwnTest(PartnerFixtures, TestCase):
         staff = Client()
         self.assertTrue(staff.login(email='u@bipsu.edu.ph', password='pw'))
         for client in (self.office, staff, Client()):
-            for url in ('/partner/', '/partner/archives/', '/partner/reports/',
+            for url in ('/partner/', '/partner/archives/',
                         '/partner/reports/download/?type=DOST'):
                 self.assertNotEqual(client.get(url).status_code, 200, url)
 
@@ -346,3 +346,45 @@ class PartnerReadsApplicationsTooTest(PartnerFixtures, TestCase):
         self.assertContains(r, 'Villanueva')
         self.assertContains(r, 'Santos')
         self.assertEqual(r.context['total'], 2)
+
+
+class OneDownloadNotTwoTest(PartnerFixtures, TestCase):
+    """The Reports tab is gone; the download it offered lives on the Scholars tab.
+
+    Both tabs listed the partner's own programmes behind the same workbook, so a
+    funder could take the same file away from two places and the second one
+    carried nothing the first did not.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self._scholar('DOST', 'Santos', '2024-0001')
+        self.office_row, self.dost_client = self._partner(
+            'DOST Region VIII', 'dost@bipsu.edu.ph', [self.dost])
+
+    def test_the_reports_page_is_gone(self):
+        self.assertEqual(self.dost_client.get('/partner/reports/').status_code, 404)
+
+    def test_the_portal_no_longer_offers_it(self):
+        for page in ('/partner/', '/partner/archives/', '/partner/profile/'):
+            html = self.dost_client.get(page).content.decode()
+            self.assertNotIn('/partner/reports/"', html, page)
+            self.assertNotIn('>Reports<', html, page)
+
+    def test_the_scholars_tab_still_offers_the_download(self):
+        html = self.dost_client.get('/partner/archives/?type=DOST').content.decode()
+        self.assertIn('Download Excel', html)
+        self.assertIn('/partner/reports/download/?type=DOST', html)
+
+    def test_the_download_itself_still_works(self):
+        r = self.dost_client.get('/partner/reports/download/?type=DOST&sy=26-1')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('.xlsx', r['Content-Disposition'])
+
+    def test_a_refused_download_lands_on_the_scholars_tab(self):
+        """It used to send the funder to a page that no longer exists."""
+        r = self.dost_client.get('/partner/reports/download/?type=GSIS')
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r['Location'].startswith('/partner/archives/'), r['Location'])
+        self.assertIn('error=', r['Location'])
+        self.assertEqual(self.dost_client.get(r['Location']).status_code, 200)

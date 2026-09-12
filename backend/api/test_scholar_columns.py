@@ -654,3 +654,105 @@ class TheFormAsksWhatTheColumnHoldsTest(TestCase):
         html = self.c.get(f'/vpsea/scholarships/{programme.pk}/edit/').content.decode()
         self.assertIn('<option value="choice" selected>', html)
         self.assertIn('value="Full, Partial"', html)
+
+
+class ANamedColumnCannotRepeatACatalogueOneTest(TestCase):
+    """The duplicate the `extra_` prefix hid.
+
+    A custom column's key can never collide — 'Course' is stored as
+    'extra_course', never as 'course'. What it did instead was sit beside the
+    catalogue column, so the table came back with two headings both reading
+    'Course': one the archive filled from each scholar's record, and one that
+    could only be filled by typing a value per scholar, for every scholar.
+
+    So a name that already means a catalogue column is refused, and the office
+    is told which one and where to find it.
+    """
+
+    def setUp(self):
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            first_name='V', last_name='Officer', role='vpsea')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
+
+    # ── which names are taken ───────────────────────────────────────────────
+
+    def test_a_name_the_archive_already_fills_is_refused(self):
+        for typed in ('Course', 'GWA', 'Last Name', 'Sex', 'Scholarship Program'):
+            self.assertTrue(scholar_columns.names_a_catalogue_column(typed), typed)
+
+    def test_the_name_is_matched_however_it_is_written(self):
+        # The heading, the key, and every casing and punctuation between them.
+        for typed in ('Award No.', 'award no', 'AWARD NO', 'Award Number',
+                      'award_number', '  award   no.  '):
+            self.assertTrue(scholar_columns.names_a_catalogue_column(typed), typed)
+
+    def test_a_genuinely_new_name_is_still_allowed(self):
+        for typed in ('Batch', 'Batch No.', 'Adviser', 'Remarks', 'Year Awarded'):
+            self.assertFalse(scholar_columns.names_a_catalogue_column(typed), typed)
+
+    # ── what is stored, and what is drawn ───────────────────────────────────
+
+    def test_the_clashing_column_is_not_stored(self):
+        columns = scholar_columns.clean_custom(['Course', 'Batch', 'GWA', 'Adviser'])
+        self.assertEqual([c['label'] for c in columns], ['Batch', 'Adviser'])
+
+    def test_the_table_no_longer_carries_one_heading_twice(self):
+        programme = Scholarship(
+            name='X', type='CHED', table_columns=['last_name', 'course'],
+            extra_columns=scholar_columns.clean_custom(['Course', 'Batch']))
+        labels = [c['label'] for c in scholar_columns.resolve(programme)]
+        self.assertEqual(labels, ['Last Name', 'Course', 'Batch'])
+        self.assertEqual(len(labels), len(set(labels)), labels)
+
+    # ── and the office hears about it ───────────────────────────────────────
+
+    def test_the_refused_names_are_reported_in_the_order_they_were_typed(self):
+        self.assertEqual(
+            scholar_columns.catalogue_clashes(['Course', 'Batch', 'GWA']),
+            ['Course', 'GWA'])
+
+    def test_the_form_refuses_the_save_and_names_the_column(self):
+        r = self.c.post('/vpsea/scholarships/add/', {
+            'name': 'Sports Scholarship', 'type': 'Sports', 'group': 'internal',
+            'description': 'x', 'background': '', 'eligibility_list': '',
+            'benefits': '', 'table_columns': ['last_name', 'course'],
+            'extra_columns': ['Course'], 'extra_types': ['text'],
+            'extra_options': [''],
+        })
+        self.assertEqual(r.status_code, 200, 'the save should not have gone through')
+        self.assertFalse(Scholarship.objects.filter(type='Sports').exists())
+        self.assertTrue(any('"Course"' in e for e in r.context['errors']),
+                        r.context['errors'])
+        self.assertTrue(any('tick it in the list above' in e
+                            for e in r.context['errors']), r.context['errors'])
+
+    def test_editing_refuses_it_too_and_leaves_the_programme_alone(self):
+        programme = Scholarship.objects.create(
+            name='GSIS Scholarship', type='GSIS', category='application',
+            description='x', eligibility='x', requirements=[],
+            table_columns=['last_name'],
+            extra_columns=[{'key': 'extra_batch', 'label': 'Batch', 'type': 'text'}])
+        r = self.c.post(f'/vpsea/scholarships/{programme.pk}/edit/', {
+            'name': 'GSIS Scholarship', 'type': 'GSIS', 'group': 'internal',
+            'description': 'x', 'background': '', 'eligibility_list': '',
+            'benefits': '', 'table_columns': ['last_name'],
+            'extra_columns': ['GWA'], 'extra_types': ['text'],
+            'extra_options': [''],
+        })
+        self.assertEqual(r.status_code, 200)
+        programme.refresh_from_db()
+        self.assertEqual([c['label'] for c in programme.extra_columns], ['Batch'])
+
+    def test_a_name_that_is_not_taken_still_saves(self):
+        r = self.c.post('/vpsea/scholarships/add/', {
+            'name': 'Sports Scholarship', 'type': 'Sports', 'group': 'internal',
+            'description': 'x', 'background': '', 'eligibility_list': '',
+            'benefits': '', 'table_columns': ['last_name', 'course'],
+            'extra_columns': ['Batch'], 'extra_types': ['text'],
+            'extra_options': [''],
+        })
+        self.assertEqual(r.status_code, 302)
+        programme = Scholarship.objects.get(type='Sports')
+        self.assertEqual([c['label'] for c in programme.extra_columns], ['Batch'])

@@ -96,7 +96,6 @@ urlpatterns = [
     path('partner/archives/import/', student_views.partner_archive_import),
     path('partner/columns/', student_views.partner_columns),
     path('partner/scholars/', student_views.partner_scholars),
-    path('partner/reports/', student_views.partner_reports),
     path('partner/reports/download/', student_views.partner_report_download),
 ]
 

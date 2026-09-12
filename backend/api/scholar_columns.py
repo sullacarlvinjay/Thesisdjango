@@ -119,14 +119,56 @@ def default_for(scholarship_type, portal=''):
 CUSTOM_PREFIX = 'extra_'
 
 
+def _slug(text):
+    """A name reduced to what identifies it: lower case, punctuation to spaces."""
+    return re.sub(r'[^a-z0-9]+', '_', (text or '').strip().lower()).strip('_')
+
+
 def custom_key(label):
     """A storage key for a column the office named. '' when the name is unusable.
 
     Derived from the label rather than counted, so renaming a column to the same
     words keeps the values already typed under it.
     """
-    slug = re.sub(r'[^a-z0-9]+', '_', (label or '').strip().lower()).strip('_')
+    slug = _slug(label)
     return f'{CUSTOM_PREFIX}{slug}' if slug else ''
+
+
+# Every name that already means a catalogue column — its key and its heading,
+# both reduced the same way a typed name is, so 'Award No', 'award number' and
+# 'AWARD NO.' all land on the one the archive already fills.
+CATALOGUE_NAMES = ({key for key, _ in COLUMNS}
+                   | {_slug(label) for _, label in COLUMNS})
+
+
+def names_a_catalogue_column(label):
+    """Whether a name the office typed is one the archive already has a column for.
+
+    The prefix meant a typed name could never *overwrite* a catalogue column —
+    'Course' is stored as 'extra_course', not 'course'. What it did instead was
+    sit beside it, so the table came back with two headings both reading
+    'Course': one the archive filled from each scholar's record, and one that
+    could only be filled by typing a value per scholar, for every scholar. The
+    name is refused rather than doubled, because the column the office was
+    reaching for is already on the list to tick.
+    """
+    return bool(label) and _slug(label) in CATALOGUE_NAMES
+
+
+def catalogue_clashes(labels):
+    """The typed names that name a catalogue column, in the order they were typed.
+
+    Separate from :func:`clean_custom` because the two answer different
+    questions: that one decides what is safe to store, this one is what the
+    office is told, and a column silently dropped is a column an officer types
+    again tomorrow.
+    """
+    clashing = []
+    for label in labels or ():
+        label = (label or '').strip()
+        if names_a_catalogue_column(label) and label not in clashing:
+            clashing.append(label)
+    return clashing
 
 
 # ── What kind of data a column the office added holds.
@@ -326,6 +368,9 @@ def clean_custom(labels, types=None, options=None):
 
     Blanks are dropped, and a repeated name is kept once: two columns sharing a
     key would write to the same place and read back as duplicates of each other.
+    A name that already means a catalogue column is dropped for the same reason
+    — see :func:`names_a_catalogue_column`, which is also what tells the office
+    why rather than leaving the column to vanish on save.
 
     A kind that is not one of ``CUSTOM_TYPES`` is read as Text, and so is a
     choice list left with no options — a dropdown nobody can pick anything from
@@ -337,7 +382,7 @@ def clean_custom(labels, types=None, options=None):
     for index, label in enumerate(labels or ()):
         label = (label or '').strip()
         key = custom_key(label)
-        if not key or key in seen:
+        if not key or key in seen or names_a_catalogue_column(label):
             continue
         seen.add(key)
         kind = types[index] if index < len(types) else DEFAULT_CUSTOM_TYPE
