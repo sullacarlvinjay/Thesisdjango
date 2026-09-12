@@ -26,7 +26,7 @@ from django.utils.cache import patch_cache_control
 PUBLIC_PREFIXES = ('logos/', 'backgrounds/')
 
 # Roles that review other people's applications for a living.
-OFFICE_ROLES = frozenset({'vpsea', 'unifast', 'super'})
+OFFICE_ROLES = frozenset({'vpsea', 'super'})
 
 
 # How each model reaches the User that owns its files. A field name below may

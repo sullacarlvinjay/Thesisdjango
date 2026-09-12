@@ -9,13 +9,11 @@
        data-portal="student"  Landing page + student portal — blue + yellow
        data-portal="vpsea"    VPSEA / SDSO — the same blue + yellow
        data-portal="staff"    BiPSU Staff portal — the same blue + yellow
-       data-portal="unifast"  UniFAST — orange CONTENT, same blue sidebar
 
-   UniFAST is the only office that colours its own pages; its seal is an orange
-   sunburst and the office is a separate agency. Everyone else is BiPSU.
-
-   base.html sets the attribute from the signed-in role, so pages inherit the
-   right identity without any per-template styling.
+   Every portal is BiPSU's and wears the university's colour. The attribute
+   stays because it is what lets one of them differ without a template knowing;
+   base.html sets it from the signed-in role, so pages inherit the right
+   identity without any per-template styling.
 
    Dark mode is authored, not inverted: only the surface and text tokens move,
    so the blue and the yellow stay themselves in either mode.
@@ -117,24 +115,7 @@
    and yellow — no per-office identity beyond the seal in the sidebar. They
    declare nothing here and inherit :root, which is the whole point: the SDSO's
    indigo and the staff portal's green were the two colours that made the three
-   portals look like three different products.
-
-   UniFAST below is the exception, and the only one. */
-
-/* UniFAST — the seal is an orange sunburst on black, so its CONTENT stays
-   orange. Its sidebar is the same blue as everyone's and highlights in the
-   same yellow; only the page below the header carries the office's colour. */
-[data-portal='unifast'] {
-  --brand:        #e2761b;
-  --brand-strong: #c25f10;
-  --brand-soft:   #fdf0e4;
-  --on-brand:     #ffffff;
-  --accent:       #ef8c34;
-  --accent-pure:  #ff9640;
-  --accent-strong:#c25f10;
-  --on-accent:    #1a1a1a;
-  --ring:         rgba(226, 118, 27, 0.22);
-}
+   portals look like three different products. Nothing overrides them now. */
 
 
 /* --------------------------------------------------------------------------
@@ -282,12 +263,6 @@ button:focus-visible,
 .badge-muted       { background: var(--surface-2); color: var(--text-muted); border-color: var(--border); }
 .badge-brand       { background: var(--brand-soft); color: var(--brand); border-color: var(--brand); }
 
-/* TES-specific badge aliases (same values, explicit names used in unifast templates) */
-.badge-pending  { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
-.badge-approved { background: var(--ok-bg); color: #15803d; border-color: var(--ok-border); }
-.badge-rejected { background: #fff1f2; color: #e03131; border-color: var(--danger-border); }
-
-
 /* --------------------------------------------------------------------------
    5. Buttons
    -------------------------------------------------------------------------- */
@@ -347,7 +322,7 @@ body input:focus, body select:focus, body textarea:focus {
 }
 
 body input::placeholder, body textarea::placeholder { color: var(--text-muted); opacity: 0.75; }
-body input[readonly], body textarea[readonly] { background: var(--surface-2); color: var(--text-muted); }
+body input[readonly], body textarea[readonly] { background: var(--surface-2); color: var(--text-muted); cursor: not-allowed; }
 
 label { font-size: 0.75rem; font-weight: 500; color: var(--text-soft); }
 
@@ -1016,6 +991,32 @@ tr:hover td      { background: var(--surface-sunken); }
 }
 
 
+/* The small brand-coloured line naming a card's subject. Written out in full
+   on every card in the portals — `text-xs font-semibold uppercase
+   tracking-wider` plus an inline colour — which is a style living in a
+   template. New cards use this; the older ones can adopt it as they are
+   touched. */
+.card-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+  margin-bottom: 0.25rem;
+}
+
+/* A form saying what it is acting on, above its own fields — the programme a
+   renewal renews, once the student holds only one and there is nothing to ask.
+   A statement rather than a control, so it is a sunken panel and not a field. */
+.form-subject {
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+}
+.form-subject__label { font-size: 0.75rem; color: var(--text-muted); }
+.form-subject__value { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+
+
 /* --------------------------------------------------------------------------
    13. Responsive
    -------------------------------------------------------------------------- */
@@ -1103,28 +1104,6 @@ body { overflow-x: hidden; }
   --wash-soft:    rgba(0, 0, 90, 0.72);
 }
 
-/* UniFAST goes to charcoal, not navy — its identity is orange on black. */
-.dark[data-portal='unifast'],
-.dark [data-portal='unifast'] {
-  --bg:            #131211;
-  --surface:       #1e1c1a;
-  --surface-2:     #2a2724;
-  --surface-sunken:#171514;
-  --border:        #383430;
-  --border-strong: #4b453f;
-  --text:          #f0ece7;
-  --text-muted:    #a99f94;
-  --text-soft:     #cfc7bd;
-  --brand:        #ff9d52;
-  --brand-strong: #ffb175;
-  --brand-soft:   #332213;
-  --on-brand:     #1a1a1a;
-  --accent:       #ff9640;
-  --accent-pure:  #ffab63;
-  --on-accent:    #1a1a1a;
-  --ring:         rgba(255, 157, 82, 0.28);
-}
-
 /* Chrome that sits outside the token-driven components. */
 .dark body, html.dark body { background: var(--bg); color: var(--text); }
 /* The sidebar is deliberately absent here: it is the same blue panel in both
@@ -1208,9 +1187,82 @@ body { overflow-x: hidden; }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+/* The bar is full-bleed on purpose. Everything below it lives in a 72rem
+   column, and when the brand and the two links were pinned to that column's
+   edges a wide window left ~160px of empty bar outside each of them and a
+   canyon of nothing in between. Pushed to the window's own edges they read as
+   the two ends of one bar instead of two things adrift in the middle of it.
+   The gutter matches the page's, so the logo still lines up with the content
+   when the window is narrower than the column. */
+.landing-nav-row {
+  width: 100%;
+  padding-inline: 1.5rem;
+}
+@media (min-width: 1280px) { .landing-nav-row { padding-inline: 2rem; } }
+
 .landing-nav-logo { height: 2.25rem; width: 2.25rem; object-fit: contain; }
 .landing-nav-name { color: var(--text); }
 .landing-nav-sub  { color: var(--text-muted); }
+/* The brand keeps its own width. The ticker beside it is greedy — flex would
+   otherwise take the space out of the one thing on this bar that has to stay
+   legible, and the university's name wrapped onto three lines. */
+.landing-nav-brand { flex: 0 0 auto; }
+.landing-nav-name, .landing-nav-sub { white-space: nowrap; }
+
+/* --- The two links to the two lists ------------------------------------
+   Not a menu and not a marquee: two labels, and clicking one takes the reader
+   down to the list it names. Plain anchors, because the browser already does
+   this well — .page-landing carries scroll-padding-top, so the heading
+   lands *below* this navbar instead of behind it.
+
+   They sit to the right of the brand and stay on one line; below 640px the
+   labels drop to just Internal / External, which is the whole meaning of them
+   and half the width. */
+.landing-jump {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  flex-wrap: nowrap;
+}
+.landing-jump-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  padding: 0.4rem 0.8rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background var(--speed), border-color var(--speed), color var(--speed);
+}
+.landing-jump-link:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+/* The same two colours the card strips use, so a link and the list it opens
+   read as the same thing. */
+.landing-jump-dot {
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+.landing-jump-dot-internal { background: var(--accent); }
+.landing-jump-dot-external { background: var(--brand); }
+/* The word carries its own gap, so hiding it on a phone takes the gap with it
+   — a non-breaking space in the markup would have left one behind, and would
+   have put a character nobody can see into the link's accessible name. */
+.landing-jump-label { margin-left: 0.28em; }
+
+/* Each list is its own scroll-snap point, so a jump to one lands on it. The
+   wrapper below is a snap point too, and with `mandatory` snapping a jump into
+   the middle of it would be dragged straight back out. */
+.page-landing .landing-section { scroll-snap-align: start; }
 
 /* The facade fills the first screen: the navbar plus the hero add up to exactly
    one viewport, so none of the listing below peeks in before the first scroll.
@@ -1247,8 +1299,20 @@ body { overflow-x: hidden; }
 .page-landing {
   scroll-snap-type: y mandatory;
   scroll-padding-top: var(--nav-h);
-  scroll-behavior: smooth;
 }
+
+/* There is still deliberately no `scroll-behavior: smooth` here. Chrome
+   cancels a smooth scroll outright inside a `mandatory` snap container — the
+   snap re-targets mid-animation and the page simply never moves — so as a
+   declaration it did nothing but make the navbar's two links look broken.
+
+   The animation the links do have is static/js/landing.js's, and this is the
+   class it borrows: snapping is off for the length of one jump and on again
+   the moment the page settles. Nothing else sets it, and a page with the
+   script switched off never sees it — those links jump, which is what they
+   did before either of these existed. */
+.page-landing.is-jumping { scroll-snap-type: none; }
+
 .page-landing .hero-landing,
 .page-landing .section-photo { scroll-snap-align: start; }
 .page-landing .site-footer   { scroll-snap-align: end; }
@@ -1258,6 +1322,23 @@ body { overflow-x: hidden; }
   overflow: hidden;
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
 }
+/* The grid already stretches every card in a row to the tallest one's height,
+   but that only moved the card's bottom edge — the foot stayed wherever the
+   text above it happened to end, so "View Details" sat at a different height
+   in every card and the eye had nothing level to read across. Column layout
+   all the way down, and the foot claims the slack: the rule and the two labels
+   land on the same line in all three cards however long the descriptions and
+   eligibility lists run. */
+.page-landing .card { display: flex; flex-direction: column; }
+/* The strip is 5px and must stay 5px: a flex item shrinks by default, and the
+   modal's copy of it has carried the same guard since it went into a column. */
+.page-landing .card-strip { flex: 0 0 auto; }
+.page-landing .card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+.page-landing .card-foot { margin-top: auto; }
+/* `auto` gives the tallest card in a row no slack to spend, so the clearance
+   above the rule has to come from the block before it. The description already
+   carries one (mb-4); the eligibility list, when there is one, needs its own. */
+.page-landing .card-reqs { margin-bottom: 1rem; }
 .page-landing .card:hover {
   box-shadow: 0 14px 40px -12px rgba(0, 0, 255, 0.40);
   transform: translateY(-3px);
@@ -1286,7 +1367,11 @@ body { overflow-x: hidden; }
 .badge-strong { font-weight: 600; }
 
 .card-title { color: var(--text); }
-.card-desc  { color: var(--text-muted); }
+/* Justified, at the reader's request. hyphens go with it and are not
+   decoration: a three-column grid puts this text in a 17rem column, and
+   justifying a column that narrow without hyphenation opens rivers of white
+   space between the words. */
+.card-desc  { color: var(--text-muted); text-align: justify; hyphens: auto; }
 .card-reqs  { color: var(--text-muted); }
 .card-foot  { border-top: 1px solid var(--border); }
 .card-foot-group     { color: var(--brand); }
@@ -1328,15 +1413,18 @@ body { overflow-x: hidden; }
 
 @media (max-width: 640px) {
   .hero-landing { padding: 3rem 1rem; }
+  /* A phone has no room for the word "Scholarships" twice. The half that
+     carries the meaning stays. */
+  .landing-jump-link { padding: 0.35rem 0.6rem; font-size: 0.75rem; }
+  .landing-jump-label { display: none; }
+  /* The bar's own gutter shrinks with the page. */
+  .landing-nav-row { padding-inline: 1rem; }
 }
 /* A short landscape window has no room for a screen-high hero, and snapping
    there would fight the reader rather than help. */
 @media (max-height: 560px) {
   .hero-landing { min-height: 0; }
   .page-landing { scroll-snap-type: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .page-landing { scroll-behavior: auto; }
 }
 
 
@@ -1718,6 +1806,22 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--danger);
   border: 1px solid var(--danger-border);
 }
+/* The other half of the pair: a posted action that worked. Every page that
+   needed one was inlining the same three greens. */
+.page-alert-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border: 1px solid var(--ok-border);
+}
+/* The third of the set: nothing was refused and nothing went wrong, but the
+   page is not showing what a reader would assume it is -- the Reports tab
+   built for a term other than the active one. Amber rather than red, because
+   it is a standing note about the state of the page, not a failed action. */
+.page-alert-warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-border);
+}
 
 
 /* ── Error pages ─────────────────────────────────────────────────────────────
@@ -1817,6 +1921,115 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   box-shadow: var(--shadow);
 }
 .dl-menu.is-open { display: block; }
+
+/* The archive's programme picker. It was a row of one button per programme,
+   `flex flex-wrap`, which is fine at nine and wraps onto a second and third
+   line by thirteen — pushing the table down the card every time the catalogue
+   grows. A menu costs one row of a list per programme instead, and the trigger
+   names the tab you are on.
+
+   Built on .dl-menu so the open/close behaviour is dl-menu.js's and not a
+   second copy of it: only the position and the row layout differ. */
+.tab-picker { position: relative; }
+.tab-picker__button {
+  gap: 0.5rem;
+  max-width: 100%;
+}
+.tab-picker__current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Left-aligned under its button, where .dl-menu pins itself to the right. The
+   height cap is what keeps a long catalogue inside the viewport rather than
+   running off the bottom of it. */
+.tab-picker__menu {
+  right: auto;
+  left: 0;
+  min-width: 15rem;
+  max-height: min(70vh, 28rem);
+  overflow-y: auto;
+}
+.tab-picker__item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+.tab-picker__item-note {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+/* The tab you are on. A left bar rather than a fill, so the row stays legible
+   in both themes without a second colour pair to keep in step. */
+.tab-picker__item.is-current {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--brand);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  /* Nothing to anchor to on a phone: the card is the width of the screen, so
+     the menu takes it rather than sitting in a 15rem column beside nothing. */
+  .tab-picker { width: 100%; }
+  .tab-picker__button { width: 100%; justify-content: space-between; }
+  .tab-picker__menu { left: 0; right: 0; min-width: 0; }
+}
+
+/* What goes inside it. The office's own copy of this menu still paints every
+   one of these with a style= attribute and a pair of onmouseover handlers,
+   which is why its rows stay white in dark mode; these are the same rows
+   written in tokens, and the partner portal uses them. */
+.dl-menu__label {
+  padding: 0.3rem 0.75rem 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dl-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  text-decoration: none;
+}
+.dl-menu__item:hover { background: var(--surface-2); }
+.dl-menu__item svg {
+  height: 0.875rem;
+  width: 0.875rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+/* The term the table is on now, told apart from the ones behind it. */
+.dl-menu__item-current svg { color: var(--ok); }
+.dl-menu__meta { margin-left: auto; font-size: 0.72rem; color: var(--text-muted); }
+.dl-menu__sep { border-top: 1px solid var(--border); margin: 0.3rem 0; }
+
+/* The term this table is showing, as a control rather than a caption: it sits
+   beside the heading it qualifies, small enough not to compete with it. */
+.term-pill {
+  width: auto;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+}
+
+/* A partner's row actions are a button and a form, and a form is a block. */
+.scholar-table .cell-actions form { display: inline; margin: 0; }
+
+/* Secondary text is Tailwind's `text-muted-foreground`, not `text-muted`.
+   base.html registers muted as a *pair* — DEFAULT is --surface-2, a background,
+   and only `foreground` is --text-muted — so `text-muted` paints body copy in
+   the panel colour, which in dark mode is near-black text on a dark card and
+   legible in neither. There is deliberately no .text-muted class of our own
+   here: Tailwind's own would be generated after it and win anyway. */
 
 @media (max-width: 640px) {
   .card-toolbar {
@@ -1941,11 +2154,25 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   border-color: var(--brand);
 }
 
-/* A chart with nothing in it. The button stays on the page so the export is
-   still discoverable, but it cannot be pressed and its title says why. */
+/* Belt and braces for a chart that renders but turns out to hold only zeros.
+   A card with nothing in it no longer draws a chart or a button at all — see
+   .chart-empty — so this is what is left for anything that slips past that. */
 .chart-toggle-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* What a chart card says instead of drawing a chart, when there is nothing to
+   draw. Chart.js given an empty dataset does not come out blank, it comes out
+   as a labelled empty grid, which reads as a broken chart rather than an empty
+   list — so the card says so in words and draws no canvas.
+
+   var(--text-muted) rather than the #6b7a99 these lines used to carry inline:
+   that grey was picked against a white card and stayed put in dark mode, where
+   it is the one piece of text on the card nobody can read. */
+.chart-empty {
+  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 
 
@@ -2102,12 +2329,21 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
+/* A custom column is three fields and a button: its name, what it holds, and
+   the options when what it holds is a list of them. Wrapping rather than
+   scrolling, because on a narrow screen the name and the kind belong on two
+   lines rather than in a strip too short to read either. */
 .col-picker__row {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
-.col-picker__row input { flex: 1; }
+.col-picker__row input { flex: 1 1 10rem; min-width: 0; }
+.col-picker__row select { flex: 0 0 auto; width: auto; }
+/* [hidden] loses to the flex display above unless it is said again here. */
+.col-picker__row [hidden] { display: none; }
 .col-picker__remove,
 .col-picker__add { padding: 0.35rem 0.7rem; font-size: 0.75rem; white-space: nowrap; }
 
@@ -2144,7 +2380,15 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--bad, #e03131);
   border: 1px solid var(--bad-border, #fecaca);
 }
-.scholar-table__extra { width: 100%; min-width: 6rem; font-size: 0.8rem; padding: 0.25rem 0.4rem; }
+/* The box a custom column's value is typed into. One rule for all of them —
+   a text field, a number, a date and a dropdown — so a column that changes
+   kind does not change width and shunt every column after it sideways. */
+.scholar-table__extra {
+  width: 100%;
+  min-width: 6rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.4rem;
+}
 
 .scholar-table__group {
   background: var(--brand-soft);
@@ -2271,100 +2515,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .notice a { text-decoration: underline; color: inherit; }
 
 
-/* ── TES liquidation ───────────────────────────────────────────────────────
-   The reconciliation half of the UniFAST billing pair: what CHED remitted,
-   what the cashier released, what is still in hand. Figures are tabular-nums
-   throughout — these columns get read down, and proportional digits make two
-   equal totals look unequal. */
-
-.liq-figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem;
-}
-.liq-figure {
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-sunken);
-}
-.liq-figure__label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-.liq-figure__value {
-  margin-top: 0.3rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.liq-figure__note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
-
-/* The balance is the number the report is signed against, so it carries the
-   verdict: settled, still holding money, or paid out more than arrived. */
-.liq-figure--balance     { border-color: var(--border-strong); background: var(--surface); }
-.liq-figure--settled     { border-color: var(--ok-border);     background: var(--ok-bg); }
-.liq-figure--settled .liq-figure__value { color: var(--ok); }
-.liq-figure--over        { border-color: var(--danger-border); background: var(--danger-bg); }
-.liq-figure--over .liq-figure__value    { color: var(--danger); }
-
-/* The statement, mirroring the arithmetic on the Billing tab. */
-.liq-statement { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-.liq-statement td { padding: 0.6rem 0; border-bottom: 1px solid var(--surface-2); }
-.liq-statement tr:last-child td { border-bottom: none; }
-.liq-statement tr:hover td { background: transparent; }
-.liq-statement .liq-amount {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.liq-statement .liq-sub,
-.liq-statement .liq-sub .liq-amount { color: var(--text-muted); }
-.liq-statement .liq-hint { color: var(--text-muted); font-size: 0.8rem; }
-.liq-statement .liq-total td {
-  padding-top: 0.8rem;
-  font-weight: 700;
-  border-top: 1px solid var(--border-strong);
-}
-.liq-statement .liq-total .liq-amount { font-size: 1.05rem; }
-
-/* Per-grantee rows. Narrow inputs so the table still fits without the money
-   column wrapping mid-figure. */
-.liq-table td { vertical-align: middle; }
-.liq-table .liq-amount { text-align: right; font-variant-numeric: tabular-nums; }
-.liq-input {
-  width: 100%;
-  min-width: 6rem;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.8125rem;
-}
-.liq-input--amount { text-align: right; font-variant-numeric: tabular-nums; }
-.liq-input--date   { min-width: 8.5rem; }
-.liq-select        { width: auto; min-width: 7.5rem; padding: 0.3rem 0.5rem; font-size: 0.8125rem; }
-
-/* A grantee nobody has accounted for yet. Marked rather than coloured red:
-   this is work outstanding, not an error. */
-.liq-table .liq-row--todo td { background: var(--warn-bg); }
-.liq-table .liq-row--todo:hover td { background: var(--warn-bg); }
-
-.liq-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-}
-.liq-actions__hint { font-size: 0.75rem; color: var(--text-muted); }
-
-@media (max-width: 640px) {
-  .liq-actions > .btn { width: 100%; justify-content: center; }
-}
-
-
 /* ── "Optional" field marker ───────────────────────────────────────────────
    Registration asks for a great deal and needs almost none of it. Marking what
    can be skipped is what makes the form finishable in one sitting.
@@ -2380,4 +2530,482 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-style: normal;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+
+/* ── Scholarship logo picker ───────────────────────────────────────────────
+   The seal beside its dropdown on the scholarship form, so the office is
+   choosing a picture rather than a filename. */
+
+.logo-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.logo-picker select { flex: 1 1 auto; min-width: 0; }
+.logo-picker__preview {
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+
+/* ── No Scholarship tab: the row actions ───────────────────────────────────
+   The tab draws its own table rather than the .scholar-table the programme
+   tabs share, so the small buttons in the last cell are declared here for it.
+   The soft-danger variant is unscoped because a second table now wants it, and
+   it reads from the --danger tokens so the dark theme repaints it — the
+   .scholar-table copy above is left on its literals so that table looks
+   exactly as it did. */
+
+.unawarded-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.unawarded-actions form { margin: 0; }
+.unawarded-actions .btn { padding: 0.2rem 0.55rem; font-size: 0.75rem; }
+
+.btn-danger-soft {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
+}
+
+
+/* ── When a form is open ───────────────────────────────────────────────────
+   The Application Period card on the Applications tab and the Renewal Period
+   card on the Renewal Applications tab — one shared partial, drawn above the
+   queue each one governs. Two boxes rather than a date range: the office
+   announces a window as a start and a length, and a length cannot be typed the
+   wrong way round. The switch beside them is the third state, "closed now". */
+
+.app-window {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: var(--surface-2);
+}
+.app-window__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.app-window__head .badge { flex-shrink: 0; }
+.app-window__hint {
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
+  max-width: 46rem;
+}
+.app-window__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+}
+.app-window__row input { width: 11rem; }
+.app-window__closes {
+  flex: 1 1 16rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+
+/* ── External partners ─────────────────────────────────────────────────────
+   The SDSO's access picker, and the partner portal's own read-only tables.
+   A partner administers nothing, so these carry no action column. */
+
+.partner-access {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem;
+  background: var(--surface-2);
+}
+.partner-access__title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.15rem;
+}
+.partner-access__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.4rem;
+}
+.partner-access__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.1rem;
+  cursor: pointer;
+}
+/* width:auto, because the form reset near the top sizes every input like a
+   text box. Full width and flex-shrink:0 together let the checkbox take the
+   whole option to itself, and the programme name beside it was left a column
+   one character wide — the overflow-wrap below then broke it letter by letter,
+   which is what made a 0px-wide label 546px tall. */
+.partner-access__option input {
+  width: auto;
+  flex: none;
+  margin: 0.2rem 0 0;
+  padding: 0;
+}
+/* A flex item defaults to min-width:auto and so refuses to shrink below its
+   own text — which is how a long programme name pushed the option, its card
+   and the whole page sideways. The text wraps instead. */
+.partner-access__option > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.partner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.partner-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.partner-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.partner-table tbody tr:last-child td { border-bottom: none; }
+.partner-table .cell-name { font-weight: 500; }
+.partner-table .cell-muted { color: var(--text-muted); font-size: 0.8rem; }
+.partner-table__num { text-align: right; font-variant-numeric: tabular-nums; }
+.partner-table .btn { padding: 0.2rem 0.55rem; font-size: 0.75rem; }
+/* The actions column. Kept on one line and out of the way of the columns the
+   partner actually chose: a row that wraps its two buttons is a row twice as
+   tall as the twenty around it. */
+.partner-table .cell-actions {
+  white-space: nowrap;
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.partner-table .cell-actions form { margin: 0; }
+.partner-table__empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.partner-manage {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.partner-manage__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.partner-manage__label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+.partner-manage__row input[type="password"] { width: 14rem; }
+
+
+/* ── The archive-column picker, now that order is part of the answer ────────
+   A list rather than a grid: a grid that wraps cannot say what comes after
+   what, and the order these post in is the order the table reads. */
+
+.col-picker__list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-height: 24rem;
+  overflow-y: auto;
+}
+.col-picker__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.col-picker__item:last-child { border-bottom: none; }
+/* Off the table: still listed, because it is what you tick to add it back. */
+.col-picker__item.is-off { background: var(--surface-2); }
+.col-picker__item.is-off .col-picker__label { color: var(--text-muted); }
+
+.col-picker__item .col-picker__option {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.col-picker__no {
+  flex: 0 0 1.5rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+.col-picker__label { min-width: 0; overflow-wrap: anywhere; }
+
+.col-picker__moves { display: flex; gap: 0.2rem; flex-shrink: 0; }
+.col-picker__move {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+/* The partner's column panel: a settings drawer beside the table it changes. */
+.col-panel > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text);
+  list-style: revert;
+}
+.col-panel[open] > summary { margin-bottom: 0.25rem; }
+
+
+/* ── Rule-based recommendations ────────────────────────────────────────────
+   The Student Ranking page, both tabs: Affirmative Action and TES. Two tables
+   with one job — say what the rules made of a student's record, and show the
+   reason underneath so the office can defend the answer.
+
+   `.th-cell` and `.td-cell` were a <style> block inside vpsea/ranking.html.
+   They are here now because the TES tab needs the same header row, and two
+   copies of a heading style is how two tables start looking like two
+   products. */
+
+.th-cell {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.th-cell--rank { width: 3rem; }
+.td-cell { padding: 0.6rem 0.75rem; vertical-align: top; }
+
+/* The count cards above the table. Five figures that have to be readable at a
+   glance and in the same order every time, so they get a fixed grid rather than
+   flowing to whatever fits. */
+.rec-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.rec-summary__label {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.rec-summary__value {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.rec-summary__value--ok     { color: var(--ok); }
+.rec-summary__value--warn   { color: var(--warn); }
+.rec-summary__value--danger { color: var(--danger); }
+.rec-summary__value--info   { color: var(--info); }
+
+.rec-search { max-width: 18rem; }
+
+/* The search box and the download beside it. They share the right-hand end of
+   the heading row and wrap together rather than the button dropping under the
+   input on its own — a lone button under a search field reads as belonging to
+   the search. */
+.rec-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  /* It shares a justify-between row with the card's heading, and the heading is
+     long enough to squeeze this to 335px — enough for the search box, not for
+     the button after it, which then hung underneath looking like part of the
+     search. The floor is what the two controls actually need side by side; the
+     min() hands the whole line back on a screen too narrow for that, so they
+     wrap as a pair instead of pushing the card open. The heading is prose and
+     wraps happily, which is why it is the one that gives way. */
+  flex: 0 1 auto;
+  min-width: min(100%, 28rem);
+}
+.rec-actions .rec-search { min-width: 0; }
+.rec-actions .btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* The explanation above the table. It is long on purpose: the ordering rules
+   are the whole basis of the list, and an office defending a ranking needs them
+   written down where the ranking is. */
+.rec-note {
+  margin-bottom: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.rec-note p  { margin: 0 0 0.4rem; }
+.rec-note ol { margin: 0 0 0.5rem 1.1rem; padding: 0; list-style: decimal; }
+.rec-note li { margin-bottom: 0.15rem; }
+.rec-note--tight { margin-bottom: 1rem; }
+
+.rec-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.rec-table .trow { border-bottom: 1px solid var(--border); }
+
+.rec-cell { padding: 0.55rem 0.75rem; vertical-align: top; }
+.rec-cell--rank   { font-weight: 600; }
+.rec-cell--muted  { color: var(--text-muted); }
+.rec-cell--strong { font-weight: 500; }
+.rec-cell--ok     { color: var(--ok); }
+/* Amber rather than red: something not collected yet is an errand, not a fault
+   of the student's. */
+.rec-cell--missing { font-size: 0.75rem; color: var(--warn); }
+.rec-missing { color: var(--warn); }
+
+.rec-markers {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.rec-why { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+
+/* The audit trail, revealed under a row by "Why?". Sunken so it reads as
+   belonging to the row above rather than as another row. */
+.rec-reason-cell { padding: 0 0.75rem 1rem; }
+.rec-reason {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.rec-reason__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+}
+.rec-reason__table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.rec-reason__label {
+  width: 14rem;
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  vertical-align: top;
+}
+.rec-reason__verdict { width: 11rem; padding: 0.3rem 0.5rem; vertical-align: top; }
+.rec-reason__detail  { padding: 0.3rem 0.5rem; color: var(--text-soft); }
+.rec-reason__source {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.rec-empty { font-size: 0.875rem; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .rec-reason__label,
+  .rec-reason__verdict { width: auto; }
+}
+
+
+/* ── The mail panel ────────────────────────────────────────────────────────
+   On Account Verification, because that is where the office already asks
+   whether somebody was told. Collapsed when mail is working and open when it
+   is not: a panel that is always open becomes furniture, and this one has to
+   be noticed on the day it matters. */
+
+.mail-panel { padding: 0; }
+.mail-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+/* The default triangle sits badly against a badge row; the card's own border
+   already says this opens. */
+.mail-panel__summary::-webkit-details-marker { display: none; }
+.mail-panel__summary::marker { content: ''; }
+.mail-panel__summary:hover { background: var(--surface-2); }
+.mail-panel[open] .mail-panel__summary { border-bottom: 1px solid var(--border); }
+
+.mail-panel__title { font-weight: 600; font-size: 0.9375rem; }
+.mail-panel__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  /* Pushed to the end so the badge stays beside the title, where it is read. */
+  margin-left: auto;
+}
+
+.mail-panel__body { padding: 1.25rem; }
+.mail-panel__note {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.mail-panel__body .section-title { margin-top: 1.25rem; }
+
+/* The provider's own words, kept monospaced and wrapped: these are quoted
+   strings with punctuation that matters, and they are the whole diagnosis. */
+.mail-panel__error {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.mail-panel__ok {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ok);
+}
+
+.mail-panel__test { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0; }
+.mail-panel__test input { max-width: 20rem; }
+
+@media (max-width: 640px) {
+  .mail-panel__hint { display: none; }
+  .mail-panel__test input { max-width: none; flex: 1 1 100%; }
 }

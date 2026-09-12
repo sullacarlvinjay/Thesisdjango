@@ -40,15 +40,6 @@ class Command(BaseCommand):
         vpsea_user.save()
         Token.objects.get_or_create(user=vpsea_user)
 
-        # UniFAST admin
-        unifast_user, _ = User.objects.get_or_create(
-            email='unifast@bipsu.edu.ph',
-            defaults={'username': 'unifast@bipsu.edu.ph', 'first_name': 'Marlon', 'last_name': 'Tabuga', 'role': 'unifast'}
-        )
-        unifast_user.set_password('unifast1234')
-        unifast_user.save()
-        Token.objects.get_or_create(user=unifast_user)
-
         # Student user
         student_user, _ = User.objects.get_or_create(
             email='juan.delacruz@bipsu.edu.ph',
@@ -116,7 +107,6 @@ class Command(BaseCommand):
         # Activity logs
         logs_data = [
             (vpsea_user, 'Approved application APP-2025-0021'),
-            (unifast_user, 'Released TES Batch 2 funds'),
             (vpsea_user, 'Imported ched_merit_2024.csv'),
             (super_user, 'Updated system settings'),
         ]
@@ -186,6 +176,5 @@ class Command(BaseCommand):
         self.stdout.write('\nLogin credentials:')
         self.stdout.write('  Student:   juan.delacruz@bipsu.edu.ph / demo1234')
         self.stdout.write('  VPSEA:     vpsea@bipsu.edu.ph / vpsea1234')
-        self.stdout.write('  UniFAST:   unifast@bipsu.edu.ph / unifast1234')
         self.stdout.write('  Super:     it@bipsu.edu.ph / admin1234')
         self.stdout.write('\nArchive test scholars seeded for: Academic, TDP, DOST, CHED, CoScho, Sports, GSIS, Affirmative, Staff')

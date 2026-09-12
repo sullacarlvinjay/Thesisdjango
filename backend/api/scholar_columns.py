@@ -86,13 +86,13 @@ DEFAULT_COLUMNS_BY_TYPE = {
 DEFAULT_COLUMNS_BY_TYPE['TDP'] = DEFAULT_COLUMNS_BY_TYPE['CHED']
 DEFAULT_COLUMNS_BY_TYPE['DOST'] = DEFAULT_COLUMNS_BY_TYPE['CHED']
 
-# Where the two offices' tables disagreed about the same programme. UniFAST
-# administers TES and reports it against CHED's award number; the SDSO archive
-# listed the same scholars without one. That disagreement is what choosing a
-# column set settles — but until a programme is configured, each office keeps
-# the table it already had.
+# Where a partner's table and the SDSO's disagreed about the same programme. A
+# funder reports its scholars against the award number it issued them; the SDSO
+# archive lists the same scholars without one. That disagreement is what
+# choosing a column set settles — but until a programme is configured, each side
+# keeps the table it already had.
 DEFAULTS_BY_PORTAL = {
-    'unifast': {
+    'partner': {
         'TES': [
             'last_name', 'first_name', 'm_i', 'sex', 'brgy_st', 'municipality',
             'province', 'course', 'year_level', 'number', 'award_number',
@@ -129,35 +129,231 @@ def custom_key(label):
     return f'{CUSTOM_PREFIX}{slug}' if slug else ''
 
 
-def clean_choice(keys):
-    """The catalogue columns out of a posted list, in catalogue order.
+# ── What kind of data a column the office added holds.
+#
+# A custom column used to be a name and nothing else: the office typed one and
+# every scholar's row got an empty text box under it, so a single 'Batch' column
+# came back holding '2026-A', '2026 A', 'AY 2026', 'n/a' and blank — five
+# spellings of four different things, in the column a report groups and sorts
+# by. The office says what the column holds at the moment it names it, and a
+# value that is not that is refused rather than written.
+#
+# The list is closed on purpose. Each kind here is a control a row can be filled
+# in through *and* a cell the workbook can carry — a kind with neither would be
+# a text box wearing a label, which is what this replaces.
+CUSTOM_TYPES = [
+    ('text', 'Text'),
+    ('number', 'Number'),
+    ('date', 'Date'),
+    ('choice', 'Choice list'),
+    ('yesno', 'Yes / No'),
+]
+CUSTOM_TYPE_LABELS = dict(CUSTOM_TYPES)
+DEFAULT_CUSTOM_TYPE = 'text'
 
-    Order comes from the catalogue rather than the form so a table always reads
-    the way the reports do — the office is choosing which columns appear, not
-    rearranging them.
+# Yes / No is a choice list whose options are already decided. It is stored as
+# the words rather than as a boolean because the archive, the workbook and the
+# masterlist all print the cell, and 'True' is not something an office writes on
+# a list of scholars.
+YESNO_OPTIONS = ['Yes', 'No']
+
+# The box a value is typed into, per kind. A kind not named here gets a plain
+# text box; the two here get the browser's own picker and its own validation.
+INPUT_TYPES = {'number': 'number', 'date': 'date'}
+
+# What a date column stores, and what `<input type="date">` posts and reads back.
+DATE_FORMAT = '%Y-%m-%d'
+
+# Formats accepted on the way in but never written. The date box cannot post
+# any of them; they are here for values that arrived some other way — an office
+# import, or a column switched from Text to Date after values were typed under
+# it — so that switching the kind does not blank the column.
+#
+# Month-first leads, because '06/07/2026' is genuinely ambiguous and the office
+# writes it the way the university does. Day-first follows and so only catches
+# what month-first cannot read at all, like '15/06/2026'.
+OTHER_DATE_FORMATS = ('%m/%d/%Y', '%d/%m/%Y', '%B %d, %Y', '%d %B %Y')
+
+
+def clean_options(raw):
+    """The options of a choice column, from the line the office typed them on.
+
+    Split on commas and newlines both, because both are how a short list gets
+    typed. De-duplicated case-insensitively: two options differing only in case
+    read as one answer, and would split one group across two rows of every
+    report that counts by this column.
     """
-    wanted = set(keys or ())
-    return [key for key, _ in COLUMNS if key in wanted]
+    parts = raw if isinstance(raw, (list, tuple)) else re.split(
+        r'[,\n]', raw or '')
+    seen, options = set(), []
+    for part in parts:
+        option = str(part).strip()
+        if not option or option.lower() in seen:
+            continue
+        seen.add(option.lower())
+        options.append(option)
+    return options
 
 
-def clean_custom(labels):
-    """``[{'key', 'label'}]`` from the names typed into the form.
+def options_for(column):
+    """The values a column accepts, or ``[]`` where it is not a list of them."""
+    kind = column.get('type') or DEFAULT_CUSTOM_TYPE
+    if kind == 'yesno':
+        return list(YESNO_OPTIONS)
+    if kind == 'choice':
+        return list(column.get('options') or ())
+    return []
+
+
+def clean_value(column, raw):
+    """One typed cell, in the shape its column declared. ``None`` refuses it.
+
+    Refused rather than coerced, and refused one cell at a time: a Number column
+    handed 'n/a' should leave that cell as it was and say so — storing 0 would
+    print a real-looking figure nobody typed — and rejecting the whole post
+    would throw away the forty rows in the same save that were fine.
+
+    Blank is always accepted. A column the office added is not a column every
+    scholar has an answer for, and refusing the empty box would make it one.
+    """
+    kind = column.get('type') or DEFAULT_CUSTOM_TYPE
+    value = ('' if raw is None else str(raw)).strip()
+    if not value:
+        return ''
+    if kind == 'number':
+        number = _as_number(value.replace(',', ''))
+        if number is None:
+            return None
+        # Written back the way it was meant: a whole number keeps no '.0', which
+        # is how a batch size or a year is put on a list.
+        return str(number)
+    if kind == 'date':
+        return _clean_date(value)
+    for option in options_for(column):
+        if value.lower() == option.lower():
+            return option           # stored in the office's own spelling
+    return None if kind in ('choice', 'yesno') else value
+
+
+def _as_number(text):
+    """``int`` or ``float`` for a number typed into a cell, else ``None``.
+
+    ``float()`` also reads 'inf' and 'nan', which are not figures anybody means
+    to put on a scholars list and which raise on the way to an ``int`` — so they
+    are refused here rather than 500ing the save.
+    """
+    import math
+
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return int(number) if number == int(number) else number
+
+
+def _clean_date(value):
+    """A date cell as ISO, or ``None`` when it is not a date at all."""
+    from datetime import datetime
+
+    for fmt in (DATE_FORMAT,) + OTHER_DATE_FORMATS:
+        try:
+            return datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def excel_value(column, value):
+    """One cell as a workbook should carry it, rather than as a page prints it.
+
+    A number written as text sorts '10' above '9' and cannot be summed; a date
+    written as text cannot be filtered by month. Both are the first things done
+    to a downloaded scholars list, so the kind the office declared is carried
+    into the cell rather than left behind on the page.
+
+    A value that does not parse goes in as it stands rather than being dropped —
+    a cell the office can see and fix beats a blank it cannot.
+    """
+    if not column.get('custom'):
+        return value
+    kind = column.get('type') or DEFAULT_CUSTOM_TYPE
+    text = ('' if value is None else str(value)).strip()
+    if not text:
+        return ''
+    if kind == 'number':
+        number = _as_number(text)
+        return text if number is None else number
+    if kind == 'date':
+        from datetime import datetime
+        try:
+            return datetime.strptime(text, DATE_FORMAT).date()
+        except ValueError:
+            return text
+    return text
+
+
+def clean_choice(keys):
+    """The catalogue columns out of a posted list, in the order given.
+
+    The order is kept, because the office asked to control it: the picker shows
+    the table as it will read, numbered, and a column moved there moves in the
+    archive and in the workbook that follows from it. Anything not a catalogue
+    key is dropped, and a key repeated is kept once — two copies of a column
+    would render the same value twice under the same heading.
+
+    This used to re-sort into catalogue order on the grounds that the office was
+    choosing *which* columns appear rather than rearranging them. That was a
+    smaller claim than the office actually wanted.
+    """
+    seen, chosen = set(), []
+    for key in keys or ():
+        if key in LABELS and key not in seen:
+            seen.add(key)
+            chosen.append(key)
+    return chosen
+
+
+def clean_custom(labels, types=None, options=None):
+    """``[{'key', 'label', 'type', 'options'}]`` from the columns the office named.
+
+    The three lists are parallel — one row of the form is a name, the kind of
+    data it holds, and for a choice list the options it offers — so they are
+    read by position, blank rows included. Dropping the blanks first would slide
+    every kind after one onto the wrong column, which is the kind of fault that
+    shows up as a Date column refusing dates weeks later.
 
     Blanks are dropped, and a repeated name is kept once: two columns sharing a
     key would write to the same place and read back as duplicates of each other.
+
+    A kind that is not one of ``CUSTOM_TYPES`` is read as Text, and so is a
+    choice list left with no options — a dropdown nobody can pick anything from
+    is a column that can never be filled in.
     """
+    types = list(types or ())
+    options = list(options or ())
     seen, columns = set(), []
-    for label in labels or ():
+    for index, label in enumerate(labels or ()):
         label = (label or '').strip()
         key = custom_key(label)
         if not key or key in seen:
             continue
         seen.add(key)
-        columns.append({'key': key, 'label': label})
+        kind = types[index] if index < len(types) else DEFAULT_CUSTOM_TYPE
+        if kind not in CUSTOM_TYPE_LABELS:
+            kind = DEFAULT_CUSTOM_TYPE
+        chosen = clean_options(options[index] if index < len(options) else '')
+        if kind == 'choice' and not chosen:
+            kind = DEFAULT_CUSTOM_TYPE
+        column = {'key': key, 'label': label, 'type': kind}
+        if kind == 'choice':
+            column['options'] = chosen
+        columns.append(column)
     return columns
 
 
-def resolve(scholarship, scholarship_type=None, portal=''):
+def resolve(scholarship, scholarship_type=None, portal='', override=None):
     """The ordered columns for a programme: ``[{'key', 'label', 'custom'}]``.
 
     Falls back to the columns that programme's table was hand-written with for
@@ -168,19 +364,35 @@ def resolve(scholarship, scholarship_type=None, portal=''):
 
     A configured programme ignores ``portal``: choosing the columns once is what
     makes both offices list the programme the same way.
+
+    ``override`` is one reader's own choice for this programme — an
+    :class:`~api.models.PartnerTableColumns` row, or anything else carrying
+    ``table_columns`` and ``extra_columns``. It wins where it has a selection,
+    and falls through to the office's where it does not, so a partner that has
+    never rearranged anything sees the table everybody else does. Nothing here
+    writes: the override exists precisely so a partner's layout cannot reach
+    the office's ``Scholarship`` row.
     """
     stype = scholarship_type or getattr(scholarship, 'type', '')
-    chosen = (clean_choice(getattr(scholarship, 'table_columns', None))
+    chosen = (clean_choice(getattr(override, 'table_columns', None))
+              or clean_choice(getattr(scholarship, 'table_columns', None))
               or default_for(stype, portal))
     columns = [{'key': key, 'label': LABELS[key], 'custom': False,
                 'filterable': key in FILTERABLE} for key in chosen]
-    for extra in getattr(scholarship, 'extra_columns', None) or ():
+    source = override if getattr(override, 'extra_columns', None) else scholarship
+    for extra in getattr(source, 'extra_columns', None) or ():
         key, label = extra.get('key'), extra.get('label')
         if key and label:
+            # Stored before a column declared its kind means Text, which is what
+            # every custom column was until it could say otherwise.
+            kind = extra.get('type') or DEFAULT_CUSTOM_TYPE
+            if kind not in CUSTOM_TYPE_LABELS:
+                kind = DEFAULT_CUSTOM_TYPE
             # A column the office types into holds whatever they typed, which is
             # exactly the kind of grouping they would want to filter on.
             columns.append({'key': key, 'label': label, 'custom': True,
-                            'filterable': True})
+                            'filterable': True, 'type': kind,
+                            'options': list(extra.get('options') or ())})
     return columns
 
 
@@ -227,6 +439,28 @@ def _search_terms(record, flat):
     return name, str(flat.get('number') or '').lower()
 
 
+def _cell(column, flat, extras):
+    """One cell of one row: its value, and how a custom one is typed into.
+
+    The control belongs here rather than in the template because it follows from
+    the kind the column declared, and the template would otherwise have to know
+    the kinds — which is the same knowledge in a second place, spelt in a
+    language that cannot be tested.
+    """
+    if not column['custom']:
+        return {'key': column['key'], 'custom': False,
+                'value': flat.get(column['key'], '')}
+    kind = column.get('type') or DEFAULT_CUSTOM_TYPE
+    return {
+        'key': column['key'],
+        'custom': True,
+        'value': extras.get(column['key'], ''),
+        'type': kind,
+        'options': options_for(column),
+        'input_type': INPUT_TYPES.get(kind, 'text'),
+    }
+
+
 def rows_for(records, columns, start=1):
     """One dict per scholar, with cells already in the order ``columns`` asks.
 
@@ -244,15 +478,7 @@ def rows_for(records, columns, start=1):
             'no': number,
             'obj': record,
             'kind': kind_of(record),
-            'cells': [
-                {
-                    'key': column['key'],
-                    'custom': column['custom'],
-                    'value': (extras.get(column['key'], '') if column['custom']
-                              else flat.get(column['key'], '')),
-                }
-                for column in columns
-            ],
+            'cells': [_cell(column, flat, extras) for column in columns],
             'search_name': _search_terms(record, flat)[0],
             'search_id': _search_terms(record, flat)[1],
         })

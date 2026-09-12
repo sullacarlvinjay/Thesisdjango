@@ -15,14 +15,18 @@ Two halves to the rule, and both are needed:
   JavaScript runs and a reader without JavaScript is never shown a question the
   form has stopped asking.
 
-The fields themselves stay optional server-side, which is what makes hiding them
-safe: a post with them disabled records nothing rather than failing.
+Hiding them has to be safe, and it is the server that makes it so: the two
+cards' questions are demanded of a student who holds nothing yet and of nobody
+else, so a declaring registration — which posts none of them, because the script
+disables the fields with the cards — is accepted rather than refused for
+answers it was never asked for.
 """
 import re
 
 from django.test import Client, TestCase
 
 from api.models import SystemSettings
+from api.test_registration_payload import a_declared_scholar, a_student
 
 
 def _card(html, element_id):
@@ -40,14 +44,12 @@ class RegisterEligibilityOrderTest(TestCase):
     def _form(self, **post):
         """The registration form, optionally as it comes back from a bad post."""
         if post:
-            return self.c.post('/register/', dict({
-                'account_type': 'student', 'first_name': 'Juan',
-                'last_name': 'Cruz', 'email': 'juan@gmail.com',
+            return self.c.post('/register/', a_student(
+                email='juan@gmail.com', student_id='23-0001',
                 # Mismatched on purpose: the form has to come back rendered,
                 # carrying what was typed, which is the case that broke.
-                'password': 'pw12345', 'confirm_password': 'different',
-                'student_id': '23-0001', 'course': 'BSCS', 'year_level': '1',
-            }, **post)).content.decode()
+                password='pw12345', confirm_password='different',
+                **post)).content.decode()
         return self.c.get('/register/').content.decode()
 
     # ── Order ───────────────────────────────────────────────────────────────
@@ -111,18 +113,21 @@ class RegisterEligibilityOrderTest(TestCase):
 
     # ── Hiding them is safe ─────────────────────────────────────────────────
 
-    def test_registering_without_any_eligibility_answers_still_works(self):
-        """What the disabled fields post: nothing. Every one of them is optional
-        server-side, so the account is created rather than the form refused."""
+    def test_a_student_who_holds_nothing_is_asked_all_of_it(self):
+        """The other half of the rule. These are the questions that decide what
+        somebody qualifies for, so leaving them blank is not an omission the
+        office can work around later — it is the reason the account sits in the
+        queue unreadable."""
         from api.models import User
 
-        self.c.post('/register/', {
-            'account_type': 'student', 'first_name': 'Ana', 'last_name': 'Reyes',
-            'email': 'ana@gmail.com', 'password': 'pw12345',
-            'confirm_password': 'pw12345', 'student_id': '23-0002',
-            'course': 'BSCS', 'year_level': '1',
-        })
-        self.assertTrue(User.objects.filter(email='ana@gmail.com').exists())
+        data = a_student(email='ana@gmail.com', student_id='23-0002')
+        for question in ('shs_gpa', 'citizenship', 'is_4ps_beneficiary'):
+            del data[question]
+        r = self.c.post('/register/', data)
+        self.assertContains(r, 'SHS Grade Point Average is required')
+        self.assertContains(r, 'Citizenship is required')
+        self.assertContains(r, 'please answer Yes or No')
+        self.assertFalse(User.objects.filter(email='ana@gmail.com').exists())
 
     def test_a_declared_scholar_registers_with_the_cards_posting_nothing(self):
         """The case the change creates: the two cards are disabled, so none of
@@ -136,15 +141,12 @@ class RegisterEligibilityOrderTest(TestCase):
 
         from api.models import ScholarshipLinkRequest, User
 
-        self.c.post('/register/', {
-            'account_type': 'student', 'first_name': 'Ben', 'last_name': 'Lim',
-            'email': 'ben@gmail.com', 'password': 'pw12345',
-            'confirm_password': 'pw12345', 'student_id': '23-0003',
-            'course': 'BSCS', 'year_level': '1',
-            'has_scholarship': 'on', 'scholarship_type': 'DOST',
-            'proof_document': SimpleUploadedFile(
+        self.c.post('/register/', a_declared_scholar(
+            email='ben@gmail.com', student_id='23-0003',
+            scholarship_type='DOST',
+            proof_document=SimpleUploadedFile(
                 'award.pdf', b'%PDF-1.4 award letter', content_type='application/pdf'),
-        })
+        ))
         self.assertTrue(User.objects.filter(email='ben@gmail.com').exists())
         self.assertTrue(ScholarshipLinkRequest.objects.filter(
             student__user__email='ben@gmail.com', scholarship_type='DOST').exists())

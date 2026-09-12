@@ -15,6 +15,7 @@ from api.models import (
     User, StudentProfile, Scholarship, Application, ImportedScholar,
     ScholarshipLinkRequest, SystemSettings, Notification,
 )
+from api.test_registration_payload import a_student
 
 
 def archive_rows(response, kind=None):
@@ -32,16 +33,14 @@ def a_proof(name='award.pdf', size=1024):
     return SimpleUploadedFile(name, b'x' * size, content_type='application/pdf')
 
 
-REGISTRATION = {
-    'account_type': 'student',
-    'first_name': 'Juan',
-    'last_name': 'Dela Cruz',
-    'email': 'juan@bipsu.edu.ph',
-    'student_id': '2022-0001',
-    'password': 'sekritpw123',
-    'confirm_password': 'sekritpw123',
-    'year_level': '1',
-}
+# The same person as the imported row above, which is the whole point of the
+# merge these tests cover — so the name matches it down to the middle initial.
+REGISTRATION = a_student(
+    first_name='Juan', last_name='Dela Cruz', middle_name='S',
+    email='juan@bipsu.edu.ph', student_id='2022-0001',
+    password='sekritpw123', confirm_password='sekritpw123',
+    year_level='1',
+)
 
 
 class RegisterWithAScholarshipTest(TestCase):
@@ -132,8 +131,9 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertEqual(r.status_code, 200)
 
         account = r.context['pending'][0]
-        self.assertEqual(account.declared.scholarship_type, 'Academic')
-        self.assertEqual([x.id for x in account.archive_candidates], [self.archive.id])
+        declared, = account.declarations
+        self.assertEqual(declared.scholarship_type, 'Academic')
+        self.assertEqual([x.id for x in declared.archive_candidates], [self.archive.id])
         self.assertContains(r, 'Scholarship declared at registration')
 
     def test_verifying_the_account_merges_without_duplicating(self):
@@ -150,7 +150,7 @@ class RegisterWithAScholarshipTest(TestCase):
 
         r = office.post('/vpsea/accounts/', {
             'user_id': profile.user_id, 'action': 'approve',
-            'archive_id': self.archive.id, 'message': 'Verified vs COR',
+            f'archive_id_{req.pk}': self.archive.id, 'message': 'Verified vs COR',
         })
         self.assertEqual(r.status_code, 302)
 
@@ -196,7 +196,7 @@ class RegisterWithAScholarshipTest(TestCase):
         req = ScholarshipLinkRequest.objects.get()
         self._office().post('/vpsea/accounts/', {
             'user_id': req.student.user_id, 'action': 'approve',
-            'archive_id': '', 'message': '',
+            f'archive_id_{req.pk}': '', 'message': '',
         })
         req.refresh_from_db()
         self.assertEqual(req.status, 'Approved')
@@ -216,12 +216,13 @@ class RegisterWithAScholarshipTest(TestCase):
         office = self._office()
 
         account = office.get('/vpsea/accounts/').context['pending'][0]
-        self.assertEqual([x.id for x in account.archive_candidates], [self.archive.id])
-        self.assertEqual([x.id for x in account.other_semester_rows], [old.id])
+        declared, = account.declarations
+        self.assertEqual([x.id for x in declared.archive_candidates], [self.archive.id])
+        self.assertEqual([x.id for x in declared.other_semester_rows], [old.id])
 
         r = office.post('/vpsea/accounts/', {
             'user_id': req.student.user_id, 'action': 'approve',
-            'archive_id': old.id, 'message': 'x',
+            f'archive_id_{req.pk}': old.id, 'message': 'x',
         })
         self.assertIn('no+longer+available', r['Location'])
         old.refresh_from_db()
@@ -257,30 +258,44 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertTrue(req.student.user.awaiting_verification)
 
     def test_staff_type_is_a_single_canonical_key(self):
+        """'Staff' is the key; 'NSU Staff' was the rename this guards against.
+
+        It is still one canonical key, and still the name the catalogue shows —
+        but it is no longer a key a *student* may declare. An award to an
+        employee is an AffirmativeStaffApplication, which has no StudentProfile
+        to hang off, so the staff half of the registration form asks it instead.
+        See api/test_staff_declaration.py.
+        """
         from api.models import SCHOLARSHIP_TYPE_CHOICES
         keys = [k for k, _ in SCHOLARSHIP_TYPE_CHOICES]
         self.assertIn('Staff', keys)
         self.assertNotIn('NSU Staff', keys)
 
+        self.assertEqual(dict(SCHOLARSHIP_TYPE_CHOICES)['Staff'],
+                         'BiPSU Staff Scholarship')
         Scholarship.objects.create(
             name='BiPSU Staff Scholarship', type='Staff', category='application',
             description='x', eligibility='x', requirements=[],
         )
-        # The old 'NSU Staff' value is rejected; the canonical 'Staff' is taken.
-        r = self._register(scholarship_type='NSU Staff')
-        self.assertContains(r, 'Say which scholarship you already hold')
 
-        self.assertEqual(self._register(scholarship_type='Staff').status_code, 302)
+        # Neither the old value nor the canonical one is a student's to claim,
+        # and both are refused in the same words.
+        for posted in ('NSU Staff', 'Staff'):
+            r = self._register(scholarship_type=posted)
+            self.assertContains(r, 'Say which scholarship you already hold', msg_prefix=posted)
+        self.assertFalse(ScholarshipLinkRequest.objects.exists())
+
+    def test_a_declaration_the_student_may_make_still_goes_all_the_way(self):
+        """The path the test above used to cover, on a programme students hold."""
+        self.assertEqual(self._register(scholarship_type='Academic').status_code, 302)
         req = ScholarshipLinkRequest.objects.get()
-        self.assertEqual(req.scholarship_type, 'Staff')
-        self.assertEqual(req.get_scholarship_type_display(), 'BiPSU Staff Scholarship')
 
         self._office().post('/vpsea/accounts/', {
             'user_id': req.student.user_id, 'action': 'approve', 'message': 'ok',
         })
         req.refresh_from_db()
         self.assertEqual(req.status, 'Approved')
-        self.assertEqual(req.linked_application.scholarship.type, 'Staff')
+        self.assertEqual(req.linked_application.scholarship.type, 'Academic')
 
 
 class ChedTierDeclarationTest(TestCase):
@@ -334,7 +349,8 @@ class ChedTierDeclarationTest(TestCase):
 
         self._office().post('/vpsea/accounts/', {
             'user_id': req.student.user_id, 'action': 'approve',
-            'archive_id': '', 'message': '', 'award_tier': 'Full',
+            f'archive_id_{req.pk}': '', 'message': '',
+            f'award_tier_{req.pk}': 'Full',
         })
         app = Application.objects.get(student=req.student)
         self.assertEqual(app.status, 'Approved')
@@ -353,13 +369,14 @@ class ChedTierDeclarationTest(TestCase):
         # The queue offers the correction: a tier select preset to the
         # student's answer, beside the Verify button.
         page = office.get('/vpsea/accounts/')
-        self.assertContains(page, 'name="award_tier"')
+        self.assertContains(page, f'name="award_tier_{req.pk}"')
         self.assertContains(page, 'value="Half"')
         self.assertContains(page, 'The student declared')
 
         office.post('/vpsea/accounts/', {
             'user_id': req.student.user_id, 'action': 'approve',
-            'archive_id': '', 'message': '', 'award_tier': 'Half',
+            f'archive_id_{req.pk}': '', 'message': '',
+            f'award_tier_{req.pk}': 'Half',
         })
         req.refresh_from_db()
         self.assertEqual(req.award_tier, 'Half')
@@ -420,7 +437,10 @@ class ScholarshipDataCardTest(TestCase):
         ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST', term_label='26-1')
         r = self.c.get('/student/profile/')
-        self.assertContains(r, 'DOST Scholarship')
+        # html=True because the label carries an ampersand, which the
+        # template escapes to S&amp;T — it renders as S&T and matching the
+        # raw source would mean hard-coding the entity.
+        self.assertContains(r, 'DOST S&T Undergraduate Scholarship', html=True)
         self.assertContains(r, 'still verifying')
 
     def test_a_rejected_declaration_keeps_its_reason(self):

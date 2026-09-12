@@ -5,7 +5,6 @@
 {% block page_title %}SDSO Dashboard{% endblock %}
 {% block page_subtitle %}Student Development and Service Office{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="dashboard" %}{% endblock %}
-
 {% block content %}
 <p class="text-xs mb-4" style="color:#6b7a99;">Showing data for: <strong>{{ active_sy_display }}</strong></p>
 <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -33,7 +32,6 @@
     <p class="text-xs mt-1" style="color:#6b7a99;">Awaiting review</p>
   </div>
 </div>
-
 <div class="grid lg:grid-cols-2 gap-6">
   <div class="card p-6">
     <h3 class="font-semibold mb-4">Quick Actions</h3>

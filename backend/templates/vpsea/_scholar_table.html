@@ -1,3 +1,12 @@
+{% comment %}
+One programme's scholars, as the SDSO sees them.
+
+A cell of a column the office added is typed into rather than printed, and the
+box it is typed into follows the kind that column declared — a dropdown for a
+choice list, a date picker for a date, a number field for a number. The kind
+itself is resolved in api/scholar_columns._cell, so this template never has to
+know what the kinds are: it renders the control it was handed.
+{% endcomment %}
 <table class="scholar-table" id="archTable" data-sortable data-filterable>
   <thead>
     <tr>
@@ -10,18 +19,22 @@
     {% for row in rows %}
     <tr class="arch-row" data-name="{{ row.search_name }}" data-id="{{ row.search_id }}">
       <td class="cell-no">{{ row.no }}</td>
-
       {% for cell in row.cells %}
       <td class="{% if cell.key == 'last_name' %}cell-name{% elif cell.key == 'brgy_st' or cell.key == 'municipality' or cell.key == 'province' or cell.key == 'award_number' or cell.key == 'cong_dist' %}cell-muted{% endif %}">
         {% if cell.custom %}
-        {% comment %}
-        The office named this column, so its value is typed here rather than read
-        off the record. The input belongs to the save form by id, not by nesting:
-        an imported row carries its own delete form in the last cell, and a form
-        inside a form is dropped by the browser.
-        {% endcomment %}
+        {% if cell.options %}
+        <select class="scholar-table__extra" form="archColumnForm"
+                name="extra__{{ row.kind }}__{{ row.obj.pk }}__{{ cell.key }}">
+          <option value="">—</option>
+          {% for option in cell.options %}
+          <option value="{{ option }}"{% if option == cell.value %} selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
         <input class="scholar-table__extra" form="archColumnForm" value="{{ cell.value }}"
+               type="{{ cell.input_type }}"{% if cell.type == 'number' %} step="any"{% endif %}
                name="extra__{{ row.kind }}__{{ row.obj.pk }}__{{ cell.key }}" />
+        {% endif %}
         {% elif cell.key == 'gwa' and cell.value %}
         <span class="badge badge-success">{{ cell.value }}</span>
         {% else %}
@@ -29,7 +42,6 @@
         {% endif %}
       </td>
       {% endfor %}
-
       <td class="cell-actions">
         {% if row.kind == 'imported' %}
         <div class="imported-cell">

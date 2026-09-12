@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}My Profile — SDSO{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}SDSO{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block page_subtitle %}Your own account — your name, and your password{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="profile" %}{% endblock %}
+{% block content %}
+{% if saved %}
+<div class="notice notice--ok mb-5">
+  <div>
+    <p class="notice__title">Saved{% if password_changed %} — your password has been changed{% endif %}.</p>
+  </div>
+</div>
+{% endif %}
+{% for e in errors %}
+<div class="notice notice--danger mb-3">
+  <div><p class="notice__body">{{ e }}</p></div>
+</div>
+{% endfor %}
+<form method="post" enctype="multipart/form-data" class="space-y-6">
+  {% csrf_token %}
+
+  <!-- Profile Photo -->
+  <div class="card p-6">
+    <p class="card-eyebrow">Profile Photo</p>
+    <div class="flex items-center gap-5 mt-3">
+      <label for="vpseaPhotoInput" class="relative cursor-pointer shrink-0" title="Change profile photo">
+        {% if profile_photo_url %}
+        <img src="{{ profile_photo_url }}" alt="{{ user.initials|default:'S' }}"
+             class="h-20 w-20 rounded-full object-cover"
+             style="border:3px solid var(--brand);" />
+        {% else %}
+        <div class="h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold"
+             style="background:var(--brand);color:var(--on-brand);">{{ user.initials|default:"S" }}</div>
+        {% endif %}
+        <span class="absolute bottom-0 right-0 h-6 w-6 rounded-full flex items-center justify-center"
+              style="background:#fff;border:2px solid var(--brand);">
+          <svg class="h-3.5 w-3.5" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </span>
+        <input id="vpseaPhotoInput" type="file" name="photo" accept="image/*"
+               style="display:none;" onchange="this.form.submit()" />
+      </label>
+      <div>
+        <p class="text-sm font-medium">{{ user.get_full_name }}</p>
+        <p class="text-xs mt-0.5 text-muted-foreground">Click your photo to upload a new one. JPG, PNG or WebP, square crop recommended.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-6">
+    <p class="card-eyebrow">Account Information</p>
+    <p class="text-xs mb-4 text-muted-foreground">
+      Your email address is what this account signs in with and what the office's
+      decisions are attributed to, so it is changed on Account Verification
+      rather than here.
+    </p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label for="firstName">First Name</label>
+        <input id="firstName" name="first_name" value="{{ user.first_name }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label for="lastName">Last Name</label>
+        <input id="lastName" name="last_name" value="{{ user.last_name }}" />
+      </div>
+      <div class="space-y-1.5">
+        <label for="accountEmail">Email</label>
+        <input id="accountEmail" value="{{ user.email }}" readonly />
+      </div>
+      <div class="space-y-1.5">
+        <label for="accountRole">Office</label>
+        <input id="accountRole" value="Student Development and Services Office" readonly />
+      </div>
+    </div>
+  </div>
+  {% include "_password_card.html" %}
+  <button type="submit" class="btn btn-primary">Save changes</button>
+</form>
+{% endblock %}

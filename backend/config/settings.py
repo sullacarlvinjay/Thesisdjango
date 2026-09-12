@@ -14,7 +14,6 @@ forgotten setting can never quietly ship an insecure site.
 import os
 from pathlib import Path
 
-import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
@@ -169,6 +168,21 @@ PGHOST = os.environ.get('PGHOST', '')
 
 
 def _database_from_url(url):
+    # Imported here rather than at the top of the file so the SQLite fallback
+    # below is true to its word: a fresh clone with no DATABASE_URL set starts
+    # on an interpreter that has never heard of dj-database-url. As a module
+    # import it did the opposite — the one path that needs no database setup
+    # was the one that died at startup, on a name nothing on it ever uses.
+    try:
+        import dj_database_url
+    except ModuleNotFoundError:
+        raise ImproperlyConfigured(
+            'DATABASE_URL is set, but dj-database-url is not installed.\n'
+            '  Install the requirements into the interpreter you are running:\n'
+            '    venv\\Scripts\\python.exe -m pip install -r requirements.txt\n'
+            '  Or unset DATABASE_URL to run on the local SQLite file.'
+        ) from None
+
     try:
         return dj_database_url.parse(
             url, conn_max_age=600, conn_health_checks=True, ssl_require=not DEBUG,
@@ -347,19 +361,36 @@ if not DEBUG:
 # site: with no host configured the messages are printed to the console instead
 # of sent, so development and the test suite never touch a mail server.
 
+# Two routes out, and the reason there are two is the deployment. Render's free
+# plan blocks outbound SMTP — ports 25, 465 and 587, since September 2025 — so
+# on Render the mail has to leave over HTTPS instead. SMTP is kept because it is
+# the right thing on a laptop, on any paid instance, and anywhere the university
+# runs this itself with its own mail server.
+#
+# BREVO_API_KEY wins when both are set: it is the one that works where this is
+# actually deployed, and a half-configured SMTP left over from before should not
+# quietly take precedence over the route someone deliberately turned on.
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '').strip()
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '').strip()
+
+# The address the sending account is allowed to send as, whichever route is
+# used. Read outside the branches because DEFAULT_FROM_EMAIL is derived from it
+# below and Brevo needs it just as much as SMTP does — it is the address you
+# verify there, and Brevo refuses anything else.
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 
 # Whether mail actually leaves this machine. The console backend below is a
 # development convenience that looks exactly like success to every caller, so
 # the office had no way to tell 'the applicant was emailed' from 'the message
 # was printed to a log nobody reads'. The screens that send mail show a warning
 # when this is False rather than letting it fail silently.
-EMAIL_ENABLED = bool(EMAIL_HOST)
+EMAIL_ENABLED = bool(BREVO_API_KEY or EMAIL_HOST)
 
-if EMAIL_HOST:
+if BREVO_API_KEY:
+    EMAIL_BACKEND = 'api.email_backends.BrevoEmailBackend'
+elif EMAIL_HOST:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
     EMAIL_USE_TLS = _env_bool('EMAIL_USE_TLS', True)
     EMAIL_USE_SSL = _env_bool('EMAIL_USE_SSL', False)
@@ -367,8 +398,9 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     EMAIL_HOST_USER = ''
 
-# Seconds to wait on the mail server. A review must not hang because SMTP is
-# slow; api.notify gives up and logs rather than blocking the office.
+# Seconds to wait on whichever route is in use — the SMTP conversation, or the
+# HTTPS call to Brevo. A review must not hang because mail is slow; api.notify
+# gives up and logs rather than blocking the office.
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 10))
 
 # Who the message comes from. Derived from the account being logged into unless

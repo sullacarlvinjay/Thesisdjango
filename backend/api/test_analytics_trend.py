@@ -114,20 +114,3 @@ class ScholarsOverTimeTest(TestCase):
         self.assertEqual(list(series), ['DOST'])
         self.assertEqual(set(series['DOST']), {0})
 
-    # ── the other office sees only its own programmes ───────────────────────
-
-    def test_unifast_sees_only_its_own_programmes(self):
-        self._past('Academic', '25-2', 3)
-        self._past('TDP', '25-2', 2)
-        self._past('TES', '25-2', 1)
-
-        User.objects.create_user(
-            username='unifast@bipsu.edu.ph', email='unifast@bipsu.edu.ph',
-            password='pw', role='unifast',
-        )
-        office = Client()
-        self.assertTrue(office.login(email='unifast@bipsu.edu.ph', password='pw'))
-        r = office.get('/unifast/analytics/')
-        series = {s['type'] for s in r.context['trend_series']}
-        self.assertEqual(series, {'TDP', 'TES'})
-        self.assertNotIn('Academic', series)

@@ -9,6 +9,7 @@ from django.test import Client, TestCase
 from api.models import (
     Notification, StaffProfile, StudentProfile, SystemSettings, User,
 )
+from api.test_registration_payload import a_staff_member, a_student
 
 
 class RegistrationLeavesTheAccountPendingTest(TestCase):
@@ -16,17 +17,7 @@ class RegistrationLeavesTheAccountPendingTest(TestCase):
         self.c = Client()
 
     def _register(self, **overrides):
-        data = {
-            'account_type': 'student',
-            'first_name': 'Juan', 'last_name': 'Dela Cruz',
-            'email': 'juan@bipsu.edu.ph',
-            'password': 'demo1234', 'confirm_password': 'demo1234',
-            'student_id': '2022-00999',
-            'school': 'School of Technologies and Computer Studies', 'course': 'BSCS',
-            'year_level': '2',
-        }
-        data.update(overrides)
-        return self.c.post('/register/', data, follow=True)
+        return self.c.post('/register/', a_student(**overrides), follow=True)
 
     def test_a_new_student_is_pending_and_not_signed_in(self):
         r = self._register()
@@ -37,7 +28,7 @@ class RegistrationLeavesTheAccountPendingTest(TestCase):
         self.assertContains(r, 'Registration received')
 
     def test_a_new_staff_is_pending_too(self):
-        self._register(account_type='nsu_staff', email='staff@bipsu.edu.ph')
+        self.c.post('/register/', a_staff_member(email='staff@bipsu.edu.ph'))
         self.assertEqual(
             User.objects.get(email='staff@bipsu.edu.ph').verification_status, 'pending')
 
@@ -169,8 +160,8 @@ class SDSOVerificationQueueTest(TestCase):
 
     def test_office_accounts_are_not_in_reach_of_this_page(self):
         other_officer = User.objects.create_user(
-            username='unifast@bipsu.edu.ph', email='unifast@bipsu.edu.ph', password='pw',
-            role='unifast',
+            username='partner@example.org', email='partner@example.org', password='pw',
+            role='partner',
         )
         r = self.c.post('/vpsea/accounts/',
                         {'user_id': other_officer.id, 'action': 'reject', 'message': 'no'})
@@ -236,15 +227,7 @@ class ReleasedWithoutTypingAgainTest(TestCase):
 
     def setUp(self):
         self.c = Client()
-        self.c.post('/register/', {
-            'account_type': 'student',
-            'first_name': 'Juan', 'last_name': 'Dela Cruz',
-            'email': 'juan@bipsu.edu.ph',
-            'password': 'demo1234', 'confirm_password': 'demo1234',
-            'student_id': '2022-00999',
-            'school': 'School of Technologies and Computer Studies', 'course': 'BSCS',
-            'year_level': '2',
-        })
+        self.c.post('/register/', a_student())
         self.user = User.objects.get(email='juan@bipsu.edu.ph')
         self.officer = User.objects.create_user(
             username='vpsea@bipsu.edu.ph', email='vpsea@bipsu.edu.ph', password='pw',
@@ -328,11 +311,10 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.c = Client()
 
     def _register(self, email='juan@gmail.com', student_id='23-0001', **extra):
-        return self.c.post('/register/', dict({
-            'account_type': 'student', 'first_name': 'Juan', 'last_name': 'Cruz',
-            'email': email, 'password': 'pw12345', 'confirm_password': 'pw12345',
-            'student_id': student_id, 'course': 'BSCS', 'year_level': '1',
-        }, **extra))
+        return self.c.post('/register/', dict(
+            a_student(email=email, student_id=student_id,
+                      password='pw12345', confirm_password='pw12345'),
+            **extra))
 
     def _reject(self, email='juan@gmail.com', note='Student ID is not on our list.'):
         User.objects.get(email=email).decide_verification('rejected', note, self.officer)
@@ -483,12 +465,16 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         'barangay': 'Brgy. Larrazabal', 'municipality': 'Naval', 'province': 'Biliran',
         'elementary': 'Naval Central School', 'highschool': 'Biliran NHS',
         'last_school': 'Biliran NHS',
+        # Two of the four groups the Affirmative Action programme is for. One
+        # answered each way, so the queue renders both branches — see
+        # api/affirmative_ranking.py.
+        'highschool_is_public': 'yes', 'is_from_depressed_area': 'no',
         'shs_gpa': '92.5', 'suc_exam_score': '35', 'suc_exam_total': '50',
         'is_tes_beneficiary': 'on',
         'citizenship': 'Filipino', 'household_size': '5',
         'year_first_enrolled': '2023',
         'is_listahanan_household': 'yes', 'is_4ps_beneficiary': 'no',
-        'has_previous_degree': 'no',
+        'is_solo_parent_dependent': 'no', 'has_previous_degree': 'no',
         'family_income': '180000', 'indigenous_group': 'Cebuano',
     }
 
@@ -524,6 +510,8 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         self.assertIs(p.has_previous_degree, False)
         self.assertEqual(p.family_income, 180000.0)
         self.assertEqual(p.indigenous_group, 'Cebuano')
+        self.assertIs(p.highschool_is_public, True)
+        self.assertIs(p.is_from_depressed_area, False)
 
     def test_pwd_is_read_off_the_disability_that_was_named(self):
         self.assertEqual(self.profile.disability_type, 'Visual Disability')
@@ -561,16 +549,29 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
                         'Socioeconomic &amp; TES eligibility'):
             self.assertContains(r, heading)
         for value in ('2022-00777', 'Santos', 'Naval, Biliran', 'Visual Disability',
-                      'Biliran NHS', '92.5', 'Filipino', 'Cebuano'):
+                      'Biliran NHS', '92.5', 'Filipino', 'Cebuano',
+                      'Public High School', 'From a Depressed Area'):
             self.assertContains(r, value)
 
-    def test_an_unanswered_three_state_reads_as_unanswered_not_no(self):
-        Client().post('/register/', dict(
+    def test_a_registration_cannot_leave_a_three_state_unanswered(self):
+        """'Not answered yet' used to be a value of its own, which is why the
+        browser's `required` could never have caught it: it sees an option
+        chosen and lets the form go. It is the empty option now, and the server
+        refuses a registration that answers anything but yes or no."""
+        r = Client().post('/register/', dict(
             self.REGISTRATION, email='mia@bipsu.edu.ph', student_id='2022-00780',
-            is_listahanan_household='unknown', is_4ps_beneficiary='unknown',
+            is_listahanan_household='unknown', is_4ps_beneficiary='',
             has_previous_degree='unknown'))
-        other = StudentProfile.objects.get(student_id='2022-00780')
-        self.assertIsNone(other.is_listahanan_household)
+        self.assertContains(r, 'please answer Yes or No')
+        self.assertFalse(User.objects.filter(email='mia@bipsu.edu.ph').exists())
+
+    def test_the_queue_still_reads_an_unanswered_three_state_as_unanswered(self):
+        """Registration is where the question gets asked. Everywhere else a
+        record may predate the asking — a scholar imported from an office
+        spreadsheet was never asked at all — and the queue has to say so rather
+        than print a confident No."""
+        self.profile.is_listahanan_household = None
+        self.profile.save()
         self.assertContains(self.c.get('/vpsea/accounts/'), 'Not answered')
 
     def test_the_certificates_are_checked_before_anything_is_written(self):

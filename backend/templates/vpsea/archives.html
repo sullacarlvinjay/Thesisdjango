@@ -3,17 +3,27 @@
 {% block logo_src %}/media/logos/SDSO.png{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
-{% block page_subtitle %}Academic, TDP, DOST, CHED, CoScho, Sports, Affirmative, Staff{% endblock %}
-
+{% block page_subtitle %}Approved scholars by programme and term — {{ active_tab_label }}{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="archives" %}{% endblock %}
-
 {% block content %}
 <!-- Type Tabs -->
 <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
-  <div class="flex flex-wrap gap-2">
-    {% for t in archive_types %}
-    <a href="/vpsea/archives/?type={{ t }}" class="btn {% if t == active_type %}btn-primary{% else %}btn-outline{% endif %}">{{ t }}</a>
-    {% endfor %}
+  <div class="tab-picker">
+    <button type="button" data-dl-menu="archiveTabMenu" class="btn btn-primary tab-picker__button" aria-haspopup="true">
+      <span class="tab-picker__current">{{ active_tab_label }}</span>
+      <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    </button>
+    <div id="archiveTabMenu" class="dl-menu tab-picker__menu">
+      {% for group in archive_tabs %}
+      <div class="dl-menu__label">{{ group.label }}</div>
+      {% for tab in group.tabs %}
+      <a href="{{ tab.href }}" class="dl-menu__item tab-picker__item{% if tab.active %} is-current{% endif %}"{% if tab.active %} aria-current="page"{% endif %}>
+        <span class="tab-picker__item-label">{{ tab.label }}</span>
+        {% if tab.note %}<span class="tab-picker__item-note">{{ tab.note }}</span>{% endif %}
+      </a>
+      {% endfor %}
+      {% endfor %}
+    </div>
   </div>
   <div class="flex gap-2">
     <button onclick="document.getElementById('uploadExcelModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;">
@@ -30,7 +40,6 @@
     </button>
   </div>
 </div>
-
 {% if request.GET.added %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Scholar added successfully.</div>
 {% endif %}
@@ -43,22 +52,22 @@
 {% if request.GET.columns_saved %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">Column values saved for {{ request.GET.columns_saved }} scholar{{ request.GET.columns_saved|pluralize }}.</div>
 {% endif %}
-
+{% if request.GET.columns_bad %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">{{ request.GET.columns_bad }} value{{ request.GET.columns_bad|pluralize }} did not match the kind of data its column holds and {{ request.GET.columns_bad|pluralize:"was,were" }} not saved. Those cells still show what they held before.</div>
+{% endif %}
 <!-- Add Scholar Modal -->
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:38rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title">Add Scholar — {{ active_type }}</h3>
+      <h3 class="modal-sheet-title">Add Scholar — {{ active_tab_label }}</h3>
       <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
-
     <form method="post" action="/vpsea/archives/add/" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
-
+      <input type="hidden" name="tier" value="{{ active_tier }}">
       {% if active_type == 'Academic' %}
-      {# ── Academic: full form matching student apply_academic ── #}
       <div class="space-y-4">
         <p class="text-xs font-semibold uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</p>
         <div class="grid grid-cols-2 gap-3">
@@ -101,14 +110,12 @@
             </select>
           </div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Educational Background</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>Elementary School</label><input name="elementary" style="margin-top:0.25rem;" /></div>
           <div><label>High School</label><input name="highschool" style="margin-top:0.25rem;" /></div>
           <div class="col-span-2"><label>Last School Attended</label><input name="last_school" style="margin-top:0.25rem;" /></div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Family Background</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>Father's Last Name</label><input name="father_last_name" style="margin-top:0.25rem;" /></div>
@@ -120,14 +127,12 @@
           <div><label>Mother's Middle Name</label><input name="mother_middle_name" style="margin-top:0.25rem;" /></div>
           <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Academic Information</p>
         <div class="grid grid-cols-3 gap-3">
           <div><label>GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" required style="margin-top:0.25rem;" /></div>
           <div><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
           <div><label>School Year</label><input name="school_year" value="{{ active_sy }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Document Upload <span style="color:#6b7a99;font-weight:400;text-transform:none;letter-spacing:0;">PDF, JPG, PNG · Max 5MB each</span></p>
         <div class="space-y-3">
           {% for num, label, hint, fname in add_docs %}
@@ -142,9 +147,7 @@
           {% endfor %}
         </div>
       </div>
-
       {% else %}
-      {# ── Other scholarships: basic info + one proof doc ── #}
       <div class="grid grid-cols-2 gap-3">
         <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
         <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
@@ -200,7 +203,6 @@
         </div>
       </div>
       {% endif %}
-
       <div class="account-choice mt-4">
         <p class="text-sm font-medium">Portal account</p>
         <p class="account-choice-hint text-xs mt-1 mb-2">An import is the same flat record an uploaded spreadsheet makes &mdash; it appears in the archives and the analytics, and the scholar never signs in. An account gives them the portal and emails them at the address above.</p>
@@ -214,7 +216,6 @@
         </label>
         <p id="accountChoiceNote" class="account-choice-note text-xs mt-2" hidden></p>
       </div>
-
       <div class="flex gap-2 justify-end mt-5">
         <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="btn btn-outline">Cancel</button>
         <button type="submit" class="btn btn-primary">Add Scholar</button>
@@ -223,7 +224,6 @@
     </div>
   </div>
 </div>
-
 <!-- Upload Excel Modal -->
 <div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card modal-sheet" style="max-width:30rem;">
@@ -267,7 +267,6 @@
     </div>
   </div>
 </div>
-
 <!-- New Semester Modal -->
 <div id="newSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
@@ -287,7 +286,6 @@
     </form>
   </div>
 </div>
-
 <!-- Undo Semester Modal -->
 <div id="undoSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
@@ -304,16 +302,14 @@
     </form>
   </div>
 </div>
-
 <div>
-
   <div class="space-y-4">
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <div class="flex items-center gap-2">
-            <h3 class="font-semibold">{{ active_type }} Scholars</h3>
-            <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type }}&sy='+this.value"
+            <h3 class="font-semibold">{{ active_tab_label }} Scholars</h3>
+            <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type }}{% if active_tier %}&amp;tier={{ active_tier }}{% endif %}&sy='+this.value"
               style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#1971c2;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">
               {% for lbl, display in all_sy_display %}
               <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ lbl }}</option>
@@ -329,20 +325,22 @@
             Add Scholar
           </button>
           <div class="card-toolbar-menu">
-            <button onclick="toggleDlMenu()" class="btn btn-outline" style="gap:0.4rem;">
+            <button type="button" data-dl-menu="dlMenu" class="btn btn-outline" style="gap:0.4rem;">
               <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               Download Excel
               <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div id="dlMenu" class="dl-menu">
-              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Current Semester</div>
-              <a href="/vpsea/archives/download/?type={{ active_type }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
+              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">The table on screen</div>
+              <a href="/vpsea/archives/download/?type={{ active_type|urlencode }}{% if active_tier %}&amp;tier={{ active_tier|urlencode }}{% endif %}&amp;sy={{ selected_sy|urlencode }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
                 <svg class="h-3.5 w-3.5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                {{ active_sy_display }}
+                {{ selected_sy_display }}
               </a>
+              <div style="padding:0 0.75rem 0.35rem;font-size:0.7rem;color:#6b7a99;">Same columns, same scholars, same term as the table below.</div>
               {% if history %}
               <div style="border-top:1px solid #e8ecf0;margin:0.3rem 0;"></div>
-              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Previous Semesters</div>
+              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Uploaded files</div>
+              <div style="padding:0 0.75rem 0.35rem;font-size:0.7rem;color:#6b7a99;">The sheets as they were imported, not as this table reads.</div>
               {% for h in history %}
               <div class="flex items-center" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
                 <a href="{{ h.excel_file.url }}" download class="flex items-center gap-2 flex-1" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;">
@@ -364,47 +362,37 @@
           </div>
         </div>
       </div>
-
       <div class="filter-scheme mb-4" data-filter-bar></div>
-
       <div style="overflow-x:auto;">
-
         <form method="post" action="/vpsea/archives/columns/" id="archColumnForm">
           {% csrf_token %}
           <input type="hidden" name="type" value="{{ active_type }}" />
+          <input type="hidden" name="tier" value="{{ active_tier }}" />
           <input type="hidden" name="sy" value="{{ selected_sy }}" />
         </form>
-
         {% for group in scholar_groups %}
         {% if group.title %}<div class="scholar-table__group">{{ group.title }}</div>{% endif %}
         {% include "vpsea/_scholar_table.html" with rows=group.rows empty_message=group.empty %}
         {% endfor %}
-
         {% if has_custom_columns %}
         <div class="scholar-table__save">
           <button type="submit" form="archColumnForm" class="btn btn-primary">Save column values</button>
         </div>
         {% endif %}
-
       </div>
     </div>
-
-
-
 </div>
-
 {% endblock %}
-
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script src="{% static 'js/table-filter.js' %}?v=2"></script>
+<script src="{% static 'js/dl-menu.js' %}?v=1"></script>
 <script>
   // Course options follow the chosen school, using the same BiPSU mapping the
   // student form uses. Course was a free-text box until now, which is how a
   // record ended up reading "Batchelor of Science in Computer Science ".
   var ARCH_COURSES = {{ bipsu_courses_json|safe }};
-
   function archFillCourses(schoolSelId, courseSelId, wanted) {
     var school = document.getElementById(schoolSelId).value;
     var sel = document.getElementById(courseSelId);
@@ -425,21 +413,17 @@
       sel.appendChild(keep);
     }
   }
-
   function archSchoolFor(course) {
     for (var s in ARCH_COURSES) {
       if (ARCH_COURSES[s].indexOf(course) !== -1) return s;
     }
     return '';
   }
-
   function archInitSchoolCourse(schoolSelId, courseSelId, school, course) {
     document.getElementById(schoolSelId).value = school || archSchoolFor(course) || '';
     archFillCourses(schoolSelId, courseSelId, course);
   }
 </script>
-
-
 <script>
 var BIPSU_COURSES_ARCH = {
     "School of Technologies and Computer Studies": ["BSCS","BSIS","BSIT - Automotive Technology","BSIT - Architectural Drafting","BSIT - Electrical Technology","BSIT - Electronics Technology","BSIT - Culinary Technology","BSIT - Apparel and Fashion Design Technology","BSIT - HVAC-R Technology"],
@@ -464,7 +448,6 @@ function updateAddCourseOther() {
   (BIPSU_COURSES_ARCH[s]||[]).forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
 }
 </script>
-
 <script>
 function filterArch() {
   const q = document.getElementById('archSearch').value.toLowerCase();
@@ -475,18 +458,6 @@ function filterArch() {
 {% if import_message or import_error %}
 document.getElementById('uploadExcelModal').style.display = 'flex';
 {% endif %}
-// Open state is a class, not an inline display, so the stylesheet stays in
-// charge of where the menu sits — which is what lets it reposition itself on a
-// phone instead of hanging off the right edge of the card.
-function toggleDlMenu() {
-  document.getElementById('dlMenu').classList.toggle('is-open');
-}
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('#dlMenu') && !e.target.closest('[onclick="toggleDlMenu()"]')) {
-    const m = document.getElementById('dlMenu');
-    if (m) m.classList.remove('is-open');
-  }
-});
 function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress, contact, school) {
   document.getElementById('editPk').value = pk;
   document.getElementById('editFirst').value = first;
@@ -526,7 +497,6 @@ function openDelete(pk, name) {
   document.getElementById('deleteModal').style.display = 'flex';
 }
 </script>
-
 <!-- Edit Modal -->
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:32rem;">
@@ -538,6 +508,7 @@ function openDelete(pk, name) {
     <form method="post" action=""  id="editForm">
       {% csrf_token %}
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+      <input type="hidden" name="tier" value="{{ active_tier }}">
       <input type="hidden" name="pk" id="editPk">
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -696,7 +667,6 @@ function openDelete(pk, name) {
     </div>
   </div>
 </div>
-
 <!-- Delete Confirm Modal -->
 <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:24rem;">
@@ -705,6 +675,7 @@ function openDelete(pk, name) {
     <form method="post" action=""  id="deleteForm">
       {% csrf_token %}
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
+      <input type="hidden" name="tier" value="{{ active_tier }}">
       <input type="hidden" name="pk" id="deletePk">
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn btn-outline">Cancel</button>
@@ -713,7 +684,6 @@ function openDelete(pk, name) {
     </form>
   </div>
 </div>
-
 <script>
 document.getElementById('editForm').addEventListener('submit', function(e) {
   e.preventDefault();

@@ -5,17 +5,14 @@
 {% block page_title %}Reports{% endblock %}
 {% block page_subtitle %}Scholarship Master List{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="reports" %}{% endblock %}
-
 {% block content %}
 <div class="space-y-6">
-
   {% if error %}
   <div class="card p-4 report-error">
     <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <p>{{ error }}</p>
   </div>
   {% endif %}
-
   <!-- Toolbar -->
   <div class="card p-5 flex flex-wrap items-center justify-between gap-4">
     <div>
@@ -23,40 +20,34 @@
       <p class="report-preview-sub">{{ grand_total }} scholar{{ grand_total|pluralize }} across {{ summary|length }} programme{{ summary|length|pluralize }}.</p>
     </div>
     <div class="report-preview-actions">
-      <a href="/vpsea/reports/download/excel/" class="btn btn-outline flex items-center gap-1">
+      
+      <form method="get" class="report-gen-actions">
+        <select id="reportSy" name="sy" onchange="this.form.submit()"
+                class="filter-scheme__select"
+                aria-label="School year and semester this masterlist covers">
+          {% for lbl, display in all_sy_display %}
+          <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ display }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-outline">Go</button></noscript>
+      </form>
+      <a href="/vpsea/reports/download/excel/?sy={{ selected_sy|urlencode }}" class="btn btn-outline flex items-center gap-1">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Download XLSX
       </a>
-      <a href="/vpsea/reports/download/" class="btn btn-primary flex items-center gap-1">
+      <a href="/vpsea/reports/download/?sy={{ selected_sy|urlencode }}" class="btn btn-primary flex items-center gap-1">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Download DOCX
       </a>
     </div>
   </div>
-
-  <div class="card p-5 report-note">
-    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <div>
-      {% if exact_preview %}
-      <p class="report-note-title">This is the Word document itself</p>
-      <p class="report-note-body">
-        The office's own template is filled and converted to PDF for this frame, so the
-        letterhead, column widths, merged cells and signatory blocks are exactly what the
-        DOCX download carries. Corrections belong in Archives or Students; the document
-        follows the records.
-      </p>
-      {% else %}
-      <p class="report-note-title">Showing a stand-in layout — LibreOffice is not installed</p>
-      <p class="report-note-body">
-        The preview carries the same rows, headings and signatory blocks as the Word
-        document, but it is drawn here rather than being the template itself. Install
-        LibreOffice and this frame becomes the DOCX exactly as it prints. The
-        <strong>Download DOCX</strong> button is the real document either way.
-      </p>
-      {% endif %}
-    </div>
+  {% if not is_active_term %}
+  <div class="page-alert page-alert-warn">
+    This list is for {{ ay }} — {{ semester }}, which is not the term the office is
+    working in. The active term is {{ active_sy_display }}. Everything below, and every
+    download, is that earlier list.
   </div>
-
+  {% endif %}
   <!-- The document itself -->
   <div class="card report-preview">
     <div class="report-preview-bar">
@@ -68,19 +59,18 @@
         </p>
       </div>
       <div class="report-preview-actions">
-        <a href="/vpsea/reports/preview/" target="_blank" rel="noopener"
+        <a href="/vpsea/reports/preview/?sy={{ selected_sy|urlencode }}" target="_blank" rel="noopener"
            class="btn btn-outline">Open PDF in a new tab</a>
       </div>
     </div>
-    <iframe class="report-preview-frame" src="/vpsea/reports/preview/"
+    <iframe class="report-preview-frame" src="/vpsea/reports/preview/?sy={{ selected_sy|urlencode }}"
             title="List of scholars — preview">
       <p class="report-preview-fallback">
         This browser will not display a PDF here.
-        <a href="/vpsea/reports/preview/">Open the preview in a new tab</a> instead.
+        <a href="/vpsea/reports/preview/?sy={{ selected_sy|urlencode }}">Open the preview in a new tab</a> instead.
       </p>
     </iframe>
   </div>
-
   <!-- Per-programme counts, so the sections in the document are countable
        without paging through it. -->
   <div class="card p-6">
@@ -94,6 +84,5 @@
       {% endfor %}
     </div>
   </div>
-
 </div>
 {% endblock %}

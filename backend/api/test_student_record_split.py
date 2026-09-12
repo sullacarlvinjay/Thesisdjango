@@ -16,9 +16,9 @@ from django.test import Client, TestCase
 from api.models import (
     AcademicRenewal, AffirmativeStaffApplication, EnrollmentData,
     FamilyBackground, PersonalInformation, Scholarship, ScholarshipLinkRequest,
-    StaffProfile, StaffRenewal, StudentProfile, SystemSettings, TESApplication,
-    User,
+    StaffProfile, StaffRenewal, StudentProfile, SystemSettings, User,
 )
+from api.test_registration_payload import a_staff_member
 
 
 def a_document(name='proof.pdf'):
@@ -174,11 +174,6 @@ class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
         self.assertEqual(renewal.term_label, '26-1')
         self.assertEqual(renewal.term_display, '2026-2027 1st Semester')
 
-    def test_a_tes_application_records_the_term_it_was_applied_in(self):
-        app = TESApplication.objects.create(student=self.profile, lrn='1')
-        self.assertEqual(app.term_label, '26-1')
-        self.assertEqual(app.semester, '1st Semester')
-
     def test_a_link_request_records_the_term_the_award_is_for(self):
         req = ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST',
@@ -209,9 +204,11 @@ class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
         self.assertEqual(renewal.semester, '2nd Semester')
 
     def test_a_caller_that_knows_the_expanded_term_gets_the_short_key_derived(self):
-        app = TESApplication.objects.create(
-            student=self.profile, school_year='2025-2026', semester='2nd Semester')
-        self.assertEqual(app.term_label, '25-2')
+        req = ScholarshipLinkRequest.objects.create(
+            student=self.profile, scholarship_type='DOST',
+            proof_document=a_document(),
+            school_year='2025-2026', semester='2nd Semester')
+        self.assertEqual(req.term_label, '25-2')
 
     def test_a_caller_that_knows_the_short_key_gets_the_expanded_term_derived(self):
         req = ScholarshipLinkRequest.objects.create(
@@ -234,27 +231,39 @@ class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
 
 
 class StaffRegistrationPicksASchoolTest(TestCase):
-    """Staff typed their school free-hand; students never could."""
+    """Where an employee says they work, at signup.
+
+    It was free text, then a dropdown, then a typed field over a <datalist> of
+    the same list — and it is plain free text again here: somebody signing up
+    knows where they work, and nothing on this page offers them a list. My
+    Profile still suggests the canonical names for correcting it later. The
+    label reads **Office / College / Unit**, because non-teaching personnel are
+    assigned to one and "School" asked them the wrong question.
+    """
 
     def setUp(self):
         self.c = Client()
 
     def _register(self, **overrides):
-        data = {
-            'account_type': 'nsu_staff',
-            'first_name': 'Rosa', 'last_name': 'Mendoza',
-            'email': 'rosa@bipsu.edu.ph',
-            'password': 'demo1234', 'confirm_password': 'demo1234',
-            'school_id': '32-1-213313', 'staff_school': 'School of Engineering',
-            'department': 'Civil Engineering Department', 'position': 'Instructor I',
-        }
+        data = a_staff_member(
+            first_name='Rosa', last_name='Mendoza', email='rosa@bipsu.edu.ph',
+            password='demo1234', confirm_password='demo1234',
+            school_id='32-1-213313', staff_school='School of Engineering',
+            department='Civil Engineering Department', position='Instructor I')
         data.update(overrides)
         return self.c.post('/register/', data)
 
-    def test_the_form_offers_a_school_dropdown_to_staff(self):
+    def test_the_form_asks_staff_to_type_it(self):
         html = self.c.get('/register/').content.decode()
-        self.assertIn('<select name="staff_school"', html)
-        self.assertIn('School of Engineering', html)
+        self.assertIn('<label>Office / College / Unit</label>', html)
+        self.assertIn('name="staff_school"', html)
+        self.assertNotIn('list="bipsuStaffUnits"', html)
+        self.assertNotIn('<datalist id="bipsuStaffUnits">', html)
+
+    def test_a_unit_that_is_not_on_the_list_still_reaches_the_profile(self):
+        self._register(staff_school='Office of Digital Transformation')
+        staff = StaffProfile.objects.get(user__email='rosa@bipsu.edu.ph')
+        self.assertEqual(staff.school, 'Office of Digital Transformation')
 
     def test_the_school_picked_at_signup_reaches_the_staff_profile(self):
         self._register()
@@ -274,10 +283,10 @@ class StaffRegistrationPicksASchoolTest(TestCase):
             AffirmativeStaffApplication.objects.filter(email='rosa@bipsu.edu.ph').exists(),
             'registering is not applying')
 
-    def test_a_rejected_signup_comes_back_with_the_school_still_selected(self):
+    def test_a_rejected_signup_comes_back_with_the_unit_still_filled_in(self):
         r = self._register(confirm_password='different')
         self.assertContains(r, 'Passwords do not match')
-        self.assertContains(r, 'value="School of Engineering" selected')
+        self.assertContains(r, 'name="staff_school" value="School of Engineering"')
 
     def test_the_students_own_school_field_is_not_what_staff_posts(self):
         """Both blocks live in one form, and request.POST keeps only the last value."""

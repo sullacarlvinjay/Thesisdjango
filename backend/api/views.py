@@ -139,38 +139,58 @@ class VPSEAStudentRankingView(APIView):
     Recommendations only. Nobody applies for this programme -- eligibility is
     decided from the student's own profile -- so there is no applicant list to
     return beside them; see vpsea_ranking, which renders the same thing.
+
+    "The same thing" is literal: this returns the rows _affirmative_ranking_data
+    built, in the order it built them, target groups first.
     """
 
     def get(self, request):
+        # Built from the same _affirmative_ranking_data the page renders, so the
+        # two cannot end up ordered differently. They were separate queries
+        # before, which was survivable only while both sorted on the same
+        # column; the page now sorts target groups above the fit score, and a
+        # second copy of that rule would be a second answer to "who are the top
+        # five?" — the exact question this endpoint is asked.
         from .models import AffirmativeRecommendation
+        from .student_views import _affirmative_ranking_data
+
         try:
             passing = float(request.query_params.get('passing', 75.0))
         except (TypeError, ValueError):
             passing = 75.0
 
         AffirmativeRecommendation.evaluate_and_sync(passing)
-        recs = AffirmativeRecommendation.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-fit_score')
+        data = _affirmative_ranking_data(passing)
         rec_data = [{
-            'id': r.id,
-            'student_id': r.student.student_id,
-            'name': r.student.user.get_full_name(),
-            'course': r.student.course,
-            'year_level': r.student.year_level,
-            'shs_gpa': r.student.shs_gpa,
-            'suc_exam_score': r.student.suc_exam_score,
-            'suc_exam_total': r.student.suc_exam_total,
-            'suc_exam_percent': r.student.suc_exam_percent,
-            'is_tes_beneficiary': r.student.is_tes_beneficiary,
-            'fit_score': r.fit_score,
-            'status': r.status,
-            'gpa_pass': r.student.shs_gpa is not None and r.student.shs_gpa >= passing,
-            'exam_pass': r.student.suc_exam_percent is not None and r.student.suc_exam_percent >= 50.0,
-            'not_tes': not r.student.is_tes_beneficiary,
-        } for r in recs]
+            'id': row['rec'].id,
+            'rank': row['rank'],
+            'student_id': row['profile'].student_id,
+            'name': row['profile'].user.get_full_name(),
+            'course': row['profile'].course,
+            'year_level': row['profile'].year_level,
+            'shs_gpa': row['profile'].shs_gpa,
+            'suc_exam_score': row['profile'].suc_exam_score,
+            'suc_exam_total': row['profile'].suc_exam_total,
+            'suc_exam_percent': row['profile'].suc_exam_percent,
+            'is_tes_beneficiary': row['profile'].is_tes_beneficiary,
+            'fit_score': row['rec'].fit_score,
+            'status': row['rec'].status,
+            'gpa_pass': row['gpa_pass'],
+            'exam_pass': row['exam_pass'],
+            'not_tes': row['not_tes'],
+            # Who the programme is for. Not a rule — see api/affirmative_ranking.
+            'target_groups': list(row['groups'].markers),
+            'target_group_count': row['groups'].count,
+            'unanswered_group_questions': list(row['groups'].unknown),
+            'eligible': row['eligible'],
+        } for row in data['rows']]
 
         return Response({
             'recommendations': rec_data,
             'passing_threshold': passing,
+            'eligible_count': data['eligible_count'],
+            'ineligible_count': data['ineligible_count'],
+            'in_target_group_count': data['in_target_group_count'],
         })
 
 
@@ -321,14 +341,4 @@ class VPSEADashboardView(APIView):
             'renewals': AcademicRenewal.objects.filter(status='Pending').count(),
         })
 
-
-
-class UniFASTDashboardView(APIView):
-    def get(self, request):
-        from .models import TESApplication
-        return Response({
-            'tes_beneficiaries': TESApplication.objects.filter(status='Approved').count(),
-            'tdp_scholars': Application.objects.filter(
-                status='Approved', scholarship__type='TDP').count(),
-        })
 

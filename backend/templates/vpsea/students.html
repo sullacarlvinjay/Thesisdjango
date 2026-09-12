@@ -5,9 +5,7 @@
 {% block page_title %}Manage Students{% endblock %}
 {% block page_subtitle %}Approved scholars for {{ current_sem }} · A.Y. {{ current_sy }}{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
-
 {% block content %}
-
 {% if request.GET.added %}
 <div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#2f9e44;font-size:0.875rem;">
   <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -26,7 +24,6 @@
   Student deleted.
 </div>
 {% endif %}
-
 <div class="card p-6">
 <div class="card p-6">
   <!-- Tab bar -->
@@ -49,7 +46,6 @@
         </span>
       </a>
     </div>
-
     <!-- Actions row (only show filter + add on scholars tab) -->
     {% if tab != 'no_scholarship' %}
     <div class="flex flex-wrap items-end gap-2">
@@ -88,7 +84,6 @@
     </form>
     {% endif %}
   </div>
-
   <!-- ── TAB 1: Approved scholars ─────────────────────────────────── -->
   {% if tab != 'no_scholarship' %}
   <div style="overflow-x:auto;">
@@ -144,7 +139,6 @@
       </tbody>
     </table>
   </div>
-
   {% else %}
   <!-- ── TAB 2: No scholarship ──────────────────────────────────────── -->
   <p class="text-xs mb-4" style="color:#6b7a99;">
@@ -216,7 +210,6 @@
   </div>
   {% endif %}
 </div>
-
 <!-- Delete Confirmation Modal -->
 <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
   <div class="card" style="width:100%;max-width:26rem;padding:1.75rem;margin:1rem;">
@@ -240,7 +233,6 @@
   </div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
 function confirmDelete(pk, name) {

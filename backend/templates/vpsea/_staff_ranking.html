@@ -1,0 +1,194 @@
+{% comment %}
+  The Faculty and Staff Scholars tab of the Ranking page.
+
+  Structure only — every class here is defined in srms.css alongside the TES
+  tab's, which this deliberately mirrors: the office reads both, and two
+  recommenders that look like two different products are two things to learn.
+
+  The rules, the wording of every verdict and the field each one reads are in
+  api/staff_ranking.py. Nothing here decides anything.
+{% endcomment %}
+<div class="rec-summary">
+  <div class="card p-4">
+    <p class="rec-summary__label">Qualified</p>
+    <p class="rec-summary__value rec-summary__value--ok">{{ staff_counts.qualified }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="rec-summary__label">For Verification</p>
+    <p class="rec-summary__value rec-summary__value--warn">{{ staff_counts.verification }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="rec-summary__label">Not Qualified</p>
+    <p class="rec-summary__value rec-summary__value--danger">{{ staff_counts.not_qualified }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="rec-summary__label">Employees</p>
+    <p class="rec-summary__value rec-summary__value--info">{{ staff_counts.employees }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="rec-summary__label">Dependents</p>
+    <p class="rec-summary__value">{{ staff_counts.dependents }}</p>
+  </div>
+</div>
+<div class="card p-6">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-1">
+    <h3 class="font-semibold">Faculty and Staff Scholars — Rule-Based Recommendation</h3>
+    <div class="rec-actions">
+      <input id="staffSearch" class="rec-search" placeholder="Search name or employee number…"
+             oninput="filterTable('staffSearch','staffTable','data-name')" />
+      <!-- What is endorsed through PASUC-8, with the Why? panel as a second sheet. -->
+      <a class="btn btn-outline" href="/vpsea/ranking/download/?type=Staff">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download list
+      </a>
+    </div>
+  </div>
+  <div class="rec-note">
+    <p>
+      A specialized program of the University giving full privilege to members of
+      the faculty and staff and their legitimate dependents, as approved by the
+      Board of Regents. {{ staff_total }} application{{ staff_total|pluralize }} screened.
+    </p>
+    <p><strong>The qualifications, as approved:</strong></p>
+    <ol>
+      <li><strong>(a)</strong> All faculty and employees of the University with
+          <strong>permanent appointment</strong>.</li>
+      <li><strong>(b)</strong> All qualified and <strong>legitimate dependents</strong> of
+          faculty and staff with permanent appointment.</li>
+      <li><strong>(c)</strong> Staff dependents who have <strong>already graduated a
+          baccalaureate degree</strong> are disqualified from enjoying the scholarship.</li>
+    </ol>
+    <p>
+      Nothing is scored — the programme has no merit test, so this states a verdict and
+      its reason rather than a position. Open <em>Why?</em> on any row for the
+      qualification-by-qualification reading behind it. An application that cannot answer
+      a qualification is held out into the list below rather than turned down for a
+      question nobody asked.
+    </p>
+  </div>
+  {% if staff_rows %}
+  <div class="table-scroll">
+    <table class="rec-table" id="staffTable">
+      <thead>
+        <tr>
+          <th class="th-cell th-cell--rank">Rank</th>
+          <th class="th-cell">Applicant</th>
+          <th class="th-cell">Applying as</th>
+          <th class="th-cell">Employee / Student No.</th>
+          <th class="th-cell">Qualification</th>
+          <th class="th-cell" title="(a) / (b) — a permanent appointment, theirs or their parent's">Permanent Appointment</th>
+          <th class="th-cell" title="(c) — a dependent who already graduated is disqualified">Already a Graduate</th>
+          <th class="th-cell">Recommendation</th>
+          <th class="th-cell">Missing Information</th>
+          <th class="th-cell"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in staff_rows %}
+        <tr class="trow" data-name="{{ e.applicant_name }} {{ e.application.student_id }} {{ e.application.staff_employee_id }}">
+          <td class="rec-cell rec-cell--rank">{{ e.rank|default_if_none:"—" }}</td>
+          <td class="rec-cell">{{ e.applicant_name }}</td>
+          <td class="rec-cell">
+            <span class="badge {% if e.standing == 'Employee' %}badge-info{% elif e.standing == 'Dependent' %}badge-muted{% else %}badge-warning{% endif %}">{{ e.standing }}</span>
+          </td>
+          <td class="rec-cell rec-cell--muted">{{ e.application.student_id|default:"—" }}</td>
+          <td class="rec-cell">
+            <span class="badge {% if e.status == 'Qualified' %}badge-success{% elif e.status == 'For Verification' %}badge-warning{% else %}badge-destructive{% endif %}">{{ e.status }}</span>
+          </td>
+          <td class="rec-cell">
+            <span class="badge {% if e.permanent_verdict == 'PASS' %}badge-success{% elif e.permanent_verdict == 'FAIL' %}badge-destructive{% else %}badge-warning{% endif %}">{{ e.permanent_verdict }}</span>
+          </td>
+          <td class="rec-cell">
+            <span class="badge {% if e.baccalaureate_verdict == 'FAIL' %}badge-destructive{% elif e.baccalaureate_verdict == 'PASS' %}badge-success{% else %}badge-warning{% endif %}">{% if e.baccalaureate_verdict == 'FAIL' %}Yes{% elif e.baccalaureate_verdict == 'PASS' %}No{% else %}Unknown{% endif %}</span>
+          </td>
+          <td class="rec-cell rec-cell--strong">{{ e.recommendation }}</td>
+          <td class="rec-cell rec-cell--missing">
+            {% if e.missing %}{{ e.missing|join:", " }}{% else %}<span class="rec-cell--ok">None</span>{% endif %}
+          </td>
+          <td class="rec-cell">
+            <button type="button" class="btn btn-outline rec-why"
+                    onclick="toggleReason('staff-reason-{{ e.application.id }}')">Why?</button>
+          </td>
+        </tr>
+        <tr id="staff-reason-{{ e.application.id }}" hidden>
+          <td colspan="10" class="rec-reason-cell">
+            <div class="rec-reason">
+              <p class="rec-reason__title">
+                Why {{ e.applicant_name }} is “{{ e.recommendation }}”
+              </p>
+              <table class="rec-reason__table">
+                <tbody>
+                  {% for r in e.rules %}
+                  <tr>
+                    <td class="rec-reason__label">{{ r.label }}</td>
+                    <td class="rec-reason__verdict">
+                      <span class="badge {% if r.verdict == 'PASS' %}badge-success{% elif r.verdict == 'FAIL' %}badge-destructive{% else %}badge-warning{% endif %}">{{ r.verdict }}</span>
+                    </td>
+                    <td class="rec-reason__detail">
+                      {{ r.detail }}
+                      <span class="rec-reason__source">Read from {{ r.source }}</span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  <tr>
+                    <td class="rec-reason__label">Missing Information</td>
+                    <td class="rec-reason__verdict">
+                      <span class="badge {% if e.missing %}badge-warning{% else %}badge-success{% endif %}">{% if e.missing %}{{ e.missing|length }}{% else %}None{% endif %}</span>
+                    </td>
+                    <td class="rec-reason__detail">
+                      {% if e.missing %}{{ e.missing|join:", " }} — collect these before recommending.
+                      {% else %}Nothing outstanding.{% endif %}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="rec-empty">Nobody has applied for the Faculty and Staff Scholars programme yet.</p>
+  {% endif %}
+</div>
+{% if staff_needs_info %}
+<div class="card p-6 mt-4">
+  <h3 class="font-semibold">Applied, but not yet decidable</h3>
+  <p class="rec-note rec-note--tight">
+    A qualification could not be checked against what these applications carry. They are
+    held out of the list above rather than turned down for something nobody asked them —
+    a dependent whose parent's employee ID matches no staff record has not failed
+    qualification (b); it has not been possible to run it. Collect what is listed and they
+    join the list on the next load.
+  </p>
+  <div class="table-scroll">
+    <table class="rec-table">
+      <thead>
+        <tr>
+          <th class="th-cell">Applicant</th>
+          <th class="th-cell">Applying as</th>
+          <th class="th-cell">Faculty / staff member named</th>
+          <th class="th-cell">What is missing</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in staff_needs_info %}
+        <tr class="trow">
+          <td class="rec-cell">{{ e.applicant_name }}</td>
+          <td class="rec-cell rec-cell--muted">{{ e.standing }}</td>
+          <td class="rec-cell rec-cell--muted">
+            {{ e.application.staff_name|default:"—" }}{% if e.application.staff_employee_id %}
+            ({{ e.application.staff_employee_id }}){% endif %}
+          </td>
+          <td class="rec-cell rec-cell--missing">
+            {% for item in e.missing %}{{ item }}{% if not forloop.last %} &middot; {% endif %}{% empty %}&mdash;{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}

@@ -5,6 +5,10 @@ student holding nothing appears on none of them. This tab answers the office's
 other question, and splits it by what the office would actually have to do:
 invite someone who never applied, clear the queue for someone waiting, follow up
 a rejection, nudge a draft that was never submitted.
+
+It asks that only of students the office has verified. An account still in the
+registration queue, or turned away from it, cannot sign in to apply at all, so
+it is a decision owed on the accounts screen rather than a student to invite.
 """
 from django.test import Client, TestCase
 
@@ -83,15 +87,42 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual([r['profile'].student_id for r in ctx['rows']], ['2024-0081'])
         self.assertEqual(ctx['total'], 1)
 
-    def test_an_account_still_waiting_on_review_is_kept(self):
-        """Pending is not a decision. Once the office approves it this is
-        exactly the student who needs an invitation, so they stay on the list."""
+    def test_an_account_still_waiting_on_review_is_not_listed(self):
+        """Pending is not "unserved" either. Nobody can sign in until the office
+        decides, so a queued registrant has no way to apply, and this tab would
+        be telling the office to invite someone it has not admitted yet. What
+        that account is owed is a decision on the accounts screen."""
         waiting = self._student('Kalaw', '2024-0082')
         waiting.user.verification_status = 'pending'
         waiting.user.save(update_fields=['verification_status'])
+        self._student('Lopez', '2024-0083')
+
+        ctx = self._rows().context
+        self.assertEqual([r['profile'].student_id for r in ctx['rows']], ['2024-0083'])
+        self.assertEqual(ctx['total'], 1)
+
+    def test_the_account_appears_once_the_office_approves_it(self):
+        """The exclusion is about the queue, not the person — approving the
+        account is what turns them into a student the office can invite."""
+        waiting = self._student('Kalaw', '2024-0084')
+        waiting.user.verification_status = 'pending'
+        waiting.user.save(update_fields=['verification_status'])
+        self.assertEqual(self._rows().context['total'], 0)
+
+        waiting.user.decide_verification('approved', '', None)
+        rows = self._rows().context['rows']
+        self.assertEqual([r['profile'].student_id for r in rows], ['2024-0084'])
+
+    def test_an_unconfirmed_address_does_not_hide_a_verified_student(self):
+        """Never opening the confirmation link says nothing about whether the
+        office can serve them — they can sign in and apply. It only means email
+        will not reach them, which is the accounts screen's warning to give."""
+        student = self._student('Marquez', '2024-0085')
+        student.user.email_verified = False
+        student.user.save(update_fields=['email_verified'])
 
         rows = self._rows().context['rows']
-        self.assertEqual([r['profile'].student_id for r in rows], ['2024-0082'])
+        self.assertEqual([r['profile'].student_id for r in rows], ['2024-0085'])
 
     # ── why they appear ─────────────────────────────────────────────────────
 
@@ -139,11 +170,11 @@ class UnawardedStudentsTest(TestCase):
 
     def test_the_tab_is_closed_to_other_offices(self):
         User.objects.create_user(
-            username='unifast@bipsu.edu.ph', email='unifast@bipsu.edu.ph',
-            password='pw', role='unifast',
+            username='staff@bipsu.edu.ph', email='staff@bipsu.edu.ph',
+            password='pw', role='nsu_staff',
         )
         other = Client()
-        self.assertTrue(other.login(email='unifast@bipsu.edu.ph', password='pw'))
+        self.assertTrue(other.login(email='staff@bipsu.edu.ph', password='pw'))
         r = other.get(f'/vpsea/archives/?type={TAB}')
         self.assertNotEqual(r.status_code, 200)
 
@@ -187,15 +218,74 @@ class UnawardedStudentsTest(TestCase):
     def test_the_edit_endpoint_is_closed_to_other_offices(self):
         student = self._student('Locked', '2024-0070')
         User.objects.create_user(
-            username='unifast2@bipsu.edu.ph', email='unifast2@bipsu.edu.ph',
-            password='pw', role='unifast',
+            username='staff2@bipsu.edu.ph', email='staff2@bipsu.edu.ph',
+            password='pw', role='nsu_staff',
         )
         other = Client()
-        self.assertTrue(other.login(email='unifast2@bipsu.edu.ph', password='pw'))
+        self.assertTrue(other.login(email='staff2@bipsu.edu.ph', password='pw'))
         other.post(f'/vpsea/archives/student/{student.pk}/edit/',
                    {'first_name': 'Hacked', 'last_name': 'Nope', 'course': 'X', 'year_level': '1'})
         student.user.refresh_from_db()
         self.assertNotEqual(student.user.first_name, 'Hacked')
+
+    # ── deleting ────────────────────────────────────────────────────────────
+
+    def test_the_office_can_delete_a_student_from_this_tab(self):
+        """Editing was the only action here, so a duplicate or a mistyped
+        registration could be corrected but never removed."""
+        student = self._student('Ghost', '2024-0100')
+        keep = self._student('Stays', '2024-0101')
+        user_pk = student.user.pk
+
+        r = self.c.post(f'/vpsea/archives/student/{student.pk}/delete/')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('deleted=1', r['Location'])
+
+        self.assertFalse(StudentProfile.objects.filter(pk=student.pk).exists())
+        self.assertFalse(User.objects.filter(pk=user_pk).exists())
+        self.assertTrue(StudentProfile.objects.filter(pk=keep.pk).exists())
+
+    def test_deleting_takes_the_applications_with_it(self):
+        student = self._student('Trail', '2024-0102')
+        self._app(student, 'Rejected')
+
+        self.c.post(f'/vpsea/archives/student/{student.pk}/delete/')
+        self.assertEqual(Application.objects.count(), 0)
+
+    def test_a_get_deletes_nobody(self):
+        """A link that deletes on GET is one crawler, or one mistyped URL, away
+        from taking a student out."""
+        student = self._student('Safe', '2024-0103')
+        r = self.c.get(f'/vpsea/archives/student/{student.pk}/delete/')
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(StudentProfile.objects.filter(pk=student.pk).exists())
+
+    def test_deleting_a_student_who_is_already_gone_is_not_an_error(self):
+        student = self._student('Twice', '2024-0104')
+        pk = student.pk
+        self.c.post(f'/vpsea/archives/student/{pk}/delete/')
+        r = self.c.post(f'/vpsea/archives/student/{pk}/delete/')
+        self.assertEqual(r.status_code, 302)
+
+    def test_the_delete_endpoint_is_closed_to_other_offices(self):
+        student = self._student('Guarded', '2024-0105')
+        User.objects.create_user(
+            username='staff3@bipsu.edu.ph', email='staff3@bipsu.edu.ph',
+            password='pw', role='nsu_staff',
+        )
+        other = Client()
+        self.assertTrue(other.login(email='staff3@bipsu.edu.ph', password='pw'))
+        other.post(f'/vpsea/archives/student/{student.pk}/delete/')
+        self.assertTrue(StudentProfile.objects.filter(pk=student.pk).exists())
+
+    def test_the_row_offers_the_delete_action(self):
+        student = self._student('Listed', '2024-0106')
+        r = self._rows()
+        self.assertContains(r, f'/vpsea/archives/student/{student.pk}/delete/')
+        # Asked through the portal's own confirm dialog, not window.confirm.
+        self.assertContains(r, 'data-confirm-tone="danger"')
+
+    # ── the empty state ─────────────────────────────────────────────────────
 
     def test_the_page_holds_up_when_nobody_is_unawarded(self):
         awarded = self._student('Solo', '2024-0040')
@@ -243,3 +333,13 @@ class StudentsScreenNoScholarshipTabTest(TestCase):
         self.assertEqual(r.status_code, 200)
         listed = [p.student_id for p in r.context['no_scholarship_students']]
         self.assertEqual(listed, ['2024-0091'])
+
+    def test_a_registrant_still_in_the_queue_is_left_off_the_tab(self):
+        waiting = self._student('Kalaw', '2024-0092')
+        waiting.user.verification_status = 'pending'
+        waiting.user.save(update_fields=['verification_status'])
+        self._student('Lopez', '2024-0093')
+
+        r = self.c.get('/vpsea/students/?tab=no_scholarship')
+        listed = [p.student_id for p in r.context['no_scholarship_students']]
+        self.assertEqual(listed, ['2024-0093'])

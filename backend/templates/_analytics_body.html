@@ -1,5 +1,4 @@
 <div class="space-y-6">
-
   <!-- Filters -->
   <div class="card p-4 flex flex-wrap items-center gap-4">
     <span class="text-sm font-medium" style="color:#374151;">Viewing: <strong>{{ selected_sy_display }}</strong></span>
@@ -23,7 +22,6 @@
       </div>
     </form>
   </div>
-
   <!-- Scholars Over Time -->
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -32,19 +30,19 @@
         <p class="text-xs mt-0.5" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one line per scholarship program{% endif %}</p>
       </div>
       <div class="flex items-center gap-2">
-        <div class="flex gap-1" id="trendChartToggle"></div>
-        {% if trend_data|length > 1 %}
+        {% if show_trend %}<div class="flex gap-1" id="trendChartToggle"></div>
         <button type="button" class="chart-toggle-btn chart-png-btn" data-png="trendChart" data-png-name="scholars-over-time">&#8681; PNG</button>
         {% endif %}
       </div>
     </div>
-    {% if trend_data|length > 1 %}
+    {% if show_trend %}
     <canvas id="trendChart" height="80"></canvas>
+    {% elif trend_data|length > 1 %}
+    <p class="chart-empty mt-4">No scholars on record in any semester for this selection.</p>
     {% else %}
-    <p class="text-sm mt-4" style="color:#6b7a99;">Not enough semester data yet to show a trend. Import at least two semesters of rollover records.</p>
+    <p class="chart-empty mt-4">Not enough semester data yet to show a trend. Import at least two semesters of rollover records.</p>
     {% endif %}
   </div>
-
   <!-- Scholars per Scholarship Program -->
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -54,12 +52,16 @@
       <h3 class="font-semibold">Scholars per Scholarship Program</h3>
       {% endif %}
       <div class="flex items-center gap-2">
+        {% if show_program %}
         <div class="flex gap-1" id="programChartToggle"></div>
         <button type="button" class="chart-toggle-btn chart-png-btn" data-png="programChart" data-png-name="scholars-per-program">&#8681; PNG</button>
+        {% endif %}
       </div>
     </div>
     <p class="text-xs mb-4" style="color:#6b7a99;">Based on rollover list{% if not selected_type %}s{% endif %} for {{ selected_sy_display }}</p>
-    {% if selected_type %}
+    {% if not show_program %}
+    <p class="chart-empty">No scholars on record for this selection.</p>
+    {% elif selected_type %}
     <div style="max-width:420px;margin:0 auto;">
       <canvas id="programChart"></canvas>
     </div>
@@ -67,10 +69,8 @@
     <canvas id="programChart" height="90"></canvas>
     {% endif %}
   </div>
-
   <div class="grid lg:grid-cols-2 gap-6">
-
-    {% if gpa_ranges and not selected_type or gpa_ranges and selected_type == 'Academic' %}
+    {% if show_gwa %}
     <!-- GWA Distribution — merit-based programmes only -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -84,7 +84,6 @@
       <canvas id="gwaChart" height="180"></canvas>
     </div>
     {% endif %}
-
     <!-- Scholars by School -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -106,10 +105,9 @@
         </tbody>
       </table>
       {% else %}
-      <p style="color:#6b7a99;font-size:0.875rem;">No scholars on record for this selection.</p>
+      <p class="chart-empty">No scholars on record for this selection.</p>
       {% endif %}
     </div>
-
     <!-- Scholars by Course -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -123,10 +121,8 @@
       {% if course_dist %}
       <canvas id="courseChart" height="180"></canvas>
       {% else %}
-      <p style="color:#6b7a99;font-size:0.875rem;">No rollover data available for this selection.</p>
+      <p class="chart-empty">No rollover data available for this selection.</p>
       {% endif %}
     </div>
-
   </div>
-
 </div>

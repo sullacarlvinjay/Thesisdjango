@@ -137,17 +137,3 @@ class SchoolTallyTest(TestCase):
         self.assertIn('Scholars by School', html)
         self.assertNotIn('schoolChart', html)
 
-    def test_the_unifast_portal_reads_the_same_tally(self):
-        """Both portals share one context builder, so neither can drift."""
-        Scholarship.objects.create(name='TES', type='TES', category='application',
-                                   description='x', eligibility='x', requirements=[])
-        self.imported('BSCS', stype='TES', last='Uy')
-        User.objects.create_user(
-            username='u@bipsu.edu.ph', email='u@bipsu.edu.ph', password='pw',
-            first_name='U', last_name='Officer', role='unifast')
-        office = Client()
-        self.assertTrue(office.login(email='u@bipsu.edu.ph', password='pw'))
-        r = office.get('/unifast/analytics/')
-        self.assertEqual(r.status_code, 200)
-        tally = {row['school']: row['scholars'] for row in r.context['school_dist']}
-        self.assertEqual(tally.get(TECH), 1)

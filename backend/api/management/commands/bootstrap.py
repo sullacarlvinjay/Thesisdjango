@@ -2,8 +2,8 @@
 
 Distinct from ``seed``, which invents students and applications to look at on a
 laptop. This creates only what an empty deployment cannot work without: the
-system settings row, the scholarship catalogue, and the two office accounts
-that let anyone sign in at all.
+system settings row, the scholarship catalogue, and the office account that
+lets anyone sign in at all.
 
 Safe to run on every deploy, which is why build.sh calls it: everything is
 get_or_create, and an existing account is left exactly as it is. In particular
@@ -38,15 +38,6 @@ OFFICES = [
         # /admin/ when something needs fixing directly.
         'is_staff': True,
         'is_superuser': True,
-    }),
-    ('UNIFAST_EMAIL', 'UNIFAST_PASSWORD', {
-        'default_email': 'unifast@bipsu.edu.ph',
-        'label': 'UniFAST office',
-        'first_name': 'UniFAST',
-        'last_name': 'Office',
-        'role': 'unifast',
-        'is_staff': False,
-        'is_superuser': False,
     }),
 ]
 

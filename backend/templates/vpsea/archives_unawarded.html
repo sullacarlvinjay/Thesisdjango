@@ -4,9 +4,7 @@
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
 {% block page_subtitle %}Students holding no award this term{% endblock %}
-
 {% block nav %}{% include "vpsea/_nav.html" with active="archives" %}{% endblock %}
-
 {% block content %}
 <!-- Type Tabs -->
 <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
@@ -16,17 +14,17 @@
     {% endfor %}
   </div>
 </div>
-
 {% if request.GET.edited %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Student details updated.</div>
+{% endif %}
+{% if request.GET.deleted %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Student record deleted.</div>
 {% endif %}
 {% if request.GET.error %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">{{ request.GET.error }}</div>
 {% endif %}
-
 <div class="space-y-4">
   <div class="card p-6">
-
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div>
         <div class="flex items-center gap-2">
@@ -45,7 +43,6 @@
       <input type="text" id="unawardedSearch" placeholder="Search name or student no."
         style="padding:0.4rem 0.75rem;font-size:0.82rem;border:1px solid #e8ecf0;border-radius:8px;min-width:15rem;" />
     </div>
-
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="unawardedTable">
         <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -94,8 +91,17 @@
               {% endif %}
             </td>
             <td style="padding:0.55rem 0.75rem;white-space:nowrap;">
-              <button type="button" class="btn btn-outline" style="padding:0.2rem 0.55rem;font-size:0.75rem;"
-                onclick="openStudentEdit({{ row.profile.pk }},'{{ row.profile.user.first_name|escapejs }}','{{ row.profile.user.last_name|escapejs }}','{{ row.profile.student_id|escapejs }}','{{ row.profile.gender|escapejs }}','{{ row.profile.course|escapejs }}','{{ row.profile.year_level }}','{{ row.profile.gwa }}','{{ row.profile.contact_number|escapejs }}','{{ row.profile.barangay|escapejs }}','{{ row.profile.municipality|escapejs }}','{{ row.profile.province|escapejs }}','{{ row.profile.school|escapejs }}')">Edit</button>
+              <div class="unawarded-actions">
+                <button type="button" class="btn btn-outline"
+                  onclick="openStudentEdit({{ row.profile.pk }},'{{ row.profile.user.first_name|escapejs }}','{{ row.profile.user.last_name|escapejs }}','{{ row.profile.student_id|escapejs }}','{{ row.profile.gender|escapejs }}','{{ row.profile.course|escapejs }}','{{ row.profile.year_level }}','{{ row.profile.gwa }}','{{ row.profile.contact_number|escapejs }}','{{ row.profile.barangay|escapejs }}','{{ row.profile.municipality|escapejs }}','{{ row.profile.province|escapejs }}','{{ row.profile.school|escapejs }}')">Edit</button>
+                <form method="post" action="/vpsea/archives/student/{{ row.profile.pk }}/delete/"
+                  data-confirm="Delete {{ row.profile.user.get_full_name }}?"
+                  data-confirm-detail="The account goes with the record, along with every application, renewal and document filed under it. This cannot be undone."
+                  data-confirm-tone="danger" data-confirm-label="Delete">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger-soft">Delete</button>
+                </form>
+              </div>
             </td>
           </tr>
           {% empty %}
@@ -106,21 +112,19 @@
         </tbody>
       </table>
     </div>
-
     <p class="text-xs mt-4" style="color:#6b7a99;">
       Counted against approved awards for the selected term only. A student who held a
       scholarship in an earlier semester and has not been renewed for this one appears here.
+      Accounts still waiting on your decision are not counted — they cannot sign in to apply
+      yet, so they are on the Accounts screen rather than this one.
     </p>
-
   </div>
 </div>
-
 <script>
   // Course options follow the chosen school, using the same BiPSU mapping the
   // student form uses. Course was a free-text box until now, which is how a
   // record ended up reading "Batchelor of Science in Computer Science ".
   var ARCH_COURSES = {{ bipsu_courses_json|safe }};
-
   function archFillCourses(schoolSelId, courseSelId, wanted) {
     var school = document.getElementById(schoolSelId).value;
     var sel = document.getElementById(courseSelId);
@@ -141,20 +145,17 @@
       sel.appendChild(keep);
     }
   }
-
   function archSchoolFor(course) {
     for (var s in ARCH_COURSES) {
       if (ARCH_COURSES[s].indexOf(course) !== -1) return s;
     }
     return '';
   }
-
   function archInitSchoolCourse(schoolSelId, courseSelId, school, course) {
     document.getElementById(schoolSelId).value = school || archSchoolFor(course) || '';
     archFillCourses(schoolSelId, courseSelId, course);
   }
 </script>
-
 <!-- Edit Student Modal -->
 <div id="studentEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:32rem;">
@@ -204,7 +205,6 @@
         <div><label class="text-xs font-medium" style="color:#6b7a99;">Province</label>
           <input id="seProvince" name="province" style="margin-top:0.25rem;" /></div>
       </div>
-
       <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
         <p class="text-xs font-semibold mb-2" style="color:#6b7a99;">Reset Password <span style="font-weight:400;">(leave blank to keep the current one)</span></p>
         <div class="grid sm:grid-cols-2 gap-3">
@@ -213,7 +213,6 @@
         </div>
         <p id="sePasswordError" style="display:none;color:#e03131;font-size:0.75rem;margin-top:0.35rem;">Passwords do not match.</p>
       </div>
-
       <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
         <p class="text-xs font-semibold mb-1" style="color:#6b7a99;">Student-locked details</p>
         <p class="text-xs mb-3" style="color:#6b7a99;font-weight:400;">
@@ -278,7 +277,6 @@
     </div>
   </div>
 </div>
-
 <script>
   function openStudentEdit(pk, first, last, sid, gender, course, year, gwa, contact, barangay, municipality, province, school) {
     document.getElementById('seFirst').value = first;
@@ -309,7 +307,6 @@
     return true;
   }
 </script>
-
 <script>
   (function () {
     var box = document.getElementById('unawardedSearch');

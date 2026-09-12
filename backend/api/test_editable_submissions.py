@@ -15,7 +15,7 @@ from django.test import Client, TestCase
 from api.constants import APPLICATION_STATUSES, EDITABLE_APPLICATION_STATUSES
 from api.models import (
     AcademicRenewal, Application, Scholarship, StudentProfile, SystemSettings,
-    TESApplication, User,
+    User,
 )
 
 
@@ -127,6 +127,15 @@ class EditAnApplicationTest(StudentMixin, TestCase):
 
 class EditARenewalTest(StudentMixin, TestCase):
 
+    def setUp(self):
+        super().setUp()
+        # A renewal continues an award, and the form is built from the ones the
+        # student holds — one on nothing is told there is nothing to renew.
+        # These tests are about correcting a submission, so they need a scholar.
+        Application.objects.create(
+            student=self.profile, scholarship=self.scholarship, status='Approved',
+            school_year='2026-2027', semester='1st Semester')
+
     def renew(self, cog='cog.pdf', coe='coe.pdf'):
         return self.c.post('/student/renewal/academic/', {
             'certificate_of_grades': a_pdf(cog),
@@ -154,35 +163,3 @@ class EditARenewalTest(StudentMixin, TestCase):
         self.renew()
         html = self.c.get('/student/renewal/academic/').content.decode()
         self.assertIn('Replace Documents', html)
-
-
-class EditATesApplicationTest(StudentMixin, TestCase):
-
-    def apply_tes(self, **extra):
-        data = {'lrn': '123456789012', 'birthdate': '2004-01-01',
-                # A name off CHED's registry: the form refuses anything else.
-                'complete_program': 'BACHELOR OF SCIENCE IN COMPUTER SCIENCE',
-                # The profile half of the form — editable there, saved back to
-                # the profile, and required where CHED requires it.
-                'student_id': '2022-00111', 'last_name': 'Lim',
-                'first_name': 'Ana', 'gender': 'Female', 'year_level': '3',
-                'mother_last_name': 'Lim', 'mother_first_name': 'Rosa',
-                'is_solo_parent_dependent': '0'}
-        data.update(extra)
-        return self.c.post('/student/apply/tes/', data)
-
-    def test_a_pending_tes_application_can_be_corrected(self):
-        self.apply_tes()
-        self.apply_tes(lrn='999999999999')
-        apps = TESApplication.objects.filter(student=self.profile)
-        self.assertEqual(apps.count(), 1)
-        self.assertEqual(apps.first().lrn, '999999999999')
-
-    def test_a_decided_tes_application_is_final(self):
-        self.apply_tes()
-        app = TESApplication.objects.get(student=self.profile)
-        app.status = 'Approved'
-        app.save(update_fields=['status'])
-        self.apply_tes(lrn='000000000000')
-        app.refresh_from_db()
-        self.assertEqual(app.lrn, '123456789012')

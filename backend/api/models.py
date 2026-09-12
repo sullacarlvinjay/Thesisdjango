@@ -8,7 +8,6 @@ top to bottom, the classes below are the entity-relationship diagram:
                              ├─1:N─ ApplicationDocument (via Application)
                              ├─1:N─ Notification
                              ├─1:N─ AcademicRenewal
-                             ├─1:N─ TESApplication
                              ├─1:N─ ScholarshipLinkRequest ─0:1─ ImportedScholar
                              └─1:1─ AffirmativeRecommendation
 
@@ -20,7 +19,7 @@ top to bottom, the classes below are the entity-relationship diagram:
                    ├─1:1─ PersonalInformation    birth, sex, civil status, disability
                    ├─1:1─ AffirmativeEligibility SHS GPA, SUC exam, TES status
                    ├─1:1─ SocioEconomicProfile   income, household, indigenous group
-                   ├─1:1─ TESEligibility         the UniFAST rules
+                   ├─1:1─ TESEligibility         what the TES rules are checked against
                    ├─1:1─ EducationalBackground  elementary / high school
                    └─1:1─ FamilyBackground       parents' names and work
 
@@ -47,7 +46,7 @@ top to bottom, the classes below are the entity-relationship diagram:
                                 └─1:1─ ApplicantAffirmativeEligibility
 
 Every record a person submits carries the term it belongs to. Registration, an
-application, a renewal, a link request and a TES application are all stamped by
+application, a renewal and a link request are all stamped by
 :class:`TermStamped` with the '<yy>-<sem>' key, the school year and the
 semester, filled from the active term in SystemSettings when the caller sets
 none — so "which semester did this student apply in?" is a column to read, never
@@ -62,6 +61,7 @@ from django.db import models
 from .validators import validate_document, validate_spreadsheet
 from .constants import (
     APPLICATION_SOURCES, APPLICATION_STATUSES, BIPSU_COURSES, BIPSU_SCHOOLS,
+    BIPSU_STAFF_UNITS,
     CHED_TIER_CHOICES, CIVIL_STATUSES,
     GENDERS,
     DEFAULT_APPROVAL_MESSAGE, VERIFICATION_STATUSES,
@@ -69,14 +69,14 @@ from .constants import (
     QUALIFICATION_CHOICES, RECOMMENDATION_STATUSES, REVIEW_STATUSES,
     SCHOLARSHIP_CATEGORIES, SCHOLARSHIP_GROUPS, SCHOLARSHIP_LOGO_DEFAULT,
     SCHOLARSHIP_LOGOS, SCHOLARSHIP_TYPE_CHOICES,
-    TES_DISBURSEMENT_STATUSES, TES_RELEASED,
     SEMESTERS, STUDENT_LEVELS, USER_ROLES,
-    school_for_course, school_for_registry_program,
+    school_for_course,
 )
 
 # Re-exported so existing `from .models import BIPSU_SCHOOLS` imports keep working.
 __all__ = [
-    'BIPSU_COURSES', 'BIPSU_SCHOOLS', 'CHED_TIER_CHOICES', 'SCHOLARSHIP_TYPE_CHOICES',
+    'BIPSU_COURSES', 'BIPSU_SCHOOLS', 'BIPSU_STAFF_UNITS',
+    'CHED_TIER_CHOICES', 'SCHOLARSHIP_TYPE_CHOICES',
     'ched_tier', 'split_ched', 'states_a_disability', 'suc_exam_percent',
     'AcademicRenewal', 'ActivityLog', 'AffirmativeEligibility',
     'AffirmativeRecommendation', 'AffirmativeStaffApplication', 'Announcement',
@@ -87,10 +87,9 @@ __all__ = [
     'PersonalInformation', 'Scholarship', 'ScholarListImport',
     'ScholarshipLinkRequest', 'SocioEconomicProfile', 'STAFF_APPLICATION_DETAILS',
     'StaffEducation', 'StaffEmployment', 'StaffPersonalInformation',
-    'StaffProfile', 'StaffRenewal', 'STUDENT_DETAILS', 'StudentProfile',
-    'SystemSettings', 'TESApplication', 'TESBilling', 'TESDisbursement',
-    'TESEligibility', 'TESLiquidation',
-    'TermStamped', 'User',
+    'StaffProfile', 'StaffRenewal', 'StaffScholarshipDeclaration',
+    'STUDENT_DETAILS', 'StudentProfile',
+    'SystemSettings', 'TESEligibility', 'TermStamped', 'User',
 ]
 
 
@@ -117,7 +116,7 @@ class PhilippineAddress(models.Model):
 
 
 # How a disability answer spells "none". 'NO' is CHED's own Disability_List
-# wording, which the student profile and the TES form both offer; 'N/A' is what
+# wording, which the student profile offers; 'N/A' is what
 # records written before the dropdown existed hold. Both mean the same thing, so
 # a stored value has to be read rather than merely checked for emptiness — that
 # is what made 'N/A' count as a disability on the priority lists.
@@ -185,7 +184,7 @@ class PersonalInfo(models.Model):
 class TermStamped(models.Model):
     """The academic term a record belongs to, on every record a person submits.
 
-    Registration, applications, renewals, link requests and TES applications are
+    Registration, applications, renewals and link requests are
     all keyed to a semester: the office reads its dashboards, masterlists and
     archives one term at a time, and a row with no term is a row that silently
     disappears from every one of them.
@@ -270,6 +269,15 @@ class User(AbstractUser):
     )
     verified_at = models.DateTimeField(null=True, blank=True)
 
+    # Which outside body this account speaks for. Set only on 'partner'
+    # accounts; every other role leaves it null. SET_NULL rather than CASCADE
+    # so removing a partner office does not silently delete the people who
+    # signed in as it — the account survives, unable to reach the portal, and
+    # the SDSO decides what to do with it.
+    partner_office = models.ForeignKey(
+        'PartnerOffice', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='accounts')
+
     # Whether the address was proved to belong to whoever typed it, by opening
     # the link emailed to it. Nothing else can prove that: a registration form
     # will accept any address its owner has never heard of, and every message
@@ -281,6 +289,12 @@ class User(AbstractUser):
     # already had. Only the public registration form sets it False.
     email_verified = models.BooleanField(default=True)
     email_confirmation_sent_at = models.DateTimeField(null=True, blank=True)
+
+    # Profile photo — optional. When blank the header and profile pages fall
+    # back to the initials circle so nothing breaks on existing accounts.
+    photo = models.ImageField(
+        upload_to='profile/photos/', null=True, blank=True,
+        help_text='Square headshot, any common image format.')
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -305,6 +319,20 @@ class User(AbstractUser):
     @property
     def can_sign_in(self):
         return self.is_active and self.verification_status == 'approved'
+
+    @property
+    def initials(self):
+        """Up to two uppercase letters — first of first name + first of last name."""
+        f = (self.first_name or '').strip()[:1].upper()
+        l = (self.last_name or '').strip()[:1].upper()
+        return (f + l) or (self.email[:1].upper())
+
+    @property
+    def photo_url(self):
+        """URL of the profile photo, or '' when none is set."""
+        if self.photo:
+            return self.photo.url
+        return ''
 
     def decide_verification(self, status, note, reviewer):
         """Record the SDSO's decision and the message the person will read."""
@@ -548,6 +576,7 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
     family_income = DetailField('socioeconomic', 'family_income')
     household_size = DetailField('socioeconomic', 'household_size')
     indigenous_group = DetailField('socioeconomic', 'indigenous_group')
+    is_from_depressed_area = DetailField('socioeconomic', 'is_from_depressed_area')
     parent_employment = DetailField('socioeconomic', 'parent_employment')
 
     # ── TES eligibility
@@ -556,10 +585,12 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
     is_4ps_beneficiary = DetailField('tes_eligibility', 'is_4ps_beneficiary')
     has_previous_degree = DetailField('tes_eligibility', 'has_previous_degree')
     year_first_enrolled = DetailField('tes_eligibility', 'year_first_enrolled')
+    is_solo_parent_dependent = DetailField('tes_eligibility', 'is_solo_parent_dependent')
 
     # ── Educational background
     elementary = DetailField('education', 'elementary')
     highschool = DetailField('education', 'highschool')
+    highschool_is_public = DetailField('education', 'highschool_is_public')
     last_school = DetailField('education', 'last_school')
 
     # ── Family background
@@ -580,8 +611,8 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
         """Derived from :attr:`disability_type`, never stored beside it.
 
         It was a checkbox of its own, which could — and did — disagree with the
-        disability the same student named on their TES form. Asking which
-        disability answers both questions at once: naming one is the PWD
+        disability the same student named elsewhere on their record. Asking
+        which disability answers both questions at once: naming one is the PWD
         declaration, and 'NO' is how the form declines it.
         """
         return states_a_disability(self.disability_type)
@@ -622,7 +653,7 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
 
 
 # select_related() paths for a queryset whose rows reach a student through a
-# ``student`` foreign key — Application, AcademicRenewal, TESApplication and the
+# ``student`` foreign key — Application, AcademicRenewal and the
 # rest. Reading a profile field is a join now, so any view that renders a list of
 # them pulls the detail rows in with the same query rather than one per row.
 STUDENT_DETAILS = tuple(f'student__{name}' for name in StudentProfile.DETAIL_RELATIONS)
@@ -740,11 +771,23 @@ class SocioEconomicProfile(StudentDetail):
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='socioeconomic')
     family_income = models.FloatField(default=0.0)
-    # Needed to turn family_income into the per-capita figure TES ranks on.
-    # Nullable because an unknown household size has to stay unknown: dividing
-    # by an assumed size would invent a per-capita income.
+    # Needed to turn family_income into the per-capita figure the TES rules
+    # rank on. Nullable because an unknown household size has to stay unknown:
+    # dividing by an assumed size would invent a per-capita income.
     household_size = models.IntegerField(null=True, blank=True)
     indigenous_group = models.CharField(max_length=100, blank=True)
+    # The fourth Affirmative Action group. The PASUC-8 proposal never defines
+    # "depressed area", so nothing here tries to: it is declared by the student
+    # and verified by the office, exactly the way is_listahanan_household and
+    # is_4ps_beneficiary already are, and three-state for the same reason.
+    #
+    # Deliberately not derived from the address. Classifying a barangay would
+    # mean holding a list this system has no source for and no way to keep
+    # current, and a stale list would quietly drop students out of a mandate.
+    is_from_depressed_area = models.BooleanField(
+        null=True, blank=True,
+        help_text='Declared to live in a depressed area, for the office to verify. '
+                  'Null means not yet asked.')
     parent_employment = models.CharField(max_length=100, blank=True)
 
     class Meta:
@@ -753,12 +796,17 @@ class SocioEconomicProfile(StudentDetail):
 
 
 class TESEligibility(StudentDetail):
-    """The facts the UniFAST rules turn on, each of them three-state on purpose.
+    """The facts the TES rules turn on, each of them three-state on purpose.
 
     A BooleanField defaulting to False cannot tell 'the office confirmed no'
     apart from 'nobody has asked yet', and the TES rules turn on that
     difference: missing data means the requirement needs verification, never
-    that the student failed it.
+    that the student failed it. See :mod:`api.tes_ranking`, which reports every
+    one of these as PASS, FAIL or NEEDS VERIFICATION for exactly this reason.
+
+    These are collected at registration and correctable on My Profile. Nothing
+    in this system awards TES — UniFAST does, outside the portal — so what the
+    SDSO produces from them is a recommendation, not a decision.
     """
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='tes_eligibility')
@@ -776,6 +824,12 @@ class TESEligibility(StudentDetail):
     year_first_enrolled = models.IntegerField(
         null=True, blank=True,
         help_text='Calendar year the student first enrolled in this programme, for the maximum-years rule.')
+    # Was a plain False-defaulting boolean on the TES application form. It is
+    # three-state here like its neighbours: a Priority 2 group nobody asked
+    # about is not a group the student was found not to be in.
+    is_solo_parent_dependent = models.BooleanField(
+        null=True, blank=True,
+        help_text='Dependent of a solo parent on the DSWD registry. Null means not yet asked.')
 
     class Meta:
         verbose_name = 'TES eligibility'
@@ -788,6 +842,19 @@ class EducationalBackground(StudentDetail):
                                    related_name='education')
     elementary = models.CharField(max_length=200, blank=True)
     highschool = models.CharField(max_length=200, blank=True)
+    # One of the four groups the Affirmative Action mandate names, and the only
+    # one that could be read off a field already here -- except that a school
+    # name cannot be read. "Naval National High School" is public and "Naval
+    # Institute of Technology" is not, and no list of Region 8 schools in this
+    # codebase could keep up with either.
+    #
+    # Three-state for the same reason its neighbours in TESEligibility are: a
+    # False default would file every student nobody has asked as a private-school
+    # graduate, which is silence turned into an answer against them. See
+    # api/affirmative_ranking.py.
+    highschool_is_public = models.BooleanField(
+        null=True, blank=True,
+        help_text='Was the high school above a public school? Null means not yet asked.')
     last_school = models.CharField(max_length=200, blank=True)
 
     class Meta:
@@ -798,10 +865,10 @@ class EducationalBackground(StudentDetail):
 class FamilyBackground(StudentDetail):
     """The parents' names and work.
 
-    Names are held in parts rather than as one string: CHED's TES form asks for
-    them separately, and a combined name cannot be split back reliably —
-    "Maria Dela Cruz Santos" has no single correct reading. Collected once here,
-    the TES application reads them off the profile instead of asking again.
+    Names are held in parts rather than as one string: the agency forms the
+    office fills ask for them separately, and a combined name cannot be split
+    back reliably — "Maria Dela Cruz Santos" has no single correct reading.
+    Collected once here, so no later form has to ask again.
     """
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='family')
@@ -961,7 +1028,13 @@ class StaffEmployment(StaffDetail):
     """
     staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
                                  related_name='employment')
-    school = models.CharField(max_length=100, choices=BIPSU_SCHOOLS, blank=True)
+    # Where the employee is assigned: an office, a college or a unit. Offered
+    # from BIPSU_STAFF_UNITS on the forms — that is the list, and it is what
+    # almost everyone picks — but no longer *validated* against it, because a
+    # university reorganises faster than this column can be migrated and an
+    # employee whose new unit is not on a year-old list has to be able to say
+    # so. See the comment above that list in api/constants.py.
+    school = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=200, blank=True)
     position = models.CharField(max_length=200, blank=True)
     employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
@@ -1040,6 +1113,66 @@ class Scholarship(models.Model):
     # api/scholar_columns.COLUMNS, and `extra_columns` are ones the office named
     # itself, as [{'key', 'label'}], whose values are typed per scholar. Empty
     # means the default set — see scholar_columns.resolve.
+    # ── Whose seal this programme wears.
+    #
+    # Blank means "work it out from the type", which is right for every
+    # programme in the catalogue and was the only behaviour until the office
+    # could add programmes of its own. A programme added through
+    # /vpsea/scholarships/add/ has a type SCHOLARSHIP_LOGOS has never heard of,
+    # so without somewhere to say otherwise it would wear BiPSU's seal whoever
+    # funds it — the exact fault this whole mapping exists to fix.
+    #
+    # A bare filename from media/logos/, never a path: the value is rendered
+    # straight into a URL, and the form only ever stores one of the names
+    # constants.available_logos() returned.
+    logo = models.CharField(
+        max_length=100, blank=True,
+        help_text="Seal filename from media/logos/, e.g. 'CHED.png'. "
+                  'Blank uses the default for this programme type.')
+
+    # ── When this programme accepts applications, and renewals.
+    #
+    # Two windows because they are two announcements: an office opens
+    # applications for the incoming batch and renewals for the continuing
+    # scholars, on different dates, and closing one used to mean closing both
+    # or neither. They are set where the work is — the Applications tab and the
+    # Renewal Applications tab — rather than on the programme's own form, which
+    # is where the office looks last.
+    #
+    # Each is a switch and a window, and the switch is the one that answers
+    # "can I turn this off today". Read in order: off is off whatever the dates
+    # say; on with no dates is always open; on with dates is open inside them.
+    #
+    # A window is stored as a start date and a length rather than a start and
+    # an end, because that is how the office announces one — "open from the
+    # 3rd, for two weeks" — and a length cannot be typed the wrong way round.
+    # The end is derived; see `applications_close_on`.
+    #
+    # Both dates blank means no window has been set, and the programme stays
+    # open. That is deliberately not the same as a window of zero days: every
+    # programme that existed before these fields did was open, and a default
+    # that silently closed all of them would have shut the portal on migrate.
+    # Which is why the switches default to True as well.
+    accepting_applications = models.BooleanField(
+        default=True,
+        help_text='Off closes applications now, whatever the window below says.')
+    applications_open_on = models.DateField(
+        null=True, blank=True,
+        help_text='First day students may apply. Blank leaves the programme always open.')
+    applications_open_days = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='How many days it stays open, counting the first. Blank means no closing date.')
+
+    accepting_renewals = models.BooleanField(
+        default=True,
+        help_text='Off closes renewals now, whatever the window below says.')
+    renewals_open_on = models.DateField(
+        null=True, blank=True,
+        help_text='First day scholars may renew. Blank leaves renewals always open.')
+    renewals_open_days = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='How many days renewals stay open, counting the first.')
+
     table_columns = models.JSONField(
         default=list, blank=True,
         help_text='Column keys from api/scholar_columns.COLUMNS. Empty means the default set.')
@@ -1051,17 +1184,113 @@ class Scholarship(models.Model):
     def logo_url(self):
         """The seal of whoever funds this programme, for the pages that show it.
 
-        A property rather than a column because the answer follows from the
-        programme's type and nothing about it is per-row: DOST's scholarships
-        carry DOST's seal wherever they are rendered. Storing it would mean a
-        migration, an admin field and a way for one card to disagree with the
-        rest of the system about who funds it.
+        Three sources, in order:
 
-        Falls back to BiPSU's own seal for a type with no agency logo on file,
-        which is what every card showed before this existed.
+        1. ``logo``, when the office chose one on the programme's own form.
+        2. ``SCHOLARSHIP_LOGOS`` for the type, which covers every programme in
+           the catalogue and follows the university's funding chart.
+        3. BiPSU's own seal — right for the programmes BiPSU funds, and the
+           placeholder for an agency whose logo nobody has supplied.
+
+        The stored value is a bare filename the form validated against
+        :func:`~api.constants.available_logos`, so it cannot be a path.
         """
-        return '/media/logos/' + SCHOLARSHIP_LOGOS.get(
-            self.type, SCHOLARSHIP_LOGO_DEFAULT)
+        return '/media/logos/' + (
+            self.logo
+            or SCHOLARSHIP_LOGOS.get(self.type, SCHOLARSHIP_LOGO_DEFAULT))
+
+    # ── The application window ──────────────────────────────────────────────
+
+    # Applications and renewals answer these three questions the same way, off
+    # two sets of columns, so the answers live once here and each pair of
+    # methods below only says which columns to read. Two copies of window
+    # arithmetic is how two windows start disagreeing about what "1 day open"
+    # means.
+
+    @staticmethod
+    def _window_end(opens, days):
+        """Last day of a window, or None when it has no end."""
+        from datetime import timedelta
+        if not opens or not days:
+            return None
+        return opens + timedelta(days=days - 1)
+
+    @staticmethod
+    def _window_open(enabled, opens, days, day):
+        """Whether a window is open on ``day``."""
+        if not enabled:
+            return False
+        if not opens:
+            return True
+        if day < opens:
+            return False
+        closes = Scholarship._window_end(opens, days)
+        return closes is None or day <= closes
+
+    @staticmethod
+    def _window_reason(noun, enabled, opens, days, day):
+        """Why a window is shut on ``day``, in the applicant's words.
+
+        Says *when* rather than only *that*: "applications are closed" leaves a
+        student refreshing the page, and the closures need different answers —
+        one is a date to wait for, one a date that passed, and one an office
+        that has simply switched the form off with no date attached to it.
+
+        ``noun`` opens the sentence, so it carries what is shut and for which
+        programme: 'Applications for the Academic Scholarship'.
+        """
+        if Scholarship._window_open(enabled, opens, days, day):
+            return ''
+        if not enabled:
+            return f'{noun} are closed.'
+        if day < opens:
+            return f'{noun} open on {opens.strftime("%B %d, %Y")}.'
+        closed = Scholarship._window_end(opens, days)
+        return f'{noun} closed on {closed.strftime("%B %d, %Y")}.'
+
+    # ── Applications ────────────────────────────────────────────────────────
+
+    @property
+    def applications_close_on(self):
+        """Last day applications are accepted, or None when there is no end.
+
+        The window is inclusive of both ends: one day open means the opening
+        day only, which is what "open for 1 day" means to the person who typed
+        it. An open date with no length is a programme that opened and has not
+        been given a closing date.
+        """
+        return self._window_end(self.applications_open_on,
+                                self.applications_open_days)
+
+    def accepts_applications_on(self, day):
+        """Whether a student could apply on ``day``."""
+        return self._window_open(self.accepting_applications,
+                                 self.applications_open_on,
+                                 self.applications_open_days, day)
+
+    def window_closed_reason(self, day):
+        """Why the apply form is shut on ``day``. '' when it is open."""
+        return self._window_reason(
+            f'Applications for the {self.name}', self.accepting_applications,
+            self.applications_open_on, self.applications_open_days, day)
+
+    # ── Renewals ────────────────────────────────────────────────────────────
+
+    @property
+    def renewals_close_on(self):
+        """Last day renewals are accepted, or None when there is no end."""
+        return self._window_end(self.renewals_open_on, self.renewals_open_days)
+
+    def accepts_renewals_on(self, day):
+        """Whether a continuing scholar could renew on ``day``."""
+        return self._window_open(self.accepting_renewals, self.renewals_open_on,
+                                 self.renewals_open_days, day)
+
+    def renewal_closed_reason(self, day):
+        """Why the renewal form is shut on ``day``. '' when it is open."""
+        return self._window_reason(
+            f'Renewals for the {self.name}', self.accepting_renewals,
+            self.renewals_open_on, self.renewals_open_days, day)
 
     def match_score(self, profile):
         if not profile:
@@ -1081,8 +1310,8 @@ class Application(TermStamped):
     """One scholarship award, whatever route produced it.
 
     Not only "a student applied". This is the ledger every approved award lands
-    in — portal submissions, approved link requests, approved TES applications,
-    approved renewals, office imports — and the masterlist, the office
+    in — portal submissions, approved link requests, approved renewals,
+    office imports — and the masterlist, the office
     dashboards and the archive screens all read it. That is why the term an
     award belongs to is a column here rather than a key inside ``form_data``:
     student-submitted rows never wrote that key at all, so every semester-scoped
@@ -1100,15 +1329,11 @@ class Application(TermStamped):
     award_number = models.CharField(max_length=50, blank=True)
     congress_district = models.CharField(max_length=100, blank=True)
 
-    # ── What this award was created from. Both of these were integers inside
+    # ── What this award was created from. This was an integer inside
     # form_data, so a deleted source row left behind an id nothing could detect.
     claimed_archive = models.ForeignKey(
         'ImportedScholar', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='claiming_applications',
-    )
-    tes_application = models.ForeignKey(
-        'TESApplication', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='awards',
     )
     # The link request behind an award is reachable in reverse through
     # ScholarshipLinkRequest.linked_application — no second copy is kept here.
@@ -1210,6 +1435,11 @@ class ImportedScholar(PhilippineAddress):
     award_number = models.CharField(max_length=50, blank=True)
     congress_district = models.CharField(max_length=100, blank=True)
     imported_from = models.CharField(max_length=100, blank=True)
+    # Which CHED block this row belongs to, for the one programme the office
+    # reports in two. Blank on every other programme, and blank on a CHED row
+    # from a spreadsheet that did not say — split_ched's caller reads a blank
+    # as Full, which is where an unclassified imported row has always printed.
+    award_tier = models.CharField(max_length=10, choices=CHED_TIER_CHOICES, blank=True)
     # Values for the custom columns a programme has added — an Application keeps
     # its equivalents in form_data. Imported rows need their own because for
     # every programme without a portal they are the record, so a custom column
@@ -1377,8 +1607,8 @@ class AffirmativeStaffApplication(PhilippineAddress, DetailRows, TermStamped):
 
         The staff portal asks for a course and not a school, so the ``school``
         column it writes is almost always blank; the course names the school on
-        its own. Read rather than written back, for the same reason
-        :attr:`TESApplication.program_school` is.
+        its own. Derived on read rather than written back, so a corrected course
+        cannot leave a stale school stored beside it.
         """
         return self.school or school_for_course(self.course)
 
@@ -1530,13 +1760,23 @@ class ApplicantAffirmativeEligibility(StaffApplicationDetail):
 
 
 class AcademicRenewal(TermStamped):
-    """A continuing academic scholar's per-semester renewal submission.
+    """A continuing scholar's per-semester renewal submission.
 
     Per-semester is the whole point of the record, so the semester is a column:
     the term stamp says which one a submission renews rather than leaving the
     office to read it off a timestamp.
+
+    ``scholarship_type`` is the other half of that. A student may hold more than
+    one programme — two awards declared at registration and both approved — and
+    every renewal used to be filed as an Academic one whatever they were on,
+    which left the office two identical rows and no way to tell which award each
+    renewed. It says which. 'Academic' is the default because that is what every
+    row written before the column existed was.
     """
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='academic_renewals')
+    scholarship_type = models.CharField(
+        max_length=50, choices=SCHOLARSHIP_TYPE_CHOICES, default='Academic',
+        help_text='Which programme this submission renews.')
     certificate_of_grades = models.FileField(upload_to='renewals/academic/', validators=validate_document)
     certificate_of_enrollment = models.FileField(upload_to='renewals/academic/', validators=validate_document)
     status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
@@ -1611,6 +1851,57 @@ class ScholarshipLinkRequest(TermStamped):
         return f"{self.student} — Link {self.scholarship_type} ({self.status})"
 
 
+class StaffScholarshipDeclaration(TermStamped):
+    """A staff member connecting the BiPSU Staff Scholarship they already hold.
+
+    The staff counterpart of :class:`ScholarshipLinkRequest`, and it exists as
+    its own table for the same reason the two portals have their own records:
+    an award to an employee is an :class:`AffirmativeStaffApplication`, which
+    has no :class:`StudentProfile` to hang off, so a link request cannot carry
+    it. Approving one writes that application, the same way approving a link
+    request writes an :class:`Application`.
+
+    One programme only, so there is no ``scholarship_type`` column to set. The
+    BiPSU Staff Scholarship is the one award on the staff side that a person can
+    already hold and the office can check: Affirmative Action, the other
+    programme on that record, is decided from a profile rather than applied for,
+    so nobody can hold one this system has not already decided.
+
+    No award number either. It is BiPSU's own programme — there is no funding
+    agency to have issued one, and the Staff archive has no column for it.
+    """
+    staff_user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='staff_declarations',
+        limit_choices_to={'role': 'nsu_staff'},
+    )
+    # Required, unlike the renewal's supporting document: this is the whole
+    # evidence for an award the office is being asked to take on trust.
+    proof_document = models.FileField(
+        upload_to='staff_declarations/', validators=validate_document)
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    # Review trail
+    remarks = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_staff_declarations',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    linked_application = models.ForeignKey(
+        'AffirmativeStaffApplication', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+    )
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return (f"{self.staff_user.get_full_name()} — Declared Staff Scholarship "
+                f"({self.status})")
+
+
 class ScholarListImport(TermStamped):
     """The uploaded sheet for one programme and term, kept for re-download.
 
@@ -1632,245 +1923,116 @@ class ScholarListImport(TermStamped):
                 f'{self.semester} ({self.scholar_count} scholars)')
 
 
-class TESApplication(TermStamped):
-    """Tertiary Education Subsidy application, reviewed by the UniFAST office."""
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='tes_applications')
+class PartnerOffice(models.Model):
+    """An outside body that funds scholarships here, and what it may see.
 
-    # Personal. The student's middle name and both parents' names are not
-    # repeated here — they are on StudentProfile, and the apply form fills
-    # itself in from there. Two copies of a name only ever disagree.
-    lrn = models.CharField(max_length=30, blank=True)
-    birthdate = models.DateField(null=True, blank=True)
-    complete_program = models.CharField(max_length=200, blank=True)
+    The SDSO runs the one office portal here. Outside funders — DOST, GSIS,
+    UniFAST, a private foundation — have standing of their own but not the same
+    job: they mostly want to read the archive of their own scholars and take a
+    report away, not review applications.
 
-    # The two optional identifiers on CHED's Annex 1. Optional on the form and
-    # asked for the same way here — a student who has neither leaves them blank
-    # and the columns export empty, which is what the form expects. The 4Ps
-    # *number* is not the 4Ps *flag* on TESEligibility: one is a household's ID,
-    # the other a yes/no, and the column wants the ID.
-    philsys_id = models.CharField(max_length=30, blank=True)
-    four_ps_id = models.CharField(max_length=30, blank=True)
+    So this is not a second hard-coded portal. What a partner sees is a decision
+    the SDSO records here, one partner at a time, because the answer differs by
+    partner and by year and nobody should need a deploy to change it. The role
+    only says "this account belongs to a partner"; :attr:`scholarships` says
+    which. A partner with none sees an empty archive rather than everyone's —
+    the failure that matters is the one where a funder reads another funder's
+    scholars, so the default is nothing.
+    """
+    name = models.CharField(max_length=120, unique=True)
+    # Bare filename from media/logos/, like Scholarship.logo. Blank wears
+    # BiPSU's seal, which is the honest placeholder for a partner whose own
+    # logo nobody has supplied.
+    logo = models.CharField(
+        max_length=100, blank=True,
+        help_text="Seal filename from media/logos/. Blank uses BiPSU's.")
 
-    # Address as CHED's form asks for it — finer-grained than PhilippineAddress,
-    # and submitted by the student rather than copied from their profile.
-    street_barangay = models.CharField(max_length=200, blank=True)
-    city_municipality = models.CharField(max_length=100, blank=True)
-    province = models.CharField(max_length=100, blank=True)
-    region = models.CharField(max_length=100, blank=True)
-    zip_code = models.CharField(max_length=10, blank=True)
-    contact_number = models.CharField(max_length=20, blank=True)
-    email_address = models.EmailField(blank=True)
+    # The programmes this partner may read. Deliberately a choice rather than
+    # a match on Scholarship.type: a partner may fund two programmes, or share
+    # one with another body, and neither is expressible as "your own type".
+    scholarships = models.ManyToManyField(
+        'Scholarship', blank=True, related_name='partner_offices',
+        help_text='Programmes this partner may see. None means they see nothing.')
 
-    # Priority groups
-    disability_type = models.CharField(max_length=100, blank=True)
-    is_solo_parent_dependent = models.BooleanField(default=False)
-    is_first_gen_college = models.BooleanField(default=False)
-    indigenous_people_group = models.CharField(max_length=100, blank=True)
+    # Whether they may add programmes of their own. Off by default: a new
+    # Scholarship row shows up in the SDSO's archives and reports too, so this
+    # is the SDSO lending out part of its own catalogue.
+    may_add_scholarships = models.BooleanField(default=False)
 
-    award_number = models.CharField(max_length=50, blank=True)
-    status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
-    remarks = models.TextField(blank=True)
-    submitted_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-submitted_at']
-        indexes = [models.Index(fields=['status'])]
-        constraints = [
-            # student_apply_tes has always refused a second application; this is
-            # the same rule, enforced where it cannot be bypassed.
-            models.UniqueConstraint(fields=['student'], name='one_tes_application_per_student'),
-        ]
+        ordering = ['name']
+        verbose_name = 'partner office'
 
     def __str__(self):
-        return f"{self.student} — TES ({self.status})"
+        return self.name
 
     @property
-    def program_school(self):
-        """The BiPSU school this application's programme sits under.
+    def logo_url(self):
+        return '/media/logos/' + (self.logo or SCHOLARSHIP_LOGO_DEFAULT)
 
-        The office table groups its Programme filter by this, so it has to
-        follow whichever name that column shows: a CHED registry programme is
-        matched on the words in it, and an application made before the registry
-        list existed shows the student's course instead, whose school is already
-        recorded. Worked out on read rather than stored — a school kept here
-        would be a second copy of a fact the programme name already carries.
+    def visible_types(self):
+        """The scholarship types this partner may read, as a list.
+
+        Everything the partner's pages filter on goes through here, so a
+        partner that was given nothing filters to nothing rather than to
+        everything — the difference between an empty archive and every other
+        funder's scholars.
         """
-        if self.complete_program:
-            return school_for_registry_program(self.complete_program)
-        return self.student.school or school_for_course(self.student.course)
+        return list(self.scholarships.values_list('type', flat=True))
 
 
-class TESBilling(models.Model):
-    """What CHED pays a TES grantee for one school year, once the office is told.
+class PartnerTableColumns(models.Model):
+    """One partner's own column choice for one programme.
 
-    The Annex 2 workbook bills on two per-grantee figures — the TES benefit and
-    the TES-3A top-up for a grantee with a disability — and computes everything
-    else from them: the two column totals, the 1% management fee, and the whole
-    Form 1 billing statement.
+    A partner may lay its archive out the way it reports, and the SDSO lays the
+    same programme out the way *it* reports. Both are legitimate and they are
+    not the same list, so a partner's edit is stored here rather than on
+    ``Scholarship`` — writing it there would silently rewrite the office's own
+    table, and the office would find its archive rearranged by somebody outside
+    the university.
 
-    Those columns used to export blank on purpose, because a rate the system
-    invented would have been a guess an officer then signed. That reasoning is
-    unchanged and is why this is a stored, deliberate entry rather than a
-    constant: an amount reaches the workbook only when somebody has been told it
-    by CHED and typed it in. **With no row for a year, the workbook still
-    exports blank**, exactly as before.
-
-    One row per school year. The rate is set per term and CHED revises it, so
-    last year's figure must not quietly bill this year's grantees.
+    A programme with no row here falls back to the office's choice, which is the
+    right default: a partner that has never touched it should see the table
+    everyone else does, not an empty one.
     """
-    school_year = models.CharField(
-        max_length=20, unique=True, db_index=True,
-        help_text="Expanded school year, e.g. '2026-2027'.")
+    office = models.ForeignKey(
+        'PartnerOffice', on_delete=models.CASCADE, related_name='table_columns_set')
+    scholarship = models.ForeignKey(
+        'Scholarship', on_delete=models.CASCADE, related_name='partner_columns')
 
-    # Null, not zero. Zero is a rate of nothing, which is a claim; null is 'we
-    # have not been told', which is the truth before CHED advises the figure.
-    tes_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text='Per grantee, per the CHED advice for this term.')
-    tes_3a_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text='Top-up for a grantee with a disability. Decided per case.')
+    # Same shapes Scholarship carries, so scholar_columns.resolve can read
+    # either without caring which it was handed.
+    table_columns = models.JSONField(default=list, blank=True)
+    extra_columns = models.JSONField(default=list, blank=True)
 
-    # Form 1 prints both on the billing statement it sends to CHEDRO.
-    reference_no = models.CharField(max_length=60, blank=True)
-    statement_date = models.DateField(null=True, blank=True)
-
-    updated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='tes_billing_updates')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-school_year']
-        verbose_name = 'TES billing rate'
-
-    def __str__(self):
-        return f'TES billing {self.school_year}'
-
-    @property
-    def is_set(self):
-        """Whether there is an amount here worth putting on a bill."""
-        return self.tes_amount is not None
-
-    @classmethod
-    def for_year(cls, school_year):
-        """The rate for a year, or None. None means 'export blank', as before."""
-        if not school_year:
-            return None
-        return cls.objects.filter(school_year=school_year).first()
-
-
-class TESLiquidation(models.Model):
-    """What CHED actually remitted for a school year, and the report accounting for it.
-
-    The other half of :class:`TESBilling`. Billing is what the office asked
-    CHEDRO for; this is what arrived and what became of it. They are separate
-    rows because they are separate facts and they routinely disagree — a bill
-    for 120 grantees against a remittance covering 118 is an ordinary month, and
-    a system that stored one number for both would have no way to say so.
-
-    One row per school year, for the same reason billing has one: money is
-    released against a term, and a balance carried silently from last year into
-    this one is the error a liquidation exists to catch.
-
-    Null rather than zero throughout. Zero received is a claim that CHED sent
-    nothing; null is 'nothing has arrived yet', which is the truth for most of
-    the term.
-    """
-    school_year = models.CharField(
-        max_length=20, unique=True, db_index=True,
-        help_text="Expanded school year, e.g. '2026-2027'.")
-
-    funds_received = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True,
-        help_text='Total remitted by CHEDRO for this term, per the credit advice.')
-    received_date = models.DateField(null=True, blank=True)
-    credit_advice_no = models.CharField(
-        max_length=60, blank=True,
-        help_text='Credit advice, ADA or cheque reference the funds arrived under.')
-
-    # The liquidation report's own identity, printed on what goes back to CHEDRO.
-    report_no = models.CharField(max_length=60, blank=True)
-    report_date = models.DateField(null=True, blank=True)
-
-    updated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='tes_liquidation_updates')
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['-school_year']
-        verbose_name = 'TES liquidation'
-
-    def __str__(self):
-        return f'TES liquidation {self.school_year}'
-
-    @classmethod
-    def for_year(cls, school_year):
-        """The liquidation for a year, or None when the office has not started one."""
-        if not school_year:
-            return None
-        return cls.objects.filter(school_year=school_year).first()
-
-
-class TESDisbursement(models.Model):
-    """What reached one grantee, or did not.
-
-    A row exists once an officer has recorded something about that grantee's
-    share; a grantee with no row is simply one nobody has accounted for yet, and
-    the page counts them as outstanding rather than as zero.
-
-    Keyed to the :class:`TESApplication` rather than to the student, because the
-    application is what the billing counted and what carries the award number
-    CHEDRO reconciles against. ``CASCADE``: a deleted application takes its
-    disbursement row with it — a payment record pointing at no grantee is not
-    something to keep.
-    """
-    liquidation = models.ForeignKey(
-        TESLiquidation, on_delete=models.CASCADE, related_name='disbursements')
-    tes_application = models.ForeignKey(
-        'TESApplication', on_delete=models.CASCADE, related_name='disbursements')
-
-    # What went out. Not defaulted from the billed rate: the billed rate is what
-    # was asked for, and the whole point of a liquidation is to record what was
-    # actually paid, which is sometimes less and occasionally nothing.
-    amount_released = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True)
-    date_released = models.DateField(null=True, blank=True)
-    status = models.CharField(
-        max_length=20, choices=TES_DISBURSEMENT_STATUSES, default='Unclaimed')
-
-    # The grantee's acknowledgement — payroll line, OR number, whatever the
-    # cashier issued. Free text because it is the office's own reference.
-    receipt_no = models.CharField(max_length=60, blank=True)
-    remarks = models.CharField(max_length=200, blank=True)
-
-    updated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='tes_disbursement_updates')
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['tes_application__student__user__last_name']
+        verbose_name = 'partner table columns'
+        verbose_name_plural = 'partner table columns'
         constraints = [
-            # One row per grantee per liquidation. Two would double-count the
-            # money in every total on the page.
-            models.UniqueConstraint(fields=['liquidation', 'tes_application'],
-                                    name='one_disbursement_per_grantee'),
+            models.UniqueConstraint(fields=['office', 'scholarship'],
+                                    name='one_column_choice_per_partner_programme'),
         ]
 
     def __str__(self):
-        return f'{self.tes_application} — {self.status}'
-
-    @property
-    def is_released(self):
-        """Whether this row moved money out of the office."""
-        return self.status == TES_RELEASED
+        return f'{self.office} — {self.scholarship}'
 
 
 class AffirmativeRecommendation(models.Model):
-    """A student the system flags as fitting the Affirmative Action program."""
+    """A student the system flags as fitting the Affirmative Action program.
+
+    This row records the three criteria in section 2 of the PASUC-8 proposal and
+    nothing else, because those three are the whole of what decides eligibility.
+    Who the programme is *for* — the four groups in its mandate paragraph — is
+    read live off the student's record by :mod:`api.affirmative_ranking` and is
+    deliberately not snapshotted here: it is not a test anybody passes or fails,
+    and freezing it would mean a student who answered the question after the
+    last sync stayed outside a mandate they were always inside.
+    """
     student = models.OneToOneField(
         StudentProfile, on_delete=models.CASCADE,
         related_name='affirmative_recommendation',
@@ -1887,6 +2049,10 @@ class AffirmativeRecommendation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        # A stable base order, not the order the office is shown. The Student
+        # Ranking page sorts target groups above this — see
+        # _affirmative_ranking_data — because section 1 of the proposal says
+        # grades are not the only factor in this programme.
         ordering = ['-fit_score', 'student__user__last_name']
 
     def __str__(self):
@@ -1894,7 +2060,12 @@ class AffirmativeRecommendation(models.Model):
 
     @staticmethod
     def compute_fit_score(shs_gpa, suc_exam_score):
-        """Weighted: 50 pts from GPA (out of 100), 50 pts from exam (out of 100)."""
+        """Weighted: 50 pts from GPA (out of 100), 50 pts from exam (out of 100).
+
+        A tie-break, not a ranking. It separates two students the mandate
+        reaches equally and does nothing else; it never decides eligibility, and
+        it never outranks a target group.
+        """
         score = 0.0
         if shs_gpa is not None:
             score += min((shs_gpa / 100.0) * 50.0, 50.0)
@@ -1905,6 +2076,13 @@ class AffirmativeRecommendation(models.Model):
     @classmethod
     def evaluate_and_sync(cls, passing_threshold=75.0):
         """Re-evaluate every student against the three eligibility rules.
+
+        Section 2 of the proposal, and only section 2: the SHS grade, the
+        admission exam, and not already holding TES. The four target groups are
+        not tested here and must not be — section 1 says a qualifier need be
+        neither indigent nor an excellent performer, so reading the mandate as a
+        fourth rule would turn a description of who the programme is for into a
+        bar to clear.
 
         Creates a recommendation when all rules pass, disqualifies one when they
         stop passing. Returns ``(created_count, disqualified_count)``.
@@ -1985,6 +2163,20 @@ class SystemSettings(models.Model):
     allowed_formats = models.CharField(max_length=50, default='PDF, JPG, PNG')
     show_match_scores = models.BooleanField(default=True)
 
+    # ── What became of the last message this deployment tried to send.
+    #
+    # Recorded because the sends that fail are the ones nobody is watching: a
+    # confirmation link goes out while a student is registering, and by the time
+    # the office wonders why nobody got it, the only account of it is a line in
+    # a service log the free plan gives no shell to read. Four columns on a row
+    # that already exists beat a table, and beat asking the office to read logs.
+    #
+    # ``last_mail_error`` blank alongside a timestamp means the message left.
+    last_mail_attempt_at = models.DateTimeField(null=True, blank=True)
+    last_mail_to = models.CharField(max_length=254, blank=True)
+    last_mail_subject = models.CharField(max_length=200, blank=True)
+    last_mail_error = models.TextField(blank=True)
+
     class Meta:
         verbose_name_plural = 'System Settings'
 
@@ -2009,8 +2201,8 @@ class SystemSettings(models.Model):
     def make_label(school_year, semester):
         """The inverse of parse_label: '2026-2027' + '1st Semester' -> '26-1'.
 
-        Callers that know the expanded term (the link, renewal and TES approval
-        paths all derive it from parse_label) get the short key back, so every
+        Callers that know the expanded term (the link and renewal approval
+        paths both derive it from parse_label) get the short key back, so every
         Application lands with all three term fields agreeing.
         """
         try:

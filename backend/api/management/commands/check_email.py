@@ -14,8 +14,16 @@ reports the exception with its cause named rather than swallowing it.
 
     python manage.py check_email you@example.com
 
-Run it from the Render shell after setting the SMTP variables in the dashboard.
-The console backend is reported as the non-delivery it is, not as success.
+There are two routes out and this reports whichever one is live: Brevo over
+HTTPS when BREVO_API_KEY is set, SMTP otherwise. The console backend is reported
+as the non-delivery it is, not as success.
+
+**On Render this needs a shell, and the free plan has none.** Run it against the
+same credentials from a laptop instead — copy BREVO_API_KEY and
+EMAIL_HOST_USER out of the dashboard into a local .env — which tests the
+two things that actually go wrong: the key, and whether the sender address is
+verified. What it cannot test from there is the network path out of Render, and
+for Brevo that is ordinary HTTPS on 443, which is the whole reason for using it.
 """
 
 from django.conf import settings
@@ -23,6 +31,7 @@ from django.core.mail import get_connection, send_mail
 from django.core.management.base import BaseCommand, CommandError
 
 CONSOLE = 'django.core.mail.backends.console.EmailBackend'
+BREVO = 'api.email_backends.BrevoEmailBackend'
 
 # What each failure usually means. The exception class alone sends people to
 # search engines; the deployment causes are few and worth naming.
@@ -50,6 +59,12 @@ HINTS = [
      'Could not open a connection. The host or port is wrong, or outbound SMTP '
      'is blocked from this network — some hosting platforms block it and expect '
      'an email API instead of raw SMTP.'),
+    ('BrevoSendError',
+     'Brevo refused the message, and its own answer is quoted above. Two '
+     'causes cover nearly all of them: the sender address is not one you '
+     'have verified — verify it under Brevo > Senders, domains & '
+     'dedicated IPs and make EMAIL_HOST_USER that same address — or '
+     'the API key is wrong, revoked, or from a different account.'),
     ('gaierror',
      'The mail host name did not resolve. Check EMAIL_HOST for a typo.'),
     ('timeout',
@@ -68,46 +83,66 @@ class Command(BaseCommand):
         to = options['to'].strip()
         backend = getattr(settings, 'EMAIL_BACKEND', '')
         host = getattr(settings, 'EMAIL_HOST', '')
+        over_http = backend == BREVO
 
         self.stdout.write('Configuration this send will use:')
-        for label, value in (
-            ('EMAIL_BACKEND', backend),
-            ('EMAIL_HOST', host or '(unset)'),
-            ('EMAIL_PORT', getattr(settings, 'EMAIL_PORT', '')),
+        rows = [('EMAIL_BACKEND', backend)]
+        if over_http:
+            rows += [
+                ('route', 'Brevo HTTPS API, port 443'),
+                # Never a secret's value, here or below: this runs in a shell
+                # whose scrollback is shared.
+                ('BREVO_API_KEY',
+                 'set' if getattr(settings, 'BREVO_API_KEY', '') else '(unset)'),
+            ]
+        else:
+            rows += [
+                ('route', 'SMTP, port ' + str(getattr(settings, 'EMAIL_PORT', ''))),
+                ('EMAIL_HOST', host or '(unset)'),
+                ('EMAIL_HOST_PASSWORD',
+                 'set' if getattr(settings, 'EMAIL_HOST_PASSWORD', '') else '(unset)'),
+                ('EMAIL_USE_TLS', getattr(settings, 'EMAIL_USE_TLS', '')),
+                ('EMAIL_USE_SSL', getattr(settings, 'EMAIL_USE_SSL', '')),
+            ]
+        rows += [
             ('EMAIL_HOST_USER', getattr(settings, 'EMAIL_HOST_USER', '') or '(unset)'),
-            # Never the value: this runs in a shell whose scrollback is shared.
-            ('EMAIL_HOST_PASSWORD',
-             'set' if getattr(settings, 'EMAIL_HOST_PASSWORD', '') else '(unset)'),
-            ('EMAIL_USE_TLS', getattr(settings, 'EMAIL_USE_TLS', '')),
-            ('EMAIL_USE_SSL', getattr(settings, 'EMAIL_USE_SSL', '')),
             ('DEFAULT_FROM_EMAIL', getattr(settings, 'DEFAULT_FROM_EMAIL', '')),
             ('SITE_URL', getattr(settings, 'SITE_URL', '') or '(unset)'),
-        ):
+        ]
+        for label, value in rows:
             self.stdout.write(f'  {label:22} {value}')
         self.stdout.write('')
 
-        if backend == CONSOLE or not host:
+        if backend == CONSOLE or not (over_http or host):
             raise CommandError(
-                'EMAIL_HOST is not set, so Django is using the console backend: '
-                'messages are printed to this log and nothing is delivered to '
-                'anyone. That is correct on a laptop and in the test suite. On a '
-                'deployment it means every applicant notice and every address '
-                'confirmation has been going nowhere.\n\n'
-                'Set EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD and '
-                'DEFAULT_FROM_EMAIL in the Render dashboard — they are sync:false '
-                'in render.yaml, so Render never prompts for them — then run this '
-                'again.'
+                'Neither BREVO_API_KEY nor EMAIL_HOST is set, so Django is using '
+                'the console backend: messages are printed to this log and '
+                'nothing is delivered to anyone. That is correct on a laptop and '
+                'in the test suite. On a deployment it means every applicant '
+                'notice and every address confirmation has been going nowhere.\n\n'
+                'On Render set BREVO_API_KEY. The free plan blocks outbound SMTP '
+                '— ports 25, 465 and 587 — so EMAIL_HOST delivers nothing '
+                'there however carefully it is filled in, and Brevo goes out over '
+                'HTTPS instead. Set EMAIL_HOST_USER to the sender address you '
+                'verified with Brevo.\n'
+                'Where SMTP is reachable, set EMAIL_HOST, EMAIL_HOST_USER and '
+                'EMAIL_HOST_PASSWORD instead.\n'
+                'Both are sync:false in render.yaml, so Render never prompts for '
+                'them. Then run this again.'
             )
 
         # Opened explicitly so a connection failure is reported as one, before
-        # anything is blamed on the message itself.
-        self.stdout.write(f'Connecting to {host}...')
-        try:
-            connection = get_connection(fail_silently=False)
-            connection.open()
-        except Exception as exc:                        # noqa: BLE001
-            raise CommandError(self._explain('Could not connect', exc))
-        self.stdout.write(self.style.SUCCESS('  connected and authenticated'))
+        # anything is blamed on the message itself. Nothing to open on the HTTP
+        # route: that request carries its own credentials, so a bad key is only
+        # discovered by the send, and it is reported there.
+        connection = get_connection(fail_silently=False)
+        if not over_http:
+            self.stdout.write(f'Connecting to {host}...')
+            try:
+                connection.open()
+            except Exception as exc:                    # noqa: BLE001
+                raise CommandError(self._explain('Could not connect', exc))
+            self.stdout.write(self.style.SUCCESS('  connected and authenticated'))
 
         self.stdout.write(f'Sending to {to}...')
         try:
@@ -125,7 +160,7 @@ class Command(BaseCommand):
                 connection=connection,
             )
         except Exception as exc:                        # noqa: BLE001
-            raise CommandError(self._explain('The server refused the message', exc))
+            raise CommandError(self._explain('The message was refused', exc))
         finally:
             connection.close()
 
@@ -133,7 +168,7 @@ class Command(BaseCommand):
             raise CommandError(
                 'The backend reported that no message was sent, without raising. '
                 'Check the mail provider\'s own logs for the account in '
-                'EMAIL_HOST_USER.'
+                'EMAIL_HOST_USER — for Brevo that is Transactional > Logs.'
             )
 
         self.stdout.write(self.style.SUCCESS(f'  accepted for delivery to {to}'))

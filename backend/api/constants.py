@@ -11,7 +11,10 @@ USER_ROLES = [
     ('student', 'Student'),
     ('nsu_staff', 'BiPSU Staff'),
     ('vpsea', 'VPSEA Admin'),
-    ('unifast', 'UniFAST Admin'),
+    # An outside body that funds scholarships here — DOST, GSIS, a foundation.
+    # Not a BiPSU office: what it may see is decided by the SDSO, one partner
+    # at a time, rather than being a property of the role. See PartnerOffice.
+    ('partner', 'External Partner'),
     ('super', 'Super Admin'),
 ]
 
@@ -56,32 +59,12 @@ APPLICATION_STATUSES = [
 ]
 
 # Simple review lifecycle: submissions that are only ever waved through or
-# turned down — renewals, link requests, TES applications.
+# turned down — renewals and link requests.
 REVIEW_STATUSES = [
     ('Pending', 'Pending'),
     ('Approved', 'Approved'),
     ('Rejected', 'Rejected'),
 ]
-
-# What became of one grantee's share of the money CHED remitted, on the
-# liquidation report. Not a review lifecycle: nobody is deciding anything here,
-# the office is stating what the cashier did.
-#
-# 'Unclaimed' is the status that earns its place. A grantee who never collected
-# is the whole reason a liquidation can fail to balance, and recording them as
-# simply not-released loses the distinction between money still sitting in the
-# office and money that went out. Both are 'not disbursed'; only one is a
-# grantee the office still owes.
-TES_DISBURSEMENT_STATUSES = [
-    ('Released', 'Released'),
-    ('Unclaimed', 'Unclaimed'),
-    ('Returned', 'Returned to CHED'),
-]
-
-# The one that moves money out to a grantee. Kept as a name rather than the
-# literal repeated in three modules, because the totals on the liquidation page,
-# the balance it reconciles and the tests all have to agree on it.
-TES_RELEASED = 'Released'
 
 # A decision is made once. These are the statuses that record one, so a review
 # screen must refuse to overwrite them: an approval quietly turned into a
@@ -127,7 +110,9 @@ NOTIFICATION_TYPES = [
 SCHOLARSHIP_TYPE_CHOICES = [
     ('Academic', 'Academic Scholarship'),
     ('TDP', 'TDP Scholarship'),
-    ('DOST', 'DOST Scholarship'),
+    ('SUC-TDP', 'SUC-TDP Scholarship'),
+    ('DOST', 'DOST S&T Undergraduate Scholarship'),
+    ('JLSS', 'DOST Junior Level Science Scholarship'),
     ('CHED', 'CHED Scholarship'),
     ('CoScho', 'CoScho Scholarship'),
     ('Sports', 'Sports Scholarship'),
@@ -135,6 +120,58 @@ SCHOLARSHIP_TYPE_CHOICES = [
     ('Affirmative', 'Affirmative Scholarship'),
     ('Staff', 'BiPSU Staff Scholarship'),
 ]
+
+# What a STUDENT may declare they already hold, at registration. Not the same
+# list as the one above: that one is every award this system records, whoever
+# holds it, and two of those are not a student's to claim.
+#
+# 'Staff' is the BiPSU Staff Scholarship. An employee holds it, or a dependent
+# of one does — so a student *can* be on it — but it is neither applied for nor
+# recorded on the student side: a Staff award lives on an
+# AffirmativeStaffApplication, which has no StudentProfile to hang off. A
+# student declaring it left the office with a claim it could approve into the
+# wrong ledger, or not at all. A staff member declares it on their own half of
+# the registration form instead.
+#
+# 'Affirmative' is out for the same structural reason: it is the other
+# programme AffirmativeStaffApplication records, and nobody applies for it in
+# any case — eligibility is read off the student's profile.
+STUDENT_UNDECLARABLE_TYPES = frozenset({'Staff', 'Affirmative'})
+
+DECLARABLE_SCHOLARSHIP_TYPES = [
+    (value, label) for value, label in SCHOLARSHIP_TYPE_CHOICES
+    if value not in STUDENT_UNDECLARABLE_TYPES
+]
+
+# What a STAFF member may declare on their half of the same form. Exactly one
+# programme, so the form asks it as a checkbox rather than a dropdown — a select
+# with a single option is a question that answers itself.
+#
+# Affirmative Action is the other programme on that record and is deliberately
+# not here: nobody applies for it, so nobody can hold it without this system
+# having decided so already.
+STAFF_DECLARABLE_TYPE = 'Staff'
+STAFF_DECLARABLE_LABEL = dict(SCHOLARSHIP_TYPE_CHOICES)[STAFF_DECLARABLE_TYPE]
+
+
+# Two more programmes on the university's chart are deliberately absent from
+# SCHOLARSHIP_TYPE_CHOICES altogether, rather than merely from the declarable
+# lists above.
+#
+# TES is absent because nothing in this system awards or verifies it. It is
+# UniFAST's, administered outside the portal entirely, so a student declaring it
+# would be handing the SDSO a claim it has no record to check against. There is
+# one place TES is still asked about — the is_tes_beneficiary checkbox, which
+# Affirmative Action disqualifies on — and that is a self-declaration the
+# Affirmative rules read, not an award the office records.
+#
+# FHE is absent for a different reason. Free Higher Education under RA 10931 is
+# not awarded to anyone — it is the tuition every qualified student at a state
+# university already has, so there is nothing for the SDSO to verify against
+# their records. Listing it here would also make it exclusive: the declare flow
+# feeds held_scholarship_types, and can_hold_alongside would then refuse a DOST
+# application from a student for holding what all of them hold. It is in the
+# catalogue and on the landing page, where saying it exists is the point.
 
 # CHED awards under one programme but at two tiers, and every masterlist CHED
 # appears on is split by them. The programme name cannot be relied on to say
@@ -170,6 +207,30 @@ SCHOLARSHIP_GROUPS = [
 # A type absent here falls back to BiPSU's seal, which is right for the
 # programmes BiPSU funds itself and a neutral placeholder for an agency whose
 # logo the office has not supplied (GSIS today).
+def available_logos():
+    """The seal files on disk, newest additions included, sorted for display.
+
+    Read from the directory rather than hard-coded so a seal committed to
+    media/logos/ is offered to the office without a code change — which is the
+    whole route by which a new agency logo arrives. Returns bare filenames; the
+    only thing the office may store is one of these, so a stored value can never
+    be a path.
+    """
+    import os
+
+    from django.conf import settings
+
+    folder = os.path.join(settings.MEDIA_ROOT, 'logos')
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        # No MEDIA_ROOT on a fresh checkout is not worth an exception here; the
+        # form falls back to offering nothing but the per-type default.
+        return []
+    return sorted(n for n in names
+                  if n.lower().endswith(('.png', '.jpg', '.jpeg', '.svg')))
+
+
 SCHOLARSHIP_LOGO_DEFAULT = 'BiPSU.png'
 SCHOLARSHIP_LOGOS = {
     # BiPSU's own — Academic (University/College Scholar), Staff, Sports and
@@ -180,10 +241,13 @@ SCHOLARSHIP_LOGOS = {
     'Affirmative': 'BiPSU.png',
     # Externally funded, by the agency that funds them.
     'DOST':        'DOST.png',
+    'JLSS':        'DOST.png',
     'CHED':        'CHED.png',
     'CoScho':      'CHED.png',
     'TES':         'UniFAST.png',
     'TDP':         'UniFAST.png',
+    'SUC-TDP':     'UniFAST.png',
+    'FHE':         'UniFAST.png',
 }
 
 # What an AffirmativeStaffApplication was found to qualify for.
@@ -202,7 +266,6 @@ QUALIFICATION_CHOICES = [
 APPLICATION_SOURCES = [
     ('portal', 'Student portal'),
     ('link', 'Approved link request'),
-    ('tes_application', 'Approved TES application'),
     ('renewal', 'Approved renewal'),
     ('import', 'Office import'),
 ]
@@ -294,6 +357,63 @@ BIPSU_COURSES = {
 }
 
 
+# ── Where a BiPSU employee works ────────────────────────────────────────────
+#
+# Its own list, and deliberately not BIPSU_SCHOOLS.
+#
+# That one is the list a *student* enrols in, and every entry has courses under
+# it in BIPSU_COURSES — the Course dropdown on the registration form is built
+# from them, and it is required, so a school with no courses under it is one a
+# student can pick and then be unable to finish the form. Half of what an
+# employee can be assigned to has no courses and never will: the
+# vice-presidents' offices, the two lifelong-learning offices, the library.
+#
+# An employee is not enrolled in anything, so nothing here feeds a course list.
+# The dropdown offers all three lists below, grouped so the schools read apart
+# from the offices — see BIPSU_STAFF_UNIT_GROUPS.
+
+# Teaching units that grant no undergraduate degree through BIPSU_COURSES:
+# graduate and professional schools, the Biliran campus's own teacher-education
+# unit, and NSTP, which every student takes and none majors in.
+BIPSU_TEACHING_UNITS = [
+    ('School of Law and Governance', 'School of Law and Governance'),
+    ('School of Graduate Studies', 'School of Graduate Studies'),
+    ('School of Agri-Industries and Natural Resource Management',
+     'School of Agri-Industries and Natural Resource Management'),
+    ('School of Teacher Education Biliran Campus',
+     'School of Teacher Education Biliran Campus'),
+    ('National Service Training Program', 'National Service Training Program'),
+]
+
+# Non-teaching assignments: the four vice-presidential clusters, the two
+# offices under Academic Affairs, and the library.
+BIPSU_OFFICES = [
+    ('Academic Affairs & Lifelong Learning', 'Academic Affairs & Lifelong Learning'),
+    ('Research, Innovation, and Social Impact', 'Research, Innovation, and Social Impact'),
+    ('Student, Internationalization & Strategic Partner',
+     'Student, Internationalization & Strategic Partner'),
+    ('Administration, Finance, & Sustainable Management',
+     'Administration, Finance, & Sustainable Management'),
+    ('Office of Advance and Accessible Lifelong Learning',
+     'Office of Advance and Accessible Lifelong Learning'),
+    ('Office of Teaching, Learning, and Curriculum Effectiveness',
+     'Office of Teaching, Learning, and Curriculum Effectiveness'),
+    ('Center for Learning Resources', 'Center for Learning Resources'),
+]
+
+# Everything an employee may be assigned to, flat. This is what StaffProfile.school
+# validates against; the grouping below is only how the dropdown draws it.
+BIPSU_STAFF_UNITS = BIPSU_SCHOOLS + BIPSU_TEACHING_UNITS + BIPSU_OFFICES
+
+# The same list as <optgroup>s. A flat list of twenty is a list nobody reads to
+# the end of, and the two halves answer different questions — an employee knows
+# straight away which half they are in.
+BIPSU_STAFF_UNIT_GROUPS = [
+    ('Academic units', BIPSU_SCHOOLS + BIPSU_TEACHING_UNITS),
+    ('Administrative offices', BIPSU_OFFICES),
+]
+
+
 def school_for_course(course):
     """The school a course belongs to, or '' when it matches none of them.
 
@@ -309,66 +429,6 @@ def school_for_course(course):
         if course in courses:
             return school
     return ''
-
-# Which BiPSU school a CHED registry programme belongs to, matched on the words
-# in its name. Keyword rules rather than a name-by-name table so a newer Annex 1
-# template can add programmes without this needing an edit — anything unmatched
-# groups under OTHER_PROGRAMS, which is visible rather than wrong.
-#
-# Order matters, first match wins: 'COMPUTER SCIENCE' is listed rather than
-# 'COMPUTER' so that COMPUTER ENGINEERING falls through to Engineering, and
-# 'INDUSTRIAL TECHNOLOGY' comes before 'EDUCATION' so that TECHNOLOGY AND
-# LIVELIHOOD EDUCATION is read as a teaching degree, which it is.
-#
-# This only decides which heading a programme is filed under in a dropdown. The
-# value submitted is the registry name either way, so a debatable grouping costs
-# a moment's looking, never a wrong name on a CHED submission.
-REGISTRY_PROGRAM_SCHOOLS = [
-    ('INDUSTRIAL TECHNOLOGY', 'School of Technologies and Computer Studies'),
-    ('COMPUTER SCIENCE', 'School of Technologies and Computer Studies'),
-    ('INFORMATION SYSTEM', 'School of Technologies and Computer Studies'),
-    ('INFORMATION TECHNOLOGY', 'School of Technologies and Computer Studies'),
-    ('EDUCATION', 'School of Teacher Education'),
-    ('ENGINEERING', 'School of Engineering'),
-    ('NURSING', 'School of Nursing and Health Sciences'),
-    ('CRIMINOLOGY', 'School of Criminal Justice Education'),
-    ('INDUSTRIAL SECURITY', 'School of Criminal Justice Education'),
-    ('HOTEL', 'School of Tourism and Hospitality Management'),
-    ('TOURISM', 'School of Tourism and Hospitality Management'),
-    ('TRAVEL', 'School of Tourism and Hospitality Management'),
-    ('HOSPITALITY', 'School of Tourism and Hospitality Management'),
-    ('BUSINESS ADMINISTRATION', 'School of Business and Management'),
-    ('BACHELOR OF ARTS', 'School of Arts and Sciences'),
-]
-
-OTHER_PROGRAMS = 'Other programmes'
-
-
-def school_for_registry_program(name):
-    """The BiPSU school a CHED registry programme name belongs under.
-
-    ``OTHER_PROGRAMS`` when none of the rules match — a heading that says so
-    beats filing it under a school that does not offer it.
-    """
-    upper = (name or '').strip().upper()
-    for keyword, school in REGISTRY_PROGRAM_SCHOOLS:
-        if keyword in upper:
-            return school
-    return OTHER_PROGRAMS
-
-
-def group_programs_by_school(programs):
-    """``[(school, [programme, ...]), ...]`` in the schools' own order.
-
-    Empty schools are dropped, programmes are sorted within each, and anything
-    unmatched trails at the end under ``OTHER_PROGRAMS``.
-    """
-    grouped = {}
-    for program in programs:
-        grouped.setdefault(school_for_registry_program(program), []).append(program)
-
-    order = [school for school, _label in BIPSU_SCHOOLS] + [OTHER_PROGRAMS]
-    return [(school, sorted(grouped[school])) for school in order if school in grouped]
 
 
 def academic_classification(gwa):

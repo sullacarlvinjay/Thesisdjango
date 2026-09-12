@@ -9,6 +9,8 @@ recreated in code.
 
 The template exposes 16 program slots. ``PROGRAM_SLOTS`` below decides which
 scholarship lands in which slot — reorder that list to reorder the document.
+A programme added to the catalogue needs a slot here too, or its scholars are
+on file and missing from the document the office actually files.
 """
 import os
 import re
@@ -36,6 +38,14 @@ PROGRAM_SLOTS = [
     ('program9',  'GSIS',            'GSIS',        'gendered', 'award'),
     ('program10', 'CoScho',          'CoScho',      'gendered', 'award'),
     ('program12', 'SPORTS',          'Sports',      'gendered', 'award'),
+    # The three programmes the catalogue gained from BiPSU's own chart. They
+    # were listed as scholarships and archivable, but the masterlist still had
+    # no table for them, so a scholar under any of them was on file and absent
+    # from the document the office files. None is reviewed in this portal —
+    # they fill from the office's Excel import, which apps() already includes.
+    ('program13', 'SUC-TDP',         'SUC-TDP',     'gendered', 'award'),
+    ('program14', 'DOST-JLSS',       'JLSS',        'gendered', 'award'),
+    ('program15', 'FHE',             'FHE',         'gendered', 'award'),
 ]
 ALL_SLOTS = [f'program{i}' for i in range(1, 17)]
 
@@ -322,14 +332,70 @@ def _sources(term_label=None):
         'Sports': apps('Sports'),
         'CHED_FULL': ched_full,
         'CHED_HALF': ched_half,
+        'SUC-TDP': apps('SUC-TDP'),
+        'JLSS': apps('JLSS'),
+        'FHE': apps('FHE'),
         'Affirmative': affirmative('Affirmative'),
         'Staff': affirmative('Staff'),
     }
 
 
-def build_context(sources=None):
-    """The docxtpl context: one entry per program slot, plus per-slot counts."""
-    sources = sources if sources is not None else _sources()
+def known_terms():
+    """Every term a masterlist can be built for, newest first.
+
+    A term earns a place by having scholars imported into it, plus the active
+    one, which is offered whether anything has been imported into it yet or
+    not — it is the term a document generated today is for.
+
+    Applications are deliberately not consulted. An award is a standing thing:
+    it carries the term it was granted in and is renewed term by term against
+    that same row, so the terms an Application has been *current* in are not
+    written down anywhere to read back.
+    """
+    from .models import ImportedScholar, SystemSettings
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    labels = {label for label in ImportedScholar.objects
+              .values_list('term_label', flat=True).distinct() if label}
+    labels.add(settings_obj.academic_year)
+    return sorted(labels, key=_term_order, reverse=True)
+
+
+def _term_order(label):
+    """'26-1' -> (26, 1), so a list of them reads newest first.
+
+    A label somebody typed by hand that does not parse sorts to the bottom
+    rather than raising. A report is not where that should be discovered.
+    """
+    try:
+        yy, sem = label.split('-')
+        return (int(yy), int(sem))
+    except (ValueError, AttributeError):
+        return (-1, -1)
+
+
+def term_for(requested):
+    """The term a report is for: the one asked for if it is real, else the active one.
+
+    Anything else — a stale bookmark, a term whose imports have since been
+    deleted, a hand-edited query string — falls back rather than producing an
+    empty document that looks like a year with no scholars in it.
+    """
+    label = (requested or '').strip()
+    if label in known_terms():
+        return label
+    from .models import SystemSettings
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    return settings_obj.academic_year
+
+
+def build_context(sources=None, term_label=None):
+    """The docxtpl context: one entry per program slot, plus per-slot counts.
+
+    `term_label` chooses whose imported scholars are printed — the active term
+    when it is None. It is ignored when `sources` is given, which is how the
+    tests hand records straight in.
+    """
+    sources = sources if sources is not None else _sources(term_label)
     headings = slot_headers()
     context = {slot: {'name': UNUSED_MARKER, 'female': [], 'male': [], 'students': []}
                for slot in ALL_SLOTS}
@@ -455,8 +521,15 @@ def _drop_unused_sections(document):
     return removed
 
 
-def build_document(academic_year, semester):
-    """Return ``(BytesIO, summary)`` for the filled masterlist document."""
+def build_document(academic_year, semester, term_label=None):
+    """Return ``(BytesIO, summary)`` for the filled masterlist document.
+
+    `academic_year` and `semester` are what the headings are stamped with;
+    `term_label` is which term's imported scholars fill the tables. They are
+    separate arguments because they are separate questions, but every caller in
+    this app derives all three from one chosen term — see
+    `student_views._report_term`.
+    """
     from io import BytesIO
     from docxtpl import DocxTemplate
 
@@ -466,7 +539,7 @@ def build_document(academic_year, semester):
             'Restore it from the office copy before generating this report.'
         )
 
-    context, summary = build_context()
+    context, summary = build_context(term_label=term_label)
     tpl = DocxTemplate(TEMPLATE_PATH)
     tpl.render(context)
     _drop_unused_sections(tpl.docx)

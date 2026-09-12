@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}External Partners — BiPSU SRMS{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block brand %}SDSO{% endblock %}
+{% block page_title %}External Partners{% endblock %}
+{% block page_subtitle %}Outside funders with an account here, and what each one can see{% endblock %}
+{% block nav %}{% include "vpsea/_nav.html" with active="partners" %}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  {% if created %}
+  <div class="page-alert page-alert-ok">{{ created }} was created. They can sign in with the email and password you set.</div>
+  {% endif %}
+  {% if saved %}
+  <div class="page-alert page-alert-ok">Saved. {{ saved }}'s access is updated.</div>
+  {% endif %}
+  {% if deleted %}
+  <div class="page-alert page-alert-ok">{{ deleted }} and its accounts were deleted.</div>
+  {% endif %}
+  {% if error %}
+  <div class="page-alert page-alert-error">{{ error }}</div>
+  {% endif %}
+  <div class="card p-6">
+    <h3 class="report-gen-title mb-1">Add a partner</h3>
+    <p class="text-xs mb-4" style="color:#6b7a99;">
+      This creates the office and the account that signs in as it, together — an office
+      nobody can log into is not something the SDSO ever wants.
+    </p>
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create" />
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="space-y-1.5">
+          <label for="partnerName">Partner name</label>
+          <input name="name" id="partnerName" required placeholder="e.g. DOST Region VIII" />
+        </div>
+        <div class="space-y-1.5">
+          <label for="partnerLogo">Seal</label>
+          <select name="logo" id="partnerLogo">
+            <option value="">&mdash; BiPSU's seal &mdash;</option>
+            {% for l in logos %}<option value="{{ l }}">{{ l }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="space-y-1.5">
+          <label for="partnerEmail">Sign-in email</label>
+          <input type="email" name="email" id="partnerEmail" required placeholder="dost@bipsu.edu.ph" />
+        </div>
+        <div class="space-y-1.5">
+          <label for="partnerPassword">Password</label>
+          <input type="password" name="password" id="partnerPassword" required minlength="8"
+                 placeholder="At least 8 characters" />
+          <p class="text-xs" style="color:#6b7a99;">Tell them this yourself — the system does not email it.</p>
+        </div>
+      </div>
+      <div class="partner-access">
+        <p class="partner-access__title">Programmes they may read</p>
+        <p class="text-xs mb-2" style="color:#6b7a99;">Leave every box clear to create the account with no access yet.</p>
+        <div class="partner-access__grid">
+          {% for s in scholarships %}
+          <label class="partner-access__option">
+            <input type="checkbox" name="scholarships" value="{{ s.pk }}" />
+            <span>{{ s.name }} <span style="color:#6b7a99;">· {{ s.type }}</span></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Create the partner</button>
+    </form>
+  </div>
+  {% for office in offices %}
+  <div class="card p-6">
+    <div class="report-gen-head mb-4">
+      <div>
+        <h3 class="report-gen-title">
+          {{ office.name }}
+          {% if not office.is_active %}<span class="badge badge-destructive">Suspended</span>{% endif %}
+        </h3>
+        <p class="text-xs mt-1" style="color:#6b7a99;">
+          {% for a in office.accounts.all %}{{ a.email }}{% if not forloop.last %}, {% endif %}{% empty %}
+          No account signs in as this partner.{% endfor %}
+        </p>
+      </div>
+      <form method="post" class="report-gen-actions"
+            data-confirm="{% if office.is_active %}Suspend {{ office.name }}?{% else %}Re-enable {{ office.name }}?{% endif %}"
+            data-confirm-detail="{% if office.is_active %}Their account stays but cannot reach the portal.{% else %}They will be able to sign in again.{% endif %}"
+            data-confirm-tone="{% if office.is_active %}danger{% else %}default{% endif %}"
+            data-confirm-label="{% if office.is_active %}Suspend{% else %}Re-enable{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="toggle" />
+        <input type="hidden" name="office_id" value="{{ office.pk }}" />
+        <button type="submit" class="btn {% if office.is_active %}btn-danger-soft{% else %}btn-outline{% endif %}">
+          {% if office.is_active %}Suspend{% else %}Re-enable{% endif %}
+        </button>
+      </form>
+    </div>
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="access" />
+      <input type="hidden" name="office_id" value="{{ office.pk }}" />
+      <div class="partner-access">
+        <p class="partner-access__title">Programmes they may read</p>
+        <div class="partner-access__grid">
+          {% for s in scholarships %}
+          <label class="partner-access__option">
+            <input type="checkbox" name="scholarships" value="{{ s.pk }}"
+                   {% if s in office.scholarships.all %}checked{% endif %} />
+            <span>{{ s.name }} <span style="color:#6b7a99;">· {{ s.type }}</span></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="space-y-1.5">
+          <label for="name-{{ office.pk }}">Partner name</label>
+          <input name="name" id="name-{{ office.pk }}" value="{{ office.name }}" required />
+        </div>
+        <div class="space-y-1.5">
+          <label for="logo-{{ office.pk }}">Seal</label>
+          <select name="logo" id="logo-{{ office.pk }}">
+            <option value="">&mdash; BiPSU's seal &mdash;</option>
+            {% for l in logos %}
+            <option value="{{ l }}" {% if l == office.logo %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <label class="partner-access__option" style="align-self:end;">
+          <input type="checkbox" name="may_add_scholarships"
+                 {% if office.may_add_scholarships %}checked{% endif %} />
+          <span>
+            May add programmes of their own
+            <span class="block text-xs" style="color:#6b7a99;">
+              A programme they add appears in your archives and reports too — this lends
+              out part of the SDSO's own catalogue.
+            </span>
+          </span>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary">Save {{ office.name }}'s access</button>
+    </form>
+    <div class="partner-manage">
+      {% for a in office.accounts.all %}
+      <form method="post" class="partner-manage__row">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="password" />
+        <input type="hidden" name="office_id" value="{{ office.pk }}" />
+        <input type="hidden" name="account_id" value="{{ a.pk }}" />
+        <label class="partner-manage__label" for="pw-{{ a.pk }}">New password for {{ a.email }}</label>
+        <input type="password" name="password" id="pw-{{ a.pk }}" minlength="8"
+               placeholder="At least 8 characters" required />
+        <button type="submit" class="btn btn-outline">Reset password</button>
+      </form>
+      {% endfor %}
+      <form method="post" class="partner-manage__row"
+            data-confirm="Delete {{ office.name }}?"
+            data-confirm-detail="The office and every account that signs in as it are removed. Their scholars are untouched — those belong to the programme, not to the partner. This cannot be undone."
+            data-confirm-tone="danger" data-confirm-label="Delete">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete" />
+        <input type="hidden" name="office_id" value="{{ office.pk }}" />
+        <span class="partner-manage__label">
+          Remove this partner and its {{ office.accounts.count }} account{{ office.accounts.count|pluralize }}
+        </span>
+        <button type="submit" class="btn btn-danger-soft">Delete partner</button>
+      </form>
+    </div>
+  </div>
+  {% empty %}
+  <div class="card p-6">
+    <p class="partner-table__empty">
+      No external partners yet. Add one above and they get a read-only portal for the
+      programmes you tick.
+    </p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

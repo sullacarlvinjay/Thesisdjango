@@ -210,7 +210,7 @@ class MasterlistReportTest(MasterlistFixtures, TestCase):
     def test_only_vpsea_can_download_it(self):
         other = Client()
         User.objects.create_user(
-            username='u@bipsu.edu.ph', email='u@bipsu.edu.ph', password='pw', role='unifast')
+            username='u@bipsu.edu.ph', email='u@bipsu.edu.ph', password='pw', role='nsu_staff')
         other.login(email='u@bipsu.edu.ph', password='pw')
         r = other.get('/vpsea/reports/download/')
         self.assertEqual(r.status_code, 302)
@@ -262,6 +262,141 @@ class MasterlistPreviewTest(MasterlistFixtures, TestCase):
         self.assertTrue(r.context['template_available'])
 
 
+class MasterlistTermTest(MasterlistFixtures, TestCase):
+    """Which school year the masterlist is for, chosen on the Reports tab.
+
+    It used to be the active term and nothing else, so producing last
+    semester's list — the one an auditor asks for — meant changing the active
+    term for every other screen in the office, and changing it back afterwards.
+
+    Only imported scholars are scoped by it. An award is a standing thing: an
+    Application carries the term it was granted in and is renewed term by term
+    against that same row, so the terms it has been current in are written down
+    nowhere to filter on. Scoping applications by their own term_label would
+    drop every scholar awarded before this semester out of the list.
+    """
+
+    def _imported(self, stype, last, term):
+        from api.models import ImportedScholar
+        return ImportedScholar.objects.create(
+            scholarship_type=stype, term_label=term, last_name=last,
+            first_name='Ana', gender='F', course='BSCS', year_level=3,
+            student_id=f'{term}-{last}',
+        )
+
+    # ── The list of terms ───────────────────────────────────────────────────
+
+    def test_the_terms_offered_are_the_ones_with_scholars_in_them(self):
+        self._imported('Academic', 'Reyes', '25-1')
+        self._imported('DOST', 'Lim', '25-2')
+        self.assertEqual(masterlist_report.known_terms(), ['26-1', '25-2', '25-1'])
+
+    def test_the_active_term_is_offered_even_with_nothing_imported_into_it(self):
+        """It is the term a document generated today is for."""
+        self.assertEqual(masterlist_report.known_terms(), ['26-1'])
+
+    def test_a_label_that_does_not_parse_sorts_last_rather_than_raising(self):
+        """Somebody typed it into Settings by hand. A report is not where that
+        should be discovered."""
+        self._imported('Academic', 'Reyes', 'whenever')
+        self.assertEqual(masterlist_report.known_terms(), ['26-1', 'whenever'])
+
+    # ── Choosing one ────────────────────────────────────────────────────────
+
+    def test_asking_for_a_term_that_exists_gets_it(self):
+        self._imported('Academic', 'Reyes', '25-1')
+        self.assertEqual(masterlist_report.term_for('25-1'), '25-1')
+
+    def test_anything_else_falls_back_to_the_active_term(self):
+        """A stale bookmark, a term whose imports have since been deleted, a
+        hand-edited query string. Falling back beats an empty document, which
+        reads as a year with no scholars in it rather than as a mistake."""
+        for asked in ('99-1', '', None, 'drop table'):
+            with self.subTest(asked=asked):
+                self.assertEqual(masterlist_report.term_for(asked), '26-1')
+
+    # ── What choosing one changes ───────────────────────────────────────────
+
+    def test_only_the_chosen_terms_imported_scholars_are_printed(self):
+        self._imported('Academic', 'Reyes', '25-1')
+        self._imported('Academic', 'Lim', '26-1')
+
+        context, summary = masterlist_report.build_context(term_label='25-1')
+        self.assertEqual([r['last_name'] for r in context['program1']['female']],
+                         ['Reyes'])
+        self.assertEqual([e['total'] for e in summary if e['key'] == 'Academic'], [1])
+
+        context, _ = masterlist_report.build_context(term_label='26-1')
+        self.assertEqual([r['last_name'] for r in context['program1']['female']],
+                         ['Lim'])
+
+    def test_an_awarded_scholar_is_on_every_terms_list(self):
+        """The rule that keeps the picker from emptying the document: the award
+        is standing, and the term stamped on it says when it was granted rather
+        than which semesters it covers."""
+        self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
+        self._imported('Academic', 'Reyes', '25-1')
+
+        for term in ('25-1', '26-1'):
+            with self.subTest(term=term):
+                context, _ = masterlist_report.build_context(term_label=term)
+                self.assertIn('Cruz',
+                              [r['last_name'] for r in context['program1']['female']])
+
+    # ── On the page ─────────────────────────────────────────────────────────
+
+    def test_the_tab_offers_every_term_and_stamps_the_one_chosen(self):
+        self._imported('Academic', 'Reyes', '25-1')
+        r = self.c.get('/vpsea/reports/', {'sy': '25-1'})
+        self.assertEqual(r.context['selected_sy'], '25-1')
+        self.assertEqual(r.context['ay'], '2025-2026')
+        self.assertEqual([lbl for lbl, _ in r.context['all_sy_display']],
+                         ['26-1', '25-1'])
+        self.assertContains(r, 'LIST OF SCHOLARS FOR 1st Semester SY: 2025-2026')
+
+    def test_the_chosen_term_travels_to_the_downloads(self):
+        """A document built for one term and downloaded for another is the one
+        mistake this page can make that nobody notices until the file is on
+        somebody's desk."""
+        self._imported('Academic', 'Reyes', '25-1')
+        body = self.c.get('/vpsea/reports/', {'sy': '25-1'}).content.decode()
+        for href in ('/vpsea/reports/download/?sy=25-1',
+                     '/vpsea/reports/download/excel/?sy=25-1',
+                     '/vpsea/reports/preview/?sy=25-1'):
+            with self.subTest(href=href):
+                self.assertIn(href, body)
+
+    def test_a_past_term_says_so_on_the_page(self):
+        self._imported('Academic', 'Reyes', '25-1')
+        past = self.c.get('/vpsea/reports/', {'sy': '25-1'})
+        self.assertFalse(past.context['is_active_term'])
+        self.assertContains(past, 'The active term is 2026-2027')
+
+        active = self.c.get('/vpsea/reports/')
+        self.assertTrue(active.context['is_active_term'])
+        self.assertNotContains(active, 'The active term is 2026-2027')
+
+    def test_the_word_document_is_stamped_and_filled_for_the_chosen_term(self):
+        self._imported('Academic', 'Reyes', '25-1')
+        self._imported('Academic', 'Lim', '26-1')
+        r = self.c.get('/vpsea/reports/download/', {'sy': '25-1'})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('BiPSU_List_of_Scholars_25_1.docx', r['Content-Disposition'])
+        text = _docx_text(r.content)
+        self.assertIn('Reyes', text)
+        self.assertNotIn('Lim', text)
+        self.assertIn('SY: 2025-2026', text)
+
+    def test_the_spreadsheet_follows_it_too(self):
+        """Its headings used to read 'SY: 26-1' beside the Word document's
+        'SY: 2026-2027' — one term spelled two ways on two files of one list."""
+        self._imported('Academic', 'Reyes', '25-1')
+        r = self.c.get('/vpsea/reports/download/excel/', {'sy': '25-1'})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('Scholarship_Report_25_1_1st_Semester.xlsx',
+                      r['Content-Disposition'])
+
+
 class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
     """The Reports tab frames the document as a PDF instead of retyping it.
 
@@ -275,7 +410,7 @@ class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         r = self.c.get('/vpsea/reports/')
         body = r.content.decode()
-        self.assertIn('src="/vpsea/reports/preview/"', body)
+        self.assertIn('src="/vpsea/reports/preview/?sy=26-1"', body)
         self.assertIn('report-preview-frame', body)
         # The old editable replica is gone: nothing on this page is typed into.
         self.assertNotIn('contenteditable', body)
@@ -338,7 +473,7 @@ class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
         other = Client()
         User.objects.create_user(
             username='u@bipsu.edu.ph', email='u@bipsu.edu.ph', password='pw',
-            role='unifast')
+            role='nsu_staff')
         other.login(email='u@bipsu.edu.ph', password='pw')
         r = other.get('/vpsea/reports/preview/')
         self.assertEqual(r.status_code, 302)
@@ -475,3 +610,54 @@ class StaffNameSplitTest(TestCase):
     def test_an_empty_name_does_not_raise(self):
         a = self._app('')
         self.assertEqual((a.last_name, a.first_name, a.middle_name), ('', '', ''))
+
+
+class MasterlistCoversEveryProgrammeTest(TestCase):
+    """A programme in the catalogue needs a table in the document.
+
+    SUC-TDP, JLSS and FHE were added to the catalogue and to the archives but
+    not here, so a scholar under any of them was on file and absent from the
+    masterlist the office files — the one place the omission is invisible,
+    because an empty table and a missing table look the same until somebody
+    counts.
+    """
+
+    def test_every_catalogue_programme_has_a_slot(self):
+        from api.constants import SCHOLARSHIP_TYPE_CHOICES
+        from api.masterlist_report import PROGRAM_SLOTS
+
+        keys = {key for _, _, key, _, _ in PROGRAM_SLOTS}
+        # CHED is split across two tables, Full and Half, which the office
+        # reports separately; TES and FHE are not declarable so they are not in
+        # the choices list, and are checked on their own below.
+        keys.discard('CHED_FULL')
+        keys.discard('CHED_HALF')
+        keys.add('CHED')
+
+        missing = [t for t, _ in SCHOLARSHIP_TYPE_CHOICES if t not in keys]
+        self.assertEqual(missing, [], f'no masterlist table for: {missing}')
+
+    def test_the_programmes_applied_for_rather_than_declared_have_slots_too(self):
+        from api.masterlist_report import PROGRAM_SLOTS
+
+        keys = {key for _, _, key, _, _ in PROGRAM_SLOTS}
+        for key in ('TES', 'FHE'):
+            self.assertIn(key, keys)
+
+    def test_no_slot_is_claimed_twice_and_none_drops_male_scholars(self):
+        """program11's table has only a female loop, so anything placed there
+        would silently lose half its scholars."""
+        from api.masterlist_report import PROGRAM_SLOTS
+
+        slots = [slot for slot, _, _, _, _ in PROGRAM_SLOTS]
+        self.assertEqual(len(slots), len(set(slots)))
+        self.assertNotIn('program11', slots)
+
+    def test_the_new_programmes_build_a_table_each(self):
+        from api.masterlist_report import build_context
+
+        _context, summary = build_context()
+        headings = {entry['key']: entry['heading'] for entry in summary}
+        self.assertEqual(headings['SUC-TDP'], 'SUC-TDP')
+        self.assertEqual(headings['JLSS'], 'DOST-JLSS')
+        self.assertEqual(headings['FHE'], 'FHE')

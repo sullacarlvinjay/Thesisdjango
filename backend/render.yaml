@@ -70,16 +70,34 @@ services:
         value: "10"
 
       # Applicants are told what the office decided by email as well as in the
-      # portal. Leave EMAIL_HOST unset and settings.py falls back to the console
-      # backend — which on Render means every message is written to the service
-      # log and nobody is told anything, with no error to notice. Set these in
-      # the dashboard before announcing the site.
+      # portal, and every registration carries a confirmation link.
       #
-      # For Gmail, EMAIL_HOST_PASSWORD must be an App Password, not the
-      # account's own password.
-      - key: EMAIL_HOST
+      # This goes out over Brevo's HTTPS API, not SMTP, and that is not a
+      # preference. Render blocks outbound traffic to ports 25, 465 and 587 from
+      # free web services, so a perfectly correct Gmail SMTP configuration
+      # connects to nothing here: every send waits out EMAIL_TIMEOUT and is
+      # swallowed by api.notify, which is what it is built to do. The site looks
+      # like it is emailing people and is not.
+      #
+      # Brevo was chosen for one reason: it verifies a single sender ADDRESS by
+      # emailing it a link, where most providers verify a whole DOMAIN by DNS
+      # record. Nobody here can add records to bipsu.edu.ph. Its free tier is
+      # 300 messages a day.
+      #
+      # Set BREVO_API_KEY (Brevo > SMTP & API > API keys) and EMAIL_HOST_USER to
+      # the address you verified under Brevo > Senders. Brevo refuses any other
+      # sender, and DEFAULT_FROM_EMAIL is derived from EMAIL_HOST_USER.
+      - key: BREVO_API_KEY
         sync: false
       - key: EMAIL_HOST_USER
+        sync: false
+
+      # The SMTP route, kept for anywhere it is actually reachable: a paid
+      # instance, or the university running this on its own server. Leave
+      # EMAIL_HOST unset on Render — BREVO_API_KEY takes precedence anyway,
+      # and setting both invites the belief that the SMTP one is doing
+      # something. For Gmail, EMAIL_HOST_PASSWORD must be an App Password.
+      - key: EMAIL_HOST
         sync: false
       - key: EMAIL_HOST_PASSWORD
         sync: false
@@ -97,9 +115,9 @@ services:
       - key: SITE_URL
         sync: false
 
-      # The two office accounts, created by `manage.py bootstrap` during the
-      # build. This plan has no shell, so createsuperuser cannot be run by
-      # hand and these are the only way in on a fresh database.
+      # The office account, created by `manage.py bootstrap` during the build.
+      # This plan has no shell, so createsuperuser cannot be run by hand and
+      # this is the only way in on a fresh database.
       #
       # An office whose password is unset is skipped rather than created with
       # a guessable one, and an account that already exists is never touched —
@@ -107,10 +125,6 @@ services:
       - key: SDSO_EMAIL
         sync: false
       - key: SDSO_PASSWORD
-        sync: false
-      - key: UNIFAST_EMAIL
-        sync: false
-      - key: UNIFAST_PASSWORD
         sync: false
 
       # ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS are only needed for a custom

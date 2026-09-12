@@ -1,14 +1,13 @@
-"""The two office reports rendered as a PDF page, for the Reports tabs.
+"""The office masterlist rendered as a PDF page, for the Reports tab.
 
-Each office files a document — the SDSO its Word masterlist, UniFAST the CHED
-Annex 2 workbook — so the tab that previews one shows a laid-out page rather
-than a web table an officer has to imagine on paper. Both PDFs are built from
-the same row builders the downloads use (``masterlist_report.build_context``
-and ``tes_report.grantee_rows``), so what is on screen and what leaves the
+The SDSO files a Word masterlist, so the tab that previews it shows a laid-out
+page rather than a web table an officer has to imagine on paper. The PDF is
+built from the same row builder the download uses
+(``masterlist_report.build_context``), so what is on screen and what leaves the
 office cannot drift apart.
 
 Nothing here is a second source of truth: column headings, row order and cell
-contents all come from those modules. This file only decides how they sit on
+contents all come from that module. This file only decides how they sit on
 a page.
 """
 import os
@@ -268,15 +267,16 @@ MASTERLIST_SIGNATORIES = [
 ]
 
 
-def masterlist_blocks():
+def masterlist_blocks(term_label=None):
     """One entry per programme, in the order the Word document prints them.
 
     Rows are resolved against each table's own headings, so a block's cells
     line up with its columns whatever shape that programme's table has.
+    `term_label` chooses the term, the same as it does for the document itself.
     """
     from . import masterlist_report
 
-    context, summary = masterlist_report.build_context()
+    context, summary = masterlist_report.build_context(term_label=term_label)
     blocks = []
     for entry in summary:
         slot = context[entry['slot']]
@@ -300,9 +300,14 @@ def masterlist_blocks():
     return blocks, summary
 
 
-def masterlist_pdf(academic_year, semester):
-    """Return ``(BytesIO, summary)`` — the masterlist laid out as a page."""
-    blocks, summary = masterlist_blocks()
+def masterlist_pdf(academic_year, semester, term_label=None):
+    """Return ``(BytesIO, summary)`` — the masterlist laid out as a page.
+
+    The stand-in for the Word document, drawn here when no converter is
+    installed, so it takes the same three arguments and has to mean the same
+    things by them.
+    """
+    blocks, summary = masterlist_blocks(term_label)
 
     story = _letterhead(
         [
@@ -338,113 +343,3 @@ def masterlist_pdf(academic_year, semester):
     story.append(CondPageBreak(1.4 * inch))
     story.extend(_signatories(MASTERLIST_SIGNATORIES))
     return _build(story, f'BiPSU List of Scholars {academic_year}'), summary
-
-
-# --------------------------------------------------------------------------
-# UniFAST — CHED Annex 2 Official List
-# --------------------------------------------------------------------------
-
-TES_SIGNATORIES = [
-    ('Prepared by:', 'TES Focal Person / Scholarship Coordinator',
-     '(Print Name and Signature)'),
-    ('Certified by:', 'Registrar', '(Print Name and Signature)'),
-    ('Approved by:', 'President', '(Print Name and Signature)'),
-]
-
-TES_INSTRUCTIONS = [
-    'Identify the status of the student-grantee (make necessary corrections to '
-    'the student personal details if needed).',
-    'Complete all Annexes: Annex 2-Form 1, Annex 2-Form 2, and Annex 2-Form 4.',
-    'Submit the documentary requirements to CHEDRO.',
-]
-
-
-def programme_masterlist_pdf(heading, sections, academic_year, semester):
-    """Return a BytesIO — one UniFAST programme's scholars laid out as a page.
-
-    ``sections`` is what ``_unifast_report_sections`` builds, so the page and the
-    workbook it stands in for are drawn from the same rows. Used for the TDP
-    frame on the Reports tab where no converter is installed to render the
-    workbook itself.
-    """
-    story = _letterhead([
-        ('Republic of the Philippines', SUBTITLE),
-        ('BILIRAN PROVINCE STATE UNIVERSITY', TITLE),
-        ('Naval, Biliran', SUBTITLE),
-        (f'{heading} — {semester} SY: {academic_year}', PERIOD),
-    ])
-
-    for section in sections:
-        # Numbered per group, the way the workbook numbers them.
-        groups = [(label, [_masterlist_cells(i, r) for i, r in enumerate(rows, 1)])
-                  for label, rows in section['groups']]
-        # One width set for the whole programme, so its FEMALE and MALE tables
-        # line up column for column instead of drifting apart on row content.
-        widths = _column_widths(
-            section['headers'], [r for _label, rows in groups for r in rows])
-
-        story.append(CondPageBreak(1.2 * inch))
-        story.append(_banner(f"{section['title']}  ({section['total']} scholars)"))
-        for label, rows in groups:
-            story.append(Paragraph(label, GROUP))
-            story.append(_table(section['headers'], rows, widths))
-        story.append(Spacer(1, 12))
-
-    story.append(CondPageBreak(1.4 * inch))
-    story.extend(_signatories(MASTERLIST_SIGNATORIES))
-    return _build(story, f'{heading} {academic_year}')
-
-
-def _masterlist_cells(number, row):
-    """One section row in the column order ``_unifast_report_sections`` heads it."""
-    return [
-        number, row['award'], row['last'], row['first'], row['mi'], row['sex'],
-        row['brgy'], row['mun'], row['prov'], row['cong'], row['student_no'],
-        row['course'], row['yr'], row['scholarship'],
-    ]
-
-
-def tes_official_list_pdf(academic_year, semester, batch='', school_year=''):
-    """Return ``(BytesIO, rows)`` — the CHED 'Official List' sheet as a page."""
-    from . import tes_report
-
-    rows = tes_report.grantee_rows(batch=batch, school_year=school_year)
-    headers = tes_report.OFFICIAL_LIST_HEADERS
-    values = [tes_report.row_values(r) for r in rows]
-
-    story = _letterhead([
-        ('LIST OF CONTINUING TES GRANTEES SUBJECT FOR VALIDATION', TITLE),
-        ('BILIRAN PROVINCE STATE UNIVERSITY', SUBTITLE),
-        (f'TES Batch {batch or "On-going"}, {semester}, AY {academic_year}',
-         SUBTITLE),
-    ])
-
-    story.append(Paragraph('INSTRUCTIONS:', NOTE_HEAD))
-    for i, line in enumerate(TES_INSTRUCTIONS, 1):
-        story.append(Paragraph(f'{i}. {escape(line)}', NOTE))
-    story.append(Spacer(1, 8))
-
-    widths = _column_widths(headers, values)
-    story.append(_table(headers, values, widths))
-
-    if values:
-        # Both amount columns print blank: CHED sets what each grantee is paid,
-        # so the office enters those figures in the workbook itself.
-        total = Table(
-            [[Paragraph('TOTAL TERTIARY EDUCATION SUBSIDY', CELL_HEAD),
-              Paragraph('to be entered by the office', CELL)]],
-            colWidths=[sum(widths[:13]), sum(widths[13:])],
-            hAlign='LEFT',
-        )
-        total.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), HEADER_BG),
-            ('GRID', (0, 0), (-1, -1), 0.4, GRID),
-            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ]))
-        story.append(total)
-
-    story.append(CondPageBreak(1.4 * inch))
-    story.extend(_signatories(TES_SIGNATORIES))
-    return _build(story, f'TES Validation List {academic_year}'), rows

@@ -3,7 +3,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
 from . import scholar_columns
-from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, Notification, Announcement, User, AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, TESApplication, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
+from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, Notification, Announcement, User, AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.core.files.base import ContentFile
@@ -12,6 +12,9 @@ from . import notify
 from django.http import HttpResponse
 from io import BytesIO
 from decimal import Decimal, InvalidOperation
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # — Landing ——————————————————————————————————
@@ -32,7 +35,7 @@ PORTAL_FOR_ROLE = {
     'student': '/student/applications/',
     'nsu_staff': '/nsu-staff/',
     'vpsea': '/vpsea/',
-    'unifast': '/unifast/',
+    'partner': '/partner/',
     'super': '/super/',
 }
 
@@ -264,6 +267,46 @@ def _release_rejected_registration(email, student_id):
         account.delete()
 
 
+def _declaration_slots(post=None):
+    """Every Scholarship Data card, as the form should draw it back.
+
+    One entry per slot in DECLARATION_SLOTS, so the three cards are one loop in
+    the template rather than three copies of the same block that drift apart
+    the first time one of them is edited.
+
+    Element ids are decided here rather than assembled in the template because
+    the first card's are the ones every other file already names —
+    ``scholarshipData`` is what static/js/register-scholarship.js toggles and
+    what api/test_register_eligibility_order.py reads the ``hidden`` attribute
+    off — so the first slot keeps its bare ids for the same reason it keeps its
+    bare field names, and only the cards after it are numbered.
+
+    Every value comes back off ``post``: a form returning from a validation
+    error has to show what was typed, and a card that lost its answers would
+    make a mistyped password cost the student three uploads.
+    """
+    post = post or {}
+    slots = []
+    for number, suffix in enumerate(DECLARATION_SLOTS, start=1):
+        tail = '' if not suffix else str(number)
+        slots.append({
+            'n': number,
+            'suffix': suffix,
+            # Everything after the first card: it carries its own programme
+            # dropdown, and it can be taken back off the form again.
+            'extra': bool(suffix),
+            'card_id': f'scholarshipData{tail}',
+            'tier_id': f'chedTier{tail}',
+            'type_id': f'scholarshipType{tail}',
+            'open': bool(post.get(f'has_scholarship{suffix}')),
+            'type': post.get(f'scholarship_type{suffix}', ''),
+            'tier': post.get(f'award_tier{suffix}', ''),
+            'award_number': post.get(f'award_number{suffix}', ''),
+            'notes': post.get(f'notes{suffix}', ''),
+        })
+    return slots
+
+
 def _register_context(post=None):
     """Everything the signup form needs to draw itself.
 
@@ -274,17 +317,20 @@ def _register_context(post=None):
     could not be worked out from them.
     """
     import json
-    from .constants import CIVIL_STATUSES, GENDERS
-    from .models import CHED_TIER_CHOICES, SCHOLARSHIP_TYPE_CHOICES, SystemSettings
+    from .constants import (CIVIL_STATUSES, DECLARABLE_SCHOLARSHIP_TYPES,
+                            GENDERS, STAFF_DECLARABLE_LABEL)
+    from .models import CHED_TIER_CHOICES, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     return {
         'bipsu_schools': BIPSU_SCHOOLS,
         'bipsu_courses_json': json.dumps(BIPSU_COURSES),
         'civil_statuses': CIVIL_STATUSES,
         'genders': GENDERS,
-        'scholarship_types': SCHOLARSHIP_TYPE_CHOICES,
+        'scholarship_types': DECLARABLE_SCHOLARSHIP_TYPES,
+        'staff_scholarship_label': STAFF_DECLARABLE_LABEL,
         'ched_tiers': CHED_TIER_CHOICES,
         'max_upload_mb': settings_obj.max_file_size_mb or 5,
+        'declaration_slots': _declaration_slots(post),
         **_disability_fields(
             (post or {}).get('disability_type') if post is not None else None,
             (post or {}).get('disability_type_other', ''),
@@ -323,10 +369,15 @@ def _registration_profile_fields(p, files, disability):
         # Educational background
         'elementary': p.get('elementary', '').strip(),
         'highschool': p.get('highschool', '').strip(),
+        'highschool_is_public': _tristate(p.get('highschool_is_public'), None),
         'last_school': p.get('last_school', '').strip(),
         # Socio-economic
         'family_income': _decimal_or(p.get('family_income'), 0.0),
         'indigenous_group': p.get('indigenous_group', '').strip(),
+        # Affirmative Action target groups. Unanswered stays unknown, like the
+        # TES answers below — see api/affirmative_ranking.py, which reports an
+        # unanswered group question rather than reading it as a no.
+        'is_from_depressed_area': _tristate(p.get('is_from_depressed_area'), None),
         # Scholarship eligibility
         'shs_gpa': _decimal_or(p.get('shs_gpa'), None),
         'suc_exam_score': _decimal_or(p.get('suc_exam_score'), None),
@@ -339,6 +390,7 @@ def _registration_profile_fields(p, files, disability):
         'is_listahanan_household': _tristate(p.get('is_listahanan_household'), None),
         'is_4ps_beneficiary': _tristate(p.get('is_4ps_beneficiary'), None),
         'has_previous_degree': _tristate(p.get('has_previous_degree'), None),
+        'is_solo_parent_dependent': _tristate(p.get('is_solo_parent_dependent'), None),
     }
     for name in ('shs_gpa_cert', 'suc_exam_cert'):
         if files.get(name):
@@ -374,44 +426,244 @@ def _certificate_errors(files):
     return errors
 
 
-def _declared_scholarship(p, files):
-    """(ScholarshipLinkRequest kwargs, errors) for the Scholarship Data card.
+# ── How many scholarships one registration may declare ──────────────────────
+#
+# A student holding two is ordinary here — CHED and a private foundation, DOST
+# and a local government grant — and the form used to ask once, so the second
+# award reached the office as an email, a phone call, or not at all. It now asks
+# three times, which is the number the office has actually seen, and each answer
+# becomes its own ScholarshipLinkRequest for the SDSO to verify separately: two
+# awards are two things to check against two sets of records, and approving one
+# is not approving the other.
+#
+# The first block keeps the bare field names it has always had. Everything that
+# already posts a registration — the tests, a cached page, the office's own
+# scripts — names `has_scholarship` and `scholarship_type`, and renaming them to
+# suit a second block would break every one of those to no purpose. Only the
+# blocks after it are numbered.
+DECLARATION_SLOTS = ('', '_2', '_3')
 
-    (None, []) when the box was not ticked: holding nothing yet is the ordinary
-    case, not a mistake. Ticking it and then leaving the card empty is, because
-    the office cannot verify a scholarship nobody named.
+
+def _declared_scholarship(p, files, slot=''):
+    """(ScholarshipLinkRequest kwargs, errors) for one Scholarship Data card.
+
+    (None, []) when that card's box was not ticked: holding nothing yet is the
+    ordinary case, not a mistake. Ticking it and then leaving the card empty is,
+    because the office cannot verify a scholarship nobody named.
+
+    ``slot`` is the suffix this card's fields carry — see DECLARATION_SLOTS.
+    An error names the card it came from, because "say which scholarship you
+    hold" on a form with three of them tells the student nothing.
     """
-    from .models import CHED_TIER_CHOICES, SCHOLARSHIP_TYPE_CHOICES, SystemSettings
-    if 'has_scholarship' not in p:
+    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+    from .models import CHED_TIER_CHOICES, SystemSettings
+    if f'has_scholarship{slot}' not in p:
         return None, []
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    stype = p.get('scholarship_type', '')
+    stype = p.get(f'scholarship_type{slot}', '')
     # CHED is awarded at two tiers under a single programme and every masterlist
     # reports the two in separate blocks, so a CHED declaration has to say which
     # one. Other programmes have one tier; blank there.
-    tier = p.get('award_tier', '') if stype == 'CHED' else ''
-    proof = files.get('proof_document')
+    tier = p.get(f'award_tier{slot}', '') if stype == 'CHED' else ''
+    proof = files.get(f'proof_document{slot}')
+    # 'Scholarship 2' rather than 'Scholarship' only where there is more than
+    # one card to tell apart — a student who declared one award should not be
+    # sent looking for a number that is not on their screen.
+    where = f' (scholarship {DECLARATION_SLOTS.index(slot) + 1})' if slot else ''
 
     errors = []
-    if stype not in [t for t, _ in SCHOLARSHIP_TYPE_CHOICES]:
-        errors.append('Say which scholarship you already hold, or clear the '
+    if stype not in [t for t, _ in DECLARABLE_SCHOLARSHIP_TYPES]:
+        errors.append(f'Say which scholarship you already hold{where}, or clear the '
                       '"I already hold a scholarship" box.')
     elif stype == 'CHED' and tier not in [t for t, _ in CHED_TIER_CHOICES]:
-        errors.append('Please choose whether your CHED award is Full Merit / Full Scholar '
-                      'or Half Merit / Partial Scholar — your award letter says which.')
-    errors += _validate_proof(proof, settings_obj)
+        errors.append(f'Please choose whether your CHED award{where} is Full Merit / '
+                      'Full Scholar or Half Merit / Partial Scholar — your award '
+                      'letter says which.')
+    errors += [f'{problem}{where}' if where else problem
+               for problem in _validate_proof(proof, settings_obj)]
     if errors:
         return None, errors
 
     return dict(
         scholarship_type=stype,
         proof_document=proof,
-        award_number=p.get('award_number', '').strip(),
+        award_number=p.get(f'award_number{slot}', '').strip(),
         award_tier=tier,
-        notes=p.get('notes', ''),
+        notes=p.get(f'notes{slot}', ''),
         term_label=settings_obj.academic_year,
     ), []
+
+
+def _declared_scholarships(p, files):
+    """([kwargs per declaration], errors) for every Scholarship Data card.
+
+    The list is in the order the cards are filled in, and it is empty for the
+    ordinary registration that declares nothing.
+
+    The same programme twice is refused. It is not a student holding two
+    awards — nobody holds CHED twice — it is one award entered into two cards,
+    and letting it through would put two link requests in front of the office
+    for one thing to verify, then two Approved Applications on the same
+    programme and term for one award. The unique constraint on Application
+    would refuse the second anyway, but at the point where the office had
+    already said yes.
+    """
+    declarations, errors, seen = [], [], set()
+    for slot in DECLARATION_SLOTS:
+        declared, problems = _declared_scholarship(p, files, slot)
+        errors.extend(problems)
+        if not declared:
+            continue
+        if declared['scholarship_type'] in seen:
+            from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+            label = dict(DECLARABLE_SCHOLARSHIP_TYPES).get(
+                declared['scholarship_type'], declared['scholarship_type'])
+            errors.append(f'You named the {label} twice. Declare each scholarship '
+                          'once — the office verifies them one at a time.')
+            continue
+        seen.add(declared['scholarship_type'])
+        declarations.append(declared)
+    return declarations, errors
+
+
+def _declared_staff_scholarship(p, files):
+    """(StaffScholarshipDeclaration kwargs, errors) for the staff card.
+
+    The staff half of :func:`_declared_scholarship`, and deliberately shorter.
+    One programme is on offer, so there is nothing to name and no tier to pick:
+    what the office needs is the proof, which is the only thing standing behind
+    an award it did not itself record.
+    """
+    from .models import SystemSettings
+    if 'has_staff_scholarship' not in p:
+        return None, []
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    errors = _validate_proof(files.get('staff_proof_document'), settings_obj)
+    if errors:
+        return None, errors
+
+    return dict(
+        proof_document=files.get('staff_proof_document'),
+        notes=p.get('staff_notes', ''),
+        term_label=settings_obj.academic_year,
+    ), []
+
+
+# ── What a registration has to answer ───────────────────────────────────────
+#
+# The form asks for the whole student record and used to refuse a registration
+# over almost none of it — five fields for everybody plus the student number.
+# What arrived was a record the SDSO could not check against their enrolment
+# list and the TES recommender could not rank, so the office collected the rest
+# by hand, one student at a time, which is the work this form exists to save.
+#
+# What is missing from these lists is as deliberate as what is in them. A
+# question a truthful person can have no answer to cannot be made mandatory
+# without teaching them to type 'N/A', and 'N/A' is worse than a blank because
+# it looks like an answer:
+#
+#   Indigenous Group  asked of everybody, answered by few — optional by the
+#                     office's own instruction
+#   Suffix            most people have none
+#   the certificates  the form says they can be added later under My Profile,
+#                     and a student without a scanner is still a student
+#   Award number      'if your award letter has one' — not every letter does
+#   the notes boxes   'anything the office should know' is by definition
+#                     something there may be nothing of
+#
+# The label beside each name is the one on screen, because it is what the error
+# message names, and an error that names a field nobody can find is no error.
+_REQUIRED_OF_EVERYONE = (
+    ('first_name', 'First Name'),
+    ('last_name', 'Last Name'),
+    ('middle_name', 'Middle Name'),
+    ('contact_number', 'Contact Number'),
+)
+
+_REQUIRED_OF_A_STUDENT = (
+    ('date_of_birth', 'Date of Birth'),
+    ('gender', 'Gender'),
+    ('birth_place', 'Birth Place'),
+    ('civil_status', 'Civil Status'),
+    ('barangay', 'Barangay / Street'),
+    ('municipality', 'Municipality'),
+    ('province', 'Province'),
+    ('school', 'School'),
+    ('course', 'Course'),
+    ('year_level', 'Year Level'),
+    ('elementary', 'Elementary School'),
+    ('highschool', 'High School'),
+    ('last_school', 'Last School Attended'),
+    ('family_income', 'Annual Family Income'),
+)
+
+# Two of the four groups the Affirmative Action programme is for, asked of every
+# student rather than only of applicants: the cards holding them stay open when
+# a student declares an award, the way Elementary School and Annual Family Income
+# already do, and the answers are what order that programme's shortlist.
+#
+# Required because the whole design turns on the difference between "no" and
+# "nobody asked", and a registration is the moment somebody is asking. The other
+# two groups are already covered — indigenous group is optional free text where
+# blank means no, and a disability answer is required above.
+_REQUIRED_AFFIRMATIVE_ANSWERS = (
+    ('highschool_is_public', 'Was your high school a public school?'),
+    ('is_from_depressed_area', 'Are you from a depressed area?'),
+)
+
+# Asked only of a student who holds nothing yet. static/js/register-scholarship.js
+# closes both eligibility cards and disables their fields the moment "I already
+# hold a scholarship" is ticked, so a declaring registration posts none of this
+# and must not be refused for it.
+_REQUIRED_OF_AN_APPLICANT = (
+    ('shs_gpa', 'SHS Grade Point Average'),
+    ('suc_exam_score', 'SUC Admission Exam Score'),
+    ('suc_exam_total', 'SUC Admission Exam Total'),
+    ('citizenship', 'Citizenship'),
+    ('household_size', 'Household Size'),
+    ('year_first_enrolled', 'Year You First Enrolled in This Course'),
+)
+
+# The three-state questions from the same card, which need a check of their own
+# because blank is not the only way to leave one unanswered: 'unknown' is what
+# the rest of the system stores for 'nobody has asked yet', and a registration
+# is precisely the moment somebody is being asked. Everywhere else — My Profile,
+# the office forms — an unanswered one still reads as unanswered; see _tristate.
+_REQUIRED_TES_ANSWERS = (
+    ('is_listahanan_household', 'Listed in the DSWD Listahanan?'),
+    ('is_4ps_beneficiary', '4Ps (Pantawid Pamilya) Beneficiary?'),
+    ('is_solo_parent_dependent', 'Dependent of a solo parent?'),
+    ('has_previous_degree', 'Do you already hold a college degree?'),
+)
+
+_REQUIRED_OF_STAFF = (
+    ('school_id', 'School / Employee ID'),
+    # The label the error names is the label on screen. This one asks for an
+    # office or a unit as readily as a college — non-teaching personnel are
+    # assigned to one — and it is typed rather than picked, so the list in
+    # BIPSU_STAFF_UNITS suggests but no longer restricts.
+    ('staff_school', 'Office / College / Unit'),
+    ('department', 'Department'),
+    ('position', 'Position'),
+)
+
+
+def _unanswered(posted, questions):
+    """'X is required.' for every blank answer among `questions`.
+
+    The browser asks for these too, with `required` on the input, but that is a
+    convenience for somebody filling the form in — not a rule. This is the rule.
+    """
+    return [f'{label} is required.' for name, label in questions
+            if not (posted.get(name) or '').strip()]
+
+
+def _unanswered_tes(posted, questions):
+    """The same for the three-state questions, which have two ways to be blank."""
+    return [f'{label} — please answer Yes or No.' for name, label in questions
+            if (posted.get(name) or '').strip().casefold() not in ('yes', 'no')]
 
 
 def register_view(request):
@@ -422,7 +674,14 @@ def register_view(request):
 
         from . import email_verify
 
-        if p.get('password') != p.get('confirm_password'):
+        errors += _unanswered(p, _REQUIRED_OF_EVERYONE)
+
+        # Two blanks match each other, and User.create_user takes them: an
+        # account with an unusable password, waiting in the queue for an SDSO
+        # to release it to somebody who could never sign in.
+        if not (p.get('password') or ''):
+            errors.append('Password is required.')
+        elif p.get('password') != p.get('confirm_password'):
             errors.append('Passwords do not match.')
         # Checked before uniqueness: 'already registered' is a confusing thing
         # to be told about an address that could never have been registered.
@@ -433,12 +692,17 @@ def register_view(request):
                 verification_status='rejected').exists():
             errors.append('Email already registered.')
 
-        # The scholarship a student already holds, declared here rather than on
-        # a page of its own after the fact — see the Scholarship Data card. The
-        # office reviews it as part of verifying the account, so the proof has
+        # The scholarships a student already holds, declared here rather than on
+        # a page of its own after the fact — see the Scholarship Data cards. The
+        # office reviews them as part of verifying the account, so the proof has
         # to arrive with the registration it belongs to.
-        declared, disability = None, ''
+        #
+        # A list because a student may hold more than one. `declared` below is
+        # the staff side, which declares the single programme on offer there.
+        declarations, declared, disability = [], None, ''
         if account_type == 'student':
+            errors += _unanswered(p, _REQUIRED_OF_A_STUDENT)
+            errors += _unanswered_tes(p, _REQUIRED_AFFIRMATIVE_ANSWERS)
             if not p.get('student_id'):
                 errors.append('Student ID is required.')
             elif StudentProfile.objects.filter(
@@ -446,13 +710,31 @@ def register_view(request):
                     user__verification_status='rejected').exists():
                 errors.append('Student ID already registered.')
 
+            # 'NO' is how CHED's own list spells not applicable, so there
+            # is an answer here for everybody and no reason to take a blank.
+            # _disability_answer itself still allows one: My Profile shares it,
+            # and a record the office imported may never have been asked.
+            if not (p.get('disability_type') or '').strip():
+                errors.append('Disability Type is required — choose "NO" if you are '
+                              'not a person with disability.')
             disability, problem = _disability_answer(p)
             if problem:
                 errors.append(problem)
 
-            declared, link_errors = _declared_scholarship(p, request.FILES)
+            declarations, link_errors = _declared_scholarships(p, request.FILES)
             errors.extend(link_errors)
             errors.extend(_certificate_errors(request.FILES))
+            # The two eligibility cards ask what a student might qualify for,
+            # which anybody declaring an award has already answered. Any card
+            # ticked closes them, so the answer is read across every slot
+            # rather than off the first one.
+            if not any(f'has_scholarship{slot}' in p for slot in DECLARATION_SLOTS):
+                errors += _unanswered(p, _REQUIRED_OF_AN_APPLICANT)
+                errors += _unanswered_tes(p, _REQUIRED_TES_ANSWERS)
+        else:
+            errors += _unanswered(p, _REQUIRED_OF_STAFF)
+            declared, link_errors = _declared_staff_scholarship(p, request.FILES)
+            errors.extend(link_errors)
 
         if errors:
             return render(request, 'register.html',
@@ -492,10 +774,18 @@ def register_view(request):
                 student_id=p.get('student_id'),
                 **_registration_profile_fields(p, request.FILES, disability),
             )
-            if declared:
-                # Pending until the SDSO verifies it on the account queue.
-                # Approving the account is what turns this into an award.
-                ScholarshipLinkRequest.objects.create(student=profile, **declared)
+            for declaration in declarations:
+                # Pending until the SDSO verifies it on the account queue. One
+                # row each: the office approves them one at a time, because two
+                # awards are two things to check against two sets of records.
+                # Approving one is what turns that one into an award.
+                ScholarshipLinkRequest.objects.create(student=profile, **declaration)
+            if len(declarations) > 1:
+                # The queue badge counts accounts, not declarations, so a
+                # registration carrying two awards looks exactly like one
+                # carrying none until somebody opens it. This is the only
+                # signal that says otherwise.
+                notify.multiple_declarations(profile, declarations)
             return _await_verification(request, user)
 
         else:
@@ -520,6 +810,12 @@ def register_view(request):
                 department=p.get('department', '').strip(),
                 position=p.get('position', '').strip(),
             )
+            if declared:
+                # Pending until the SDSO verifies it on the account queue, the
+                # same as a student's declaration. Approving the account is what
+                # turns this into the award.
+                from .models import StaffScholarshipDeclaration
+                StaffScholarshipDeclaration.objects.create(staff_user=user, **declared)
             from .models import ActivityLog
             ActivityLog.objects.create(
                 user=user,
@@ -570,15 +866,14 @@ def _positive_int(raw, current):
 def _disability_answer(posted):
     """(value to store, error) for the Disability Type dropdown and its 'Other' box.
 
-    The same pair the TES application uses: CHED's own Disability_List in a
-    dropdown, plus one option this system adds for a condition their list does
-    not name. 'Other' on its own says nothing, so it is refused rather than
+    CHED's own Disability_List in a dropdown, plus one option this system adds
+    for a condition their list does not name. 'Other' on its own says nothing, so it is refused rather than
     stored. 'NO' is how that list spells not applicable, and storing it is the
     student answering the question — not leaving it blank.
     """
-    from . import annex1_report
+    from . import disability_list
     value = (posted.get('disability_type') or '').strip()
-    if value != annex1_report.OTHER:
+    if value != disability_list.OTHER:
         return value, ''
     typed = (posted.get('disability_type_other') or '').strip()
     if not typed:
@@ -595,17 +890,17 @@ def _disability_fields(posted_value, posted_other, saved):
     `posted_value` (rather than None) redisplays what was just typed, which is
     what a form coming back with an error has to show.
     """
-    from . import annex1_report
-    options = annex1_report.disability_types()
+    from . import disability_list
+    options = disability_list.disability_types()
     if posted_value is not None:
         value, other = posted_value, posted_other
     else:
         saved = (saved or '').strip()
         custom = saved if saved and saved not in options else ''
-        value, other = (annex1_report.OTHER if custom else saved), custom
+        value, other = (disability_list.OTHER if custom else saved), custom
     return {
         'disabilities': options,
-        'other_option': annex1_report.OTHER,
+        'other_option': disability_list.OTHER,
         'disability_value': value,
         'disability_other': other,
     }
@@ -615,10 +910,10 @@ def _scholarship_records(profile):
     """What the student holds, and what they declared that is still being checked.
 
     One list because a student thinks of it as one question — "what am I on?" —
-    even though three tables answer it: the awards ledger, the TES application
-    UniFAST decides on its own screen, and the scholarship declared at
-    registration that nobody has verified yet. An approved declaration is left
-    out: approving one writes the award, and it would otherwise appear twice.
+    even though two tables answer it: the awards ledger, and the scholarship
+    declared at registration that nobody has verified yet. An approved
+    declaration is left out: approving one writes the award, and it would
+    otherwise appear twice.
     """
     if not profile:
         return []
@@ -631,15 +926,6 @@ def _scholarship_records(profile):
         'note': '',
     } for app in Application.objects.filter(student=profile, status='Approved')
         .select_related('scholarship').order_by('-submitted_at')]
-
-    for tes in TESApplication.objects.filter(
-            student=profile, status='Approved').order_by('-submitted_at'):
-        records.append({
-            'name': 'Tertiary Education Subsidy (TES)', 'type': 'TES',
-            'status': 'Approved',
-            'term': ' '.join(x for x in (tes.school_year, tes.semester) if x),
-            'award_number': '', 'note': '',
-        })
 
     for req in ScholarshipLinkRequest.objects.filter(
             student=profile).exclude(status='Approved').order_by('-submitted_at'):
@@ -669,31 +955,20 @@ def _parse_gwa(raw):
     return value if 1.0 <= value <= 5.0 else None
 
 
-# Two awards at once are allowed for exactly one pair. TES is a UniFAST subsidy
-# and an Academic scholarship is BiPSU's own recognition of a grade, so neither
-# is the "other government assistance" that would disqualify the other. Every
-# remaining programme is exclusive: a scholar on TDP, DOST, CHED or any of the
-# office's imported lists holds that one and nothing else.
-DUAL_SCHOLARSHIP_TYPES = frozenset({'Academic', 'TES'})
-
-
 def held_scholarship_types(profile):
     """The programmes this student already holds, as canonical type keys.
 
-    Three different records can make someone a scholar and they do not all write
-    an Application: an approved award (applied for, linked or imported), an
-    approved TES application — UniFAST decides those on their own screen and
-    never creates an Application row — and an approved link request for the
-    active term. An approved link only counts for the term it was granted for,
-    so last semester's award does not keep blocking this semester.
+    Two different records can make someone a scholar and they do not both write
+    an Application: an approved award (applied for, linked or imported), and an
+    approved link request for the active term. An approved link only counts for
+    the term it was granted for, so last semester's award does not keep blocking
+    this semester.
     """
     if not profile:
         return set()
     held = set(
         Application.objects.filter(student=profile, status='Approved')
         .values_list('scholarship__type', flat=True))
-    if TESApplication.objects.filter(student=profile, status='Approved').exists():
-        held.add('TES')
     from .models import SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     held |= set(
@@ -704,15 +979,59 @@ def held_scholarship_types(profile):
 
 
 def can_hold_alongside(held, wanted):
-    """May `wanted` be added to the programmes already `held`?"""
-    held = set(held)
-    if wanted in held:
-        return False
-    return not held or held | {wanted} <= DUAL_SCHOLARSHIP_TYPES
+    """May `wanted` be added to the programmes already `held`?
+
+    Every programme this system awards is exclusive: a scholar on Academic,
+    TDP, DOST, CHED or any of the office's imported lists holds that one and
+    nothing else. TES was the single exception — a UniFAST subsidy sat
+    alongside BiPSU's own recognition of a grade — and it is no longer awarded
+    here at all, so the answer is now simply whether they hold anything yet.
+    """
+    return not set(held)
+
+
+def application_window_reason(stype):
+    """Why `stype` is not accepting applications today. '' when it is.
+
+    A programme with no window set stays open, which is what every programme
+    was before the office could set one. A programme with no Scholarship row at
+    all is also open here: the apply views already handle a missing programme,
+    and refusing on that ground would blame the student for the catalogue.
+    """
+    from django.utils import timezone
+    programme = Scholarship.objects.filter(type=stype).first()
+    if not programme:
+        return ''
+    return programme.window_closed_reason(timezone.localdate())
+
+
+def renewal_window_reason(stype):
+    """Why `stype` is not accepting renewals today. '' when it is.
+
+    The renewal half of :func:`application_window_reason`, and separate from it
+    for the reason the two windows are separate: an office opens applications
+    for the incoming batch and renewals for the continuing scholars, and a
+    scholar turned away from the renewal form because *applications* closed
+    would be told something both true and useless.
+    """
+    from django.utils import timezone
+    programme = Scholarship.objects.filter(type=stype).first()
+    if not programme:
+        return ''
+    return programme.renewal_closed_reason(timezone.localdate())
 
 
 def scholarship_block_reason(profile, wanted, label):
-    """Why `wanted` is closed to this student, in their words. '' when it is open."""
+    """Why `wanted` is closed to this student, in their words. '' when it is open.
+
+    Two separate closures, and the window is checked first: a programme that is
+    not open yet is shut to everybody, and telling a student they are
+    ineligible when the truth is that nobody can apply until Monday sends them
+    to the office with the wrong question.
+    """
+    shut = application_window_reason(wanted)
+    if shut:
+        return shut
     held = held_scholarship_types(profile)
     if can_hold_alongside(held, wanted):
         return ''
@@ -721,9 +1040,8 @@ def scholarship_block_reason(profile, wanted, label):
     from .models import SCHOLARSHIP_TYPE_CHOICES
     display = dict(SCHOLARSHIP_TYPE_CHOICES)
     names = ', '.join(sorted(display.get(t, t) for t in held))
-    return (f'You are already enrolled in {names}. Only TES and an Academic '
-            'scholarship may be held at the same time — every other programme is '
-            'held on its own.')
+    return (f'You are already enrolled in {names}. Each programme is held on '
+            'its own — a scholar may not be on two at once.')
 
 
 def _is_enrolled(profile):
@@ -803,7 +1121,7 @@ def student_apply_academic(request):
     editing = Application.objects.filter(
         student=profile, status__in=EDITABLE_APPLICATION_STATUSES
     ).select_related('scholarship').order_by('-submitted_at', '-pk').first() if profile else None
-    # An Academic scholarship may be held alongside TES and nothing else, so
+    # An Academic scholarship is held on its own like every other, so
     # what closes this form is the set of programmes already held rather than
     # 'has any approved award' — see scholarship_block_reason.
     blocked_reason = scholarship_block_reason(
@@ -892,10 +1210,8 @@ def student_apply_academic(request):
 def student_applications(request):
     profile = StudentProfile.objects.filter(user=request.user).first()
     applications = Application.objects.filter(student=profile).select_related('scholarship') if profile else Application.objects.none()
-    tes_applications = TESApplication.objects.filter(student=profile) if profile else TESApplication.objects.none()
     return render(request, 'student/applications.html', {
         'applications': applications,
-        'tes_applications': tes_applications,
         'enrolled': _is_enrolled(profile),
     })
 
@@ -907,34 +1223,119 @@ def student_notifications(request):
     return render(request, 'student/notifications.html', {'notifications': notifications, 'enrolled': _is_enrolled(profile)})
 
 
+def _renewable_programmes(profile):
+    """Every programme this student holds, and whether its renewals are open.
+
+    One entry per award, because a student may hold more than one — two
+    declared at registration and both approved is the ordinary way it happens —
+    and each programme opens and closes its own renewal window. A student on
+    Academic and DOST whose Academic renewals have closed can still renew DOST,
+    and a page that asked one window on the student's behalf would have told
+    them the wrong thing about the other.
+    """
+    from .models import SCHOLARSHIP_TYPE_CHOICES
+    labels = dict(SCHOLARSHIP_TYPE_CHOICES)
+    programmes = []
+    for stype in sorted(held_scholarship_types(profile)):
+        shut = renewal_window_reason(stype)
+        programmes.append({
+            'type': stype,
+            'label': labels.get(stype, stype),
+            'open': not shut,
+            'closed_reason': shut,
+        })
+    return programmes
+
+
 @login_required(login_url='/login/')
 def student_renewal_academic(request):
+    """Submit renewal documents, for whichever award they are renewing.
+
+    The page used to be Academic's alone: it asked Academic's renewal window,
+    wrote an AcademicRenewal with nothing on it saying which programme, and the
+    office approved every one of them into an Academic award. A student holding
+    two scholarships had no way to renew the second, and no way to tell the
+    office which one the documents were for.
+
+    So the programme is now part of the submission. A student on one award never
+    sees the question — it is answered for them — and a student on two or more
+    picks, from the ones whose window is actually open.
+    """
     from .models import SystemSettings
     profile = StudentProfile.objects.filter(user=request.user).first()
-    has_academic = Application.objects.filter(student=profile, scholarship__type='Academic', status='Approved').exists() if profile else False
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    programmes = _renewable_programmes(profile)
+    open_programmes = [p for p in programmes if p['open']]
+
+    renewals = (AcademicRenewal.objects.filter(student=profile)
+                .order_by('-submitted_at') if profile else [])
+
+    def page(**extra):
+        """The page's own context, so the six exits below cannot drift apart."""
+        context = {
+            'profile': profile,
+            'programmes': programmes,
+            'open_programmes': open_programmes,
+            'multiple': len(open_programmes) > 1,
+            'renewals': renewals,
+            'semester': parsed['semester'],
+            'academic_year': parsed['sy'],
+            'enrolled': _is_enrolled(profile),
+        }
+        context.update(extra)
+        return render(request, 'student/renewal_academic.html', context)
+
+    # Renewals have their own window, set on the office's Renewal Applications
+    # tab. It is asked before anything else on this page for the same reason
+    # the apply pages ask it first: a form that is shut is shut for everybody,
+    # and telling a scholar something about their own record when the truth is
+    # that the office has not opened renewals yet sends them to the wrong desk.
+    #
+    # Only when *every* programme they hold is shut, though. One closed window
+    # out of two is not a closed page.
+    if programmes and not open_programmes:
+        return page(blocked=True, blocked_reason=' '.join(
+            f"{p['label']}: {p['closed_reason']}" for p in programmes))
+
     if request.method == 'POST' and profile:
         cog = request.FILES.get('certificate_of_grades')
         coe = request.FILES.get('certificate_of_enrollment')
         errors = []
+
+        # One open programme answers this itself. More than one and the student
+        # has to say, because nothing else on the submission can tell the office
+        # which award these documents renew.
+        posted = (request.POST.get('scholarship_type') or '').strip()
+        chosen = next((p for p in open_programmes if p['type'] == posted), None)
+        if chosen is None:
+            if posted:
+                errors.append('That is not a programme you hold with renewals open. '
+                              'Pick one of the programmes listed.')
+            elif len(open_programmes) == 1:
+                chosen = open_programmes[0]
+            elif not open_programmes:
+                errors.append('A renewal continues a scholarship you already '
+                              'hold, and there is none on your record yet.')
+            else:
+                errors.append('Choose which scholarship you are renewing.')
+
         if not cog:
             errors.append('Certificate of Grades is required.')
         if not coe:
             errors.append('Certificate of Enrollment is required.')
         if errors:
-            renewals = AcademicRenewal.objects.filter(student=profile).order_by('-submitted_at')
-            return render(request, 'student/renewal_academic.html', {
-                'profile': profile, 'has_academic': has_academic,
-                'renewals': renewals, 'errors': errors,
-                'semester': settings_obj.active_semester, 'academic_year': settings_obj.academic_year,
-                'enrolled': _is_enrolled(profile),
-            })
+            return page(errors=errors)
+
         # A renewal still waiting on the office is the student's to correct —
         # the usual reason to come back is that the Certificate of Grades they
         # uploaded was the wrong semester's. Replacing it beats a second
-        # submission, which would leave the office two to reconcile.
+        # submission, which would leave the office two to reconcile. Scoped to
+        # the programme as well as the term: a student renewing their second
+        # award must not overwrite the first one's documents.
         pending = AcademicRenewal.objects.filter(
             student=profile, status='Pending', term_label=settings_obj.academic_year,
+            scholarship_type=chosen['type'],
         ).order_by('-submitted_at').first()
         if pending:
             pending.certificate_of_grades = cog
@@ -942,19 +1343,26 @@ def student_renewal_academic(request):
             pending.save(update_fields=['certificate_of_grades', 'certificate_of_enrollment'])
         else:
             AcademicRenewal.objects.create(
-                student=profile, certificate_of_grades=cog, certificate_of_enrollment=coe)
+                student=profile, certificate_of_grades=cog,
+                certificate_of_enrollment=coe, scholarship_type=chosen['type'])
         return redirect('/student/renewal/academic/?submitted=1')
-    renewals = AcademicRenewal.objects.filter(student=profile).order_by('-submitted_at') if profile else []
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    pending = AcademicRenewal.objects.filter(
-        student=profile, status='Pending', term_label=settings_obj.academic_year,
-    ).order_by('-submitted_at').first() if profile else None
-    return render(request, 'student/renewal_academic.html', {
-        'profile': profile, 'has_academic': has_academic, 'editing': pending,
-        'renewals': renewals, 'submitted': request.GET.get('submitted'),
-        'semester': parsed['semester'], 'academic_year': parsed['sy'],
-        'enrolled': _is_enrolled(profile),
-    })
+
+    # What is already in for this term, per programme, so the form can say it is
+    # replacing rather than adding — and say it about the right award.
+    editing = {}
+    if profile:
+        for pending in AcademicRenewal.objects.filter(
+                student=profile, status='Pending',
+                term_label=settings_obj.academic_year).order_by('submitted_at'):
+            editing[pending.scholarship_type] = pending
+    # Whether this form is replacing rather than adding. Only answerable for a
+    # student with one programme open to them: with two, which one they are
+    # replacing is not known until they pick, so the form stays neutral and the
+    # selector says which are already in.
+    replacing = (len(open_programmes) == 1
+                 and open_programmes[0]['type'] in editing)
+    return page(editing=editing, replacing=replacing,
+                submitted=request.GET.get('submitted'))
 
 
 @login_required(login_url='/login/')
@@ -976,7 +1384,7 @@ def student_profile(request):
         profile.suffix = p.get('suffix', profile.suffix).strip()
         # Civil status, educational background and family background are all
         # locked once set, like the address below. They are what the masterlist
-        # and the TES form are built from, so a later edit would silently change
+        # are built from, so a later edit would silently change
         # a record the office has already reviewed. The archives edit screen is
         # the office's override when one of them was entered wrong.
         if not profile.civil_status:
@@ -986,7 +1394,7 @@ def student_profile(request):
         profile.family_income = float(p.get('family_income', profile.family_income) or profile.family_income)
         profile.indigenous_group = p.get('indigenous_group', profile.indigenous_group)
         # PWD is asked the way CHED asks it — which disability, from their own
-        # list — so the profile and the TES form cannot end up disagreeing about
+        # list — so the profile and the office's records cannot disagree about
         # the same student. 'NO' is how that list spells not applicable.
         disability, problem = _disability_answer(p)
         if problem:
@@ -997,8 +1405,17 @@ def student_profile(request):
             profile.elementary = p.get('elementary', profile.elementary)
             profile.highschool = p.get('highschool', profile.highschool)
             profile.last_school = p.get('last_school', profile.last_school)
-        # Parent names in parts — the shape CHED's TES form needs, collected
-        # once here so the TES application can fill itself in from the profile.
+        # Outside that lock on purpose. The school *names* are locked because the
+        # masterlists are built from them, but whether the high school was public
+        # is a question nobody was asked before this — locking it would leave
+        # every student registered until now permanently outside a group the
+        # Affirmative Action mandate may well reach them through.
+        profile.highschool_is_public = _tristate(
+            p.get('highschool_is_public'), profile.highschool_is_public)
+        profile.is_from_depressed_area = _tristate(
+            p.get('is_from_depressed_area'), profile.is_from_depressed_area)
+        # Parent names in parts — the shape the agency forms need, collected
+        # once here so no later form has to ask for them again.
         if not (profile.father_last_name and profile.father_first_name
                 and profile.mother_last_name and profile.mother_first_name):
             for parent in ('father', 'mother'):
@@ -1020,6 +1437,8 @@ def student_profile(request):
             p.get('is_4ps_beneficiary'), profile.is_4ps_beneficiary)
         profile.has_previous_degree = _tristate(
             p.get('has_previous_degree'), profile.has_previous_degree)
+        profile.is_solo_parent_dependent = _tristate(
+            p.get('is_solo_parent_dependent'), profile.is_solo_parent_dependent)
         # Affirmative eligibility
         raw_shs = p.get('shs_gpa', '').strip()
         if raw_shs:
@@ -1044,6 +1463,9 @@ def student_profile(request):
             profile.shs_gpa_cert = request.FILES['shs_gpa_cert']
         if request.FILES.get('suc_exam_cert'):
             profile.suc_exam_cert = request.FILES['suc_exam_cert']
+        if request.FILES.get('photo'):
+            u.photo = request.FILES['photo']
+            u.save(update_fields=['photo'])
         # Address: only update if not yet locked (all three empty)
         if not (profile.barangay and profile.municipality and profile.province):
             profile.barangay = p.get('barangay', profile.barangay)
@@ -1083,99 +1505,97 @@ def student_profile(request):
     })
 
 
-# — UniFAST portal pages ———————————————————————————
+# - Scholarship types the office archives -----------------------------------
 
-# Scholarship types the UniFAST office administers. Their portal is scoped to
-# these everywhere — archives, analytics and reports alike.
-UNIFAST_TYPES = ['TDP', 'TES']
+# Every programme the SDSO administers. The archive builds a tab per entry
+# and adds any programme in the catalogue that is not named here, so a new
+# programme appears without an edit — this list only fixes the order the
+# familiar ones are shown in.
+SDSO_TYPES = ['Academic', 'TDP', 'SUC-TDP', 'FHE', 'TES', 'DOST', 'JLSS',
+              'CHED', 'CoScho', 'Sports', 'Affirmative', 'Staff', 'GSIS']
 
-# Programmes the VPSEA office must not review. TES applications are decided by
-# UniFAST at /unifast/tes-applications/; VPSEA neither lists nor acts on them.
-VPSEA_EXCLUDED_TYPES = ['TES']
+
+def _change_own_password(request, user):
+    """Apply a password change the signed-in account asked for. Returns errors.
+
+    The SDSO can already reset somebody else's password from Account
+    Verification, and a partner's from External Partners. Neither is this: this
+    is an account changing its own, which has a different bar — it asks for the
+    current password first, because a session left open on a shared office
+    machine must not be enough on its own to lock the owner out of it.
+
+    An empty new password is not a request to change anything; the profile pages
+    carry the password fields on the same form as the account's own details, and
+    saving a corrected surname must not be read as blanking the password.
+    """
+    from django.contrib.auth import update_session_auth_hash
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    from .models import ActivityLog
+
+    current = request.POST.get('current_password') or ''
+    new = request.POST.get('new_password') or ''
+    confirm = request.POST.get('new_password_confirm') or ''
+
+    if not (current or new or confirm):
+        return []
+
+    errors = []
+    if not user.check_password(current):
+        errors.append('Your current password is not right. '
+                      'Passwords are case-sensitive.')
+    if not new:
+        errors.append('Enter the new password you want.')
+    elif new != confirm:
+        errors.append('The two new passwords do not match.')
+    else:
+        try:
+            validate_password(new, user)
+        except ValidationError as bad:
+            errors.extend(bad.messages)
+    if errors:
+        return errors
+
+    user.set_password(new)
+    user.save(update_fields=['password'])
+    # Django cycles the session key on a password change, which signs the
+    # person out of the tab they just did it in unless the session is told.
+    update_session_auth_hash(request, user)
+    ActivityLog.objects.create(user=user, action='Changed their own password')
+    return []
 
 
-def _unifast_required(view_fn):
+def _partner_office(user):
+    """The office this account speaks for, or None.
+
+    Three ways to have no office and they all mean the same thing here — wrong
+    role, never linked, or the office was removed or deactivated — so they get
+    one answer rather than three branches at every call site.
+    """
+    if not getattr(user, 'is_authenticated', False) or user.role != 'partner':
+        return None
+    office = user.partner_office
+    if office is None or not office.is_active:
+        return None
+    return office
+
+
+def _partner_required(view_fn):
+    """Every partner page, scoped to the office the account belongs to.
+
+    The office is resolved once and handed to the view, so no view can forget
+    to scope itself — the failure that matters here is one funder reading
+    another funder's scholars.
+    """
     from functools import wraps
+
     @wraps(view_fn)
     def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated or request.user.role != 'unifast':
+        office = _partner_office(request.user)
+        if office is None:
             return redirect('/login/')
-        return view_fn(request, *args, **kwargs)
+        return view_fn(request, office, *args, **kwargs)
     return wrapper
-
-
-@_unifast_required
-def unifast_dashboard(request):
-    """Everything the UniFAST office acts on, for the active semester.
-
-    Every figure is derived from records in the system — the office reviews TES
-    applications here and imports TDP/TES lists, so there is no need to invent
-    billing percentages.
-    """
-    from .models import (Announcement, ImportedScholar, ActivityLog, SystemSettings,
-                         TESApplication)
-    from . import tes_report
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    label = settings_obj.academic_year
-    parsed = SystemSettings.parse_label(label)
-
-    tes = TESApplication.objects.all()
-    tes_pending = tes.filter(status='Pending')
-    tes_approved = tes.filter(status='Approved').count()
-    tes_rejected = tes.filter(status='Rejected').count()
-    tdp_scholars = Application.objects.filter(
-        status='Approved', scholarship__type='TDP').count()
-
-    reviewed = tes_approved + tes_rejected
-    approval_rate = round(tes_approved * 100 / reviewed) if reviewed else 0
-
-    # Imported rows still waiting to be claimed by a student account.
-    imported = {
-        stype: ImportedScholar.objects.filter(
-            scholarship_type=stype, term_label=label, claimed_by__isnull=True,
-        ).count()
-        for stype in UNIFAST_TYPES
-    }
-
-    programs = [
-        {'label': 'TES', 'count': tes_approved, 'color': '#3b5bdb',
-         'href': '/unifast/tes-applications/'},
-        {'label': 'TDP', 'count': tdp_scholars, 'color': '#1971c2',
-         'href': '/unifast/archives/?type=TDP'},
-    ]
-    biggest = max((p['count'] for p in programs), default=0) or 1
-    for p in programs:
-        p['width'] = round(p['count'] * 100 / biggest)
-
-    return render(request, 'unifast/dashboard.html', {
-        'academic_year': parsed['sy'],
-        'semester': parsed['semester'],
-        'tes_total': tes.count(),
-        'tes_pending_count': tes_pending.count(),
-        'tes_beneficiaries': tes_approved,
-        'tes_rejected': tes_rejected,
-        'approval_rate': approval_rate,
-        'tdp_scholars': tdp_scholars,
-        'total_scholars': tes_approved + tdp_scholars,
-        # No billing figure is derived here. It was grantees x a flat rate, which
-        # is not something this office decides, and no template rendered it.
-        'programs': programs,
-        'imported': imported,
-        'imported_total': sum(imported.values()),
-        'pending_queue': list(
-            tes_pending.select_related('student__user', *STUDENT_DETAILS).order_by('submitted_at')[:6]
-        ),
-        'announcements': list(
-            Announcement.objects.filter(published_by=request.user)
-            .order_by('-created_at')[:3]
-        ),
-        'recent_activity': list(
-            ActivityLog.objects.filter(user=request.user)
-            .order_by('-created_at')[:5]
-        ),
-    })
-
 
 
 # — VPSEA portal pages ———————————————————————————————————
@@ -1190,6 +1610,129 @@ def _vpsea_required(view_fn):
     return wrapper
 
 
+# ── The two windows, set where the work is ──────────────────────────────────
+#
+# Whether a programme is taking applications, and whether it is taking
+# renewals, used to be one pair of boxes on the programme's own form under
+# Scholarship Programs — three clicks from the queue, on the page an officer
+# opens least and never while reviewing. They are here instead: the Application
+# Period card sits on the Applications tab, the Renewal Period card on the
+# Renewal Applications tab, each above the queue it governs.
+#
+# Both cards post through this one function because they are the same form with
+# a different noun. Two copies would drift the first time one grew a rule.
+
+# What each card is called, and which columns on Scholarship it writes. The key
+# is what the card posts as `window`.
+#
+# Two names for the same thing, because English does not let one serve: the card
+# is headed "Application Period" and the switch beside it reads "Accepting
+# applications". "Applications Period" is what one name gets you.
+WINDOW_KINDS = {
+    'applications': {
+        'title': 'Application Period',
+        'label': 'Applications',
+        'switch': 'accepting_applications',
+        'opens': 'applications_open_on',
+        'days': 'applications_open_days',
+    },
+    'renewals': {
+        'title': 'Renewal Period',
+        'label': 'Renewals',
+        'switch': 'accepting_renewals',
+        'opens': 'renewals_open_on',
+        'days': 'renewals_open_days',
+    },
+}
+
+
+def _window_card_context(programme, kind, tab=''):
+    """What templates/vpsea/_window_card.html needs to draw one window.
+
+    Resolved here rather than in the template because the card asks two
+    questions of today's date — is this open, and if not, why — and a template
+    cannot pass an argument to a method. Both answers come off the model, so
+    the card and the student's own apply page cannot disagree about whether a
+    form is running.
+    """
+    from django.utils import timezone
+
+    spec = WINDOW_KINDS[kind]
+    today = timezone.localdate()
+    named = {'kind': kind, 'title': spec['title'], 'noun': spec['label'],
+             'tab': tab}
+    if not programme:
+        return {**named, 'programme': None}
+    open_now = (programme.accepts_applications_on(today) if kind == 'applications'
+                else programme.accepts_renewals_on(today))
+    reason = (programme.window_closed_reason(today) if kind == 'applications'
+              else programme.renewal_closed_reason(today))
+    return {
+        **named,
+        'programme': programme,
+        'accepting': getattr(programme, spec['switch']),
+        'open_on': getattr(programme, spec['opens']),
+        'open_days': getattr(programme, spec['days']),
+        'closes_on': (programme.applications_close_on if kind == 'applications'
+                      else programme.renewals_close_on),
+        'is_open_now': open_now,
+        'closed_reason': reason,
+    }
+
+
+def _save_window(request, programme, kind, back):
+    """Record what one window card was set to, and say so in the activity log.
+
+    ``back`` is where the officer returns to. It may already carry a query —
+    the Applications tab has to come back to the tab it was posted from — so
+    the outcome is joined onto whatever is there rather than assumed to be the
+    first parameter.
+
+    A programme that does not exist is not an error the officer can fix: the
+    tab is showing a queue for a programme nobody has added to the catalogue,
+    which is a different problem and one this card cannot solve.
+    """
+    from urllib.parse import quote
+
+    from .models import ActivityLog
+
+    spec = WINDOW_KINDS[kind]
+    label, switch = spec['label'], spec['switch']
+    opens_field, days_field = spec['opens'], spec['days']
+    joiner = '&' if '?' in back else '?'
+    if not programme:
+        return redirect(f'{back}{joiner}error=' + quote(
+            f'No programme is configured to set {label.lower()} for. '
+            'Add it under Scholarship Programs first.'))
+
+    errors = []
+    opens, days = _posted_window(request.POST, errors, kind)
+    if errors:
+        return redirect(f'{back}{joiner}error=' + quote(' '.join(errors)))
+
+    # A checkbox posts nothing when it is off, which is exactly the state that
+    # has to be recorded — so this reads absence as "closed" rather than
+    # leaving the switch as it was.
+    accepting = bool(request.POST.get(switch))
+    setattr(programme, switch, accepting)
+    setattr(programme, opens_field, opens)
+    setattr(programme, days_field, days)
+    programme.save(update_fields=[switch, opens_field, days_field])
+
+    if not accepting:
+        state = 'closed'
+    elif opens:
+        closes = (programme.applications_close_on if kind == 'applications'
+                  else programme.renewals_close_on)
+        state = f'open from {opens}' + (f' to {closes}' if closes else ' with no end date')
+    else:
+        state = 'open with no window'
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'{label} for {programme.name}: {state}')
+    return redirect(f'{back}{joiner}saved=window')
+
+
 @_vpsea_required
 def vpsea_affirmative_applications(request):
     from .constants import DECIDED_APPLICATION_STATUSES
@@ -1200,13 +1743,18 @@ def vpsea_affirmative_applications(request):
         new_status = request.POST.get('status')
         remarks = request.POST.get('remarks', '')
         tab = request.POST.get('tab', 'affirmative')
+        # The Application Period card, which is the tab's own setting rather
+        # than a decision on anybody's application. Each tab sets the window for
+        # the programme it queues: Academic on one, BiPSU Staff on the other.
+        if request.POST.get('window') == 'applications':
+            stype = 'Staff' if tab == 'staff' else 'Academic'
+            return _save_window(
+                request, Scholarship.objects.filter(type=stype).first(),
+                'applications', f'/vpsea/affirmative/?tab={tab}')
         if tab == 'academic':
             try:
-                # excluded types are UniFAST's to decide, so a posted id for one
-                # finds nothing here rather than being approved by this office.
                 acad_app = (
                     Application.objects.select_related('student')
-                    .exclude(scholarship__type__in=VPSEA_EXCLUDED_TYPES)
                     .get(id=app_id)
                 )
                 # The office decides once. The buttons are already hidden for a
@@ -1291,17 +1839,23 @@ def vpsea_affirmative_applications(request):
         .select_related('student__user', 'scholarship', *STUDENT_DETAILS)
         .prefetch_related('documents')
         .exclude(scholarship__type__in=['Staff'])
-        .exclude(scholarship__type__in=VPSEA_EXCLUDED_TYPES)
         .order_by('-submitted_at')
     )
     # No Affirmative queue: nobody applies for that programme. It is worked out
     # from the student's own profile and read on the Student Ranking page.
     staff_apps = AffirmativeStaffApplication.objects.filter(
         qualified_for='Staff').select_related(*STAFF_APPLICATION_DETAILS).order_by('-submitted_at')
+    # The programme this tab queues, so the Application Period card above the
+    # table is the window for the form that fills it.
     return render(request, 'vpsea/affirmative.html', {
         'academic_apps': academic_apps,
         'staff_apps': staff_apps,
         'active_tab': tab,
+        'saved': request.GET.get('saved'),
+        **_window_card_context(
+            Scholarship.objects.filter(
+                type='Staff' if tab == 'staff' else 'Academic').first(),
+            'applications', tab),
     })
 
 
@@ -1336,6 +1890,14 @@ def vpsea_renewals(request):
     if request.method == 'POST':
         from .models import SystemSettings
         from django.utils import timezone
+        # The Renewal Period card, which is this tab's own setting rather than
+        # a decision on anybody's renewal. It sets Academic's window; every
+        # other programme's is set on that programme's own form, and the student
+        # page reads whichever windows apply to the awards they hold.
+        if request.POST.get('window') == 'renewals':
+            return _save_window(
+                request, Scholarship.objects.filter(type='Academic').first(),
+                'renewals', '/vpsea/renewals/')
         renewal_id = request.POST.get('renewal_id')
         new_status = request.POST.get('status')
         remarks = request.POST.get('remarks', '')
@@ -1343,15 +1905,20 @@ def vpsea_renewals(request):
         reviewed = AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).filter(id=renewal_id).first()
         if reviewed:
             notify.decision(
-                reviewed.student, 'Your scholarship renewal', new_status, remarks,
-                link='/student/renewal/',
+                reviewed.student,
+                f'Your {reviewed.get_scholarship_type_display()} renewal',
+                new_status, remarks,
+                link='/student/renewal/academic/',
             )
         # On approval: create a new Application for the current semester so the
-        # student appears in the current-SY archives.
+        # student appears in the current-SY archives — against the programme the
+        # scholar said they were renewing. It was hard-coded to Academic, which
+        # quietly turned a DOST scholar's renewal into an Academic award.
         if new_status == 'Approved':
             try:
                 renewal = AcademicRenewal.objects.select_related('student').get(id=renewal_id)
-                scholarship = Scholarship.objects.filter(type='Academic').first()
+                scholarship = Scholarship.objects.filter(
+                    type=renewal.scholarship_type).first()
                 if scholarship:
                     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
                     parsed = SystemSettings.parse_label(settings_obj.academic_year)
@@ -1378,6 +1945,10 @@ def vpsea_renewals(request):
         'renewals': renewals,
         'approved_count': renewals.filter(status='Approved').count(),
         'pending_count': renewals.filter(status='Pending').count(),
+        'saved': request.GET.get('saved'),
+        'error': request.GET.get('error'),
+        **_window_card_context(
+            Scholarship.objects.filter(type='Academic').first(), 'renewals'),
     })
 
 
@@ -1411,19 +1982,25 @@ def _archive_candidates(req, label=None):
     return qs.filter(cond).order_by('last_name', 'first_name')
 
 
-def declared_scholarship(profile):
-    """The scholarship this student declared at registration, if it is undecided.
+def declared_scholarships(profile):
+    """Every scholarship this student declared at registration and nobody has
+    decided yet, oldest first.
 
-    One at a time: the registration form asks once, and a second declaration
-    would be a second account. Returned so the account verification queue can
-    show what was claimed and decide it in the same action.
+    A list because the registration form asks up to three times — a student may
+    hold two awards, and asking once meant the second one reached the office by
+    email or not at all. They are separate link requests with separate proof,
+    and the account verification queue shows and decides each of them.
+
+    Oldest first so the cards read in the order they were filled in: the first
+    card on the form is the first card in the queue, which is the order the
+    student described their own awards in.
     """
     if not profile:
-        return None
-    return (ScholarshipLinkRequest.objects
-            .select_related('student__user', *STUDENT_DETAILS)
-            .filter(student=profile, status='Pending')
-            .order_by('-submitted_at').first())
+        return []
+    return list(ScholarshipLinkRequest.objects
+                .select_related('student__user', *STUDENT_DETAILS)
+                .filter(student=profile, status='Pending')
+                .order_by('submitted_at', 'pk'))
 
 
 def approve_declared_scholarship(req, reviewer, archive=None, remarks='', tier=''):
@@ -1570,6 +2147,138 @@ def reject_declared_scholarship(req, reviewer, remarks):
 UNAWARDED_TAB = 'No Scholarship'
 
 
+def _archive_back(stype, tier=''):
+    """The archive URL for one tab, used by every redirect off a record form.
+
+    Without the tier a CHED edit or delete lands the office back on the Full
+    tab whichever one they were working in.
+    """
+    from urllib.parse import quote
+
+    url = f'/vpsea/archives/?type={quote(stype)}'
+    return url + (f'&tier={tier}' if tier in CHED_ARCHIVE_TIERS else '')
+
+
+# CHED is the one programme the office reports in two blocks, so it is the one
+# that gets two tabs. The tier rides as a query parameter rather than as a type
+# of its own: ``type`` is the key the add form, the column set, the upload, the
+# import history and the download all look a programme up by, and a 'CHED-Full'
+# type would have to be special-cased in every one of them.
+CHED_ARCHIVE_TIERS = ('Full', 'Half')
+
+
+def declared_staff_scholarship(user):
+    """The Staff Scholarship this employee declared, if it is undecided.
+
+    The staff counterpart of :func:`declared_scholarship`. One at a time, for
+    the same reason: the registration form asks once.
+    """
+    from .models import StaffScholarshipDeclaration
+    if not user:
+        return None
+    return (StaffScholarshipDeclaration.objects
+            .filter(staff_user=user, status='Pending')
+            .order_by('-submitted_at').first())
+
+
+def approve_declared_staff_scholarship(decl, reviewer, remarks=''):
+    """Turn a declared Staff Scholarship into the award it claims to be.
+
+    The staff mirror of :func:`approve_declared_scholarship`, and it writes the
+    record that programme actually keeps: an Approved
+    :class:`AffirmativeStaffApplication`, so the scholar flows into the Staff
+    archive, the masterlist and the reports like every other Staff scholar.
+    Returns ``(application, error)``; the error is a sentence for the officer.
+
+    The applicant's own details are copied off the StaffProfile the registration
+    just built rather than asked for a second time — they are the same facts,
+    and a form that asked twice would be two records that could disagree.
+    """
+    from django.utils import timezone
+    from .models import (ActivityLog, AffirmativeStaffApplication, StaffProfile,
+                         SystemSettings)
+
+    user = decl.staff_user
+    staff = StaffProfile.objects.filter(user=user).first()
+    if staff is None:
+        return None, ('That account has no staff profile, so the award has '
+                      'nowhere to be recorded.')
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+
+    # Reuse this term's row if one already exists, so a re-approval after a
+    # correction does not leave the employee counted twice. Matched the way
+    # nsu_staff_apply matches it — on the email and the programme.
+    app = AffirmativeStaffApplication.objects.filter(
+        email=user.email, qualified_for='Staff',
+        school_year=parsed['sy'], semester=parsed['semester'],
+    ).first()
+    if app is None:
+        app = AffirmativeStaffApplication(email=user.email)
+
+    app.full_name = user.get_full_name()
+    app.qualified_for = 'Staff'
+    app.status = 'Approved'
+    app.remarks = remarks
+    app.school_year = parsed['sy']
+    app.semester = parsed['semester']
+    app.term_label = settings_obj.academic_year
+    app.barangay = staff.barangay
+    app.municipality = staff.municipality
+    app.province = staff.province
+    app.save()
+
+    # Detail-row fields, which only write once the parent has a primary key.
+    app.contact_number = staff.contact_number
+    app.date_of_birth = staff.date_of_birth
+    app.gender = staff.gender
+    # The employee is the holder here, not a dependent: this half of the form is
+    # only shown to a staff registration. A dependent's award is applied for on
+    # the staff portal, where the form can ask whose dependent they are.
+    app.is_nsu_staff = True
+    app.is_nsu_dependent = False
+    app.staff_employee_id = staff.employee_id
+    app.employment_status = staff.employment_status
+    app.designation = staff.designation
+    app.department = staff.department
+    app.position = staff.position
+    app.school = staff.school
+    app.save()
+
+    decl.status = 'Approved'
+    decl.remarks = remarks
+    decl.reviewed_by = reviewer
+    decl.reviewed_at = timezone.now()
+    decl.linked_application = app
+    decl.save()
+
+    ActivityLog.objects.create(
+        user=reviewer,
+        action=(f'Verified the BiPSU Staff Scholarship declared by '
+                f'{user.get_full_name() or user.email} — recorded as an award '
+                f"for {parsed['sy']} {parsed['semester']}."),
+    )
+    return app, ''
+
+
+def reject_declared_staff_scholarship(decl, reviewer, remarks):
+    """Turn the declaration down. No award is written, and none is removed."""
+    from django.utils import timezone
+    from .models import ActivityLog
+
+    decl.status = 'Rejected'
+    decl.remarks = remarks
+    decl.reviewed_by = reviewer
+    decl.reviewed_at = timezone.now()
+    decl.save()
+    ActivityLog.objects.create(
+        user=reviewer,
+        action=(f'Turned down the BiPSU Staff Scholarship declared by '
+                f'{decl.staff_user.get_full_name() or decl.staff_user.email} — {remarks}'),
+    )
+
+
 def _unawarded_rows(term_label):
     """Students with no Approved award for ``term_label``, with why attached.
 
@@ -1578,10 +2287,13 @@ def _unawarded_rows(term_label):
     needs a reason. The office can only act on the difference, so each row
     carries the student's most recent application — if they have one at all.
 
-    An account the office rejected at registration is none of those. That
-    person was turned away at the door and cannot sign in to apply, so they
-    are not a student the system failed to serve — they were never admitted
-    to it. They belong on the accounts screen, not in the archives.
+    An account the office has not verified is none of those. Whether it was
+    rejected or is still sitting in the queue, that person cannot sign in and
+    so cannot apply — the system has not failed to serve them, it has not
+    admitted them yet. Listing them here reads as "invite this student", when
+    what is actually owed is a decision on the accounts screen. Only accounts
+    the office approved appear, which is also why the count on this tab is not
+    the registration total.
     """
     from .constants import academic_classification
 
@@ -1592,7 +2304,7 @@ def _unawarded_rows(term_label):
     students = (
         StudentProfile.objects
         .exclude(id__in=awarded)
-        .exclude(user__verification_status='rejected')
+        .filter(user__verification_status='approved')
         .select_related('user', *StudentProfile.DETAIL_RELATIONS)
         .prefetch_related('applications__scholarship')
         .order_by('user__last_name', 'user__first_name')
@@ -1623,7 +2335,7 @@ def _unawarded_rows(term_label):
     return rows
 
 
-def _scholar_groups(stype, groups, portal='vpsea'):
+def _scholar_groups(stype, groups, portal='vpsea', override=None):
     """The archive tables for one programme, as the template renders them.
 
     ``groups`` is ``[(title, records, empty message)]`` — one entry for most
@@ -1637,7 +2349,7 @@ def _scholar_groups(stype, groups, portal='vpsea'):
     programme = Scholarship.objects.filter(type=stype).first()
     # The type is passed as well: an archive tab can name a programme that has
     # no Scholarship row, and the default columns are chosen by type.
-    columns = scholar_columns.resolve(programme, stype, portal)
+    columns = scholar_columns.resolve(programme, stype, portal, override=override)
     built = []
     for title, records, empty in groups:
         records = list(records)
@@ -1653,10 +2365,168 @@ def _scholar_groups(stype, groups, portal='vpsea'):
     }
 
 
+def _archive_tabs(archive_types, active_type, active_tier):
+    """The programme picker's entries, grouped by who funds them.
+
+    They used to be a flat row of buttons, one per programme, which wrapped
+    onto a second and third line as the catalogue grew and pushed the table
+    down the page. Grouping them into a menu means the thirteenth programme
+    costs a row in a list rather than a line across the card.
+
+    A group is taken from the ``Scholarship`` row, so a programme added later
+    files itself. Anything with no row — the unawarded tab is not a programme —
+    goes under Other rather than being dropped from the picker.
+    """
+    from urllib.parse import quote
+
+    from .models import CHED_TIER_CHOICES, SCHOLARSHIP_GROUPS, Scholarship
+
+    funders = dict(Scholarship.objects.values_list('type', 'group'))
+    tier_labels = dict(CHED_TIER_CHOICES)
+    order = [key for key, _label in SCHOLARSHIP_GROUPS] + ['other']
+    names = {**dict(SCHOLARSHIP_GROUPS), 'other': 'Other'}
+
+    entries = []
+    for stype in archive_types:
+        group = funders.get(stype, 'other')
+        if stype == 'CHED':
+            for tier in CHED_ARCHIVE_TIERS:
+                entries.append({
+                    'label': f'CHED {tier} Merit',
+                    'note': tier_labels.get(tier, ''),
+                    'href': f'/vpsea/archives/?type=CHED&tier={tier}',
+                    'group': group,
+                    'active': active_type == 'CHED' and active_tier == tier,
+                })
+            continue
+        entries.append({
+            'label': stype,
+            'note': '',
+            'href': f'/vpsea/archives/?type={quote(stype)}',
+            'group': group,
+            'active': stype == active_type,
+        })
+
+    grouped = []
+    for key in order:
+        tabs = [e for e in entries if e['group'] == key]
+        if tabs:
+            grouped.append({'label': names[key], 'tabs': tabs})
+    return grouped
+
+
+def _archive_terms(stype, active_label):
+    """Every term this programme's archive can be shown for, newest first.
+
+    A term earns a place by having an import land in it, plus the active one,
+    which is on the list before anything has been imported into it at all.
+    """
+    from .models import ScholarListImport
+
+    labels = list(
+        ScholarListImport.objects.filter(scholarship_type=stype)
+        .values_list('term_label', flat=True).distinct().order_by('-term_label')
+    )
+    if active_label not in labels:
+        labels.insert(0, active_label)
+    return labels
+
+
+def _archive_term(request, stype, active_label):
+    """The term the page's dropdown is on: ``(every label, the chosen one)``.
+
+    A label that is not one of this programme's falls back to the active term
+    rather than showing an empty table for a term that never existed — and
+    because the download reads the term through here too, it cannot be pointed
+    at a different one than the table by editing the query string.
+    """
+    labels = _archive_terms(stype, active_label)
+    chosen = request.GET.get('sy', active_label)
+    return labels, chosen if chosen in labels else active_label
+
+
+def _archive_records(stype, term_label, tier=None):
+    """The scholars one archive tab lists, as ``[(title, records, empty)]``.
+
+    One entry for most programmes. CHED is reported in a Full and a Half block,
+    and ``tier`` picks which of them this tab is: 'Full' or 'Half' returns that
+    block alone and drops its heading, because the tab already names it. Left
+    out, both come back stacked — which is what the workbook does when the URL
+    that asked for it named no tier.
+
+    The page and the workbook it downloads both come through here, because they
+    used to pick their own rows and picked differently. The download read the
+    active term whatever term the page was showing, gated on an approved renewal
+    the page does not gate on, and never included an imported scholar — which,
+    for every programme that arrives as an office upload, is every scholar there
+    is. What you download is what you are looking at because there is one query
+    behind both.
+    """
+    from .models import ImportedScholar
+
+    # Rows claimed through an approved link request are excluded — that scholar
+    # now has a live Application row below, so listing both double counts them.
+    imported_rows = list(ImportedScholar.objects.filter(
+        scholarship_type=stype, term_label=term_label, claimed_by__isnull=True,
+    ).order_by('last_name', 'first_name'))
+
+    # Affirmative and Staff are applied for outside the student portal, so they
+    # have no Application rows and no renewal flow — every approved one is shown.
+    if stype in ('Affirmative', 'Staff'):
+        scholars = list(AffirmativeStaffApplication.objects.filter(
+            status='Approved', qualified_for=stype
+        ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
+        return [(None, scholars + imported_rows,
+                 f'No approved {stype} scholars yet.')]
+
+    # The term is an indexed column, so the selected one is simply matched. The
+    # old version tried four different form_data keys — the office wrote
+    # 'academic_year', the student form wrote 'school_year' — and then gave up
+    # for the active term and returned every approved application ever,
+    # whatever semester it belonged to.
+    awards = Application.objects.filter(
+        status='Approved', scholarship__type=stype, term_label=term_label,
+    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS)
+
+    if stype == 'CHED':
+        full, half = split_ched(awards.order_by('student__user__last_name'))
+        # An imported row says which block it is in, and a row that does not —
+        # a spreadsheet with no tier column, every row uploaded before the two
+        # tabs existed — prints under Full, where the report has always put an
+        # unclassified scholar rather than dropping it. See split_ched.
+        imported_half = [r for r in imported_rows if r.award_tier == 'Half']
+        imported_full = [r for r in imported_rows if r not in imported_half]
+        blocks = [
+            ('Full', 'Full Merit / Full Scholar', list(full) + imported_full,
+             'No approved CHED full scholars yet.'),
+            ('Half', 'Half Merit / Partial Scholar', list(half) + imported_half,
+             'No approved CHED half scholars yet.'),
+        ]
+        if tier in CHED_ARCHIVE_TIERS:
+            # One tab, one block, and no heading band repeating what the tab
+            # above it already says.
+            _key, _title, records, empty = next(
+                b for b in blocks if b[0] == tier)
+            return [(None, records, empty)]
+        return [(title, records, empty) for _key, title, records, empty in blocks]
+
+    scholars = list(awards.order_by('student__user__last_name').distinct())
+    return [(None, scholars + imported_rows,
+             f'No approved {stype} scholars yet.')]
+
+
 @_vpsea_required
 def vpsea_archives(request):
     from .models import Application, AffirmativeStaffApplication, ScholarListImport, SystemSettings, AcademicRenewal, ActivityLog
     stype = request.GET.get('type', 'Academic')
+    # Which CHED block this tab is. A bare ?type=CHED — an old bookmark, or a
+    # redirect written before the split — lands on Full rather than on no tab
+    # at all, so the picker always has exactly one entry lit.
+    tier = request.GET.get('tier', '')
+    if stype == 'CHED' and tier not in CHED_ARCHIVE_TIERS:
+        tier = CHED_ARCHIVE_TIERS[0]
+    elif stype != 'CHED':
+        tier = ''
     # Build archive_types dynamically from DB so newly added scholarship types appear
     base_types = ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'Affirmative', 'Staff', 'GSIS']
     db_types = list(Scholarship.objects.values_list('type', flat=True).distinct())
@@ -1668,15 +2538,7 @@ def vpsea_archives(request):
     active_semester = parsed['semester']  # '1st Semester'
 
     history = ScholarListImport.objects.filter(scholarship_type=stype).order_by('-created_at')
-    all_labels = list(
-    ScholarListImport.objects.filter(scholarship_type=stype)
-    .values_list('term_label', flat=True).distinct().order_by('-term_label')
-)
-    if active_label not in all_labels:
-        all_labels.insert(0, active_label)
-    selected_label = request.GET.get('sy', active_label)
-    if selected_label not in all_labels:
-        selected_label = active_label
+    all_labels, selected_label = _archive_term(request, stype, active_label)
 
     selected_parsed = SystemSettings.parse_label(selected_label)
     selected_sy = selected_parsed['sy']   # e.g. '2025-2026'
@@ -1704,6 +2566,11 @@ def vpsea_archives(request):
     import json as _json
     base_ctx = {
         'archive_types': archive_types,
+        'archive_tabs': _archive_tabs(archive_types, stype, tier),
+        'active_tier': tier,
+        # What the picker's own button reads, so it names the tab you are on
+        # without the template having to re-derive it.
+        'active_tab_label': f'CHED {tier} Merit' if tier else stype,
         'bipsu_schools': BIPSU_SCHOOLS,
         'bipsu_courses_json': _json.dumps(BIPSU_COURSES),
         'active_type': stype,
@@ -1711,6 +2578,9 @@ def vpsea_archives(request):
         'all_sy': all_labels,
         'all_sy_display': all_sy_display,
         'selected_sy': selected_label,
+        # The term the table is on, spelt the way the dropdown spells it. The
+        # download reads the same one, and says so.
+        'selected_sy_display': f"{selected_sy} — {selected_parsed['semester']}",
         'active_sy': active_label,
         'active_sy_display': active_display,
         'active_semester': active_semester,
@@ -1738,77 +2608,32 @@ def vpsea_archives(request):
             'total': len(rows),
         })
 
-    # Renewal-gated: only scholars with an Approved AcademicRenewal are shown
-    # For Affirmative/Staff there is no AcademicRenewal flow — show all approved
-    from .models import ImportedScholar
-    # Rows claimed through an approved link request are excluded — that scholar
-    # now has a live Application row below, so listing both double counts them.
-    imported_rows = ImportedScholar.objects.filter(
-        scholarship_type=stype, term_label=selected_label, claimed_by__isnull=True,
-    ).order_by('last_name', 'first_name')
-
-    if stype in ('Affirmative', 'Staff'):
-        aff_scholars = AffirmativeStaffApplication.objects.filter(
-            status='Approved', qualified_for=stype
-        ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name')
-        return render(request, 'vpsea/archives.html', {
-            **base_ctx,
-            **_scholar_groups(stype, [
-                (None, list(aff_scholars) + list(imported_rows),
-                 f'No approved {stype} scholars yet.'),
-            ]),
-            'total': aff_scholars.count() + imported_rows.count(),
-        })
-
-    def sy_filter(qs):
-        # The term is an indexed column now, so the selected one is simply
-        # matched. The old version tried four different form_data keys — the
-        # office wrote 'academic_year', the student form wrote 'school_year' —
-        # and then gave up for the active term and returned every approved
-        # application ever, whatever semester it belonged to.
-        return qs.filter(term_label=selected_label)
-
-    if stype == 'CHED':
-        all_scholars = sy_filter(Application.objects.filter(
-            status='Approved', scholarship__type='CHED',
-        )).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-        full_scholars, half_scholars = split_ched(all_scholars)
-        return render(request, 'vpsea/archives.html', {
-            **base_ctx,
-            # Imported CHED rows carry no tier, and the report has always
-            # printed an unclassified scholar under Full rather than dropping
-            # them — see split_ched.
-            **_scholar_groups(stype, [
-                ('Full Merit / Full Scholar',
-                 list(full_scholars) + list(imported_rows),
-                 'No approved CHED full scholars yet.'),
-                ('Half Merit / Partial Scholar', half_scholars,
-                 'No approved CHED half scholars yet.'),
-            ]),
-            'total': all_scholars.count() + imported_rows.count(),
-        })
-
-    scholars = sy_filter(Application.objects.filter(
-        status='Approved', scholarship__type=stype,
-    )).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name').distinct()
+    groups = _archive_records(stype, selected_label, tier)
     return render(request, 'vpsea/archives.html', {
         **base_ctx,
-        **_scholar_groups(stype, [
-            (None, list(scholars) + list(imported_rows),
-             f'No approved {stype} scholars yet.'),
-        ]),
-        'total': scholars.count() + imported_rows.count(),
+        **_scholar_groups(stype, groups),
+        'total': sum(len(records) for _title, records, _empty in groups),
     })
 
 
 @_vpsea_required
 def vpsea_archive_add(request):
-    from .models import Application, Scholarship, StudentProfile, User, AffirmativeStaffApplication, SystemSettings, ApplicationDocument
+    from .models import (Application, Scholarship, StudentProfile, User,
+                         AffirmativeStaffApplication, SystemSettings,
+                         ApplicationDocument, CHED_TIER_CHOICES)
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     p = request.POST
     f = request.FILES
     stype = p.get('scholarship_type', 'Academic')
+    # The CHED tab the form was opened from. Without it a scholar added on the
+    # Full tab is stored with no tier, and ched_tier() reads a missing tier as
+    # Half — so the office would add someone to one tab and watch them appear
+    # in the other. `back` returns to the tab they were on.
+    tier = p.get('tier', '') if stype == 'CHED' else ''
+    if tier not in CHED_ARCHIVE_TIERS:
+        tier = ''
+    back = f'/vpsea/archives/?type={stype}' + (f'&tier={tier}' if tier else '')
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
     active_sy = parsed['sy']
@@ -1836,7 +2661,7 @@ def vpsea_archive_add(request):
             missing.append('a student number')
         if missing:
             from urllib.parse import quote
-            return redirect(f'/vpsea/archives/?type={stype}&error=' + quote(
+            return redirect(f'{back}&error=' + quote(
                 'Creating an account needs ' + ' and '.join(missing) + '. The '
                 'address is where the scholar is emailed, and the student number '
                 'is their first password. Choose "Just an import" to record this '
@@ -1872,9 +2697,12 @@ def vpsea_archive_add(request):
             barangay=p.get('barangay', ''),
             municipality=p.get('municipality', ''),
             province=p.get('province', ''),
+            # The CHED tab it was added on. Without it the row is untiered and
+            # prints under Full, so the Half tab could not be added to at all.
+            award_tier=tier,
             imported_from='Added by SDSO',
         )
-        return redirect(f'/vpsea/archives/?type={stype}&added=1')
+        return redirect(f'{back}&added=1')
 
     if stype in ('Affirmative', 'Staff'):
         full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
@@ -1955,6 +2783,10 @@ def vpsea_archive_add(request):
                 'congress_district': p.get('congress_district', ''),
             }
             form_data = {}
+            if tier:
+                # The key ched_tier() reads, spelled the way the approval route
+                # spells it, so both tiers of the same programme agree.
+                form_data['scholar_type'] = dict(CHED_TIER_CHOICES)[tier]
             if stype == 'Academic':
                 form_data.update({
                     'elementary': p.get('elementary', ''),
@@ -1963,7 +2795,7 @@ def vpsea_archive_add(request):
                 })
                 # Parents' names belong on the profile, in parts. They used to be
                 # written into form_data as one string per parent, so the columns
-                # the masterlists and the TES form read stayed empty.
+                # the masterlists read stayed empty.
                 parent_fields = [
                     'father_last_name', 'father_first_name', 'father_middle_name',
                     'father_occupation', 'mother_last_name', 'mother_first_name',
@@ -2022,7 +2854,7 @@ def vpsea_archive_add(request):
                 'it changed.',
                 tone='success',
             )
-    return redirect(f'/vpsea/archives/?type={stype}&added=1')
+    return redirect(f'{back}&added=1')
 
 
 def _apply_student_record_edits(profile, p):
@@ -2105,19 +2937,48 @@ def vpsea_student_record_edit(request, pk):
 
 
 @_vpsea_required
+def vpsea_student_record_delete(request, pk):
+    """Remove a student who holds no award, from the No Scholarship tab.
+
+    The other archive tabs delete an award and leave the student behind. There
+    is no award here to delete, so this takes the account and everything that
+    cascades off it — which is the only thing that would take the row off the
+    tab. Kept to POST so a crawled or mistyped link cannot delete anyone.
+    """
+    from .models import ActivityLog, StudentProfile
+    from urllib.parse import quote
+    back = f'/vpsea/archives/?type={quote(UNAWARDED_TAB)}'
+    if request.method != 'POST':
+        return redirect(back)
+    profile = StudentProfile.objects.select_related('user').filter(pk=pk).first()
+    if not profile:
+        return redirect(back)
+    # Read for the log before the row goes, not after it.
+    who = profile.user.get_full_name() or profile.student_id
+    sid = profile.student_id
+    profile.user.delete()  # cascades to the profile, its details and its applications
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'Deleted the student record for {who} ({sid})',
+    )
+    return redirect(f'{back}&deleted=1')
+
+
+@_vpsea_required
 def vpsea_archive_edit(request, pk):
     from .models import Application, AffirmativeStaffApplication, StudentProfile, SystemSettings
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     p = request.POST
     stype = p.get('scholarship_type', 'Academic')
+    back = _archive_back(stype, p.get('tier', ''))
     is_aff = stype in ('Affirmative', 'Staff')
 
     if is_aff:
         try:
             obj = AffirmativeStaffApplication.objects.get(pk=pk)
         except AffirmativeStaffApplication.DoesNotExist:
-            return redirect(f'/vpsea/archives/?type={stype}')
+            return redirect(back)
         obj.full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
         obj.gender = p.get('gender', obj.gender)
         obj.course = p.get('course', obj.course)
@@ -2154,17 +3015,17 @@ def vpsea_archive_edit(request, pk):
         try:
             app = Application.objects.select_related('student__user', *STUDENT_DETAILS).get(pk=pk)
         except Application.DoesNotExist:
-            return redirect(f'/vpsea/archives/?type={stype}')
+            return redirect(back)
         error = _apply_student_record_edits(app.student, p)
         if error:
             from urllib.parse import quote
-            return redirect(f'/vpsea/archives/?type={stype}&error={quote(error)}')
+            return redirect(f'{back}&error={quote(error)}')
         if p.get('award_number') is not None:
             app.award_number = p.get('award_number')
         if p.get('congress_district') is not None:
             app.congress_district = p.get('congress_district')
         app.save()
-    return redirect(f'/vpsea/archives/?type={stype}&edited=1')
+    return redirect(f'{back}&edited=1')
 
 
 @_vpsea_required
@@ -2173,11 +3034,12 @@ def vpsea_archive_delete(request, pk):
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     stype = request.POST.get('scholarship_type', 'Academic')
+    back = _archive_back(stype, request.POST.get('tier', ''))
     if stype in ('Affirmative', 'Staff'):
         AffirmativeStaffApplication.objects.filter(pk=pk).delete()
     else:
         Application.objects.filter(pk=pk).delete()
-    return redirect(f'/vpsea/archives/?type={stype}&deleted=1')
+    return redirect(f'{back}&deleted=1')
 
 
 @_vpsea_required
@@ -2443,9 +3305,78 @@ def vpsea_rollover_delete(request, pk):
     return redirect(f'/vpsea/archives/?type={stype}')
 
 
+def _scholars_from_sheet(file, stype, term_label, imported_from=None):
+    """The scholar rows one uploaded workbook describes, unsaved.
+
+    Nothing is written here and nothing is deleted: the caller decides what the
+    new rows replace and inside which transaction, because the office replaces
+    a whole term and a partner replaces only the part of it that is its own.
+
+    Kept in one function for the same reason COLUMN_MAPS is one table — two
+    copies of this loop would be two spreadsheet contracts, and the second one
+    would be discovered by a funder whose import silently lost a column.
+    """
+    import openpyxl
+
+    from .models import ImportedScholar
+
+    ws = openpyxl.load_workbook(file).active
+    col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
+
+    records = []
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row or row[0] is None:
+            continue
+        try:
+            int(row[0])
+        except (ValueError, TypeError):
+            continue
+
+        extra = {}
+        for idx, field in col_map:
+            val = row[idx] if idx < len(row) else None
+            extra[field] = str(val).strip() if val is not None else ''
+
+        last = extra.get('last_name', '').strip()
+        first = extra.get('first_name', '').strip()
+        if not last and not first:
+            continue
+
+        try:
+            year_level = int(extra.get('year', 0) or 0)
+        except (ValueError, TypeError):
+            year_level = 0
+        try:
+            gwa = float(extra.get('gwa', 0) or 0)
+        except (ValueError, TypeError):
+            gwa = 0.0
+
+        address = extra.get('address', '')
+        addr_parts = [x.strip() for x in address.split(',')] if address else []
+
+        records.append(ImportedScholar(
+            scholarship_type=stype,
+            term_label=term_label,
+            last_name=last,
+            first_name=first,
+            middle_name=extra.get('middle_name', extra.get('middle_initial', '')),
+            gender=extra.get('sex', ''),
+            course=extra.get('course', ''),
+            year_level=year_level,
+            gwa=gwa,
+            barangay=extra.get('barangay', addr_parts[0] if len(addr_parts) > 0 else ''),
+            municipality=extra.get('municipality', addr_parts[1] if len(addr_parts) > 1 else ''),
+            province=extra.get('province', addr_parts[2] if len(addr_parts) > 2 else ''),
+            student_id=extra.get('student_number', extra.get('student_id', '')),
+            award_number=extra.get('award_number', ''),
+            congress_district=extra.get('congress_district', ''),
+            imported_from=imported_from or file.name,
+        ))
+    return records
+
+
 @_vpsea_required
 def vpsea_archive_import(request):
-    import openpyxl
     from django.core.files.base import ContentFile
     from .models import ScholarListImport, ActivityLog, SystemSettings, ImportedScholar
     if request.method != 'POST':
@@ -2463,59 +3394,7 @@ def vpsea_archive_import(request):
         active_semester = parsed['semester']
         rollover_parsed = SystemSettings.parse_label(rollover_label) if '-' in rollover_label else {'sy': rollover_label, 'semester': active_semester}
 
-        wb = openpyxl.load_workbook(file)
-        ws = wb.active
-        col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
-
-        records = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if not row or row[0] is None:
-                continue
-            try:
-                int(row[0])
-            except (ValueError, TypeError):
-                continue
-
-            extra = {}
-            for idx, field in col_map:
-                val = row[idx] if idx < len(row) else None
-                extra[field] = str(val).strip() if val is not None else ''
-
-            last = extra.get('last_name', '').strip()
-            first = extra.get('first_name', '').strip()
-            if not last and not first:
-                continue
-
-            try:
-                year_level = int(extra.get('year', 0) or 0)
-            except (ValueError, TypeError):
-                year_level = 0
-            try:
-                gwa = float(extra.get('gwa', 0) or 0)
-            except (ValueError, TypeError):
-                gwa = 0.0
-
-            address = extra.get('address', '')
-            addr_parts = [x.strip() for x in address.split(',')] if address else []
-
-            records.append(ImportedScholar(
-                scholarship_type=stype,
-                term_label=rollover_label,
-                last_name=last,
-                first_name=first,
-                middle_name=extra.get('middle_name', extra.get('middle_initial', '')),
-                gender=extra.get('sex', ''),
-                course=extra.get('course', ''),
-                year_level=year_level,
-                gwa=gwa,
-                barangay=extra.get('barangay', addr_parts[0] if len(addr_parts) > 0 else ''),
-                municipality=extra.get('municipality', addr_parts[1] if len(addr_parts) > 1 else ''),
-                province=extra.get('province', addr_parts[2] if len(addr_parts) > 2 else ''),
-                student_id=extra.get('student_number', extra.get('student_id', '')),
-                award_number=extra.get('award_number', ''),
-                congress_district=extra.get('congress_district', ''),
-                imported_from=file.name,
-            ))
+        records = _scholars_from_sheet(file, stype, rollover_label)
 
         # Replace the term's rows only once the new ones are in hand, and in one
         # transaction. The delete used to run before the sheet was parsed, so a
@@ -2553,86 +3432,124 @@ def vpsea_archive_import(request):
 
 @_vpsea_required
 def vpsea_archive_download(request):
-    from .models import Application, AffirmativeStaffApplication, SystemSettings, AcademicRenewal
+    """The archive tab that is on screen, as a workbook.
+
+    Columns from :func:`api.scholar_columns.resolve` and rows from
+    :func:`_archive_records` — the same two calls the page renders from — so the
+    sheet cannot disagree with the table above the button that produced it.
+
+    It used to disagree in four ways at once. Its headings were hand-written,
+    three sets of them covering three of the nine tabs, so a programme whose
+    columns the office had rearranged downloaded the old layout and a programme
+    added since downloaded somebody else's. It read the active term whatever
+    term the dropdown was on. It gated on an approved renewal the page does not.
+    And it selected no imported scholars at all — for every programme that
+    arrives as an office upload, that is an empty sheet.
+
+    A column the office added comes down too, in the kind of cell it declared:
+    a Number as a number and a Date as a date, so the workbook can sort and
+    total what the archive page can only print.
+    """
+    from urllib.parse import quote
+
+    from .models import SystemSettings
+
     stype = request.GET.get('type', 'Academic')
+    if stype == UNAWARDED_TAB:
+        # Not a programme: a list of students who have no award. It has no
+        # columns to resolve and no scholars to put under them.
+        return redirect(f'/vpsea/archives/?type={quote(stype)}')
+
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    school_year = settings_obj.academic_year
-    semester = settings_obj.active_semester
+    _labels, term = _archive_term(request, stype, settings_obj.academic_year)
+    parsed = SystemSettings.parse_label(term)
+
+    # Named only when the page that linked here was on one of the CHED tabs.
+    # A URL that names no tier still downloads both blocks, the way the single
+    # CHED tab always did.
+    tier = request.GET.get('tier', '')
+    if stype != 'CHED' or tier not in CHED_ARCHIVE_TIERS:
+        tier = ''
+
+    programme = Scholarship.objects.filter(type=stype).first()
+    columns = scholar_columns.resolve(programme, stype, 'vpsea')
+    groups = _archive_records(stype, term, tier)
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f'{stype} Scholars'
+    ws.title = _sheet_name(f'{stype} {tier} Merit Scholars' if tier
+                           else f'{stype} Scholars')
+
     thin = Side(style='thin')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    hfont = Font(bold=True)
-    hfill = PatternFill('solid', fgColor='D9E1F2')
+    width = len(columns) + 1          # the columns, plus the running number
 
-    def hrow(ws, r, n):
-        for c in range(1, n+1):
-            cell = ws.cell(row=r, column=c)
-            cell.font = hfont; cell.fill = hfill; cell.border = border; cell.alignment = center
+    line = 1
 
-    def drow(ws, r, vals):
-        for c, v in enumerate(vals, 1):
-            cell = ws.cell(row=r, column=c, value=v)
-            cell.border = border
-            cell.alignment = Alignment(vertical='center', wrap_text=True)
+    def banner(text, fill, font):
+        """One merged row across the table — a title, or a block's heading."""
+        nonlocal line
+        ws.cell(row=line, column=1, value=text)
+        ws.merge_cells(start_row=line, start_column=1, end_row=line, end_column=width)
+        cell = ws.cell(row=line, column=1)
+        cell.font, cell.fill, cell.alignment, cell.border = font, fill, center, border
+        line += 1
 
-    def name_parts(user):
-        return user.last_name or '', user.first_name or '', ''
+    banner(f'{programme.name if programme else stype} — LIST OF SCHOLARS',
+           PatternFill('solid', fgColor='1F4E79'),
+           Font(bold=True, size=12, color='FFFFFF'))
+    banner(f"{parsed['semester']} — SY {parsed['sy']}",
+           PatternFill('solid', fgColor='BDD7EE'), Font(bold=True, size=10))
+    line += 1
 
-    def split_name(full):
-        p = full.strip().split()
-        if len(p) == 0: return '', '', ''
-        if len(p) == 1: return p[0], '', ''
-        if len(p) == 2: return p[-1], p[0], ''
-        return p[-1], p[0], ' '.join(p[1:-1])[0] + '.'
+    header_fill = PatternFill('solid', fgColor='D9E1F2')
+    for title, records, _empty in groups:
+        if title:
+            banner(title, PatternFill('solid', fgColor='BDD7EE'),
+                   Font(bold=True, size=10))
+        for index, label in enumerate(['No.'] + [c['label'] for c in columns], 1):
+            cell = ws.cell(row=line, column=index, value=label)
+            cell.font, cell.fill = Font(bold=True), header_fill
+            cell.border, cell.alignment = border, center
+        line += 1
+        for row in scholar_columns.rows_for(records, columns):
+            ws.cell(row=line, column=1, value=row['no']).border = border
+            for index, (column, cell_value) in enumerate(zip(columns, row['cells']), 2):
+                out = ws.cell(row=line, column=index,
+                              value=scholar_columns.excel_value(column, cell_value['value']))
+                out.border = border
+                out.alignment = Alignment(vertical='center', wrap_text=True)
+            line += 1
+        line += 1                     # a blank row between the CHED blocks
 
-    renewed_ids = AcademicRenewal.objects.filter(status='Approved').values_list('student_id', flat=True)
+    # Indexed rather than read off the cells: the title rows are merged, and a
+    # merged cell carries no column letter of its own to ask.
+    from openpyxl.utils import get_column_letter
 
-    row = 1
-    if stype in ('Affirmative', 'Staff'):
-        scholars = AffirmativeStaffApplication.objects.filter(
-            status='Approved', qualified_for=stype).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name')
-        if stype == 'Staff':
-            headers = ['No.', 'Last', 'First', 'M.I.', 'Sex', 'Course', 'Year Level', 'Student No.', '%', 'Scholarship Program']
-        else:
-            headers = ['No.', 'Last Name', 'First Name', 'Middle Name', 'Sex', 'Address', 'Course', 'Yr.', 'Scholarship Program']
-        ws.append(headers); hrow(ws, row, len(headers)); row += 1
-        for i, app in enumerate(scholars, 1):
-            last, first, mi = split_name(app.full_name)
-            if stype == 'Staff':
-                drow(ws, row, [i, last, first, mi, app.gender, app.course, app.year_level, app.student_id, '100%' if app.is_nsu_staff else '75%', 'BiPSU Staff Scholarship'])
-            else:
-                drow(ws, row, [i, last, first, mi, app.gender, app.address, app.course, app.year_level, 'Affirmative Action Scholarship'])
-            row += 1
-    elif stype == 'Academic':
-        scholars = Application.objects.filter(status='Approved', scholarship__type='Academic', student_id__in=renewed_ids).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-        headers = ['No.', 'Last Name', 'First', 'Middle Name', 'Sex', 'Brgy./St.', 'Municipality', 'Province', 'Course', 'Yr', 'GWA', '% / Type', 'Scholarship']
-        ws.append(headers); hrow(ws, row, len(headers)); row += 1
-        for i, app in enumerate(scholars, 1):
-            p = app.student; last, first, mi = name_parts(p.user)
-            pct = 'University Scholar' if p.gwa <= 1.29 else ('College Scholar' if p.gwa <= 1.50 else '')
-            drow(ws, row, [i, last, first, mi, p.gender, p.barangay, p.municipality, p.province, p.course, p.year_level, p.gwa, pct, app.scholarship.name]); row += 1
-    else:
-        scholars = Application.objects.filter(status='Approved', scholarship__type=stype, student_id__in=renewed_ids).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-        headers = ['No.', 'Last Name', 'First Name', 'Middle Name', 'Sex', 'Brgy./St.', 'Municipality', 'Province', 'Course', 'Year', 'Student No.', 'Scholarship Program']
-        ws.append(headers); hrow(ws, row, len(headers)); row += 1
-        for i, app in enumerate(scholars, 1):
-            p = app.student; last, first, mi = name_parts(p.user)
-            drow(ws, row, [i, last, first, mi, p.gender, p.barangay, p.municipality, p.province, p.course, p.year_level, p.student_id, app.scholarship.name]); row += 1
+    for index, column_cells in enumerate(ws.columns, 1):
+        longest = max((len(str(c.value)) for c in column_cells if c.value), default=0)
+        ws.column_dimensions[get_column_letter(index)].width = min(longest + 4, 40)
 
-    for col in ws.columns:
-        ml = max((len(str(c.value)) for c in col if c.value), default=0)
-        ws.column_dimensions[col[0].column_letter].width = min(ml + 4, 40)
-
-    buf = BytesIO(); wb.save(buf); buf.seek(0)
-    filename = f'{stype}_scholars_{school_year}_{semester.replace(" ", "_")}.xlsx'
-    response = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    safe = ''.join(c if c.isalnum() else '_' for c in f'{stype}_scholars_{term}')
+    response['Content-Disposition'] = f'attachment; filename="{safe}.xlsx"'
     return response
 
+
+# Excel refuses a sheet name over 31 characters or carrying any of []:*?/\, and
+# a programme type is whatever the office typed. Sanitised rather than trusted:
+# openpyxl raises on a bad one, which would be a 500 on the download button.
+_BAD_SHEET_CHARS = str.maketrans({c: '-' for c in '[]:*?/' + chr(92)})
+
+
+def _sheet_name(title):
+    return (title.translate(_BAD_SHEET_CHARS).strip() or 'Scholars')[:31]
 
 
 # What a scholar is counted under when no school is recorded and their course
@@ -2641,11 +3558,31 @@ def vpsea_archive_download(request):
 UNRECORDED_SCHOOL = 'Not recorded'
 
 
+def _rollover_workbook(field_file):
+    """The uploaded rollover sheet, opened through whatever storage holds it.
+
+    Not ``openpyxl.load_workbook(field_file.path)``. ``path`` is a
+    FileSystemStorage-only convenience; every other backend inherits Django's
+    default, which raises NotImplementedError. Deployed, uploads live in
+    Supabase Storage, so that call raised on the first line of every rollover
+    read, the ``except Exception`` around it swallowed the raise, and analytics
+    answered with empty charts — while the same code on a local filesystem
+    worked perfectly, which is why the gap only ever showed in production.
+
+    Reading the bytes is the one thing every backend does. They are pulled into
+    memory first because openpyxl opens the sheet as a zip archive and seeks
+    around inside it, and a rollover sheet is a few hundred rows.
+    """
+    with field_file.open('rb') as handle:
+        return openpyxl.load_workbook(BytesIO(handle.read()))
+
+
 def _analytics_context(request, all_types, include_gwa=True):
     """Build the analytics context for a given set of scholarship types.
 
-    Shared by the VPSEA portal (every type) and the UniFAST portal (TES and TDP
-    only), so both read the same numbers from the same code path.
+    Only the VPSEA portal calls it today, but the type list is a parameter
+    rather than a constant so a narrower page reads the same numbers from the
+    same code path.
     """
     from .models import ScholarListImport, SystemSettings
     import openpyxl
@@ -2673,9 +3610,13 @@ def _analytics_context(request, all_types, include_gwa=True):
         .distinct().order_by('-term_label')
     )
     # Also include labels that only exist in ImportedScholar (import-only semesters)
+    # .order_by() with nothing in it on purpose: ImportedScholar sorts by name
+    # by default, and Django adds whatever a query is ordered by to its SELECT
+    # list — so DISTINCT was being taken over (term_label, last_name,
+    # first_name) and handed back one row per scholar instead of one per term.
     ar_labels = list(
         ImportedScholar.objects.exclude(term_label='')
-        .values_list('term_label', flat=True).distinct()
+        .values_list('term_label', flat=True).order_by().distinct()
     )
     for lbl in ar_labels:
         if lbl not in all_labels:
@@ -2766,8 +3707,7 @@ def _analytics_context(request, all_types, include_gwa=True):
         if not r or not r.excel_file:
             return {}
         try:
-            wb = openpyxl.load_workbook(r.excel_file.path)
-            ws = wb.active
+            ws = _rollover_workbook(r.excel_file).active
             course_col = next((cell.column - 1 for cell in ws[1] if cell.value and 'course' in str(cell.value).lower()), None)
             if course_col is None:
                 return {}
@@ -2777,6 +3717,12 @@ def _analytics_context(request, all_types, include_gwa=True):
                     counts[str(row[course_col]).strip()] += 1
             return dict(counts)
         except Exception:
+            # An unreadable sheet still leaves the rest of the page standing,
+            # but it is logged rather than only shrugged at: an empty chart and
+            # a chart of nothing look identical on screen, and the last time
+            # this went wrong it was silent for a whole deployment.
+            logger.exception('analytics: could not read rollover sheet for %s %s',
+                             stype, selected_label)
             return {}
 
     def _school_counts(stype):
@@ -2876,8 +3822,7 @@ def _analytics_context(request, all_types, include_gwa=True):
             acad_r = ScholarListImport.objects.filter(scholarship_type='Academic', term_label=selected_label).first()
             if acad_r and acad_r.excel_file:
                 try:
-                    wb = openpyxl.load_workbook(acad_r.excel_file.path)
-                    ws = wb.active
+                    ws = _rollover_workbook(acad_r.excel_file).active
                     gwa_col = next((cell.column - 1 for cell in ws[1] if cell.value and 'gwa' in str(cell.value).lower()), None)
                     if gwa_col is not None:
                         buckets = {'1.00-1.25': 0, '1.26-1.50': 0, '1.51-1.75': 0, '1.76-2.00': 0, '2.01-2.50': 0}
@@ -2894,7 +3839,8 @@ def _analytics_context(request, all_types, include_gwa=True):
                                     pass
                         gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
                 except Exception:
-                    pass
+                    logger.exception('analytics: could not read Academic rollover '
+                                     'sheet for %s', selected_label)
 
     # ── Scholars-over-time trend ──────────────────────────────────────────────
     # Build a chronological list of (label, display, total_scholars) covering
@@ -2967,12 +3913,38 @@ def _analytics_context(request, all_types, include_gwa=True):
         for t in series_types
     ]
 
+    # ── What is actually worth drawing ────────────────────────────────────────
+    # A Chart.js canvas given nothing to plot is not blank, it is a labelled
+    # empty grid — which reads as "the chart is broken" rather than "nobody is
+    # on this list". Each card asks here whether it has anything, and says so in
+    # words when it does not.
+    #
+    # One flag per chart, resolved once and read by both the markup and the
+    # script: they used to test slightly different conditions for the GWA card,
+    # so filtering to a programme other than Academic left the script building a
+    # chart on a canvas the markup had not rendered. Chart.js throws on that,
+    # and every chart below it in the same <script> — School, Course, Scholars
+    # Over Time — never got built.
+    show_program = bool(course_dist) if selected_type else any(rollover_counts.values())
+    show_gwa = (
+        bool(gpa_ranges)
+        and (not selected_type or selected_type == 'Academic')
+        and any(g['count'] for g in gpa_ranges)
+    )
+    # Two semesters make a trend; two semesters of nobody do not. trend_series
+    # itself keeps its zero-filled lines — a line at zero is an answer when
+    # there is another line beside it to read it against.
+    show_trend = len(trend_data) > 1 and any(any(s['counts']) for s in trend_series)
+
     return {
         'rollover_counts': rollover_counts,
         'all_types': ALL_TYPES,
         'course_dist': course_dist,
         'school_dist': school_dist,
         'gpa_ranges': gpa_ranges,
+        'show_program': show_program,
+        'show_gwa': show_gwa,
+        'show_trend': show_trend,
         'all_sy_display': all_sy_display,
         'selected_sy': selected_label,
         'selected_type': selected_type,
@@ -2994,658 +3966,6 @@ def vpsea_analytics(request):
     return render(request, 'vpsea/analytics.html', _analytics_context(request, all_types))
 
 
-@_unifast_required
-def unifast_analytics(request):
-    """Scoped to the programmes UniFAST administers: TES and TDP."""
-    ctx = _analytics_context(request, UNIFAST_TYPES, include_gwa=False)
-    return render(request, 'unifast/analytics.html', ctx)
-
-
-@_unifast_required
-def unifast_announcements(request):
-    from .models import Announcement
-    if request.method == 'POST':
-        title = (request.POST.get('title') or '').strip()
-        body = (request.POST.get('body') or '').strip()
-        if title and body:
-            Announcement.objects.create(title=title, body=body, published_by=request.user)
-            reached = notify.broadcast(title, body)
-            return redirect(f'/unifast/announcements/?posted={reached}')
-        return render(request, 'unifast/announcements.html', {
-            'announcements': Announcement.objects.select_related('published_by').order_by('-created_at'),
-            'errors': ['Both a title and a body are required.'],
-            'post': request.POST,
-        })
-    return render(request, 'unifast/announcements.html', {
-        'announcements': Announcement.objects.select_related('published_by').order_by('-created_at'),
-        'posted': request.GET.get('posted'),
-    })
-
-
-UNIFAST_PROGRAMMES = (
-    ('TDP', 'TDP — TULONG DUNONG PROGRAM'),
-    ('TES', 'TES — TERTIARY EDUCATION SUBSIDY'),
-)
-
-
-def _unifast_report_sections(school_year='', types=None):
-    """Approved TES and TDP scholars, split by gender, in masterlist order.
-
-    Mirrors the VPSEA report layout but covers only the two programmes UniFAST
-    administers. Both are sourced from approved Applications — TES rows are
-    created when a TES application is approved in this portal.
-
-    ``types`` narrows it to one programme, which is how the TDP report is built
-    from the same rows the combined masterlist uses; ``school_year`` scopes it
-    to one term, blank meaning every one of them.
-    """
-    def _row(app):
-        p = app.student
-        u = p.user
-        return {
-            'last': u.last_name, 'first': u.first_name, 'mi': '',
-            'sex': p.gender or '', 'brgy': p.barangay, 'mun': p.municipality,
-            'prov': p.province, 'course': p.course, 'yr': p.year_level,
-            'student_no': p.student_id,
-            'scholarship': app.scholarship.name,
-            'award': app.award_number,
-            'cong': app.congress_district,
-        }
-
-    def _split_gender(apps):
-        female = [_row(a) for a in apps if (a.student.gender or '').upper() in ('F', 'FEMALE')]
-        male = [_row(a) for a in apps if (a.student.gender or '').upper() not in ('F', 'FEMALE')]
-        return female, male
-
-    headers = ['NO.', 'AWARD NO.', 'LAST NAME', 'FIRST NAME', 'M.I.', 'SEX',
-               'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'STUDENT NO.',
-               'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-
-    sections = []
-    for stype, title in UNIFAST_PROGRAMMES:
-        if types and stype not in types:
-            continue
-        qs = (
-            Application.objects.filter(status='Approved', scholarship__type=stype)
-            .select_related('student__user', 'scholarship', *STUDENT_DETAILS)
-            .order_by('student__user__last_name')
-        )
-        if school_year:
-            qs = qs.filter(school_year=school_year)
-        apps = list(qs)
-        female, male = _split_gender(apps)
-        sections.append({
-            'title': title, 'key': stype.lower(), 'headers': headers,
-            'groups': [('FEMALE', female), ('MALE', male)],
-            'female_rows': female, 'male_rows': male,
-            'total': len(apps),
-        })
-    return sections
-
-
-@_unifast_required
-def unifast_reports(request):
-    """On-screen replica of the CHED 'Official List' validation sheet."""
-    import os
-    from .models import SystemSettings
-    from . import annex1_report, doc_convert, tes_report
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    # No batch is asked for here any more. It is a CHED bookkeeping label, not
-    # something the office filters its own reports by, and the workbook's own
-    # header already reads 'On-going' when none is given. The download endpoint
-    # still honours ?batch= for anyone who needs to stamp one.
-    #
-    # Which school year the office is generating for. Blank means every year,
-    # which is what this page reported before the year could be picked — so an
-    # existing deployment sees the same list until someone chooses one.
-    school_year = request.GET.get('sy', '').strip()
-    rows = tes_report.grantee_rows(school_year=school_year)
-    sections = _unifast_report_sections(school_year=school_year)
-    tdp = next((s for s in sections if s['key'] == 'tdp'), None)
-
-    return render(request, 'unifast/reports.html', {
-        'rows': rows,
-        'headers': tes_report.OFFICIAL_LIST_HEADERS,
-        'semester': parsed['semester'],
-        # TDP gets the same treatment as TES: its own count, its own download
-        # and its own preview frame, off the same school year.
-        'tdp_total': tdp['total'] if tdp else 0,
-        'tdp_female': len(tdp['female_rows']) if tdp else 0,
-        'tdp_male': len(tdp['male_rows']) if tdp else 0,
-        # What the report prints over the list: the year that was picked, or
-        # the active term when the list spans all of them.
-        'ay': school_year or parsed['sy'],
-        'school_year': school_year,
-        'school_years': tes_report.school_year_options(),
-        'tes_total': len(rows),
-        'pwd_count': sum(1 for r in rows if r['is_pwd']),
-        'template_available': os.path.exists(tes_report.TEMPLATE_PATH),
-        # Whether the frame is showing the workbook itself or the fallback
-        # layout, so the page can say which one an officer is reading.
-        'exact_preview': doc_convert.available(),
-        # The plain TDP/TES masterlist stays available underneath.
-        'sections': sections,
-        'grand_total': sum(s['total'] for s in sections),
-        'error': request.GET.get('error'),
-    })
-
-
-@_unifast_required
-def unifast_billing(request):
-    """What CHED pays each TES grantee, and the statement that follows from it.
-
-    The Annex 2 workbook bills on two per-grantee figures and computes the rest
-    — the column totals, the 1% management fee, the Form 1 statement. Those
-    columns exported blank until this page existed, because a rate the system
-    chose for itself would have been a guess an officer then signed. The rate is
-    still not the system's to choose; this is where an officer records the one
-    CHED gave them.
-    """
-    from .models import SystemSettings, TESBilling
-    from . import tes_report
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    active = SystemSettings.parse_label(settings_obj.academic_year)['sy']
-    # A rate belongs to a term — CHED revises it, and last year's figure must
-    # not quietly bill this year's grantees — so unlike the report pages there
-    # is no 'all school years' here.
-    school_year = request.GET.get('sy', '').strip() or active
-
-    errors = []
-    if request.method == 'POST':
-        school_year = request.POST.get('sy', '').strip() or active
-        amounts = {}
-        for field, label in (('tes_amount', 'TES amount'),
-                             ('tes_3a_amount', 'TES-3A amount')):
-            raw = (request.POST.get(field) or '').strip().replace(',', '')
-            if not raw:
-                amounts[field] = None
-                continue
-            try:
-                value = Decimal(raw)
-            except InvalidOperation:
-                errors.append(f'{label} must be a number.')
-                continue
-            if value < 0:
-                errors.append(f'{label} cannot be negative.')
-                continue
-            amounts[field] = value
-
-        if not errors:
-            TESBilling.objects.update_or_create(
-                school_year=school_year,
-                defaults=dict(
-                    reference_no=(request.POST.get('reference_no') or '').strip(),
-                    statement_date=request.POST.get('statement_date') or None,
-                    updated_by=request.user,
-                    **amounts,
-                ),
-            )
-            return redirect(f'/unifast/billing/?sy={school_year}&saved=1')
-
-    summary = tes_report.billing_summary(school_year)
-    saved_row = summary['billing']
-
-    # What the boxes show. Built here rather than juggling template filters: on
-    # a GET `request.POST` is empty, and an empty string is not None, so a
-    # `default_if_none` fallback never fires and the saved figures render blank.
-    def shown(field, stored):
-        if request.method == 'POST':
-            return request.POST.get(field, '')
-        return '' if stored is None else stored
-
-    form = {
-        'tes_amount': shown('tes_amount', saved_row.tes_amount if saved_row else None),
-        'tes_3a_amount': shown('tes_3a_amount',
-                               saved_row.tes_3a_amount if saved_row else None),
-        'reference_no': shown('reference_no',
-                              saved_row.reference_no if saved_row else ''),
-        'statement_date': shown(
-            'statement_date',
-            saved_row.statement_date.strftime('%Y-%m-%d')
-            if saved_row and saved_row.statement_date else ''),
-    }
-
-    return render(request, 'unifast/billing.html', dict(summary, **{
-        'school_year': school_year,
-        'school_years': tes_report.school_year_options(),
-        'semester': SystemSettings.parse_label(settings_obj.academic_year)['semester'],
-        'errors': errors,
-        'saved': request.GET.get('saved'),
-        'form': form,
-    }))
-
-
-def _decimal_or_error(raw, label, errors):
-    """A money field as typed by a person, or None with the reason recorded.
-
-    Blank is None rather than zero, and stays that way all the way to the
-    column — the distinction TESBilling and TESLiquidation are both built on.
-    Thousands separators are stripped because a cashier reading off a voucher
-    types them.
-    """
-    raw = (raw or '').strip().replace(',', '')
-    if not raw:
-        return None
-    try:
-        value = Decimal(raw)
-    except InvalidOperation:
-        errors.append(f'{label} must be a number.')
-        return None
-    if value < 0:
-        errors.append(f'{label} cannot be negative.')
-        return None
-    return value
-
-
-@_unifast_required
-def unifast_liquidation(request):
-    """What CHED's money actually did, once it arrived.
-
-    The Billing tab states what the office asked CHEDRO for. This is the other
-    half: what was remitted, what the cashier paid out, and what is still in
-    hand. Those are separate facts and they routinely differ — a grantee who
-    never collects is the ordinary case — so they are separate records rather
-    than one number doing both jobs.
-
-    The grantee list is not maintained here. It is exactly the list the billing
-    and the CHED workbook use, so the report can only ever account for the
-    people the office actually billed for; the page adds what became of each
-    one's share.
-
-    Nothing is defaulted from the billed rate. The billed rate is what was asked
-    for, and a liquidation that assumes everyone was paid it cannot detect the
-    thing it exists to detect. The 'Fill in the billed amount' button on the
-    page fills the boxes in the browser and saves nothing — an officer still
-    reads the rows and submits them.
-    """
-    from django.utils import timezone
-
-    from .constants import TES_DISBURSEMENT_STATUSES, TES_RELEASED
-    from .models import SystemSettings, TESDisbursement, TESLiquidation
-    from . import tes_report
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    active = SystemSettings.parse_label(settings_obj.academic_year)['sy']
-    # Scoped to one term for the same reason billing is: money is released
-    # against a school year, and a balance that quietly spans two of them
-    # reconciles to a number nobody can explain to an auditor.
-    school_year = request.GET.get('sy', '').strip() or active
-
-    errors = []
-    if request.method == 'POST':
-        school_year = request.POST.get('sy', '').strip() or active
-        action = request.POST.get('action') or 'remittance'
-
-        if action == 'remittance':
-            received = _decimal_or_error(
-                request.POST.get('funds_received'), 'Funds received', errors)
-            if not errors:
-                TESLiquidation.objects.update_or_create(
-                    school_year=school_year,
-                    defaults={
-                        'funds_received': received,
-                        'received_date': request.POST.get('received_date') or None,
-                        'credit_advice_no': (request.POST.get('credit_advice_no') or '').strip(),
-                        'report_no': (request.POST.get('report_no') or '').strip(),
-                        'report_date': request.POST.get('report_date') or None,
-                        'updated_by': request.user,
-                    },
-                )
-                return redirect(f'/unifast/liquidation/?sy={school_year}&saved=1')
-
-        elif action == 'disbursements':
-            # The grantee list is read from the database, not from the form. A
-            # row posted for somebody who is not an approved grantee of this
-            # term records nothing, however the request was assembled.
-            rows = tes_report.liquidation_rows(school_year)
-            allowed = [row['app_id'] for row in rows]
-            valid = {value for value, _ in TES_DISBURSEMENT_STATUSES}
-
-            entries = []
-            bad_status = False
-            for app_id in allowed:
-                status = (request.POST.get(f'status-{app_id}') or '').strip()
-                if not status:
-                    continue
-                if status not in valid:
-                    bad_status = True
-                    continue
-                amount = _decimal_or_error(
-                    request.POST.get(f'amount-{app_id}'), 'Amount released', errors)
-                # A release with no figure on it is not a release, it is a
-                # half-finished entry — and it would report as one grantee paid
-                # nothing, which reads as a payment of zero rather than as the
-                # omission it is. Every other status carries no amount by
-                # design, so only this one has to insist.
-                if status == TES_RELEASED and amount is None:
-                    errors.append('A released row needs the amount that was paid.')
-                entries.append((app_id, status, amount,
-                                request.POST.get(f'date-{app_id}') or None,
-                                (request.POST.get(f'receipt-{app_id}') or '').strip()))
-
-            if bad_status:
-                errors.append('One of the rows carried a status this office does not use.')
-
-            # These are per-row faults on a form of up to a thousand rows, so
-            # the same sentence can be reached many times over. Said once each,
-            # in the order they were first hit: ten identical lines tell the
-            # officer nothing the first one did not.
-            errors[:] = list(dict.fromkeys(errors))
-
-            if not errors:
-                # A liquidation row has to exist for the disbursements to hang
-                # off. Created empty here rather than refusing the save: the
-                # office often pays grantees before the credit advice is filed,
-                # and losing that work to a validation error would be its own
-                # small disaster.
-                liquidation, _ = TESLiquidation.objects.get_or_create(
-                    school_year=school_year,
-                    defaults={'updated_by': request.user},
-                )
-                with transaction.atomic():
-                    for app_id, status, amount, date, receipt in entries:
-                        TESDisbursement.objects.update_or_create(
-                            liquidation=liquidation, tes_application_id=app_id,
-                            defaults={
-                                'status': status,
-                                # Only a release moves money. A row switched
-                                # back to Unclaimed keeps no amount, or the
-                                # totals would go on counting it.
-                                'amount_released': amount if status == TES_RELEASED else None,
-                                'date_released': date if status == TES_RELEASED else None,
-                                'receipt_no': receipt,
-                                'updated_by': request.user,
-                            },
-                        )
-                return redirect(f'/unifast/liquidation/?sy={school_year}&saved=rows')
-
-    summary = tes_report.liquidation_summary(school_year)
-    saved_row = summary['liquidation']
-
-    # Same reason the Billing tab builds this here: on a GET request.POST is
-    # empty, and '' is not None, so a template-level default never fires and the
-    # saved figures would render blank.
-    def shown(field, stored):
-        if request.method == 'POST':
-            return request.POST.get(field, '')
-        return '' if stored is None else stored
-
-    def shown_date(field, stored):
-        return shown(field, stored.strftime('%Y-%m-%d') if stored else None)
-
-    form = {
-        'funds_received': shown('funds_received',
-                                saved_row.funds_received if saved_row else None),
-        'credit_advice_no': shown('credit_advice_no',
-                                  saved_row.credit_advice_no if saved_row else ''),
-        'report_no': shown('report_no', saved_row.report_no if saved_row else ''),
-        'received_date': shown_date('received_date',
-                                    saved_row.received_date if saved_row else None),
-        'report_date': shown_date('report_date',
-                                  saved_row.report_date if saved_row else None),
-    }
-
-    return render(request, 'unifast/liquidation.html', dict(summary, **{
-        'school_year': school_year,
-        'school_years': tes_report.school_year_options(),
-        'semester': SystemSettings.parse_label(settings_obj.academic_year)['semester'],
-        'statuses': TES_DISBURSEMENT_STATUSES,
-        # What the 'billed amount' button puts in an empty date box. A prefill,
-        # not a record: it reaches the database only if the officer saves.
-        'today': timezone.localdate().strftime('%Y-%m-%d'),
-        'errors': errors,
-        'saved': request.GET.get('saved'),
-        'form': form,
-    }))
-
-
-@_unifast_required
-@xframe_options_exempt
-def unifast_report_preview_pdf(request):
-    """The CHED workbook as a PDF page, for the preview frame on the Reports tab.
-
-    The Annex 2 workbook the office submits is filled and converted, so all four
-    sheets preview exactly as they print. Without a converter installed the
-    Official List is laid out here instead, and the tab says so.
-    """
-    from .models import SystemSettings
-    from . import doc_convert, report_pdf, tes_report
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    batch = request.GET.get('batch', '').strip()
-    school_year = request.GET.get('sy', '').strip()
-    ay = school_year or parsed['sy']
-    label = (school_year or settings_obj.academic_year).replace('-', '_')
-
-    pdf = None
-    if doc_convert.available():
-        try:
-            buf, _written, _overflow = tes_report.build_workbook(
-                ay, parsed['semester'], batch=batch, school_year=school_year)
-            pdf = doc_convert.to_pdf(buf.getvalue(), '.xlsx')
-        except (FileNotFoundError, doc_convert.ConversionUnavailable,
-                doc_convert.ConversionFailed):
-            pdf = None
-    if pdf is None:
-        buf, _rows = report_pdf.tes_official_list_pdf(
-            ay, parsed['semester'], batch=batch, school_year=school_year)
-        pdf = buf.read()
-
-    response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Disposition'] = (
-        f'inline; filename="TES_Validation_List_{label}.pdf"')
-    return response
-
-
-@_unifast_required
-def unifast_report_download_tes(request):
-    """The filled CHED TES validation & billing workbook, all four sheets."""
-    from .models import SystemSettings
-    from . import tes_report
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    batch = request.GET.get('batch', '').strip()
-    school_year = request.GET.get('sy', '').strip()
-    ay = school_year or parsed['sy']
-    try:
-        buf, written, overflow = tes_report.build_workbook(
-            ay, parsed['semester'], batch=batch, school_year=school_year)
-    except FileNotFoundError as exc:
-        from urllib.parse import quote
-        return redirect(f'/unifast/reports/?error={quote(str(exc))}')
-
-    label = (school_year or settings_obj.academic_year).replace('-', '_')
-    filename = f'TES_Validation_Billing_{label}.xlsx'
-    response = HttpResponse(
-        buf.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    if overflow:
-        response['X-TES-Overflow'] = str(overflow)
-    return response
-
-
-def _unifast_scholars_workbook(sections, ay, semester, sheet_title, banner_text):
-    """The UniFAST scholars masterlist as a styled workbook.
-
-    Shared by the combined TDP/TES download and the TDP-only one, so a change to
-    the layout reaches both rather than one of them drifting.
-    """
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    from io import BytesIO
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = sheet_title
-
-    thin = Side(style='thin')
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    row_at = [1]
-
-    def banner(text, ncols, fill, font, height=None):
-        r = row_at[0]
-        ws.cell(row=r, column=1, value=text)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
-        cell = ws.cell(row=r, column=1)
-        cell.font, cell.fill, cell.alignment, cell.border = font, fill, center, border
-        if height:
-            ws.row_dimensions[r].height = height
-        row_at[0] += 1
-
-    def label(text, ncols):
-        r = row_at[0]
-        ws.cell(row=r, column=1, value=text)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
-        ws.cell(row=r, column=1).font = Font(bold=True, size=9)
-        row_at[0] += 1
-
-    def table(headers, rows):
-        r = row_at[0]
-        for ci, h in enumerate(headers, 1):
-            cell = ws.cell(row=r, column=ci, value=h)
-            cell.font = Font(bold=True, size=9)
-            cell.fill = PatternFill('solid', fgColor='D9E1F2')
-            cell.alignment, cell.border = center, border
-        row_at[0] += 1
-        for i, row in enumerate(rows, 1):
-            r = row_at[0]
-            values = [i, row['award'], row['last'], row['first'], row['mi'], row['sex'],
-                      row['brgy'], row['mun'], row['prov'], row['cong'],
-                      row['student_no'], row['course'], row['yr'], row['scholarship']]
-            for ci, val in enumerate(values, 1):
-                cell = ws.cell(row=r, column=ci, value=val)
-                cell.font = Font(size=9)
-                cell.border = border
-            row_at[0] += 1
-        if not rows:
-            r = row_at[0]
-            ws.cell(row=r, column=1, value='No approved scholars for this programme.')
-            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(headers))
-            ws.cell(row=r, column=1).font = Font(size=9, italic=True)
-            row_at[0] += 1
-        row_at[0] += 1
-
-    ncols = len(sections[0]['headers'])
-    banner(banner_text, ncols, PatternFill('solid', fgColor='1F4E79'),
-           Font(bold=True, size=11, color='FFFFFF'), height=18)
-    row_at[0] += 1
-
-    for section in sections:
-        banner(f"{section['title']}  ({section['total']} scholars)", ncols,
-               PatternFill('solid', fgColor='BDD7EE'), Font(bold=True, size=10))
-        label('FEMALE', ncols)
-        table(section['headers'], section['female_rows'])
-        label('MALE', ncols)
-        table(section['headers'], section['male_rows'])
-
-    widths = [5, 14, 18, 18, 6, 6, 16, 14, 14, 12, 14, 22, 5, 26]
-    for ci, w in enumerate(widths, 1):
-        ws.column_dimensions[get_column_letter(ci)].width = w
-
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf
-
-
-def _xlsx_response(buf, filename):
-    response = HttpResponse(
-        buf.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
-
-
-@_unifast_required
-def unifast_report_download_excel(request):
-    """The combined TDP/TES scholars masterlist."""
-    from .models import SystemSettings
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    school_year = request.GET.get('sy', '').strip()
-    ay = school_year or parsed['sy']
-    semester = parsed['semester']
-
-    buf = _unifast_scholars_workbook(
-        _unifast_report_sections(school_year=school_year), ay, semester,
-        'UniFAST Scholars',
-        f'BILIRAN PROVINCE STATE UNIVERSITY — UniFAST SCHOLARS  |  {ay} {semester}',
-    )
-    return _xlsx_response(
-        buf,
-        f'UniFAST_Scholars_{ay.replace("-", "_")}_{semester.replace(" ", "_")}.xlsx',
-    )
-
-
-@_unifast_required
-def unifast_report_download_tdp(request):
-    """The TDP scholars masterlist on its own, for the school year chosen."""
-    from .models import SystemSettings
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    school_year = request.GET.get('sy', '').strip()
-    ay = school_year or parsed['sy']
-    semester = parsed['semester']
-
-    buf = _unifast_scholars_workbook(
-        _unifast_report_sections(school_year=school_year, types=('TDP',)),
-        ay, semester, 'TDP Scholars',
-        f'BILIRAN PROVINCE STATE UNIVERSITY — TULONG DUNONG PROGRAM  |  {ay} {semester}',
-    )
-    return _xlsx_response(buf, f'TDP_Scholars_{ay.replace("-", "_")}.xlsx')
-
-
-@_unifast_required
-@xframe_options_exempt
-def unifast_report_preview_tdp(request):
-    """The TDP masterlist as a PDF page, for the preview frame on Reports.
-
-    The same two-step the TES frame uses: convert the workbook that actually
-    downloads when a converter is installed, so the preview is the file; draw
-    the list here when one is not.
-    """
-    from .models import SystemSettings
-    from . import doc_convert, report_pdf
-
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    school_year = request.GET.get('sy', '').strip()
-    ay = school_year or parsed['sy']
-    semester = parsed['semester']
-    sections = _unifast_report_sections(school_year=school_year, types=('TDP',))
-
-    pdf = None
-    if doc_convert.available():
-        try:
-            buf = _unifast_scholars_workbook(
-                sections, ay, semester, 'TDP Scholars',
-                f'BILIRAN PROVINCE STATE UNIVERSITY — TULONG DUNONG PROGRAM  |  {ay} {semester}',
-            )
-            pdf = doc_convert.to_pdf(buf.getvalue(), '.xlsx')
-        except (doc_convert.ConversionUnavailable, doc_convert.ConversionFailed):
-            pdf = None
-    if pdf is None:
-        pdf = report_pdf.programme_masterlist_pdf(
-            'TULONG DUNONG PROGRAM (TDP)', sections, ay, semester).read()
-
-    response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Disposition'] = (
-        f'inline; filename="TDP_Scholars_{ay.replace("-", "_")}.pdf"')
-    return response
-
-
 @_vpsea_required
 def vpsea_announcements(request):
     from .models import Announcement
@@ -3663,6 +3983,27 @@ def vpsea_announcements(request):
     return render(request, 'vpsea/announcements.html', {'announcements': announcements})
 
 
+def _report_term(request):
+    """(label, parsed, [(label, display)…]) for the term a report is being run for.
+
+    The masterlist used to be built for the active term and nothing else, which
+    left the office no way to produce last semester's list — the one an auditor
+    asks for — without changing the active term for everybody. It is chosen on
+    the Reports tab now and travels on `?sy=` from there into the preview frame
+    and all three downloads, so the document somebody opens is the document they
+    were looking at.
+
+    `sy` rather than a name of its own because that is the parameter Archives
+    already reads, and one office, one vocabulary.
+    """
+    from .models import SystemSettings
+    from . import masterlist_report
+    label = masterlist_report.term_for(request.GET.get('sy'))
+    display = [(l, '{sy} — {semester}'.format(**SystemSettings.parse_label(l)))
+               for l in masterlist_report.known_terms()]
+    return label, SystemSettings.parse_label(label), display
+
+
 @_vpsea_required
 def vpsea_reports(request):
     """Preview of the BiPSU scholars masterlist.
@@ -3675,8 +4016,8 @@ def vpsea_reports(request):
     from . import doc_convert, masterlist_report
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    context, summary = masterlist_report.build_context()
+    label, parsed, all_sy_display = _report_term(request)
+    context, summary = masterlist_report.build_context(term_label=label)
 
     sections = []
     for entry in summary:
@@ -3698,10 +4039,18 @@ def vpsea_reports(request):
             entry['key'].lower(),
         ))
 
+    active = SystemSettings.parse_label(settings_obj.academic_year)
     return render(request, 'vpsea/reports.html', {
         'sections': sections,
         'semester': parsed['semester'],
         'ay': parsed['sy'],
+        # The picker, and what it takes to say a document is for a term other
+        # than the one the office is working in — a masterlist downloaded from
+        # the wrong year is not obviously wrong once it is a file on a desk.
+        'all_sy_display': all_sy_display,
+        'selected_sy': label,
+        'is_active_term': label == settings_obj.academic_year,
+        'active_sy_display': f"{active['sy']} — {active['semester']}",
         'grand_total': sum(e['total'] for e in summary),
         'summary': summary,
         'template_available': os.path.exists(masterlist_report.TEMPLATE_PATH),
@@ -3721,25 +4070,23 @@ def vpsea_report_preview_pdf(request):
     on screen is that document rather than a picture of it. Without a converter
     installed the same rows are laid out here instead, and the tab says so.
     """
-    from .models import SystemSettings
     from . import doc_convert, masterlist_report, report_pdf
 
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    label = settings_obj.academic_year.replace('-', '_')
+    term, parsed, _display = _report_term(request)
+    label = term.replace('-', '_')
 
     pdf = None
     if doc_convert.available():
         try:
             buf, _summary = masterlist_report.build_document(
-                parsed['sy'], parsed['semester'])
+                parsed['sy'], parsed['semester'], term_label=term)
             pdf = doc_convert.to_pdf(buf.getvalue(), '.docx')
         except (FileNotFoundError, doc_convert.ConversionUnavailable,
                 doc_convert.ConversionFailed):
             pdf = None
     if pdf is None:
         buf, _summary = report_pdf.masterlist_pdf(
-            parsed['sy'], parsed['semester'])
+            parsed['sy'], parsed['semester'], term_label=term)
         pdf = buf.read()
 
     response = HttpResponse(pdf, content_type='application/pdf')
@@ -3751,18 +4098,17 @@ def vpsea_report_preview_pdf(request):
 @_vpsea_required
 def vpsea_report_download(request):
     """The BiPSU scholars masterlist as the office's own Word document."""
-    from .models import SystemSettings
     from . import masterlist_report
 
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    term, parsed, _display = _report_term(request)
     try:
-        buf, _summary = masterlist_report.build_document(parsed['sy'], parsed['semester'])
+        buf, _summary = masterlist_report.build_document(
+            parsed['sy'], parsed['semester'], term_label=term)
     except FileNotFoundError as exc:
         from urllib.parse import quote
-        return redirect(f'/vpsea/reports/?error={quote(str(exc))}')
+        return redirect(f'/vpsea/reports/?sy={quote(term)}&error={quote(str(exc))}')
 
-    label = settings_obj.academic_year.replace('-', '_')
+    label = term.replace('-', '_')
     filename = f'BiPSU_List_of_Scholars_{label}.docx'
     response = HttpResponse(
         buf.read(),
@@ -4170,11 +4516,15 @@ def vpsea_report_download_excel(request):
     from openpyxl.utils import get_column_letter
     from io import BytesIO
     from django.http import HttpResponse
-    from .models import Application, AffirmativeStaffApplication, SystemSettings
+    from .models import Application, AffirmativeStaffApplication
 
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    semester = settings_obj.active_semester
-    ay = settings_obj.academic_year
+    # Follows the Reports tab's picker like the other two downloads. The
+    # headings used to read 'SY: 26-1' against the Word document's 'SY:
+    # 2026-2027' — the same term, spelled two ways, on two files of the same
+    # list; parse_label settles it.
+    term, parsed, _display = _report_term(request)
+    semester = parsed['semester']
+    ay = parsed['sy']
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -4458,13 +4808,60 @@ def vpsea_report_download_excel(request):
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-    filename = f'Scholarship_Report_{ay.replace("-","_")}_{semester.replace(" ","_")}.xlsx'
+    filename = f'Scholarship_Report_{term.replace("-","_")}_{semester.replace(" ","_")}.xlsx'
     response = HttpResponse(
         buffer.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+def mail_status(settings_obj):
+    """What the office needs to know about mail, without a shell or a log.
+
+    Render’s free plan has neither, and the failures that matter happen when
+    nobody is watching — a confirmation link goes out mid-registration and is
+    swallowed by notify.send_email, which is what that function is for. This is
+    the same answer `manage.py check_email` gives, on a page.
+
+    Secrets are reported as set or unset and never shown. The sender address is
+    shown, because it is the thing that is usually wrong and it is not a secret.
+    """
+    from django.conf import settings as django_settings
+
+    backend = getattr(django_settings, 'EMAIL_BACKEND', '')
+    if backend.endswith('locmem.EmailBackend'):
+        route, detail = 'Test', 'Messages are collected in memory by the test suite.'
+    elif backend == 'api.email_backends.BrevoEmailBackend':
+        route, detail = 'Brevo', 'Sent over HTTPS on port 443.'
+    elif backend.endswith('smtp.EmailBackend'):
+        host = getattr(django_settings, 'EMAIL_HOST', '')
+        port = getattr(django_settings, 'EMAIL_PORT', '')
+        route = 'SMTP'
+        detail = (f'Sent to {host} on port {port}. Render blocks outbound SMTP '
+                  f'on its free plan, so this delivers nothing there however '
+                  f'carefully it is filled in.')
+    else:
+        route = 'Not configured'
+        detail = ('Messages are written to the service log and delivered to '
+                  'nobody. Set BREVO_API_KEY, or EMAIL_HOST where SMTP is '
+                  'reachable.')
+
+    return {
+        'route': route,
+        'route_detail': detail,
+        'enabled': getattr(django_settings, 'EMAIL_ENABLED', False),
+        # Set or unset, never the value: this renders on a screen somebody may
+        # be presenting from.
+        'key_set': bool(getattr(django_settings, 'BREVO_API_KEY', '')),
+        'sender': getattr(django_settings, 'DEFAULT_FROM_EMAIL', ''),
+        'site_url': getattr(django_settings, 'SITE_URL', ''),
+        'last_at': settings_obj.last_mail_attempt_at,
+        'last_to': settings_obj.last_mail_to,
+        'last_subject': settings_obj.last_mail_subject,
+        'last_error': settings_obj.last_mail_error,
+    }
 
 
 @_vpsea_required
@@ -4477,6 +4874,22 @@ def vpsea_accounts(request):
     a rejection has to say why.
     """
     from .models import ActivityLog, Notification, StaffProfile, StudentProfile
+
+    if request.method == 'POST' and request.POST.get('action') == 'test_email':
+        # The shell-less replacement for `manage.py check_email`. It sends a
+        # real message and reports what actually happened, because every other
+        # path in this system is deliberately quiet about mail.
+        from urllib.parse import quote
+        to = (request.POST.get('test_to') or request.user.email or '').strip()
+        if not to:
+            return redirect('/vpsea/accounts/?error=Give+an+address+to+send+the+test+to')
+        ok = notify.send_email(
+            to, '[BiPSU SRMS] Test message',
+            'This is a test from the BiPSU Scholarship Records Management '
+            'System.\n\nIf you are reading it in an inbox, mail works: '
+            'applicants will be told what the office decided, and registrants '
+            'can confirm their address.')
+        return redirect(f'/vpsea/accounts/?tested={1 if ok else 0}&to={quote(to)}')
 
     if request.method == 'POST':
         account = User.objects.filter(
@@ -4493,13 +4906,41 @@ def vpsea_accounts(request):
         if action not in ('approve', 'reject'):
             return redirect('/vpsea/accounts/?error=Unknown+action')
 
-        # The scholarship the student declared on the registration form is
-        # decided with the account, not on a queue of its own: it is part of
-        # what the officer is checking, and it arrived with this registration.
-        declared = declared_scholarship(getattr(account, 'profile', None))
-        if declared and action == 'approve':
+        # The scholarships the student declared on the registration form are
+        # decided with the account, not on a queue of their own: they are part
+        # of what the officer is checking, and they arrived with this
+        # registration. The same for a staff registration, which declares the
+        # one award on its side of the form: the BiPSU Staff Scholarship.
+        staff_declared = declared_staff_scholarship(account)
+        if staff_declared and action == 'approve':
+            _award, problem = approve_declared_staff_scholarship(
+                staff_declared, request.user, remarks=message)
+            if problem:
+                from urllib.parse import quote
+                return redirect(f'/vpsea/accounts/?error={quote(problem)}')
+        elif staff_declared:
+            reject_declared_staff_scholarship(staff_declared, request.user, message)
+
+        # One card each, so the tier and the imported row are asked per
+        # declaration: two awards are two different programmes, matched against
+        # two different imported lists, and a single `archive_id` on the form
+        # would have offered one student's DOST row as the answer to their CHED
+        # award. The card names the request it belongs to; nothing here reads a
+        # bare field any more.
+        #
+        # The whole account is one decision, so a problem with the second
+        # declaration stops before anything is written — but the first has
+        # already been approved by then. It is checked again on the way in
+        # rather than rolled back: a re-approval reuses the same Application
+        # row (see approve_declared_scholarship), so the officer can correct the
+        # card that was wrong and press Verify again without the first award
+        # being recorded twice.
+        for declared in declared_scholarships(getattr(account, 'profile', None)):
+            if action != 'approve':
+                reject_declared_scholarship(declared, request.user, message)
+                continue
             archive = None
-            archive_id = request.POST.get('archive_id', '').strip()
+            archive_id = request.POST.get(f'archive_id_{declared.pk}', '').strip()
             if archive_id:
                 from .models import ImportedScholar, SystemSettings
                 settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
@@ -4512,12 +4953,10 @@ def vpsea_accounts(request):
                                     'longer+available')
             _award, problem = approve_declared_scholarship(
                 declared, request.user, archive=archive, remarks=message,
-                tier=request.POST.get('award_tier', ''))
+                tier=request.POST.get(f'award_tier_{declared.pk}', ''))
             if problem:
                 from urllib.parse import quote
                 return redirect(f'/vpsea/accounts/?error={quote(problem)}')
-        elif declared:
-            reject_declared_scholarship(declared, request.user, message)
 
         status = 'approved' if action == 'approve' else 'rejected'
         account.decide_verification(status, message, request.user)
@@ -4557,28 +4996,35 @@ def vpsea_accounts(request):
         account.student_profile = students.get(account.id)
         account.employee_profile = staff.get(account.id)
 
-    # The scholarship each waiting registration declared, with the imported rows
-    # it could be. Only for the queue: a decided account's award is on the
-    # archives page, where every other award is.
+    # The scholarships each waiting registration declared, with the imported
+    # rows each could be. Only for the queue: a decided account's award is on
+    # the archives page, where every other award is.
+    #
+    # The candidates hang off the request rather than off the account, because
+    # a student declaring two awards has two sets of them — the imported CHED
+    # list is not where their DOST row is going to be found.
     from .models import SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     active_label = settings_obj.academic_year
     for account in pending:
-        req = declared_scholarship(account.student_profile)
-        account.declared = req
-        account.archive_candidates = (
-            list(_archive_candidates(req, active_label)) if req else [])
-        account.other_semester_rows = (
-            list(_archive_candidates(req).exclude(term_label=active_label)[:5])
-            if req else [])
+        account.staff_declared = declared_staff_scholarship(account)
+        account.declarations = declared_scholarships(account.student_profile)
+        for req in account.declarations:
+            req.archive_candidates = list(_archive_candidates(req, active_label))
+            req.other_semester_rows = list(
+                _archive_candidates(req).exclude(term_label=active_label)[:5])
 
     from django.conf import settings as django_settings
     from .models import CHED_TIER_CHOICES
 
+    settings_obj.refresh_from_db()
     return render(request, 'vpsea/accounts.html', {
         'active': 'accounts',
         'pending': pending,
         'decided': decided,
+        'mail': mail_status(settings_obj),
+        'tested': request.GET.get('tested'),
+        'tested_to': request.GET.get('to', ''),
         'ched_tiers': CHED_TIER_CHOICES,
         'active_label': active_label,
         'error': request.GET.get('error', ''),
@@ -4589,6 +5035,46 @@ def vpsea_accounts(request):
         # SMTP configured would read every 'not emailed' as a broken server.
         'emailed': request.GET.get('emailed'),
         'email_enabled': django_settings.EMAIL_ENABLED,
+    })
+
+
+@_vpsea_required
+def vpsea_profile(request):
+    """The SDSO officer's own account: their name, and their password.
+
+    Deliberately thin. An officer has no record here the way a student or an
+    employee does — no course, no appointment, nothing the office collects about
+    them — so there is nothing to put on this page but the account itself. It
+    exists because until now the only way to change an SDSO password was for
+    somebody to do it to them.
+
+    The email address is shown and not edited: it is what the account signs in
+    with and what every notification the office sends is attributed to, so
+    changing it is the SDSO's own decision to make on the Account Verification
+    page rather than a field on a personal profile.
+    """
+    user = request.user
+    errors = []
+    saved = password_changed = False
+
+    if request.method == 'POST':
+        wanted_password = bool(request.POST.get('new_password') or
+                               request.POST.get('current_password'))
+        errors = _change_own_password(request, user)
+        if not errors:
+            user.first_name = (request.POST.get('first_name') or user.first_name).strip()
+            user.last_name = (request.POST.get('last_name') or user.last_name).strip()
+            if request.FILES.get('photo'):
+                user.photo = request.FILES['photo']
+            user.save(update_fields=['first_name', 'last_name', 'photo'])
+            saved = True
+            password_changed = wanted_password
+
+    return render(request, 'vpsea/profile.html', {
+        'active': 'profile',
+        'saved': saved,
+        'password_changed': password_changed,
+        'errors': errors,
     })
 
 
@@ -4646,10 +5132,11 @@ def vpsea_students(request):
 
     # Students with NO approved application at all — shown in the second tab.
     # This is a simple anti-join: every StudentProfile whose pk is not in the
-    # set of profiles that have at least one Approved application. Accounts the
-    # office rejected at registration are left out for the same reason as on the
-    # archives tab: they cannot sign in to apply, so they are not students the
-    # system failed to serve.
+    # set of profiles that have at least one Approved application. Only accounts
+    # the office verified are counted, for the same reason as on the archives
+    # tab: a rejected or still-pending registrant cannot sign in to apply, so
+    # they are not a student the system failed to serve. The two listings have
+    # to agree — hiding someone here is no use if they turn up one page over.
     approved_pks = Application.objects.filter(
         status='Approved'
     ).values_list('student_id', flat=True).distinct()
@@ -4658,7 +5145,7 @@ def vpsea_students(request):
         StudentProfile.objects
         .select_related('user', *StudentProfile.DETAIL_RELATIONS)
         .exclude(pk__in=approved_pks)
-        .exclude(user__verification_status='rejected')
+        .filter(user__verification_status='approved')
         .order_by('user__last_name', 'user__first_name')
     )
     if q:
@@ -4925,6 +5412,7 @@ def vpsea_student_edit(request, pk):
         'v_is_listahanan': profile.is_listahanan_household,
         'v_is_4ps': profile.is_4ps_beneficiary,
         'v_has_previous_degree': profile.has_previous_degree,
+        'v_is_solo_parent': profile.is_solo_parent_dependent,
         'v_disability_type': profile.disability_type,
         'v_is_pwd': profile.is_pwd,
         'v_indigenous_group': profile.indigenous_group,
@@ -4980,7 +5468,7 @@ def _enrollment_fields(p, profile=None):
     }
 
 
-def _save_column_values(request, base_url):
+def _save_column_values(request, base_url, portal='vpsea'):
     """Save the values typed into a programme's custom columns.
 
     One post for the whole table: the office fills a column down the page, not a
@@ -4988,18 +5476,34 @@ def _save_column_values(request, base_url):
     ``extra__<kind>__<pk>__<column key>`` — because the three record shapes have
     separate id spaces and a bare pk would not say which table to look in.
 
-    Nothing here is taken on trust: a field naming a column that is not a custom
-    one, or a record shape that is not one of the three, is dropped rather than
-    written. The two portals wrap this in their own permission check.
+    Nothing here is taken on trust. A field naming a record shape that is not one
+    of the three is dropped; so is one naming a column this programme does not
+    have, which is a tighter check than the prefix it used to be — a well-formed
+    field name for a column belonging to some other programme was previously
+    written straight onto the record.
+
+    A value is checked against the kind its column declared and refused if it is
+    not that kind: a Number column handed 'n/a' keeps the cell it had. Refused
+    one cell at a time, and counted, so the rest of a forty-row save still lands
+    and the office is told how many boxes it has to go back to.
     """
-    from . import scholar_columns
+    from urllib.parse import urlencode
+
     from .models import AffirmativeStaffApplication, Application, ImportedScholar
-    from urllib.parse import quote
 
     stype = request.POST.get('type', '')
-    back = f'{base_url}?type={quote(stype)}' if stype else base_url
+    query = {k: v for k, v in (('type', stype), ('tier', request.POST.get('tier', '')),
+                               ('sy', request.POST.get('sy', ''))) if v}
+
+    def back(**extra):
+        return f'{base_url}?{urlencode({**query, **extra})}' if query or extra else base_url
+
     if request.method != 'POST':
-        return redirect(back)
+        return redirect(back())
+
+    programme = Scholarship.objects.filter(type=stype).first()
+    custom = {c['key']: c for c in scholar_columns.resolve(programme, stype, portal)
+              if c['custom']}
 
     models_by_kind = {
         'award': Application,
@@ -5007,7 +5511,7 @@ def _save_column_values(request, base_url):
         'staff': AffirmativeStaffApplication,
     }
     # Grouped by record first, so a row with three custom columns is written once.
-    edits = {}
+    edits, refused = {}, 0
     for field, value in request.POST.items():
         parts = field.split('__')
         if len(parts) != 4 or parts[0] != 'extra':
@@ -5015,9 +5519,14 @@ def _save_column_values(request, base_url):
         _, kind, pk, key = parts
         if kind not in models_by_kind or not pk.isdigit():
             continue
-        if not key.startswith(scholar_columns.CUSTOM_PREFIX):
+        column = custom.get(key)
+        if column is None:
             continue
-        edits.setdefault((kind, int(pk)), {})[key] = value.strip()
+        cleaned = scholar_columns.clean_value(column, value)
+        if cleaned is None:
+            refused += 1
+            continue
+        edits.setdefault((kind, int(pk)), {})[key] = cleaned
 
     saved = 0
     for (kind, pk), values in edits.items():
@@ -5030,10 +5539,10 @@ def _save_column_values(request, base_url):
         scholar_columns.set_extra_values(record, values)
         saved += 1
 
-    sy = request.POST.get('sy', '')
-    if sy:
-        back += f'&sy={quote(sy)}'
-    return redirect(f'{back}&columns_saved={saved}')
+    extra = {'columns_saved': saved}
+    if refused:
+        extra['columns_bad'] = refused
+    return redirect(back(**extra))
 
 
 @_vpsea_required
@@ -5075,8 +5584,17 @@ def vpsea_scholarships(request):
     })
 
 
-def _column_picker_context(posted=None, scholarship=None):
+def _column_picker_context(posted=None, scholarship=None, stype='', portal=''):
     """What the archive-table column picker needs to draw itself.
+
+    The catalogue comes back in the order the table reads: the columns in use
+    first, in their own order and numbered, then the rest. A picker listing the
+    catalogue alphabetically could not answer "what does this table look like",
+    which is the question an officer opening the form is actually asking.
+
+    A programme nobody has configured shows its default table already ticked
+    rather than sixteen empty boxes — those defaults are what the archive prints
+    today, so an empty picker misrepresented the table it was editing.
 
     Reads a rejected submission back off ``posted`` rather than the saved
     programme, so a form that comes back with an error still shows the boxes as
@@ -5086,15 +5604,117 @@ def _column_picker_context(posted=None, scholarship=None):
 
     if posted is not None:
         chosen = scholar_columns.clean_choice(posted.getlist('table_columns'))
-        custom = scholar_columns.clean_custom(posted.getlist('extra_columns'))
+        custom = _posted_custom_columns(posted)
     else:
-        chosen = scholar_columns.clean_choice(getattr(scholarship, 'table_columns', None))
+        chosen = scholar_columns.clean_choice(
+            getattr(scholarship, 'table_columns', None))
         custom = list(getattr(scholarship, 'extra_columns', None) or [])
+    if not chosen:
+        chosen = scholar_columns.default_for(
+            stype or getattr(scholarship, 'type', ''), portal)
+
+    order = {key: i for i, key in enumerate(chosen)}
+    catalogue = sorted(
+        ({'key': k, 'label': l} for k, l in scholar_columns.COLUMNS),
+        # Chosen first in their own order; the rest keep the catalogue's, which
+        # is the order the reports print and so the least surprising shelf to
+        # pick an unused column off.
+        key=lambda c: (order.get(c['key'], len(order)),
+                       0 if c['key'] in order else 1),
+    )
+    for position, column in enumerate(catalogue):
+        column['position'] = order.get(column['key'])
+        column['chosen'] = column['key'] in order
+    # Copied rather than annotated in place: on the edit form these *are* the
+    # dicts inside the programme's own JSON field, and a display-only key added
+    # to one would be a key the next save writes back to the database.
+    custom = [{**column,
+               # Back as one line, which is how they were typed and how they are
+               # shown again. Stored as a list because that is what the row's
+               # dropdown picks from.
+               'options_text': ', '.join(column.get('options') or ())}
+              for column in custom]
     return {
-        'column_catalogue': [{'key': k, 'label': l} for k, l in scholar_columns.COLUMNS],
+        'column_catalogue': catalogue,
         'chosen_columns': chosen,
         'custom_columns': custom,
+        'custom_types': scholar_columns.CUSTOM_TYPES,
     }
+
+
+def _posted_custom_columns(posted):
+    """The office's own columns as one submission of the form describes them.
+
+    The three field names are parallel — a row is a name, a kind and, for a
+    choice list, its options — and are read by position, so they have to be
+    taken off the post together rather than one call at a time.
+    """
+    return scholar_columns.clean_custom(
+        posted.getlist('extra_columns'),
+        posted.getlist('extra_types'),
+        posted.getlist('extra_options'),
+    )
+
+
+def _posted_logo(posted):
+    """The seal the office picked, or '' for "work it out from the type".
+
+    Validated against the files actually present rather than trusted: the value
+    is rendered straight into an <img src>, so anything but a name this list
+    returned — a path, a URL, a deleted file — is discarded rather than stored.
+    """
+    from .constants import available_logos
+
+    chosen = (posted.get('logo') or '').strip()
+    return chosen if chosen in available_logos() else ''
+
+
+def _posted_window(p, errors, kind='applications'):
+    """One window as the office typed it, or (None, None).
+
+    Blank dates are "always open", not "closed": every programme predates these
+    fields and a blank that shut them all would have closed the portal on
+    migrate. Closing one is the switch beside them, which is a different answer
+    and says so. A length without a date is refused rather than guessed at —
+    "open for 14 days" from when is a question only the office can answer.
+
+    ``kind`` is 'applications' or 'renewals', which is also the prefix the two
+    cards post under. Applications and renewals open on different dates, so
+    they are two windows and not one.
+
+    The date comes back as a ``date`` rather than the string it was typed as.
+    Assigning a string to a DateField works — Django coerces it when the row is
+    saved — but everything that reads the window back before then, the closing
+    date this page reports included, gets a string and cannot do arithmetic on
+    it. Parsing here also means an unparseable date is refused with a sentence
+    instead of raising out of ``save()``: this is a posted form, and
+    ``<input type="date">`` is the browser's manners, not a guarantee.
+    """
+    from datetime import date as _date
+
+    raw_opens = (p.get(f'{kind}_open_on') or '').strip()
+    raw_days = (p.get(f'{kind}_open_days') or '').strip()
+
+    opens = None
+    if raw_opens:
+        try:
+            opens = _date.fromisoformat(raw_opens)
+        except ValueError:
+            errors.append('The opening date must be a real date, as YYYY-MM-DD.')
+
+    days = None
+    if raw_days:
+        try:
+            days = int(raw_days)
+        except ValueError:
+            errors.append('Days open must be a whole number.')
+        else:
+            if days < 1:
+                errors.append('Days open must be at least 1.')
+                days = None
+    if days and not raw_opens:
+        errors.append('A length needs an opening date to count from.')
+    return opens, days
 
 
 @_vpsea_required
@@ -5110,19 +5730,27 @@ def vpsea_scholarship_add(request):
         benefits = [l.strip() for l in p.get('benefits','').splitlines() if l.strip()]
         if not name: errors.append('Name is required.')
         if not stype: errors.append('Type is required.')
+        # No window here: a new programme is open, and the office says when it
+        # runs on the Applications and Renewal Applications tabs. See the
+        # comment on that block in vpsea/scholarship_form.html.
         if not errors:
             Scholarship.objects.create(
                 name=name, type=stype, category='application',
                 description=description, eligibility='',
                 background=background, eligibility_list=eligibility_list,
                 benefits=benefits, group=p.get('group','internal'), is_active=True,
+                logo=_posted_logo(p),
                 table_columns=scholar_columns.clean_choice(p.getlist('table_columns')),
-                extra_columns=scholar_columns.clean_custom(p.getlist('extra_columns')),
+                extra_columns=_posted_custom_columns(p),
             )
             return redirect('/vpsea/scholarships/?added=1')
+    from .constants import available_logos
     return render(request, 'vpsea/scholarship_form.html', {
         'action': 'Add', 'errors': errors, 'form': request.POST,
-        **_column_picker_context(request.POST if request.method == 'POST' else None),
+        'logos': available_logos(),
+        **_column_picker_context(
+            request.POST if request.method == 'POST' else None,
+            stype=request.POST.get('type', '') if request.method == 'POST' else ''),
     })
 
 
@@ -5142,15 +5770,21 @@ def vpsea_scholarship_edit(request, pk):
         s.group = p.get('group', 'internal')
         s.eligibility_list = [l.strip() for l in p.get('eligibility_list','').splitlines() if l.strip()]
         s.benefits = [l.strip() for l in p.get('benefits','').splitlines() if l.strip()]
+        s.logo = _posted_logo(p)
         s.table_columns = scholar_columns.clean_choice(p.getlist('table_columns'))
-        s.extra_columns = scholar_columns.clean_custom(p.getlist('extra_columns'))
+        s.extra_columns = _posted_custom_columns(p)
         if not s.name: errors.append('Name is required.')
         if not s.type: errors.append('Type is required.')
+        # The two windows are deliberately untouched here. This form no longer
+        # asks for them, and writing what it did not ask for would close every
+        # programme the first time somebody corrected a typo in its name.
         if not errors:
             s.save()
             return redirect('/vpsea/scholarships/?saved=1')
+    from .constants import available_logos
     return render(request, 'vpsea/scholarship_form.html', {
         'action': 'Edit', 'errors': errors, 's': s,
+        'logos': available_logos(),
         **_column_picker_context(
             request.POST if request.method == 'POST' else None, s),
     })
@@ -5165,23 +5799,318 @@ def vpsea_scholarship_toggle(request, pk):
     return redirect('/vpsea/scholarships/')
 
 
+# The tabs this page offers, in the order they are shown. A programme belongs
+# here only if the rules can be run without anybody applying for it — both of
+# these are decided from the student record the office already holds.
+RANKING_TABS = [
+    ('Affirmative', 'Affirmative Action'),
+    ('TES', 'TES Recommendation'),
+    ('Staff', 'Faculty and Staff Scholars'),
+]
+
+
+def _staff_ranking_data():
+    """The Faculty and Staff tab's lists and counts, built once.
+
+    Separated from the view because the page is not the only thing that shows
+    this list any more — vpsea_ranking_download writes the same rows to a
+    workbook. Two functions producing "the list" would be two lists, and the
+    one the office filed would be the one nobody was looking at.
+    """
+    from . import staff_ranking
+    from .models import AffirmativeStaffApplication
+
+    applications = (AffirmativeStaffApplication.objects
+                    .filter(qualified_for='Staff')
+                    .select_related(*STAFF_APPLICATION_DETAILS))
+
+    evaluations = staff_ranking.rank(applications)
+
+    decided = [e for e in evaluations if e.status != staff_ranking.FOR_VERIFICATION]
+    needs_info = [e for e in evaluations if e.status == staff_ranking.FOR_VERIFICATION]
+    # Only the qualified are numbered. A position on a Not Qualified row would
+    # read as a place in a list they are not in — they are shown so the office
+    # can see the reason, not ranked.
+    position = 0
+    for evaluation in decided:
+        if evaluation.qualified:
+            position += 1
+            evaluation.rank = position
+        else:
+            evaluation.rank = None
+    # And staff_ranking.rank() numbers every evaluation from 1, held-out ones
+    # included, so the number it handed these has to be taken back. It never
+    # showed: the "not yet decidable" table has no Rank column. The download
+    # has one, and a rank printed beside For Verification is the exact reading
+    # this list is built to avoid.
+    for evaluation in needs_info:
+        evaluation.rank = None
+
+    return {
+        'rows': decided,
+        'needs_info': needs_info,
+        'total': len(evaluations),
+        'counts': {
+            'qualified': sum(1 for e in evaluations if e.status == staff_ranking.QUALIFIED),
+            'verification': len(needs_info),
+            'not_qualified': sum(1 for e in evaluations
+                                 if e.status == staff_ranking.NOT_QUALIFIED),
+            'employees': sum(1 for e in evaluations if e.standing == staff_ranking.STAFF),
+            'dependents': sum(1 for e in evaluations if e.standing == staff_ranking.DEPENDENT),
+        },
+    }
+
+
+def _vpsea_staff_ranking(request):
+    """Who qualifies for the Faculty and Staff Scholars programme, and why.
+
+    The three qualifications the Board approved are in api/staff_ranking.py,
+    which reads the application and explains every verdict it reaches, so this
+    view only decides which applications to run them over and how to split the
+    result.
+
+    Applications rather than people, unlike the other two tabs: this programme
+    is applied for. Everybody who applied is screened, including the ones whose
+    application is too incomplete to decide — those are held out into their own
+    list with what is missing named beside them, rather than being turned down
+    for a question nobody asked them.
+
+    Nothing is scored. There is no merit test in the programme, so this ranks
+    nobody against anybody — it sorts the settled answers to the top because
+    that is the order the office works a list in.
+    """
+    data = _staff_ranking_data()
+    return render(request, 'vpsea/ranking.html', {
+        'active': 'ranking',
+        'ranking_tabs': RANKING_TABS,
+        'active_tab': 'Staff',
+        'staff_rows': data['rows'],
+        'staff_needs_info': data['needs_info'],
+        'staff_total': data['total'],
+        'staff_counts': data['counts'],
+    })
+
+
+@_vpsea_required
+def vpsea_ranking_download(request):
+    """One recommendation tab as a workbook: the list, and the reason for it.
+
+    The office has to take these lists somewhere — an Affirmative shortlist to
+    the Board of Regents, a TES recommendation onward to UniFAST, the Faculty
+    and Staff list through PASUC-8 — and until now the only way off the screen
+    was to retype it.
+
+    Built from the same ``_..._ranking_data`` the page renders, so the file and
+    the screen cannot disagree; api/ranking_report.py lays it out. Nothing is
+    written: no status, no re-evaluation, no record that this was downloaded
+    beyond the log line below. A recommendation is a reading of the rules, and
+    reading it twice should not change it.
+    """
+    from . import ranking_report
+    from .models import ActivityLog
+
+    tab = request.GET.get('type', 'Affirmative')
+    if tab not in dict(RANKING_TABS):
+        tab = 'Affirmative'
+
+    threshold = None
+    if tab == 'TES':
+        data = _tes_ranking_data()
+    elif tab == 'Staff':
+        data = _staff_ranking_data()
+    else:
+        try:
+            threshold = float(request.GET.get('passing', 75.0))
+        except (TypeError, ValueError):
+            threshold = 75.0
+        data = _affirmative_ranking_data(threshold)
+
+    buf, filename = ranking_report.build(tab, data, passing_threshold=threshold)
+
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'Downloaded the {dict(RANKING_TABS)[tab]} recommendation list')
+
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _affirmative_ranking_data(passing_threshold):
+    """The Affirmative tab's rows and counts — see _staff_ranking_data.
+
+    Reads; it does not re-evaluate. ``evaluate_and_sync`` is the page's call to
+    make, and a download is a GET: a file the office asked for should not be
+    able to rewrite the recommendations it is a picture of. The three rule
+    columns and the four target groups are worked out live from the profile
+    either way, so the only thing taken from the stored row is the fit score the
+    last sync settled — which is the number the page was showing when the office
+    clicked Download.
+
+    **The order is the mandate's, not the grade book's.** Section 2 of the
+    PASUC-8 proposal decides who is eligible; the mandate paragraph decides who
+    the programme is *for*, and section 1 says in as many words that grades are
+    not the only factor. So among the eligible, the students the four groups
+    reach come first, and the fit score only separates students the mandate
+    reaches equally. See api/affirmative_ranking.py.
+    """
+    from .affirmative_ranking import target_groups
+    from .models import AffirmativeRecommendation
+
+    recommendations = (
+        AffirmativeRecommendation.objects
+        .select_related('student__user', *STUDENT_DETAILS)
+        .order_by('-fit_score', 'student__user__last_name')
+    )
+
+    # Build per-row rule breakdown from live profile data
+    rows = []
+    for rec in recommendations:
+        p = rec.student
+        gpa_pass   = p.shs_gpa is not None and p.shs_gpa >= passing_threshold
+        exam_pass  = p.suc_exam_percent is not None and p.suc_exam_percent >= 50.0
+        not_tes    = not p.is_tes_beneficiary
+        rows.append({
+            'rank': None,
+            'rec': rec,
+            'profile': p,
+            'gpa_pass': gpa_pass,
+            'exam_pass': exam_pass,
+            'not_tes': not_tes,
+            'groups': target_groups(p),
+            'eligible': gpa_pass and exam_pass and not_tes,
+        })
+
+    # Eligible first, then the most of the four groups, then the score as a
+    # tie-break, then name so the order is stable when nothing else separates
+    # two rows. Not-eligible rows are sorted the same way rather than left in
+    # score order: the office reads them for the reason, and a list that changes
+    # its mind about what it sorts on halfway down is a list nobody trusts.
+    rows.sort(key=lambda r: (
+        0 if r['eligible'] else 1,
+        -r['groups'].count,
+        -r['rec'].fit_score,
+        (r['profile'].user.last_name or '').lower(),
+    ))
+    # Only the eligible are numbered, the same way the other two tabs do it.
+    rank_counter = 1
+    for row in rows:
+        if row['eligible']:
+            row['rank'] = rank_counter
+            rank_counter += 1
+
+    return {
+        'rows': rows,
+        'eligible_count': sum(1 for r in rows if r['eligible']),
+        'ineligible_count': sum(1 for r in rows if not r['eligible']),
+        # How far the mandate actually reaches into the eligible list. An
+        # Affirmative Action shortlist where this is zero is the office's cue
+        # that the four questions are not being answered, not that no student
+        # in Biliran belongs to any of the four groups.
+        'in_target_group_count': sum(1 for r in rows
+                                     if r['eligible'] and r['groups'].count),
+    }
+
+
+def _tes_ranking_data():
+    """The TES tab's lists and counts, built once — see _staff_ranking_data."""
+    from . import tes_ranking
+
+    # The detail rows are joined in rather than fetched per student: reading a
+    # profile field is a join now, and the rules read a dozen of them each.
+    profiles = StudentProfile.objects.select_related(
+        'user', *StudentProfile.DETAIL_RELATIONS)
+
+    evaluations = tes_ranking.rank(profiles)
+
+    # Three outcomes, two lists. Eligible and Not Eligible are both decided, so
+    # they share a table and sort together; For Verification is not a verdict at
+    # all and gets held out below with what is missing named.
+    ranked = [e for e in evaluations if e.status != tes_ranking.FOR_VERIFICATION]
+    needs_info = [e for e in evaluations if e.status == tes_ranking.FOR_VERIFICATION]
+    # Only the eligible are numbered, the same way the Affirmative tab does it.
+    # A rank on a Not Eligible row would read as a position in a list they are
+    # not in — they are shown so the office can see the reason, not ranked.
+    position = 0
+    for evaluation in ranked:
+        if evaluation.eligible:
+            position += 1
+            evaluation.rank = position
+        else:
+            evaluation.rank = None
+    # tes_ranking.rank() numbers every evaluation from 1, held-out ones
+    # included — see the same note in _staff_ranking_data.
+    for evaluation in needs_info:
+        evaluation.rank = None
+
+    return {
+        'rows': ranked,
+        'needs_info': needs_info,
+        'total': len(evaluations),
+        'counts': {
+            'eligible': sum(1 for e in evaluations if e.status == tes_ranking.ELIGIBLE),
+            'verification': len(needs_info),
+            'not_eligible': sum(1 for e in evaluations if e.status == tes_ranking.NOT_ELIGIBLE),
+            'priority_1': sum(1 for e in evaluations if e.priority == tes_ranking.PRIORITY_1),
+            'priority_2': sum(1 for e in evaluations if e.priority == tes_ranking.PRIORITY_2),
+        },
+    }
+
+
+def _vpsea_tes_ranking(request):
+    """Who the SDSO would put forward for TES, and the reason for every line.
+
+    A recommendation, not a decision: UniFAST awards TES, and nothing here
+    writes a status onto a student. api/tes_ranking.py carries the rules, the
+    field each one reads and the wording of every verdict, so this view only
+    decides which students to run them over and how to split the result.
+
+    Every student is screened, because nobody applies. Students whose record is
+    too incomplete to rank are held out into their own list rather than given a
+    position their record cannot support — with what is missing named beside
+    them, so the office knows what to collect.
+    """
+    data = _tes_ranking_data()
+    return render(request, 'vpsea/ranking.html', {
+        'active': 'ranking',
+        'ranking_tabs': RANKING_TABS,
+        'active_tab': 'TES',
+        'tes_rows': data['rows'],
+        'tes_needs_info': data['needs_info'],
+        'tes_student_total': data['total'],
+        'tes_counts': data['counts'],
+    })
+
+
 @_vpsea_required
 def vpsea_ranking(request):
+    """Rule-based recommendations, one tab per programme that has rules.
+
+    Two programmes qualify, and neither is applied for. Both are decided from
+    the student's own profile, which is why this page ranks *students* rather
+    than submissions:
+
+    * **Affirmative Action** is BiPSU's own, and the office awards it. See
+      AffirmativeRecommendation.evaluate_and_sync.
+    * **TES** is UniFAST's, awarded outside this system entirely, so what the
+      SDSO produces is a recommendation to send onward — never an award. See
+      api/tes_ranking.py, which explains every verdict it reaches and says what
+      is missing rather than guessing.
+
+    * **Faculty and Staff Scholars** is applied for, and its three
+      qualifications are read off the application. See api/staff_ranking.py.
+      Nothing is scored there either — the programme has no merit test — so
+      that tab states a verdict and its reason rather than a position.
+    """
     from .models import AffirmativeRecommendation, SystemSettings
 
-    # TES is UniFAST's programme to award, so its recommender lives in their
-    # portal — see unifast_tes_ranking.
-    # Affirmative Action only. The BiPSU Staff scholarship has no merit test —
-    # a regular appointment qualifies and nothing is scored — so ranking it
-    # sorted a list by a constant. Staff applications are reviewed on the
-    # Applications page instead.
-    #
-    # There is no applicant list here either. Nobody applies for Affirmative
-    # Action: eligibility is decided from the student's own profile by
-    # evaluate_and_sync below, and this page is where that is read. The tab that
-    # ranked AffirmativeStaffApplication rows scored every one of them zero --
-    # no form has ever written the SHS GPA or exam score it read -- so it was a
-    # permanently empty table for a submission that cannot be made.
+    scholarship_type = request.GET.get('type', 'Affirmative')
+    if scholarship_type == 'TES':
+        return _vpsea_tes_ranking(request)
+    if scholarship_type == 'Staff':
+        return _vpsea_staff_ranking(request)
     scholarship_type = 'Affirmative'
 
     # ── Passing threshold (can be tweaked via GET param for VPSEA, default 75) ──
@@ -5206,811 +6135,16 @@ def vpsea_ranking(request):
     # Sync first so the table is always current
     AffirmativeRecommendation.evaluate_and_sync(passing_threshold)
 
-    recommendations = (
-        AffirmativeRecommendation.objects
-        .select_related('student__user', *STUDENT_DETAILS)
-        .order_by('-fit_score', 'student__user__last_name')
-    )
-
-    # Build per-row rule breakdown from live profile data
-    rec_rows = []
-    for i, rec in enumerate(recommendations):
-        p = rec.student
-        gpa_pass   = p.shs_gpa is not None and p.shs_gpa >= passing_threshold
-        exam_pass  = p.suc_exam_percent is not None and p.suc_exam_percent >= 50.0
-        not_tes    = not p.is_tes_beneficiary
-        eligible   = gpa_pass and exam_pass and not_tes
-        rec_rows.append({
-            'rank': i + 1 if eligible else None,
-            'rec': rec,
-            'profile': p,
-            'gpa_pass': gpa_pass,
-            'exam_pass': exam_pass,
-            'not_tes': not_tes,
-            'eligible': eligible,
-        })
-
-    # Sort: eligible first (by fit_score desc), then ineligible
-    rec_rows.sort(key=lambda r: (0 if r['eligible'] else 1, -r['rec'].fit_score))
-    # Re-assign ranks only to eligible rows
-    rank_counter = 1
-    for row in rec_rows:
-        if row['eligible']:
-            row['rank'] = rank_counter
-            rank_counter += 1
-        else:
-            row['rank'] = None
-
-    eligible_count   = sum(1 for r in rec_rows if r['eligible'])
-    ineligible_count = sum(1 for r in rec_rows if not r['eligible'])
-
+    data = _affirmative_ranking_data(passing_threshold)
     return render(request, 'vpsea/ranking.html', {
-        'rec_rows': rec_rows,
+        'ranking_tabs': RANKING_TABS,
+        'active_tab': 'Affirmative',
+        'rec_rows': data['rows'],
         'passing_threshold': passing_threshold,
-        'eligible_count': eligible_count,
-        'ineligible_count': ineligible_count,
+        'eligible_count': data['eligible_count'],
+        'ineligible_count': data['ineligible_count'],
+        'in_target_group_count': data['in_target_group_count'],
     })
-
-
-# The profile fields the TES form fills itself in from. They are editable here
-# and saved back to the profile when the application is — one record of each
-# fact, corrected wherever the student happens to be looking at it.
-#
-# On the profile page these lock after the first save, because an edit there
-# would silently change a record the office has already reviewed. That reason
-# does not hold here: this form only opens while the application is undecided,
-# so nothing has been reviewed yet. Same rule, applied where it means something.
-TES_PROFILE_FIELDS = [
-    'student_id', 'middle_name', 'suffix', 'gender', 'year_level',
-    'father_last_name', 'father_first_name', 'father_middle_name',
-    'mother_last_name', 'mother_first_name', 'mother_middle_name',
-]
-
-# Of those, the ones CHED marks Required on the Annex 1. The father's names are
-# deliberately absent: CHED marks them optional, and a student raised by one
-# parent should not be stopped by a box they cannot honestly fill.
-TES_REQUIRED_FIELDS = [
-    ('student_id', 'Student ID'),
-    ('last_name', 'Last name'),
-    ('first_name', 'Given name'),
-    ('gender', 'Sex'),
-    ('year_level', 'Year level'),
-    ('mother_last_name', "Mother's last name"),
-    ('mother_first_name', "Mother's given name"),
-]
-
-
-def _tes_profile_errors(posted, profile):
-    """What the form is missing, and anything it cannot be given."""
-    errors = []
-    blank = [label for field, label in TES_REQUIRED_FIELDS
-             if not (posted.get(field) or '').strip()]
-    if blank:
-        errors.append('CHED requires ' + ', '.join(blank) + ' on the TES form. '
-                      'Fill them in above — they are saved to your profile too.')
-
-    year = (posted.get('year_level') or '').strip()
-    if year and (not year.isdigit() or not 1 <= int(year) <= 6):
-        errors.append('Year level must be a number from 1 to 6.')
-
-    # The student number is the key the office matches against its enrolment
-    # list, so two students cannot share one.
-    student_id = (posted.get('student_id') or '').strip()
-    if student_id and profile is not None and StudentProfile.objects.filter(
-            student_id=student_id).exclude(pk=profile.pk).exists():
-        errors.append(f'Student ID {student_id} belongs to another account. '
-                      'Check it for a typo, or ask the SDSO office to sort it out.')
-    return errors
-
-
-def _tes_profile_values(profile):
-    """What the form's profile half shows when it is first opened."""
-    if profile is None:
-        return {}
-    values = {field: str(getattr(profile, field, '') or '')
-              for field in TES_PROFILE_FIELDS}
-    values['first_name'] = profile.user.first_name or ''
-    values['last_name'] = profile.user.last_name or ''
-    return values
-
-
-def _save_tes_profile_fields(profile, posted):
-    """Write the form's profile half back, so there is still one copy of each."""
-    user = profile.user
-    user.first_name = (posted.get('first_name') or '').strip()
-    user.last_name = (posted.get('last_name') or '').strip()
-    user.save(update_fields=['first_name', 'last_name'])
-
-    for field in TES_PROFILE_FIELDS:
-        value = (posted.get(field) or '').strip()
-        if field == 'year_level':
-            profile.year_level = int(value) if value.isdigit() else profile.year_level
-        else:
-            setattr(profile, field, value)
-    profile.save()
-
-
-@login_required(login_url='/login/')
-def student_apply_tes(request):
-    profile = StudentProfile.objects.filter(user=request.user).first()
-    from .constants import EDITABLE_REVIEW_STATUSES
-    from . import annex1_report
-    existing = TESApplication.objects.filter(student=profile).first() if profile else None
-    # Undecided means still the applicant's to correct; a decided one is final.
-    editing = existing if existing and existing.status in EDITABLE_REVIEW_STATUSES else None
-    errors = []
-
-    # TES sits alongside an Academic scholarship and nothing else. A student who
-    # already holds TDP, DOST, CHED or any other award cannot add it, and the
-    # form says so rather than taking a submission UniFAST would have to refuse.
-    # Their own approved TES is not a block here — it is what `existing` shows.
-    if existing and existing.status == 'Approved':
-        blocked_reason = ''
-    else:
-        blocked_reason = scholarship_block_reason(
-            profile, 'TES', 'Tertiary Education Subsidy')
-    if blocked_reason:
-        return render(request, 'student/apply_tes.html', {
-            'profile': profile, 'blocked': True, 'blocked_reason': blocked_reason,
-            'existing': existing, 'errors': [], 'post': {},
-        })
-
-    if request.method == 'POST' and profile and (editing or not existing):
-        p = request.POST
-        errors.extend(_tes_profile_errors(p, profile))
-
-        # The dropdown is the registry, so anything else reaching here came from
-        # a hand-made post or a template that could not be read. Checked only
-        # when there is a list to check against — with the workbook missing the
-        # form falls back to a text box and this would reject everything.
-        registry = annex1_report.registry_programs()
-        program = p.get('complete_program', '').strip()
-        if registry and program not in registry:
-            errors.append(
-                'Pick your programme from the list — CHED reads the Annex 1 '
-                'against its own registry of programme names.')
-
-        # 'Other' is this system's word for a condition CHED's list does not
-        # name; what reaches the workbook is what the student typed instead.
-        disability = p.get('disability_type', '').strip()
-        if disability == annex1_report.OTHER:
-            disability = p.get('disability_type_other', '').strip()
-            if not disability:
-                errors.append('Name the disability you chose "Other" for.')
-
-        if not errors:
-            # The profile half is saved to the profile, not copied onto the
-            # application: the names live in exactly one place, and this form is
-            # another window onto them rather than a second record of them.
-            _save_tes_profile_fields(profile, p)
-            # The same question My Profile asks, off the same CHED list, so the
-            # answer is stored once. Without this the two records could — and
-            # did — disagree about the same student.
-            profile.disability_type = disability
-            profile.save(update_fields=['disability_type'])
-            TESApplication.objects.update_or_create(
-                student=profile,
-                defaults=dict(
-                lrn=p.get('lrn', ''),
-                philsys_id=p.get('philsys_id', '').strip(),
-                four_ps_id=p.get('four_ps_id', '').strip(),
-                birthdate=p.get('birthdate') or None,
-                complete_program=program,
-                street_barangay=p.get('street_barangay', ''),
-                city_municipality=p.get('city_municipality', ''),
-                province=p.get('province', ''),
-                region=p.get('region', ''),
-                zip_code=p.get('zip_code', ''),
-                contact_number=p.get('contact_number', ''),
-                email_address=p.get('email_address', ''),
-                disability_type=disability or 'N/A',
-                is_solo_parent_dependent=p.get('is_solo_parent_dependent') == '1',
-                is_first_gen_college=p.get('is_first_gen_college') == '1',
-                indigenous_people_group=p.get('indigenous_people_group', 'Not Applicable'),
-                ),
-            )
-            return redirect('/student/apply/tes/?submitted=1')
-
-    # Grouped under the school that offers them, in the schools' own order, and
-    # alphabetical inside each. Forty entries that all open with the same four
-    # words are unscannable as one list; a student knows their own school.
-    from .constants import GENDERS, group_programs_by_school
-    programs = annex1_report.registry_programs()
-    program_groups = group_programs_by_school(programs)
-    disabilities = annex1_report.disability_types()
-    # A saved value that is not on CHED's list is one somebody typed under
-    # 'Other'. The form has to come back showing it that way, or editing an
-    # application would silently drop what they wrote.
-    saved_disability = ((existing.disability_type if existing
-                         else (profile.disability_type if profile else '')) or '').strip()
-    custom_disability = (saved_disability
-                         if saved_disability and saved_disability not in disabilities
-                         else '')
-
-    return render(request, 'student/apply_tes.html', {
-        'profile': profile,
-        'existing': existing,
-        'editing': editing,
-        'errors': errors,
-        'programs': programs,
-        'program_groups': program_groups,
-        'program_count': len(programs),
-        'genders': GENDERS,
-        'disabilities': disabilities,
-        'other_option': annex1_report.OTHER,
-        'submitted': request.GET.get('submitted'),
-        'enrolled': _is_enrolled(profile),
-        # On a redisplay the boxes hold what was typed, not what is stored —
-        # otherwise a field the student deliberately cleared would come back
-        # filled in from the profile they were trying to correct.
-        'post': request.POST if request.method == 'POST' else dict(
-            _tes_profile_values(profile),
-            # Outside the `existing` block: a first-time applicant's disability
-            # comes off their profile, where registration put it.
-            disability_type=annex1_report.OTHER if custom_disability else saved_disability,
-            disability_type_other=custom_disability,
-            **(
-            {
-                'lrn': existing.lrn,
-                'philsys_id': existing.philsys_id,
-                'four_ps_id': existing.four_ps_id,
-                'birthdate': existing.birthdate.strftime('%Y-%m-%d') if existing.birthdate else '',
-                'complete_program': existing.complete_program,
-                'street_barangay': existing.street_barangay,
-                'city_municipality': existing.city_municipality,
-                'province': existing.province,
-                'region': existing.region,
-                'zip_code': existing.zip_code,
-                'contact_number': existing.contact_number,
-                'email_address': existing.email_address,
-                'is_solo_parent_dependent': '1' if existing.is_solo_parent_dependent else '0',
-                'is_first_gen_college': '1' if existing.is_first_gen_college else '0',
-                'indigenous_people_group': existing.indigenous_people_group,
-            } if existing else {})
-        ),
-    })
-
-
-@_unifast_required
-def unifast_tes_ranking(request):
-    """Rule-based TES ranking and recommendation, for the office that awards it.
-
-    Reads the student records UniFAST already holds and concludes nothing it
-    cannot evidence. api/tes_ranking.py carries the rules, the field each one
-    reads, and the reason it reports back.
-    """
-    from . import tes_ranking
-
-    # Students still waiting on a decision — the ones this list exists to
-    # choose between. Ranking every profile on file put people who never asked
-    # for TES onto an award list; ranking approved and rejected applicants put
-    # people there whose case is already closed.
-    applicants = (
-        StudentProfile.objects
-        .filter(tes_applications__status='Pending')
-        .select_related('user', *StudentProfile.DETAIL_RELATIONS)
-        .prefetch_related('tes_applications')
-        .distinct()
-    )
-    evaluations = tes_ranking.rank(applicants)
-
-    # The ranked list holds only applicants whose record is complete. A rank is
-    # a position against other students, and an incomplete record cannot support
-    # one — so those applicants are held in their own list instead of being
-    # given a number, and instead of being dropped, which would lose exactly the
-    # people who need chasing. Not Eligible stays out of both lists and is
-    # reported in the summary cards.
-    ranked = [e for e in evaluations if e.status == tes_ranking.ELIGIBLE]
-    for position, evaluation in enumerate(ranked, start=1):
-        evaluation.rank = position
-    needs_info = [e for e in evaluations if e.status == tes_ranking.FOR_VERIFICATION]
-
-    return render(request, 'unifast/tes_ranking.html', {
-        'active': 'tes_ranking',
-        'tes_rows': ranked,
-        'tes_needs_info': needs_info,
-        'tes_applicant_total': len(evaluations),
-        'tes_counts': {
-            'eligible': sum(1 for e in evaluations if e.status == tes_ranking.ELIGIBLE),
-            'verification': sum(1 for e in evaluations if e.status == tes_ranking.FOR_VERIFICATION),
-            'not_eligible': sum(1 for e in evaluations if e.status == tes_ranking.NOT_ELIGIBLE),
-            'priority_1': sum(1 for e in evaluations if e.priority == tes_ranking.PRIORITY_1),
-            'priority_2': sum(1 for e in evaluations if e.priority == tes_ranking.PRIORITY_2),
-        },
-    })
-
-
-@_unifast_required
-def unifast_tes_applications(request):
-    from .constants import DECIDED_REVIEW_STATUSES
-    from urllib.parse import quote
-    if request.method == 'POST':
-        app_id = request.POST.get('app_id')
-        new_status = request.POST.get('status')
-        remarks = request.POST.get('remarks', '')
-        # Same rule as the review screen below: a decision already recorded is
-        # not overwritten from here either.
-        posted = TESApplication.objects.filter(id=app_id).first()
-        if posted and posted.status in DECIDED_REVIEW_STATUSES:
-            return redirect('/unifast/tes-applications/?error=' + quote(
-                f'That application was already {posted.status.lower()}. '
-                'A decision is made once.'))
-        TESApplication.objects.filter(id=app_id).update(status=new_status, remarks=remarks)
-        return redirect('/unifast/tes-applications/?saved=1')
-
-    import os
-    from . import annex1_report, tes_report
-
-    # The school year scopes both the review list and the Annex 1 report built
-    # from it, so what an officer generates is exactly what they are looking at.
-    # Blank means every year: this queue is read across terms, and a legacy row
-    # whose term was never stamped would otherwise be invisible here.
-    school_year = request.GET.get('sy', '').strip()
-    apps = TESApplication.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-submitted_at')
-    if school_year:
-        apps = apps.filter(school_year=school_year)
-    return render(request, 'unifast/tes_applications.html', {
-        'applications': apps,
-        'total': apps.count(),
-        'pending_count': apps.filter(status='Pending').count(),
-        'approved_count': apps.filter(status='Approved').count(),
-        'school_year': school_year,
-        'school_years': tes_report.school_year_options(),
-        'annex1_headers': annex1_report.ANNEX1_HEADERS,
-        'annex1_rows': annex1_report.applicant_rows(school_year=school_year),
-    })
-
-
-@_unifast_required
-def unifast_tes_applicants_report(request):
-    """The list of TES applicants, as a plain table.
-
-    Scoped to the school year picked on the TES Applications page. The columns
-    are the ones CHED's Annex 1 asks for, but the file is generated here rather
-    than being that form filled in — see api/annex1_report.py.
-    """
-    from . import annex1_report
-
-    school_year = request.GET.get('sy', '').strip()
-    buf, _written = annex1_report.build_workbook(school_year)
-
-    label = (school_year or 'all_years').replace('-', '_')
-    return _xlsx_response(buf, f'TES_Applicants_{label}.xlsx')
-
-
-@_unifast_required
-def unifast_tes_review(request, pk):
-    """Record UniFAST's decision on one TES application.
-
-    The decision is made once: an application already approved or rejected
-    keeps that status, and posting a different one is refused. A later save
-    can still correct the award number and remarks, because CHED issues the
-    award number after the decision and the billing report is built on it —
-    locking that away with the status would strand a typo the office has no
-    other way to fix.
-    """
-    from .constants import DECIDED_REVIEW_STATUSES
-    from urllib.parse import quote
-    if request.method == 'POST':
-        tes_app = TESApplication.objects.select_related('student__user', *STUDENT_DETAILS).filter(pk=pk).first()
-        if not tes_app:
-            return redirect('/unifast/tes-applications/?error=' + quote(
-                'That application was not found.'))
-        new_status = request.POST.get('status', 'Pending')
-        remarks = request.POST.get('remarks', '')
-        award_number = request.POST.get('award_number', '')
-        already_decided = tes_app.status in DECIDED_REVIEW_STATUSES
-        if already_decided and new_status != tes_app.status:
-            return redirect('/unifast/tes-applications/?error=' + quote(
-                f'That application was already {tes_app.status.lower()}. '
-                'A decision is made once.'))
-        TESApplication.objects.filter(pk=pk).update(
-            status=new_status,
-            remarks=remarks,
-            award_number=award_number,
-        )
-        # Only the first decision is announced. A later award-number correction
-        # is bookkeeping, not news the applicant should be told a second time.
-        if not already_decided:
-            notify.decision(
-                tes_app.student, 'Your Tertiary Education Subsidy application',
-                new_status, remarks,
-                detail=f'Award number: {award_number}' if award_number else '',
-                link='/student/applications/',
-            )
-        if new_status == 'Approved':
-            from .models import SystemSettings
-            try:
-                tes_app = TESApplication.objects.select_related('student').get(pk=pk)
-                scholarship = Scholarship.objects.filter(type='TES').first()
-                if scholarship:
-                    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-                    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-                    already = Application.objects.filter(
-                        student=tes_app.student, scholarship=scholarship,
-                        school_year=parsed['sy'], semester=parsed['semester'],
-                    ).exists()
-                    if not already:
-                        Application.objects.create(
-                            student=tes_app.student,
-                            scholarship=scholarship,
-                            status='Approved',
-                            remarks=remarks,
-                            source='tes_application',
-                            tes_application_id=pk,
-                            school_year=parsed['sy'],
-                            semester=parsed['semester'],
-                            award_number=award_number,
-                        )
-                    else:
-                        # Update award_number on existing Application row if already present
-                        Application.objects.filter(
-                            student=tes_app.student, scholarship=scholarship,
-                            school_year=parsed['sy'], semester=parsed['semester'],
-                        ).update(
-                            source='tes_application',
-                            tes_application_id=pk,
-                            award_number=award_number,
-                        )
-            except TESApplication.DoesNotExist:
-                pass
-    return redirect('/unifast/tes-applications/?saved=1')
-
-
-@_unifast_required
-def unifast_archive_columns(request):
-    """The UniFAST portal's save for custom column values.
-
-    The same work as the SDSO one behind this office's own permission check —
-    one shared view would have let either office write the other's records.
-    """
-    return _save_column_values(request, '/unifast/archives/')
-
-
-@_unifast_required
-def unifast_archives(request):
-    from .models import ScholarListImport, SystemSettings, ImportedScholar
-    db_types = list(Scholarship.objects.values_list('type', flat=True).distinct())
-    archive_types = UNIFAST_TYPES + [t for t in db_types if t not in UNIFAST_TYPES and t not in ['Academic','DOST','CHED','CoScho','Sports','Affirmative','Staff','GSIS']]
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    active_label = settings_obj.academic_year
-    parsed = SystemSettings.parse_label(active_label)
-    active_sy = parsed['sy']
-    active_semester = parsed['semester']
-    stype = request.GET.get('type', 'TDP')
-    if stype not in archive_types:
-        stype = archive_types[0]
-    history = ScholarListImport.objects.filter(scholarship_type=stype).order_by('-created_at')
-    all_labels = list(ScholarListImport.objects.filter(scholarship_type=stype).values_list('term_label', flat=True).distinct().order_by('-term_label'))
-    ar_labels = list(ImportedScholar.objects.exclude(term_label='').filter(scholarship_type=stype).values_list('term_label', flat=True).distinct())
-    for lbl in ar_labels:
-        if lbl not in all_labels:
-            all_labels.append(lbl)
-    all_labels = sorted(set(all_labels), reverse=True)
-    if active_label not in all_labels:
-        all_labels.insert(0, active_label)
-    all_sy_display = [(lbl, SystemSettings.parse_label(lbl)['sy'] + ' - ' + SystemSettings.parse_label(lbl)['semester']) for lbl in all_labels]
-    selected_label = request.GET.get('sy', active_label)
-    if selected_label not in all_labels:
-        selected_label = active_label
-    yy, s = active_label.split('-')
-    prev_label = f'{yy}-1' if s == '2' else f'{int(yy)-1}-2'
-    prev_parsed = SystemSettings.parse_label(prev_label)
-    next_label = settings_obj.next_label()
-    imported_rows = ImportedScholar.objects.filter(
-        scholarship_type=stype, term_label=selected_label, claimed_by__isnull=True,
-    ).order_by('last_name', 'first_name')
-
-    def sy_filter(qs):
-        # See the matching helper in vpsea_archives — the term is a column now.
-        return qs.filter(term_label=selected_label)
-
-    scholars = sy_filter(
-        Application.objects.filter(status='Approved', scholarship__type=stype)
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name').distinct()
-    return render(request, 'unifast/archives.html', {
-        'archive_types': archive_types,
-        'active_type': stype,
-        **_scholar_groups(stype, [
-            (None, list(scholars) + list(imported_rows),
-             f'No approved {stype} scholars yet.'),
-        ], portal='unifast'),
-        'total': scholars.count() + imported_rows.count(),
-        'history': history,
-        'all_sy_display': all_sy_display,
-        'selected_sy': selected_label,
-        'active_sy': active_label,
-        'active_sy_display': active_sy + ' - ' + active_semester,
-        'active_semester': active_semester,
-        'next_sy': next_label,
-        'prev_sy': prev_label,
-        'prev_sy_display': prev_parsed['sy'] + ' - ' + prev_parsed['semester'],
-    })
-
-
-@_unifast_required
-def unifast_archive_add(request):
-    from .models import Application, Scholarship, StudentProfile, User, SystemSettings, ApplicationDocument
-    if request.method != 'POST':
-        return redirect('/unifast/archives/')
-    p = request.POST
-    f = request.FILES
-    stype = p.get('scholarship_type', 'TDP')
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    active_sy = parsed['sy']
-    active_semester = parsed['semester']
-    email = p.get('email', '').strip()
-    student_id = p.get('student_id', '').strip()
-    if not email:
-        email = f"{student_id}@bipsu.edu.ph"
-    user = User.objects.filter(email=email).first()
-    if not user:
-        user = User.objects.create_user(
-            username=email, email=email,
-            password=student_id or 'bipsu1234',
-            first_name=p.get('first_name', ''),
-            last_name=p.get('last_name', ''),
-            role='student',
-        )
-    profile = StudentProfile.objects.filter(user=user).first()
-    if not profile:
-        from .constants import school_for_course
-        profile = StudentProfile.objects.create(
-            user=user,
-            student_id=student_id,
-            middle_name=p.get('middle_name', '').strip(),
-            school=school_for_course(p.get('course', '')),
-            course=p.get('course', ''),
-            year_level=int(p.get('year_level', 1) or 1),
-            gwa=float(p.get('gwa', 0) or 0),
-            gender=p.get('gender', ''),
-            barangay=p.get('barangay', ''),
-            municipality=p.get('municipality', ''),
-            province=p.get('province', ''),
-            contact_number=p.get('contact_number', ''),
-            date_of_birth=p.get('date_of_birth') or None,
-        )
-    else:
-        profile.course = p.get('course', profile.course)
-        profile.year_level = int(p.get('year_level', profile.year_level) or profile.year_level)
-        profile.gender = p.get('gender', profile.gender)
-        profile.barangay = p.get('barangay', profile.barangay)
-        profile.municipality = p.get('municipality', profile.municipality)
-        profile.province = p.get('province', profile.province)
-        profile.save()
-    scholarship = Scholarship.objects.filter(type=stype).first()
-    if scholarship:
-        award_fields = {
-            'source': 'import',
-            'school_year': active_sy,
-            'semester': active_semester,
-            'award_number': p.get('award_number', ''),
-            'congress_district': p.get('congress_district', ''),
-        }
-        already = Application.objects.filter(
-            student=profile, scholarship=scholarship,
-            school_year=active_sy, semester=active_semester,
-        ).exists()
-        if not already:
-            app = Application.objects.create(
-                student=profile, scholarship=scholarship,
-                status='Approved', **award_fields,
-            )
-        else:
-            app = Application.objects.filter(
-                student=profile, scholarship=scholarship,
-                school_year=active_sy, semester=active_semester,
-            ).first()
-        for field, label in [
-            ('doc_certificate_of_grades', 'Certificate Of Grades'),
-            ('doc_certificate_of_enrollment', 'Certificate Of Enrollment'),
-            ('doc_prospectus', 'Prospectus'),
-            ('doc_id_photo', 'Id Photo'),
-            ('doc_application_form', 'Application Form'),
-            ('proof_document', 'Proof Document'),
-        ]:
-            uploaded = f.get(field)
-            if uploaded:
-                ApplicationDocument.objects.create(application=app, name=label, file=uploaded)
-    return redirect(f'/unifast/archives/?type={stype}&added=1')
-
-
-@_unifast_required
-def unifast_archive_edit(request, pk):
-    from .models import Application
-    if request.method != 'POST':
-        return redirect('/unifast/archives/')
-    p = request.POST
-    stype = p.get('scholarship_type', 'TDP')
-    try:
-        app = Application.objects.select_related('student__user', *STUDENT_DETAILS).get(pk=pk)
-    except Application.DoesNotExist:
-        return redirect(f'/unifast/archives/?type={stype}')
-    profile = app.student
-    user = profile.user
-    user.first_name = p.get('first_name', user.first_name)
-    user.last_name = p.get('last_name', user.last_name)
-    user.save()
-    profile.course = p.get('course', profile.course)
-    profile.year_level = int(p.get('year_level', profile.year_level) or profile.year_level)
-    profile.gender = p.get('gender', profile.gender)
-    profile.barangay = p.get('barangay', profile.barangay)
-    profile.municipality = p.get('municipality', profile.municipality)
-    profile.province = p.get('province', profile.province)
-    if p.get('student_id'):
-        profile.student_id = p.get('student_id')
-    profile.save()
-    if p.get('award_number') is not None:
-        app.award_number = p.get('award_number')
-    if p.get('congress_district') is not None:
-        app.congress_district = p.get('congress_district')
-    app.save()
-    return redirect(f'/unifast/archives/?type={stype}&edited=1')
-
-
-@_unifast_required
-def unifast_archive_delete(request, pk):
-    from .models import Application
-    if request.method != 'POST':
-        return redirect('/unifast/archives/')
-    stype = request.POST.get('scholarship_type', 'TDP')
-    Application.objects.filter(pk=pk).delete()
-    return redirect(f'/unifast/archives/?type={stype}&deleted=1')
-
-
-@_unifast_required
-def unifast_archive_import(request):
-    from django.core.files.base import ContentFile
-    from .models import ScholarListImport, ActivityLog, SystemSettings, ImportedScholar
-    if request.method != 'POST':
-        return redirect('/unifast/archives/')
-    stype = request.POST.get('type', 'TDP')
-    rollover_label = request.POST.get('rollover_label', '').strip()
-    file = request.FILES.get('file')
-    if not file:
-        return redirect(f'/unifast/archives/?type={stype}&import_error=No+file+provided')
-    if not rollover_label:
-        return redirect(f'/unifast/archives/?type={stype}&import_error=Rollover+name+is+required')
-    try:
-        import openpyxl
-        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-        parsed = SystemSettings.parse_label(settings_obj.academic_year)
-        active_semester = parsed['semester']
-        rollover_parsed = SystemSettings.parse_label(rollover_label) if '-' in rollover_label else {'sy': rollover_label, 'semester': active_semester}
-        wb = openpyxl.load_workbook(file)
-        ws = wb.active
-        col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
-        records = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if not row or row[0] is None:
-                continue
-            try:
-                int(row[0])
-            except (ValueError, TypeError):
-                continue
-            extra = {}
-            for idx, field in col_map:
-                val = row[idx] if idx < len(row) else None
-                extra[field] = str(val).strip() if val is not None else ''
-            last = extra.get('last_name', '').strip()
-            first = extra.get('first_name', '').strip()
-            if not last and not first:
-                continue
-            try:
-                year_level = int(extra.get('year', 0) or 0)
-            except (ValueError, TypeError):
-                year_level = 0
-            try:
-                gwa = float(extra.get('gwa', 0) or 0)
-            except (ValueError, TypeError):
-                gwa = 0.0
-            records.append(ImportedScholar(
-                scholarship_type=stype,
-                term_label=rollover_label,
-                last_name=last,
-                first_name=first,
-                middle_name=extra.get('middle_name', extra.get('middle_initial', '')),
-                gender=extra.get('sex', ''),
-                course=extra.get('course', ''),
-                year_level=year_level,
-                gwa=gwa,
-                barangay=extra.get('barangay', ''),
-                municipality=extra.get('municipality', ''),
-                province=extra.get('province', ''),
-                student_id=extra.get('student_number', extra.get('student_id', '')),
-                award_number=extra.get('award_number', ''),
-                congress_district=extra.get('congress_district', ''),
-                imported_from=file.name,
-            ))
-        # Same replace-in-one-transaction rule as vpsea_archive_import above.
-        with transaction.atomic():
-            ImportedScholar.objects.filter(
-                scholarship_type=stype, term_label=rollover_label).delete()
-            ImportedScholar.objects.bulk_create(records)
-        created = len(records)
-        file.seek(0)
-        if not ScholarListImport.objects.filter(term_label=rollover_label, scholarship_type=stype).exists():
-            rollover = ScholarListImport(
-                scholarship_type=stype,
-                school_year=rollover_parsed['sy'],
-                semester=rollover_parsed.get('semester', active_semester),
-                term_label=rollover_label,
-                scholar_count=created,
-                imported_by=request.user,
-            )
-            rollover.excel_file.save(f'{stype}_{rollover_label}.xlsx', ContentFile(file.read()), save=True)
-        else:
-            ScholarListImport.objects.filter(term_label=rollover_label, scholarship_type=stype).update(scholar_count=created)
-        ActivityLog.objects.create(
-            user=request.user,
-            action=f'Imported {file.name} ({created} rows) for {stype} as "{rollover_label}"'
-        )
-    except Exception as e:
-        return redirect(f'/unifast/archives/?type={stype}&import_error={e}')
-    return redirect(f'/unifast/archives/?type={stype}&import_ok={created}')
-
-
-@_unifast_required
-def unifast_rollover_delete(request, pk):
-    from .models import ScholarListImport, ActivityLog
-    if request.method != 'POST':
-        return redirect('/unifast/archives/')
-    stype = request.POST.get('type', 'TDP')
-    try:
-        r = ScholarListImport.objects.get(pk=pk)
-    except ScholarListImport.DoesNotExist:
-        return redirect(f'/unifast/archives/?type={stype}')
-    removed, imported_type, label = _delete_import_with_scholars(r)
-    ActivityLog.objects.create(
-        user=request.user,
-        action=f'Deleted the {imported_type} import for "{label}" and the '
-               f'{removed} scholar row(s) it had created.'
-    )
-    return redirect(f'/unifast/archives/?type={stype}')
-
-
-@_unifast_required
-def unifast_archive_download(request):
-    from django.http import HttpResponse
-    from io import BytesIO
-    from .models import SystemSettings
-    from django.db.models import Q
-    stype = request.GET.get('type', 'TDP')
-    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    active_sy = parsed['sy']
-    semester = settings_obj.active_semester
-    scholars = Application.objects.filter(
-        status='Approved', scholarship__type=stype
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f'{stype} Scholars'
-    thin = Side(style='thin')
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    hfont = Font(bold=True)
-    hfill = PatternFill('solid', fgColor='D9E1F2')
-    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    headers = ['No.', 'Last Name', 'First Name', 'Gender', 'Course', 'Year Level', 'Student ID', 'Award No.', 'Congress District', 'Barangay', 'Municipality', 'Province']
-    ws.append(headers)
-    for c in range(1, len(headers) + 1):
-        cell = ws.cell(row=1, column=c)
-        cell.font = hfont; cell.fill = hfill; cell.border = border; cell.alignment = center
-    for i, app in enumerate(scholars, 1):
-        p = app.student
-        ws.append([i, p.user.last_name, p.user.first_name, p.gender, p.course, p.year_level,
-                   p.student_id, app.award_number,
-                   app.congress_district,
-                   p.barangay, p.municipality, p.province])
-    for col in ws.columns:
-        ml = max((len(str(c.value)) for c in col if c.value), default=0)
-        ws.column_dimensions[col[0].column_letter].width = min(ml + 4, 40)
-    buf = BytesIO(); wb.save(buf); buf.seek(0)
-    filename = f'{stype}_scholars_{settings_obj.academic_year}_{semester.replace(" ", "_")}.xlsx'
-    response = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
 
 
 # ── BiPSU Staff portal ─────────────────────────────────────────────────────────
@@ -6108,7 +6242,8 @@ def nsu_staff_profile(request):
     application is shown below, read-only, as the snapshot it is.
     """
     from .models import AffirmativeStaffApplication, StaffProfile
-    from .constants import CIVIL_STATUSES, DESIGNATIONS, EMPLOYMENT_STATUSES
+    from .constants import (BIPSU_STAFF_UNIT_GROUPS, CIVIL_STATUSES,
+                            DESIGNATIONS, EMPLOYMENT_STATUSES)
     user = request.user
     staff = _staff_profile(user)
     # Any status, not only Approved — a staff member whose application is still
@@ -6175,6 +6310,9 @@ def nsu_staff_profile(request):
 
         if request.FILES.get('appointment_paper'):
             staff.appointment_paper = request.FILES['appointment_paper']
+        if request.FILES.get('photo'):
+            user.photo = request.FILES['photo']
+            user.save(update_fields=['photo'])
 
         # The valid fields in a submission go through even when another one was
         # rejected, so a single typo does not throw the whole form away.
@@ -6185,7 +6323,9 @@ def nsu_staff_profile(request):
         'aff_app': aff_app,
         'saved': saved,
         'errors': errors,
-        'bipsu_schools': BIPSU_SCHOOLS,
+        # An employee's own record, so this is the staff list rather than the
+        # student one — see BIPSU_STAFF_UNITS in api/constants.py.
+        'bipsu_staff_units': BIPSU_STAFF_UNIT_GROUPS,
         'civil_statuses': CIVIL_STATUSES,
         'employment_statuses': EMPLOYMENT_STATUSES,
         'designations': DESIGNATIONS,
@@ -6280,6 +6420,15 @@ def nsu_staff_apply(request):
             'enrolled': True,
         })
 
+    # This form never went through scholarship_block_reason — staff hold no
+    # StudentProfile for it to read — so it asks the window on its own.
+    shut = application_window_reason('Staff')
+    if shut:
+        return render(request, 'nsu_staff/apply.html', {
+            'blocked': True, 'blocked_reason': shut,
+            'existing': existing, 'enrolled': bool(existing),
+        })
+
     errors = []
 
     if request.method == 'POST':
@@ -6369,7 +6518,12 @@ def nsu_staff_apply(request):
                     date_of_regularization=p.get('date_of_regularization') or None,
                     appointment_paper=f.get('appointment_paper') or None,
                     qualified_for='Staff',
-                    status=new_status,
+                    # The same status the update branch above sets. It read
+                    # `new_status` here, which is a name from the office's
+                    # review view and has never existed in this one — so a
+                    # staff member's *first* application raised NameError and
+                    # only a re-application ever went through.
+                    status='Pending Validation',
                 )
             # The application is the snapshot the office reviews; the profile
             # is the live record. What the staff member just entered about
@@ -6433,3 +6587,715 @@ def nsu_staff_apply(request):
             'date_of_regularization': _pick_date(existing, staff, 'date_of_regularization'),
         },
     })
+
+
+# ── External partners ────────────────────────────────────────────────────────
+#
+# An outside funder — DOST, GSIS, a foundation — with an account of its own.
+# What it sees is a decision the SDSO records per partner, not a property of the
+# role: see api.models.PartnerOffice.
+
+
+@_vpsea_required
+def vpsea_partners(request):
+    """Create and maintain the outside bodies that have accounts here.
+
+    The SDSO's screen, not a partner's. Creating one makes both the office and
+    the account that signs in as it, because a partner office nobody can log
+    into is not a thing the office ever wants — and doing it in one step leaves
+    no window where an office exists with no way in.
+    """
+    from urllib.parse import quote
+
+    from .constants import available_logos
+    from .models import ActivityLog, PartnerOffice
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        back = '/vpsea/partners/'
+
+        if action == 'create':
+            name = (request.POST.get('name') or '').strip()
+            email = (request.POST.get('email') or '').strip().lower()
+            password = request.POST.get('password') or ''
+            errors = []
+            if not name:
+                errors.append('A partner name is required.')
+            if not email:
+                errors.append('An email address is required — it is how they sign in.')
+            if len(password) < 8:
+                errors.append('The password must be at least 8 characters.')
+            if name and PartnerOffice.objects.filter(name__iexact=name).exists():
+                errors.append(f'A partner called {name} already exists.')
+            if email and User.objects.filter(email__iexact=email).exists():
+                errors.append(f'{email} already has an account.')
+            if errors:
+                return redirect(f'{back}?error={quote(" ".join(errors))}')
+
+            with transaction.atomic():
+                office = PartnerOffice.objects.create(
+                    name=name, logo=_posted_logo(request.POST))
+                office.scholarships.set(_posted_partner_scholarships(request.POST))
+                account = User.objects.create_user(
+                    username=email, email=email, password=password,
+                    role='partner', first_name=name, last_name='',
+                )
+                # Verified by the act of the office creating it — the same
+                # reasoning the User docstring gives for its defaults.
+                account.partner_office = office
+                account.save(update_fields=['partner_office'])
+            ActivityLog.objects.create(
+                user=request.user, action=f'Created the partner office {name}')
+            return redirect(f'{back}?created={quote(name)}')
+
+        office = PartnerOffice.objects.filter(pk=request.POST.get('office_id')).first()
+        if not office:
+            return redirect(f'{back}?error={quote("That partner was not found.")}')
+
+        if action == 'access':
+            was = office.name
+            # Absent means the caller is not renaming, so the current name
+            # stands; present-but-blank is somebody clearing the box, which is
+            # a mistake worth naming rather than a rename to nothing.
+            posted_name = request.POST.get('name')
+            name = office.name if posted_name is None else posted_name.strip()
+            if not name:
+                return redirect(f'{back}?error={quote("A partner name is required.")}')
+            if PartnerOffice.objects.filter(name__iexact=name).exclude(pk=office.pk).exists():
+                return redirect(f'{back}?error={quote(f"A partner called {name} already exists.")}')
+
+            office.name = name
+            office.scholarships.set(_posted_partner_scholarships(request.POST))
+            office.may_add_scholarships = bool(request.POST.get('may_add_scholarships'))
+            office.logo = _posted_logo(request.POST)
+            office.save(update_fields=['name', 'may_add_scholarships', 'logo'])
+            renamed = f' and renamed it from {was}' if was != name else ''
+            ActivityLog.objects.create(
+                user=request.user,
+                action=f'Changed what {office.name} can see{renamed}')
+            return redirect(f'{back}?saved={quote(office.name)}')
+
+        if action == 'password':
+            # The office sets it and tells the partner directly; nothing emails
+            # it, so there is no reset link for an outside body to lose.
+            account = office.accounts.filter(pk=request.POST.get('account_id')).first()
+            password = request.POST.get('password') or ''
+            if not account:
+                return redirect(f'{back}?error={quote("That account is not this partner's.")}')
+            if len(password) < 8:
+                return redirect(f'{back}?error={quote("The password must be at least 8 characters.")}')
+            account.set_password(password)
+            account.save(update_fields=['password'])
+            ActivityLog.objects.create(
+                user=request.user,
+                action=f'Reset the password for {account.email} ({office.name})')
+            return redirect(f'{back}?saved={quote(office.name)}')
+
+        if action == 'delete':
+            # The accounts go too. A partner account whose office is gone can
+            # reach nothing — leaving it behind is a login that exists and does
+            # nothing, which is worse than saying plainly that both went. The
+            # model's SET_NULL stays as the safety net for every other path.
+            name = office.name
+            emails = list(office.accounts.values_list('email', flat=True))
+            with transaction.atomic():
+                office.accounts.all().delete()
+                office.delete()
+            ActivityLog.objects.create(
+                user=request.user,
+                action=f'Deleted the partner office {name} and {len(emails)} account(s)')
+            return redirect(f'{back}?deleted={quote(name)}')
+
+        if action == 'toggle':
+            office.is_active = not office.is_active
+            office.save(update_fields=['is_active'])
+            state = 'Re-enabled' if office.is_active else 'Suspended'
+            ActivityLog.objects.create(
+                user=request.user, action=f'{state} the partner office {office.name}')
+            return redirect(f'{back}?saved={quote(office.name)}')
+
+        return redirect(f'{back}?error={quote("Unknown action.")}')
+
+    offices = (PartnerOffice.objects
+               .prefetch_related('scholarships', 'accounts')
+               .order_by('name'))
+    return render(request, 'vpsea/partners.html', {
+        'offices': offices,
+        'scholarships': Scholarship.objects.order_by('name'),
+        'logos': available_logos(),
+        'created': request.GET.get('created'),
+        'saved': request.GET.get('saved'),
+        'deleted': request.GET.get('deleted'),
+        'error': request.GET.get('error'),
+    })
+
+
+def _partner_override(office, stype):
+    """This partner's own column choice for a programme, or None.
+
+    None means "use the office's", which is the right default: a partner that
+    has never rearranged anything should see the table everybody else does.
+    """
+    from .models import PartnerTableColumns
+
+    return (PartnerTableColumns.objects
+            .filter(office=office, scholarship__type=stype)
+            .select_related('scholarship').first())
+
+
+def _posted_partner_scholarships(posted):
+    """The programmes ticked on the partner form, as Scholarship rows.
+
+    Read back out of the database rather than trusted from the post: a
+    partner's reach is exactly the thing not to take on faith from a form.
+    """
+    return list(Scholarship.objects.filter(id__in=posted.getlist('scholarships')))
+
+
+@_partner_required
+def partner_dashboard(request, office):
+    """What this partner funds here, and how many scholars are under it."""
+    from .models import Application, ImportedScholar, SystemSettings
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+
+    programmes = []
+    for scholarship in office.scholarships.order_by('name'):
+        approved = Application.objects.filter(
+            status='Approved', scholarship__type=scholarship.type).count()
+        imported = ImportedScholar.objects.filter(
+            scholarship_type=scholarship.type, claimed_by__isnull=True).count()
+        programmes.append({'scholarship': scholarship, 'total': approved + imported})
+
+    return render(request, 'partner/dashboard.html', {
+        'office': office,
+        'programmes': programmes,
+        'total': sum(p['total'] for p in programmes),
+        'has_access': bool(programmes),
+        'term': settings_obj.academic_year,
+    })
+
+
+@_partner_required
+def partner_profile(request, office):
+    """The partner account's own details, and its password.
+
+    An outside body signs in here with an account the SDSO created for it, and
+    until now had no way to change the password it was handed — it had to ask
+    the office to do it, over the phone, and the office had to type a password
+    into a form and read it back out. This is that, without the phone call.
+
+    What the account may see is not on this page and is not the account's to
+    set: which programmes a partner reads is the SDSO's decision, recorded on
+    External Partners. It is shown here, read-only, so a partner can tell at a
+    glance what it has been given without having to ask.
+    """
+    user = request.user
+    errors = []
+    saved = password_changed = False
+
+    if request.method == 'POST':
+        wanted_password = bool(request.POST.get('new_password') or
+                               request.POST.get('current_password'))
+        errors = _change_own_password(request, user)
+        if not errors:
+            user.first_name = (request.POST.get('first_name') or user.first_name).strip()
+            user.last_name = (request.POST.get('last_name') or user.last_name).strip()
+            if request.FILES.get('photo'):
+                user.photo = request.FILES['photo']
+            user.save(update_fields=['first_name', 'last_name', 'photo'])
+            saved = True
+            password_changed = wanted_password
+
+    return render(request, 'partner/profile.html', {
+        'office': office,
+        'programmes': office.scholarships.order_by('name'),
+        'saved': saved,
+        'password_changed': password_changed,
+        'errors': errors,
+    })
+
+
+@_partner_required
+def partner_archives(request, office):
+    """The partner's own scholars, one programme per tab.
+
+    Built from the same rows the SDSO's archive reads, filtered to the
+    programmes this partner was given. A partner with none gets an empty list
+    and is told why, rather than falling through to everyone's.
+    """
+    from .models import Application, ImportedScholar, ScholarListImport, SystemSettings
+
+    types = office.visible_types()
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+
+    stype = request.GET.get('type', '')
+    if stype not in types:
+        stype = types[0] if types else ''
+
+    labels = []
+    if stype:
+        labels = sorted(
+            set(ScholarListImport.objects.filter(scholarship_type=stype)
+                .values_list('term_label', flat=True))
+            | {settings_obj.academic_year},
+            reverse=True,
+        )
+    selected = request.GET.get('sy', settings_obj.academic_year)
+    if selected not in labels:
+        selected = settings_obj.academic_year
+
+    def _display(label):
+        p = SystemSettings.parse_label(label)
+        return f"{p['sy']} — {p['semester']}"
+
+    # The second half of the Download Excel menu: the terms this programme has
+    # a saved list for, newest first. The office's own uploaded workbook behind
+    # each one is deliberately not linked — /media/rollovers/ is office-only,
+    # so the link would 404 for the account reading it. Each term is generated
+    # instead, from the rows this partner is entitled to.
+    active_label = settings_obj.academic_year
+    history = []
+    if stype:
+        history = [
+            {'label': lbl, 'display': _display(lbl), 'count': count}
+            for lbl, count in (
+                ScholarListImport.objects
+                .filter(scholarship_type=stype).exclude(term_label=active_label)
+                .order_by('-term_label')
+                .values_list('term_label', 'scholar_count'))
+        ]
+
+    scholars, imported = [], []
+    if stype:
+        scholars = list(
+            Application.objects
+            .filter(status='Approved', scholarship__type=stype, term_label=selected)
+            .select_related('student__user', 'scholarship', *STUDENT_DETAILS)
+            .order_by('student__user__last_name', 'student__user__first_name'))
+        imported = list(
+            ImportedScholar.objects
+            .filter(scholarship_type=stype, term_label=selected, claimed_by__isnull=True)
+            .order_by('last_name', 'first_name'))
+
+    override = _partner_override(office, stype) if stype else None
+    groups = _scholar_groups(stype, [
+        (None, scholars + imported,
+         f'No {stype} scholars recorded for {selected}.'),
+    ], portal='partner', override=override) if stype else {
+        'columns': [], 'scholar_groups': [], 'has_custom_columns': False}
+
+    programme = Scholarship.objects.filter(type=stype).first() if stype else None
+    return render(request, 'partner/archives.html', dict(groups, **{
+        'office': office,
+        'archive_types': types,
+        'active_type': stype,
+        'all_sy': labels,
+        'selected_sy': selected,
+        'active_sy': active_label,
+        'active_sy_display': _display(active_label),
+        'selected_sy_display': _display(selected) if selected else '',
+        'history': history,
+        # The same fallback _scholars_from_sheet applies, so the columns the
+        # dialog promises are the columns the parser will actually read. An
+        # empty hint over a sheet being read as CoScho's layout is the version
+        # of this that wastes a funder's afternoon.
+        'col_hint': COLUMN_HINTS.get(stype, COLUMN_HINTS['CoScho']),
+        'import_ok': request.GET.get('import_ok'),
+        'import_error': request.GET.get('import_error'),
+        'total': len(scholars) + len(imported),
+        'uses_own_columns': override is not None,
+        **(_column_picker_context(
+            scholarship=override or programme, stype=stype, portal='partner')
+           if stype else {}),
+    }))
+
+
+# ── A partner keeping its own scholar list ───────────────────────────────────
+#
+# The portal was read-only, and for the awards it shows it still is. What
+# changed is the other half of the table: the rows that reached this system as a
+# spreadsheet, which is how every programme without a portal arrives. Those are
+# the funder's own list, and a funder correcting a misspelt name or adding a
+# scholar the office has not been sent yet had to email the SDSO and wait.
+#
+# Three rules decide what a partner may touch, and each is checked here rather
+# than trusted from the form:
+#
+# 1. **Its own programmes only** — `office.visible_types()`, the same list every
+#    other partner page filters on. A programme it was not given is not
+#    reachable by posting its name.
+# 2. **Imported rows only.** An award row is a BiPSU student's own record: the
+#    student typed it, the office verified it, and the student reads it in their
+#    own portal. A funder editing that would be rewriting somebody else's
+#    account of themselves.
+# 3. **Unclaimed rows only.** A claimed row has been merged into a student's
+#    award through an approved link request — the office checked the two were
+#    the same person. Editing it afterwards would silently change what was
+#    verified, and it is not on this table anyway.
+#
+# Everything a partner does here is logged. The SDSO lent out part of its own
+# archive; it should be able to see what was done with it without asking.
+
+# What a partner may set on one of its own imported rows, and what it may not.
+# Absent from this list on purpose: `scholarship_type` and `term_label`, which
+# say which table the row is in — a partner moving a scholar into another
+# programme's list is the one edit that reaches outside its own scope —
+# `claimed_by`, and `extra_data`, whose columns are the office's to name.
+PARTNER_SCHOLAR_FIELDS = (
+    'last_name', 'first_name', 'middle_name', 'gender', 'course',
+    'student_id', 'award_number', 'congress_district',
+    'barangay', 'municipality', 'province',
+)
+
+
+def _partner_scholar_values(posted):
+    """(field values, errors) for one imported row, as a partner typed them.
+
+    Year level and GWA are the only two that are not text, and both come back to
+    their zero rather than refusing the whole form when they are left blank:
+    zero is what an unanswered one has always been on this table, and half these
+    rows arrive from an agency sheet that carries neither.
+    """
+    values = {name: (posted.get(name) or '').strip()
+              for name in PARTNER_SCHOLAR_FIELDS}
+    errors = []
+
+    if not values['last_name'] and not values['first_name']:
+        errors.append('A scholar needs at least a first or a last name.')
+
+    raw_year = (posted.get('year_level') or '').strip()
+    values['year_level'] = 0
+    if raw_year:
+        if raw_year.isdigit() and 1 <= int(raw_year) <= 10:
+            values['year_level'] = int(raw_year)
+        else:
+            errors.append('Year level must be a whole number between 1 and 10.')
+
+    raw_gwa = (posted.get('gwa') or '').strip()
+    values['gwa'] = 0.0
+    if raw_gwa:
+        try:
+            values['gwa'] = float(raw_gwa)
+        except ValueError:
+            errors.append('GWA must be a number, like 1.25.')
+
+    return values, errors
+
+
+@_partner_required
+def partner_scholars(request, office):
+    """Add, correct or remove one scholar on a partner's own list.
+
+    One endpoint for the three actions because they share every check that
+    matters — which programme, which row, and whether this account may touch it
+    — and three views would have been three places to forget one.
+    """
+    from urllib.parse import quote
+
+    from .models import ActivityLog, ImportedScholar, SystemSettings
+
+    back = '/partner/archives/'
+    if request.method != 'POST':
+        return redirect(back)
+
+    p = request.POST
+    stype = p.get('type', '')
+    term = (p.get('sy') or '').strip()
+    here = f'{back}?type={quote(stype)}' + (f'&sy={quote(term)}' if term else '')
+
+    if stype not in office.visible_types():
+        return redirect(f'{back}?error=' + quote(
+            'That programme is not one this account can read.'))
+    if not term:
+        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+        term = settings_obj.academic_year
+        here = f'{back}?type={quote(stype)}&sy={quote(term)}'
+
+    action = p.get('action')
+
+    # ── The row every action but 'add' names ────────────────────────────────
+    #
+    # Filtered rather than fetched by id: the scholarship type and the unclaimed
+    # check are part of *finding* the row, so a pk from another programme's list
+    # or a row already merged into a student's award simply is not there. A
+    # permission check written as a lookup cannot be skipped by a later branch.
+    scholar = None
+    if action in ('edit', 'delete'):
+        scholar = ImportedScholar.objects.filter(
+            pk=p.get('scholar_id'), scholarship_type=stype,
+            claimed_by__isnull=True,
+        ).first()
+        if not scholar:
+            # Deliberately one message for three misses — no such row, another
+            # programme's row, a row already matched to a student. Which one it
+            # was is not this account's business to learn by trying.
+            return redirect(f'{here}&error=' + quote(
+                f'That scholar is not one this account can change. Your own '
+                f'{stype} rows are; a scholar the office has matched to a BiPSU '
+                'student account is theirs to correct.'))
+
+    if action == 'delete':
+        name = scholar.full_name or scholar.student_id or f'row #{scholar.pk}'
+        scholar.delete()
+        ActivityLog.objects.create(
+            user=request.user,
+            action=f'{office.name} deleted the {stype} scholar {name} ({term})')
+        return redirect(f'{here}&scholar=deleted')
+
+    if action not in ('add', 'edit'):
+        return redirect(f'{here}&error=' + quote('Unknown action.'))
+
+    values, errors = _partner_scholar_values(p)
+    if errors:
+        return redirect(f'{here}&error=' + quote(' '.join(errors)))
+
+    if action == 'edit':
+        for field, value in values.items():
+            setattr(scholar, field, value)
+        scholar.save()
+        ActivityLog.objects.create(
+            user=request.user,
+            action=f'{office.name} edited the {stype} scholar '
+                   f'{scholar.full_name} ({term})')
+        return redirect(f'{here}&scholar=saved')
+
+    scholar = ImportedScholar.objects.create(
+        scholarship_type=stype, term_label=term,
+        # Says who put the row there, in the same column an uploaded sheet
+        # fills in with its filename. An office reading the archive can tell a
+        # partner's own entry from one of its own imports without a new column.
+        imported_from=f'Added by {office.name}',
+        **values,
+    )
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'{office.name} added the {stype} scholar '
+               f'{scholar.full_name} ({term})')
+    return redirect(f'{here}&scholar=added')
+
+
+@_partner_required
+def partner_archive_import(request, office):
+    """A whole term's list at once, from the funder's own spreadsheet.
+
+    The office has had this since the beginning; a partner adding its scholars
+    one modal at a time was the same work done three hundred times. It reads
+    the sheet through :func:`_scholars_from_sheet`, so a funder's file lands the
+    same way here as it does when the SDSO uploads it.
+
+    What differs is what it is allowed to replace. The office's import clears
+    the term outright; this one clears **only the unclaimed rows**, which is
+    rule 3 above written as a queryset. A claimed row has been merged into a
+    BiPSU student's award by the office, and a spreadsheet arriving afterwards
+    must not be able to quietly undo that — the row survives the import and the
+    student's own portal goes on agreeing with the archive.
+    """
+    from urllib.parse import quote
+
+    from .models import ActivityLog, ImportedScholar, ScholarListImport, SystemSettings
+
+    back = '/partner/archives/'
+    if request.method != 'POST':
+        return redirect(back)
+
+    stype = request.POST.get('type', '')
+    if stype not in office.visible_types():
+        return redirect(f'{back}?error=' + quote(
+            'That programme is not one this account can read.'))
+
+    here = f'{back}?type={quote(stype)}'
+    term = (request.POST.get('rollover_label') or '').strip()
+    file = request.FILES.get('file')
+    if not file:
+        return redirect(f'{here}&import_error=' + quote('No file provided.'))
+    if not term:
+        return redirect(f'{here}&import_error=' + quote('A term label is required.'))
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    term_parsed = (SystemSettings.parse_label(term) if '-' in term
+                   else {'sy': term, 'semester': parsed['semester']})
+
+    try:
+        records = _scholars_from_sheet(
+            file, stype, term, imported_from=f'{file.name} ({office.name})')
+    except Exception as exc:
+        # Nothing has been deleted at this point, which is the whole reason the
+        # parse happens before the transaction rather than inside it.
+        return redirect(f'{here}&sy={quote(term)}&import_error=' + quote(
+            f'That file could not be read as a {stype} list ({exc}).'))
+
+    with transaction.atomic():
+        replaced = ImportedScholar.objects.filter(
+            scholarship_type=stype, term_label=term, claimed_by__isnull=True,
+        ).delete()[0]
+        ImportedScholar.objects.bulk_create(records)
+
+        # The office's own history row for this term, so the term shows up in
+        # Download Excel afterwards. The uploaded file is not saved onto it: a
+        # partner's workbook under /media/rollovers/ would be a file the
+        # partner who sent it cannot read back.
+        saved = ScholarListImport.objects.filter(
+            scholarship_type=stype, term_label=term).first()
+        if saved:
+            saved.scholar_count = len(records)
+            saved.save(update_fields=['scholar_count'])
+        else:
+            ScholarListImport.objects.create(
+                scholarship_type=stype,
+                school_year=term_parsed['sy'],
+                semester=term_parsed.get('semester', parsed['semester']),
+                term_label=term,
+                scholar_count=len(records),
+                imported_by=request.user,
+            )
+
+    ActivityLog.objects.create(
+        user=request.user,
+        action=f'{office.name} imported {file.name} ({len(records)} rows) for '
+               f'{stype} as "{term}", replacing {replaced} of its own row(s)')
+    return redirect(f'{here}&sy={quote(term)}&import_ok={len(records)}')
+
+
+@_partner_required
+def partner_columns(request, office):
+    """Where a partner lays out its own copy of a programme's table.
+
+    Writes only to :class:`~api.models.PartnerTableColumns`. The office's own
+    ``Scholarship`` row is never touched from here — that is the whole reason
+    the override exists, and it is enforced by this view having no path to it
+    rather than by remembering not to.
+    """
+    from urllib.parse import quote
+
+    from . import scholar_columns
+    from .models import PartnerTableColumns
+
+    back = '/partner/archives/'
+    stype = (request.POST.get('type') if request.method == 'POST'
+             else request.GET.get('type', '')) or ''
+    if stype not in office.visible_types():
+        return redirect(f'{back}?error=' + quote(
+            'That programme is not one this account can read.'))
+
+    programme = Scholarship.objects.filter(type=stype).first()
+    if request.method != 'POST' or not programme:
+        return redirect(f'{back}?type={quote(stype)}')
+
+    chosen = scholar_columns.clean_choice(request.POST.getlist('table_columns'))
+    if request.POST.get('action') == 'reset' or not chosen:
+        # Removing the row rather than storing an empty one: no row means
+        # "follow the office", and an empty list would mean "show nothing".
+        PartnerTableColumns.objects.filter(office=office, scholarship=programme).delete()
+        return redirect(f'{back}?type={quote(stype)}&columns=reset')
+
+    PartnerTableColumns.objects.update_or_create(
+        office=office, scholarship=programme,
+        defaults={
+            'table_columns': chosen,
+            'extra_columns': _posted_custom_columns(request.POST),
+        },
+    )
+    return redirect(f'{back}?type={quote(stype)}&columns=saved')
+
+
+@_partner_required
+def partner_reports(request, office):
+    """A scholars list the partner can take away, for its own programmes."""
+    from .models import SystemSettings
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    return render(request, 'partner/reports.html', {
+        'office': office,
+        'scholarships': office.scholarships.order_by('name'),
+        'semester': parsed['semester'],
+        'ay': parsed['sy'],
+        'term': settings_obj.academic_year,
+        'error': request.GET.get('error'),
+    })
+
+
+@_partner_required
+def partner_report_download(request, office):
+    """The partner's scholars for one of its programmes, as a workbook."""
+    from urllib.parse import quote
+
+    from .models import SystemSettings
+
+    stype = request.GET.get('type', '')
+    if stype not in office.visible_types():
+        return redirect('/partner/reports/?error=' + quote(
+            'That programme is not one this account can read.'))
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    term = request.GET.get('sy', settings_obj.academic_year)
+    buf, filename = _partner_workbook(office, stype, term)
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _partner_workbook(office, stype, term):
+    """One programme's scholars for one term, in the archive's own columns.
+
+    The columns follow the programme's own archive table rather than a list
+    invented here, so what a partner downloads is what the office sees.
+    """
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    from . import scholar_columns
+    from .models import Application, ImportedScholar
+
+    programme = Scholarship.objects.filter(type=stype).first()
+    columns = scholar_columns.resolve(
+        programme, stype, 'partner', override=_partner_override(office, stype))
+
+    records = list(
+        Application.objects
+        .filter(status='Approved', scholarship__type=stype, term_label=term)
+        .select_related('student__user', 'scholarship', *STUDENT_DETAILS)
+        .order_by('student__user__last_name', 'student__user__first_name')
+    ) + list(
+        ImportedScholar.objects
+        .filter(scholarship_type=stype, term_label=term, claimed_by__isnull=True)
+        .order_by('last_name', 'first_name')
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = (stype or 'Scholars')[:31]
+    ws['A1'] = f'{office.name} — {stype} scholars'
+    ws['A1'].font = Font(name='Arial', size=12, bold=True)
+    ws['A2'] = f'Term {term}'
+    ws['A2'].font = Font(name='Arial', size=10)
+
+    head = 4
+    for col, column in enumerate(columns, start=1):
+        cell = ws.cell(row=head, column=col, value=column['label'])
+        cell.font = Font(name='Arial', size=10, bold=True)
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+        ws.column_dimensions[cell.column_letter].width = max(12, len(column['label']) + 4)
+
+    for line, row in enumerate(scholar_columns.rows_for(records, columns), start=head + 1):
+        for col, (column, cell_value) in enumerate(zip(columns, row['cells']), start=1):
+            # Through excel_value like the office's own download, so a Number
+            # column the office added arrives as a number here too rather than
+            # as text a partner cannot total.
+            out = ws.cell(row=line, column=col,
+                          value=scholar_columns.excel_value(column, cell_value['value']))
+            out.font = Font(name='Arial', size=10)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    safe = ''.join(c if c.isalnum() else '_' for c in f'{office.name}_{stype}_{term}')
+    return buf, f'{safe}.xlsx'
+

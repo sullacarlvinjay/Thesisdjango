@@ -1,8 +1,14 @@
-"""The TES rule-based recommender.
+"""The TES rule-based recommender, now the SDSO's.
 
 The rule these tests exist to protect: missing data means NEEDS VERIFICATION,
 never FAIL. Most of what follows is about what the recommender declines to
 conclude when the office has not collected something yet.
+
+The other thing pinned here is where the facts live. Nobody applies for TES in
+this system any more — UniFAST awards it, outside the portal — so every field
+the rules read is on the student's own record, entered at registration and
+correctable on My Profile. A rule that could only be answered by a form nobody
+can fill in would report For Verification forever.
 """
 from datetime import date
 
@@ -10,8 +16,7 @@ from django.test import Client, TestCase
 
 from api import tes_ranking
 from api.models import (
-    Application, Scholarship, ScholarshipLinkRequest, StudentProfile,
-    TESApplication, User,
+    Application, Scholarship, ScholarshipLinkRequest, StudentProfile, User,
 )
 
 COMPLETE = dict(
@@ -25,6 +30,7 @@ COMPLETE = dict(
     household_size=5,
     is_listahanan_household=False,
     is_4ps_beneficiary=False,
+    is_solo_parent_dependent=False,
 )
 
 
@@ -39,17 +45,10 @@ def make_student(email, student_id, **overrides):
 
 
 class CompleteDataTest(TestCase):
-    """A student whose record is fully populated gets a decided answer.
-
-    'Complete' has to include the TES application: solo-parent status lives
-    there, and while it is unknown the student could still turn out to be
-    Priority 1, so the recommender rightly refuses to settle their priority.
-    """
+    """A student whose record is fully populated gets a decided answer."""
 
     def setUp(self):
         self.profile = make_student('ana@bipsu.edu.ph', '2022-00111')
-        TESApplication.objects.create(student=self.profile,
-                                      is_solo_parent_dependent=False)
 
     def test_every_rule_passes_and_the_student_is_eligible(self):
         e = tes_ranking.evaluate(self.profile)
@@ -72,6 +71,18 @@ class CompleteDataTest(TestCase):
         for rule in tes_ranking.evaluate(self.profile).rules:
             self.assertTrue(rule.source, f'{rule.key} does not say where it read from')
             self.assertTrue(rule.detail, f'{rule.key} does not explain itself')
+
+    def test_nothing_it_reads_comes_from_outside_the_student_record(self):
+        """Every source is a StudentProfile field or the office's own records.
+
+        The recommender used to read a TES application for three of its answers.
+        There is no such form now, so a rule sourced anywhere else is one no
+        screen can ever satisfy.
+        """
+        allowed = ('StudentProfile.', 'Application', 'ScholarshipLinkRequest')
+        for rule in tes_ranking.evaluate(self.profile).rules:
+            self.assertTrue(rule.source.startswith(allowed),
+                            f'{rule.key} reads from {rule.source}')
 
     def test_the_same_input_always_gives_the_same_answer(self):
         first = tes_ranking.evaluate(self.profile)
@@ -182,12 +193,10 @@ class IncomeIsNeverInventedTest(TestCase):
 
 
 class PriorityLevelTest(TestCase):
-    def _evaluate(self, application=None, **overrides):
+    def _evaluate(self, **overrides):
         StudentProfile.objects.all().delete()
         User.objects.all().delete()
         profile = make_student('x@bipsu.edu.ph', '2022-00999', **overrides)
-        if application is not None:
-            TESApplication.objects.create(student=profile, **application)
         return tes_ranking.evaluate(StudentProfile.objects.get(pk=profile.pk))
 
     def test_a_listahanan_household_is_priority_1(self):
@@ -203,32 +212,39 @@ class PriorityLevelTest(TestCase):
 
     def test_pwd_ip_and_solo_parent_each_reach_priority_1(self):
         # Naming a disability is the PWD declaration — there is no separate
-        # is_pwd column to set. StudentProfile.is_pwd derives from this, and
-        # tes_ranking reads profile.disability_type before falling back to the
-        # application's.
+        # is_pwd column to set. StudentProfile.is_pwd derives from this.
         self.assertEqual(
             self._evaluate(disability_type='Visual Disability').priority,
             tes_ranking.PRIORITY_1)
-        self.assertEqual(self._evaluate(indigenous_group='Aeta').priority, tes_ranking.PRIORITY_1)
-        e = self._evaluate(application={'is_solo_parent_dependent': True})
-        self.assertEqual(e.priority, tes_ranking.PRIORITY_1)
+        self.assertEqual(self._evaluate(indigenous_group='Aeta').priority,
+                         tes_ranking.PRIORITY_1)
+        self.assertEqual(self._evaluate(is_solo_parent_dependent=True).priority,
+                         tes_ranking.PRIORITY_1)
 
     def test_na_in_a_free_text_field_is_an_answer_of_no_not_a_disability(self):
         # Real records in this system hold the literal string "N/A".
-        e = self._evaluate(application={'disability_type': 'N/A',
-                                        'indigenous_people_group': 'None'})
+        e = self._evaluate(disability_type='N/A', indigenous_group='None')
         self.assertEqual(e.priority, tes_ranking.PRIORITY_2)
         self.assertEqual(e.priority_markers, [])
 
     def test_no_priority_1_group_confirmed_means_priority_2(self):
-        e = self._evaluate(application={'is_solo_parent_dependent': False})
-        self.assertEqual(e.priority, tes_ranking.PRIORITY_2)
+        self.assertEqual(self._evaluate().priority, tes_ranking.PRIORITY_2)
 
     def test_an_unchecked_listahanan_leaves_priority_unfinalised(self):
-        e = self._evaluate(is_listahanan_household=None, is_4ps_beneficiary=None,
-                           application={'is_solo_parent_dependent': False})
+        e = self._evaluate(is_listahanan_household=None, is_4ps_beneficiary=None)
         self.assertEqual(e.priority, tes_ranking.PRIORITY_UNDETERMINED)
         self.assertIn('Listahanan / 4Ps listing', e.missing)
+
+    def test_an_unasked_solo_parent_question_also_leaves_it_unfinalised(self):
+        """It moved off the application form onto the profile as a three-state.
+
+        A False-defaulting column would have quietly answered this for every
+        student who has never been asked, which is the one thing the whole
+        module exists to avoid.
+        """
+        e = self._evaluate(is_solo_parent_dependent=None)
+        self.assertEqual(e.priority, tes_ranking.PRIORITY_UNDETERMINED)
+        self.assertIn('Solo parent status', e.missing)
 
     def test_priority_1_sorts_above_priority_2_even_on_a_higher_income(self):
         rich_p1 = make_student('a@bipsu.edu.ph', '2022-00001', last_name='Ap1',
@@ -302,72 +318,42 @@ class ConflictingAssistanceTest(TestCase):
 
 
 class RankingPageTest(TestCase):
-    """The recommender belongs to UniFAST — TES is theirs to award."""
+    """The recommender is the SDSO's, on the Student Ranking page's TES tab."""
 
-    URL = '/unifast/tes-ranking/'
+    URL = '/vpsea/ranking/?type=TES'
 
     def setUp(self):
-        User.objects.create_user(username='unifast@bipsu.edu.ph', email='unifast@bipsu.edu.ph',
-                                 password='pw', role='unifast')
         User.objects.create_user(username='vpsea@bipsu.edu.ph', email='vpsea@bipsu.edu.ph',
                                  password='pw', role='vpsea')
         self.eligible = make_student('a@bipsu.edu.ph', '2022-00001', last_name='Complete',
                                      is_listahanan_household=True)
         self.unknown = make_student('b@bipsu.edu.ph', '2022-00002', last_name='Unknown',
                                     citizenship='', family_income=0.0, household_size=None)
-        # Only applications still awaiting a decision are ranked.
-        TESApplication.objects.create(student=self.eligible, status='Pending',
-                                      is_solo_parent_dependent=False)
-        TESApplication.objects.create(student=self.unknown, status='Pending',
-                                      is_solo_parent_dependent=False)
-        # Someone who never applied must not appear anywhere on the page.
-        self.non_applicant = make_student('c@bipsu.edu.ph', '2022-00003',
-                                          last_name='NeverApplied')
         self.c = Client()
-        self.assertTrue(self.c.login(email='unifast@bipsu.edu.ph', password='pw'))
+        self.assertTrue(self.c.login(email='vpsea@bipsu.edu.ph', password='pw'))
 
-    def test_only_applicants_with_a_complete_record_are_ranked(self):
+    def test_every_student_is_screened_because_nobody_applies(self):
+        """There is no application to filter on, so the population is everyone."""
+        r = self.c.get(self.URL)
+        listed = ([e.student_id for e in r.context['tes_rows']]
+                  + [e.student_id for e in r.context['tes_needs_info']])
+        self.assertEqual(sorted(listed), ['2022-00001', '2022-00002'])
+        self.assertEqual(r.context['tes_student_total'], 2)
+
+    def test_only_students_with_a_complete_record_are_ranked(self):
         r = self.c.get(self.URL)
         ranked = [e.student_id for e in r.context['tes_rows']]
         self.assertEqual(ranked, ['2022-00001'])
         # Ranks are contiguous from 1, not inherited from the wider evaluation.
         self.assertEqual([e.rank for e in r.context['tes_rows']], [1])
 
-    def test_a_decided_application_is_no_longer_ranked(self):
-        """The list exists to choose who to award. Someone already approved has
-        been chosen; someone rejected has been decided against."""
-        approved = make_student('d@bipsu.edu.ph', '2022-00004', last_name='Awarded',
-                                is_listahanan_household=True)
-        rejected = make_student('e@bipsu.edu.ph', '2022-00005', last_name='Turned',
-                                is_listahanan_household=True)
-        TESApplication.objects.create(student=approved, status='Approved',
-                                      is_solo_parent_dependent=False)
-        TESApplication.objects.create(student=rejected, status='Rejected',
-                                      is_solo_parent_dependent=False)
-
-        r = self.c.get(self.URL)
-        listed = ([e.student_id for e in r.context['tes_rows']]
-                  + [e.student_id for e in r.context['tes_needs_info']])
-        self.assertNotIn('2022-00004', listed)
-        self.assertNotIn('2022-00005', listed)
-        # The one pending applicant is still there.
-        self.assertIn('2022-00001', listed)
-
-    def test_a_student_who_never_applied_is_nowhere_on_the_page(self):
-        """Ranking the whole student body put non-applicants on an award list."""
-        r = self.c.get(self.URL)
-        listed = ([e.student_id for e in r.context['tes_rows']]
-                  + [e.student_id for e in r.context['tes_needs_info']])
-        self.assertNotIn('2022-00003', listed)
-        self.assertNotIn('2022-00003', r.content.decode())
-
-    def test_incomplete_applicants_are_held_back_rather_than_ranked(self):
+    def test_incomplete_records_are_held_back_rather_than_ranked(self):
         r = self.c.get(self.URL)
         held = [e.student_id for e in r.context['tes_needs_info']]
         self.assertEqual(held, ['2022-00002'])
         # Still visible, with what is missing named, so they can be chased.
         html = r.content.decode()
-        self.assertIn('Applied, but not yet rankable', html)
+        self.assertIn('not yet rankable', html)
         self.assertIn('2022-00002', html)
         self.assertIn('Citizenship', html)
 
@@ -378,6 +364,11 @@ class RankingPageTest(TestCase):
         self.assertIn('priority markers', html)
         self.assertIn('Surname', html)
 
+    def test_the_page_says_it_recommends_rather_than_awards(self):
+        """UniFAST awards TES. A page that read as an award list would be a lie."""
+        html = self.c.get(self.URL).content.decode()
+        self.assertIn('UniFAST awards TES', html)
+
     def test_the_reason_behind_a_ranking_is_available_to_the_office(self):
         html = self.c.get(self.URL).content.decode()
         self.assertIn('Why?', html)
@@ -387,25 +378,23 @@ class RankingPageTest(TestCase):
         html = self.c.get(self.URL).content.decode()
         self.assertIn('₱', html)                # the complete student's
 
-    def test_it_appears_in_the_unifast_sidebar(self):
-        html = self.c.get(self.URL).content.decode()
-        self.assertIn('href="/unifast/tes-ranking/"', html)
+    def test_both_tabs_are_reachable_from_either_one(self):
+        for url in ('/vpsea/ranking/', self.URL):
+            html = self.c.get(url).content.decode()
+            self.assertIn('href="/vpsea/ranking/?type=Affirmative"', html, url)
+            self.assertIn('href="/vpsea/ranking/?type=TES"', html, url)
 
-    def test_vpsea_cannot_reach_it(self):
+    def test_the_affirmative_tab_is_what_an_unknown_type_falls_back_to(self):
+        html = self.c.get('/vpsea/ranking/?type=Nonsense').content.decode()
+        self.assertNotIn('tesTable', html)
+        self.assertIn('Fit Score', html)
+
+    def test_a_student_cannot_reach_it(self):
         self.c.logout()
-        self.assertTrue(self.c.login(email='vpsea@bipsu.edu.ph', password='pw'))
+        self.assertTrue(self.c.login(email='a@bipsu.edu.ph', password='pw'))
         r = self.c.get(self.URL)
         self.assertEqual(r.status_code, 302)
-        self.assertNotIn('/unifast/', r['Location'])
-
-    def test_the_vpsea_ranking_page_no_longer_offers_tes(self):
-        self.c.logout()
-        self.assertTrue(self.c.login(email='vpsea@bipsu.edu.ph', password='pw'))
-        for stype in ('Affirmative', 'Staff'):
-            self.assertEqual(self.c.get(f'/vpsea/ranking/?type={stype}').status_code, 200)
-        # An unknown type falls back to Affirmative rather than rendering TES.
-        html = self.c.get('/vpsea/ranking/?type=TES').content.decode()
-        self.assertNotIn('tesTable', html)
+        self.assertIn('/login/', r['Location'])
 
 
 class ProfileFormFeedsTheRecommenderTest(TestCase):
@@ -420,14 +409,15 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
             'ana@bipsu.edu.ph', '2022-00111',
             citizenship='', household_size=None, year_first_enrolled=None,
             is_listahanan_household=None, is_4ps_beneficiary=None,
-            has_previous_degree=None, family_income=0.0)
+            has_previous_degree=None, is_solo_parent_dependent=None,
+            family_income=0.0)
         self.c = Client()
         self.assertTrue(self.c.login(email='ana@bipsu.edu.ph', password='pw'))
 
     def _save(self, **fields):
         data = {'citizenship': '', 'household_size': '', 'year_first_enrolled': '',
                 'is_listahanan_household': 'unknown', 'is_4ps_beneficiary': 'unknown',
-                'has_previous_degree': 'unknown'}
+                'has_previous_degree': 'unknown', 'is_solo_parent_dependent': 'unknown'}
         data.update(fields)
         self.c.post('/student/profile/', data)
         self.profile.refresh_from_db()
@@ -436,7 +426,16 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
     def test_the_page_offers_every_field_the_recommender_reads(self):
         html = self.c.get('/student/profile/').content.decode()
         for name in ('citizenship', 'household_size', 'year_first_enrolled',
-                     'is_listahanan_household', 'is_4ps_beneficiary', 'has_previous_degree'):
+                     'is_listahanan_household', 'is_4ps_beneficiary',
+                     'has_previous_degree', 'is_solo_parent_dependent'):
+            self.assertIn(f'name="{name}"', html)
+
+    def test_registration_asks_for_them_too(self):
+        """Otherwise the office would have to chase every student individually."""
+        html = Client().get('/register/').content.decode()
+        for name in ('citizenship', 'household_size', 'year_first_enrolled',
+                     'is_listahanan_household', 'is_4ps_beneficiary',
+                     'has_previous_degree', 'is_solo_parent_dependent'):
             self.assertIn(f'name="{name}"', html)
 
     def test_an_untouched_form_leaves_everything_unknown(self):
@@ -446,11 +445,14 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
         self.assertIsNone(p.is_listahanan_household)
         self.assertIsNone(p.is_4ps_beneficiary)
         self.assertIsNone(p.has_previous_degree)
+        self.assertIsNone(p.is_solo_parent_dependent)
 
     def test_a_no_answer_is_stored_as_a_confirmed_no_not_as_unknown(self):
-        p = self._save(is_listahanan_household='no', has_previous_degree='no')
+        p = self._save(is_listahanan_household='no', has_previous_degree='no',
+                       is_solo_parent_dependent='no')
         self.assertIs(p.is_listahanan_household, False)
         self.assertIs(p.has_previous_degree, False)
+        self.assertIs(p.is_solo_parent_dependent, False)
 
     def test_a_yes_answer_is_stored(self):
         p = self._save(is_listahanan_household='yes', is_4ps_beneficiary='yes')
@@ -472,8 +474,7 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
         self._save(citizenship='Filipino', household_size='5',
                    year_first_enrolled=str(date.today().year - 1),
                    is_listahanan_household='yes', has_previous_degree='no',
-                   family_income='120000')
-        TESApplication.objects.create(student=self.profile, is_solo_parent_dependent=False)
+                   is_solo_parent_dependent='no', family_income='120000')
 
         after = tes_ranking.evaluate(StudentProfile.objects.get(pk=self.profile.pk))
         self.assertEqual(after.status, tes_ranking.ELIGIBLE)

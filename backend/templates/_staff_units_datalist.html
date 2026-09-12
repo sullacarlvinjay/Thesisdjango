@@ -1,0 +1,25 @@
+{% comment %}
+  The offices, colleges and units an employee can be assigned to, offered as
+  suggestions rather than as the only permitted answers.
+
+  A <datalist> and not a <select>: the field it feeds is typed into. The list is
+  still BIPSU_STAFF_UNIT_GROUPS, so almost everybody picks a canonical name and
+  the reports stay tidy, but a unit that has been renamed or created since this
+  list was written can be typed in full instead of forcing the employee to pick
+  the nearest wrong thing.
+
+  <datalist> has no <optgroup>, so the two groups arrive flat. Nothing is lost —
+  a browser filters this list as you type, which is what the grouping was there
+  to spare a reader from doing by eye.
+
+  My Profile only. Registration asks for the unit as plain text — somebody
+  signing up knows where they work, and eighty suggestions in front of that
+  answer only slowed them down; correcting a school later is where a canonical
+  spelling is worth offering. The id is what the input's list= points at, so
+  include it once per page.
+{% endcomment %}
+<datalist id="bipsuStaffUnits">
+  {% for group, units in bipsu_staff_units %}{% for value, label in units %}
+  <option value="{{ value }}"></option>
+  {% endfor %}{% endfor %}
+</datalist>

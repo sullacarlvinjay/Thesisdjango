@@ -46,6 +46,32 @@ def _recipient(target):
     return None, ''
 
 
+def _record_attempt(to, subject, error):
+    """Keep what became of the last send, for the office's mail panel.
+
+    Best-effort inside a function that is already best-effort: this runs on the
+    failure path of something that must not raise, so a database that is down
+    while mail is also down must not turn a logged warning into a 500. The log
+    line above is the durable record; this is the copy somebody can actually
+    read without a shell.
+    """
+    from django.utils import timezone
+
+    try:
+        from .models import SystemSettings
+        SystemSettings.objects.update_or_create(
+            pk=1,
+            defaults={
+                'last_mail_attempt_at': timezone.now(),
+                'last_mail_to': (to or '')[:254],
+                'last_mail_subject': (subject or '')[:200],
+                'last_mail_error': error,
+            },
+        )
+    except Exception:                                   # noqa: BLE001
+        logger.exception('Could not record the outcome of the last mail attempt')
+
+
 def send_email(to, subject, body):
     """Send one plain-text message. Returns True if it left the process.
 
@@ -62,11 +88,15 @@ def send_email(to, subject, body):
             recipient_list=[to],
             fail_silently=False,
         )
-        return True
-    except Exception:                                   # noqa: BLE001
+    except Exception as exc:                            # noqa: BLE001
         # Bad credentials, no network, a refused relay — all the same to us.
         logger.exception('Could not email %s: %s', to, subject)
+        # str(exc) rather than the class: the useful half of a BrevoSendError
+        # is the provider's own wording, and of an SMTP error the server's.
+        _record_attempt(to, subject, str(exc) or exc.__class__.__name__)
         return False
+    _record_attempt(to, subject, '')
+    return True
 
 
 def notify(target, title, body, tone='info', email=True, email_body=None):
@@ -168,6 +198,71 @@ def broadcast(title, body, tone='info'):
         for p in profiles
     ])
     return len(profiles)
+
+
+def office(subject, body, actor=None):
+    """Tell the SDSO something its queue counts cannot say on their own.
+
+    Every other function here writes to an applicant. This one goes the other
+    way, and it exists because the office's only standing signal is a badge
+    counting *accounts* waiting to be verified — which says nothing about what
+    any of them contains. A registration that needs a closer look is
+    indistinguishable from one that does not until somebody opens it.
+
+    Two channels, for the two ways an officer finds out:
+
+    * **Email**, to every active VPSEA account. There is no in-app bell for
+      staff — ``Notification`` hangs off ``StudentProfile`` — so this is the
+      only thing that reaches an officer who is not already on the page.
+    * **ActivityLog**, which survives whatever mail does. Delivery here is
+      best-effort like every send in this module, and a warning nobody can find
+      afterwards is a warning that was never given.
+
+    Returns how many addresses it reached.
+    """
+    from .models import ActivityLog, User
+
+    ActivityLog.objects.create(user=actor, action=f'{subject} — {body}')
+
+    addresses = list(User.objects.filter(
+        role='vpsea', is_active=True,
+    ).exclude(email='').values_list('email', flat=True))
+    return sum(send_email(to, f'[BiPSU SRMS] {subject}', body) for to in addresses)
+
+
+def multiple_declarations(profile, declarations):
+    """Tell the SDSO that one registration declared more than one scholarship.
+
+    The ordinary registration declares nothing, and the next most ordinary
+    declares one. Two or more is the case the office asked to be told about:
+    each one is a separate link request to check against a separate set of
+    records, and the account queue shows them stacked inside a single card that
+    an officer skimming a list has no reason to open.
+
+    Named for the situation rather than for the channel, so the wording of this
+    warning lives in one place and cannot drift between the registration path
+    and anything that later wants to raise the same flag.
+    """
+    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+
+    labels = dict(DECLARABLE_SCHOLARSHIP_TYPES)
+    named = ', '.join(labels.get(d['scholarship_type'], d['scholarship_type'])
+                      for d in declarations)
+    student = profile.user.get_full_name() or profile.user.email
+
+    lines = [
+        f'{student} ({profile.student_id}) registered declaring '
+        f'{len(declarations)} scholarships: {named}.',
+        'Each one is waiting as its own link request on the account '
+        'verification queue, with its own proof document, and each is verified '
+        'or refused separately — approving the account decides all of them at '
+        'once, so read every card before you do.',
+    ]
+    if getattr(settings, 'SITE_URL', ''):
+        lines.append(f'The queue is here: {settings.SITE_URL}/vpsea/accounts/')
+
+    return office(f'{student} declared {len(declarations)} scholarships',
+                  '\n\n'.join(lines))
 
 
 def decision(target, subject, status, remarks='', detail='', link=''):

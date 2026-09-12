@@ -5,16 +5,11 @@
 {% block page_title %}My Applications{% endblock %}
 {% block page_subtitle %}Your scholarship application and renewal history{% endblock %}
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
-
 {% block extra_head %}{% endblock %}
-
 {% block content %}
 <div class="space-y-6">
-
-  {# ── Scholarship Application ─────────────────────────────────────────────── #}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">BiPSU Staff Scholarship Application</p>
-
     {% if applications %}
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
@@ -59,11 +54,8 @@
     </div>
     {% endif %}
   </div>
-
-  {# ── Renewal History ─────────────────────────────────────────────────────── #}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Renewal History</p>
-
     {% if renewals %}
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
@@ -105,10 +97,7 @@
     <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:var(--brand);">Submit a renewal →</a></p>
     {% endif %}
   </div>
-
 </div>
-
-{# ── Overlay Modal ──────────────────────────────────────────────────────── #}
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -118,18 +107,14 @@
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
-
-{# ── Hidden detail templates ─────────────────────────────────────────────── #}
 <div style="display:none;">
   {% for a in applications %}
   <div id="app-{{ a.id }}">
-
     {% if a.remarks %}
     <div class="rounded-xl px-4 py-3 mb-4 text-sm" style="background:#fff7ed;border:1px solid #fed7aa;color:#92400e;">
       <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
     </div>
     {% endif %}
-
     <p class="section-title">Personal Information</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Full Name</label><span>{{ a.full_name }}</span></div>
@@ -142,14 +127,12 @@
       <div class="detail-field"><label>Course</label><span>{{ a.course|default:"—" }}</span></div>
       <div class="detail-field"><label>Year Level</label><span>{{ a.year_level }}</span></div>
     </div>
-
     <p class="section-title">Address</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Barangay / Street</label><span>{{ a.barangay|default:"—" }}</span></div>
       <div class="detail-field"><label>Municipality</label><span>{{ a.municipality|default:"—" }}</span></div>
       <div class="detail-field"><label>Province</label><span>{{ a.province|default:"—" }}</span></div>
     </div>
-
     <p class="section-title">Staff Eligibility</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Type</label><span>{% if a.is_nsu_staff %}BiPSU Staff (Direct){% elif a.is_nsu_dependent %}BiPSU Staff Dependent{% else %}—{% endif %}</span></div>
@@ -160,7 +143,6 @@
       {% endif %}
       <div class="detail-field"><label>Has Baccalaureate</label><span>{% if a.has_baccalaureate %}Yes{% else %}No{% endif %}</span></div>
     </div>
-
     <p class="section-title">Employment Details</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Employment Status</label><span>{{ a.employment_status|default:"—" }}</span></div>
@@ -168,7 +150,6 @@
       <div class="detail-field"><label>Years of Service</label><span>{{ a.years_of_service|default:"—" }}</span></div>
       <div class="detail-field"><label>Date of Regularization</label><span>{{ a.date_of_regularization|date:"M d, Y"|default:"—" }}</span></div>
     </div>
-
     {% if a.appointment_paper %}
     <p class="section-title">Submitted Documents</p>
     <div class="detail-grid">
@@ -178,7 +159,6 @@
       </div>
     </div>
     {% endif %}
-
     <p class="section-title">Application Status</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Status</label><span>{{ a.status }}</span></div>
@@ -186,13 +166,10 @@
       <div class="detail-field"><label>Submitted</label><span>{{ a.submitted_at|date:"M d, Y" }}</span></div>
       <div class="detail-field"><label>Last Updated</label><span>{{ a.updated_at|date:"M d, Y" }}</span></div>
     </div>
-
-
   </div>
   {% endfor %}
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
   function openModal(id) {

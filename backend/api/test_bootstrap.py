@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
+from .catalogue import SCHOLARSHIPS
 from .models import Scholarship, SystemSettings
 
 User = get_user_model()
@@ -20,8 +21,6 @@ User = get_user_model()
 ENV = {
     'SDSO_EMAIL': 'sdso@bipsu.edu.ph',
     'SDSO_PASSWORD': 'a-password-only-used-in-tests',
-    'UNIFAST_EMAIL': 'unifast@bipsu.edu.ph',
-    'UNIFAST_PASSWORD': 'another-test-only-password',
 }
 
 
@@ -36,35 +35,27 @@ def run(**overrides):
 
 class BootstrapTest(TestCase):
 
-    def test_it_creates_both_offices_and_the_catalogue(self):
+    def test_it_creates_the_office_and_the_catalogue(self):
         run()
         sdso = User.objects.get(email='sdso@bipsu.edu.ph')
-        unifast = User.objects.get(email='unifast@bipsu.edu.ph')
 
         self.assertEqual(sdso.role, 'vpsea')
-        self.assertEqual(unifast.role, 'unifast')
-        self.assertEqual(Scholarship.objects.count(), 10)
+        self.assertTrue(sdso.is_superuser)
+        self.assertEqual(Scholarship.objects.count(), len(SCHOLARSHIPS))
         self.assertTrue(SystemSettings.objects.filter(pk=1).exists())
 
-    def test_the_sdso_is_a_superuser_and_the_unifast_office_is_not(self):
-        run()
-        self.assertTrue(User.objects.get(email='sdso@bipsu.edu.ph').is_superuser)
-        self.assertFalse(User.objects.get(email='unifast@bipsu.edu.ph').is_superuser)
-
-    def test_both_offices_can_actually_sign_in(self):
-        """Created accounts must not land in the verification queue.
+    def test_the_office_can_actually_sign_in(self):
+        """A created account must not land in the verification queue.
 
         Registration sets that; an account the deployment creates is verified
         by the act of creating it, and an office stuck 'pending' on a fresh
         database would have nobody able to release it.
         """
         run()
-        for email in ('sdso@bipsu.edu.ph', 'unifast@bipsu.edu.ph'):
-            self.assertTrue(User.objects.get(email=email).can_sign_in, email)
-            self.assertTrue(self.client.login(
-                email=email, password=ENV['SDSO_PASSWORD']
-                if email.startswith('sdso') else ENV['UNIFAST_PASSWORD']))
-            self.client.logout()
+        self.assertTrue(User.objects.get(email='sdso@bipsu.edu.ph').can_sign_in)
+        self.assertTrue(self.client.login(
+            email='sdso@bipsu.edu.ph', password=ENV['SDSO_PASSWORD']))
+        self.client.logout()
 
     # ── running it again, which every deploy does ────────────────────────────
 
@@ -72,7 +63,7 @@ class BootstrapTest(TestCase):
         run()
         run()
         self.assertEqual(User.objects.filter(email='sdso@bipsu.edu.ph').count(), 1)
-        self.assertEqual(Scholarship.objects.count(), 10)
+        self.assertEqual(Scholarship.objects.count(), len(SCHOLARSHIPS))
         self.assertEqual(SystemSettings.objects.filter(pk=1).count(), 1)
 
     def test_a_password_changed_since_the_first_deploy_survives_the_next_one(self):
@@ -99,8 +90,6 @@ class BootstrapTest(TestCase):
         self.assertFalse(User.objects.filter(email='sdso@bipsu.edu.ph').exists())
         self.assertIn('SKIPPED', output)
         self.assertIn('SDSO_PASSWORD', output)
-        # The other office is unaffected by its neighbour being skipped.
-        self.assertTrue(User.objects.filter(email='unifast@bipsu.edu.ph').exists())
 
     def test_the_email_can_be_overridden_from_the_environment(self):
         run(SDSO_EMAIL='scholarships@bipsu.edu.ph')
@@ -182,7 +171,7 @@ class CatalogueTest(TestCase):
         run()
 
         self.assertEqual(Scholarship.objects.filter(type='TDP').count(), 1)
-        self.assertEqual(Scholarship.objects.count(), 10)
+        self.assertEqual(Scholarship.objects.count(), len(SCHOLARSHIPS))
 
     def test_the_types_the_approval_routes_look_up_all_exist(self):
         """Approving an award fetches its Scholarship by type.

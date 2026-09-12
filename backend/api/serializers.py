@@ -29,6 +29,12 @@ class RegisterSerializer(serializers.ModelSerializer):
     indigenous_group = serializers.CharField(required=False, allow_blank=True)
     parent_employment = serializers.CharField(required=False, allow_blank=True)
     disability_type = serializers.CharField(required=False, allow_blank=True)
+    # Two of the four Affirmative Action groups. Optional here where the web
+    # form requires them: this door is also how the office's own tooling
+    # creates accounts, and an unanswered question stays unanswered rather than
+    # blocking an import — api/affirmative_ranking.py reports it either way.
+    highschool_is_public = serializers.BooleanField(required=False, allow_null=True)
+    is_from_depressed_area = serializers.BooleanField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -39,7 +45,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'middle_name', 'suffix',
             'date_of_birth', 'gender',
             'family_income', 'indigenous_group', 'parent_employment',
-            'disability_type',
+            'disability_type', 'highschool_is_public', 'is_from_depressed_area',
         ]
 
     def create(self, validated_data):
@@ -48,6 +54,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'barangay', 'municipality', 'province',
             'middle_name', 'suffix', 'date_of_birth', 'gender', 'family_income',
             'indigenous_group', 'parent_employment', 'disability_type',
+            'highschool_is_public', 'is_from_depressed_area',
         ]
         profile_data = {f: validated_data.pop(f, None) for f in profile_fields}
         password = validated_data.pop('password')
@@ -128,6 +135,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     household_size = serializers.IntegerField(required=False, allow_null=True)
     indigenous_group = serializers.CharField(required=False, allow_blank=True)
     parent_employment = serializers.CharField(required=False, allow_blank=True)
+    # Affirmative Action target groups, three-state for the same reason the TES
+    # answers below are — see api/affirmative_ranking.py.
+    is_from_depressed_area = serializers.BooleanField(required=False, allow_null=True)
 
     # ── TES eligibility. Three-state, so null has to survive the round trip.
     citizenship = serializers.CharField(required=False, allow_blank=True)
@@ -135,10 +145,12 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     is_4ps_beneficiary = serializers.BooleanField(required=False, allow_null=True)
     has_previous_degree = serializers.BooleanField(required=False, allow_null=True)
     year_first_enrolled = serializers.IntegerField(required=False, allow_null=True)
+    is_solo_parent_dependent = serializers.BooleanField(required=False, allow_null=True)
 
     # ── Educational background
     elementary = serializers.CharField(required=False, allow_blank=True)
     highschool = serializers.CharField(required=False, allow_blank=True)
+    highschool_is_public = serializers.BooleanField(required=False, allow_null=True)
     last_school = serializers.CharField(required=False, allow_blank=True)
 
     # ── Family background
@@ -198,6 +210,34 @@ class ApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = '__all__'
         read_only_fields = ['student', 'submitted_at', 'updated_at']
+
+    def validate_scholarship(self, scholarship):
+        """An externally funded programme is not applied for here.
+
+        TDP, TES, GSIS, FHE and SUC-TDP are applied for at UniFAST, CHED or
+        GSIS. The agency decides them and the office receives the awarded list
+        afterwards, which reaches this system as a spreadsheet import — so the
+        only Application rows those programmes should ever have are ones an
+        award already stands behind.
+
+        The portal has no page that offers it, but this endpoint took any
+        programme in the catalogue, and an Application created through it is
+        indistinguishable from a real award: it counts on the dashboard, prints
+        on the masterlist and files in the archives.
+
+        Creation only. An award the office already holds is exactly what these
+        programmes are in the catalogue for — imports, approved link requests
+        and approved renewals all write Application rows on them, and the VPSEA
+        endpoint shares this serializer to review one. The rule refuses a
+        submission, not a record.
+        """
+        if (self.instance is None
+                and scholarship is not None and scholarship.group == 'external'):
+            raise serializers.ValidationError(
+                f'{scholarship.name} is applied for through the funding agency, '
+                'not here. The office records the award once the agency grants it.'
+            )
+        return scholarship
 
 
 class NotificationSerializer(serializers.ModelSerializer):

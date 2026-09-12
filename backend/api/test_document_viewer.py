@@ -3,6 +3,7 @@ from datetime import date
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, Client
+from django.utils.html import escape
 
 from api.models import (
     AcademicRenewal, Application, ApplicationDocument, Scholarship,
@@ -67,17 +68,25 @@ class DocumentViewerTest(TestCase):
 
     def test_declared_scholarship_proof_uses_the_overlay(self):
         """The proof arrives with the registration and is read on the queue
-        that decides it — there is no separate link-request page any more."""
+        that decides it — there is no separate link-request page any more.
+
+        The label is taken from the programme's own display name rather than
+        spelled out here. It used to be spelled out, and splitting DOST into the
+        S&T Undergraduate and Junior Level Science programmes renamed it out
+        from under this test — which is about the overlay, not about what DOST
+        is called this year. Escaped because that name contains an ampersand.
+        """
         self.student_user.verification_status = 'pending'
         self.student_user.save(update_fields=['verification_status'])
-        ScholarshipLinkRequest.objects.create(
+        declared = ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST',
             proof_document=_upload('award.pdf'), term_label='26-1',
         )
         c = Client()
         c.login(email='vpsea@bipsu.edu.ph', password='pw')
         r = c.get('/vpsea/accounts/')
-        self.assertContains(r, 'data-doc="DOST Scholarship — proof"')
+        label = escape(f'{declared.get_scholarship_type_display()} — proof')
+        self.assertContains(r, f'data-doc="{label}"')
         self.assertEqual(r.content.decode().count('target="_blank"'), 1,
                          "only the viewer's own Open-in-new-tab control may use it")
 

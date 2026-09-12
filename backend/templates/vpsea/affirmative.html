@@ -5,14 +5,13 @@
 {% block page_title %}Applications{% endblock %}
 {% block page_subtitle %}Validate and manage all scholarship applications{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="affirmative" %}{% endblock %}
-
 {% block content %}
-
 {% if request.GET.error %}
 <div class="page-alert page-alert-error">{{ request.GET.error }}</div>
 {% endif %}
-
-{# ── Tab switcher ─────────────────────────────────────────────────────────── #}
+{% if saved == 'window' %}
+<div class="page-alert page-alert-ok">Application period saved.</div>
+{% endif %}
 <div class="flex gap-2 mb-5 flex-wrap">
   <a href="/vpsea/affirmative/?tab=academic"
      class="btn {% if active_tab == 'academic' %}btn-primary{% else %}btn-outline{% endif %}">
@@ -31,14 +30,11 @@
     </span>
   </a>
 </div>
-
-{# ── Search / status filter ───────────────────────────────────────────────── #}
+{% include "vpsea/_window_card.html" %}
 <div class="card p-6">
   <div class="filter-scheme mb-5" data-filter-bar data-filter-search="#searchInput">
     <input placeholder="Search by name or ID…" style="max-width:20rem;" id="searchInput" />
   </div>
-
-  {# ══ ACADEMIC TAB ════════════════════════════════════════════════════════ #}
   {% if active_tab == 'academic' %}
   <div style="overflow-x:auto;">
     <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
@@ -117,8 +113,6 @@
       </tbody>
     </table>
   </div>
-
-  {# ══ BiPSU STAFF TAB ════════════════════════════════════════════════════════ #}
   {% else %}
   <div style="overflow-x:auto;">
     <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
@@ -191,10 +185,7 @@
     </table>
   </div>
   {% endif %}
-
-</div>{# /card #}
-
-{# ── Academic Review Modal ─────────────────────────────────────────────────── #}
+</div>
 <div id="academicModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:44rem;">
     <div class="modal-sheet-head">
@@ -238,8 +229,6 @@
     </div>
   </div>
 </div>
-
-{# ── Affirmative / Staff Review Modal ──────────────────────────────────────── #}
 <div id="affModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:38rem;">
     <div class="modal-sheet-head">
@@ -272,9 +261,7 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
-
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/table-filter.js' %}?v=2"></script>
@@ -287,36 +274,30 @@ function field(label, value) {
   return '<div><p style="font-size:0.7rem;color:#6b7a99;margin-bottom:0.1rem;">' + label +
          '</p><p class="font-medium" style="word-break:break-word;">' + value + '</p></div>';
 }
-
 // ── Academic modal ────────────────────────────────────────────────────────────
 function openAcademicModal(row) {
   const d = row.dataset;
   const scriptEl = document.getElementById(d.formdataId);
   const fd = scriptEl ? JSON.parse(scriptEl.textContent) : {};
-
   document.getElementById('acadModalAppId').value = d.appid;
   document.getElementById('acadModalRemarks').value = '';
   document.getElementById('acadModalTitle').textContent =
     d.firstname + ' ' + d.lastname + ' — APP-' + String(d.appid).padStart(7, '0');
-
   document.getElementById('acadModalPersonal').innerHTML =
     field('First Name', d.firstname) + field('Last Name', d.lastname) +
     field('Student ID', d.studentid) + field('Email', d.email) +
     field('Gender', d.gender) + field('Date of Birth', d.dob) +
     field('Contact Number', d.contact) + field('Address', d.address);
-
   const eduHtml = field('Elementary', fd.elementary) +
     field('High School', fd.highschool) + field('Last School', fd.last_school);
   document.getElementById('acadModalEdu').innerHTML = eduHtml;
   document.getElementById('acadModalEduSection').style.display = eduHtml ? '' : 'none';
-
   const famHtml = field("Father's Name", fd.father_name) +
     field("Father's Occupation", fd.father_occupation) +
     field("Mother's Name", fd.mother_name) +
     field("Mother's Occupation", fd.mother_occupation);
   document.getElementById('acadModalFam').innerHTML = famHtml;
   document.getElementById('acadModalFamSection').style.display = famHtml ? '' : 'none';
-
   document.getElementById('acadModalAcad').innerHTML =
     field('GWA', d.gwa) + field('Course', d.course) + field('Year Level', d.year) +
     field('Scholarship', d.scholarship) +
@@ -324,7 +305,6 @@ function openAcademicModal(row) {
     field('School Year', fd.academic_year || fd.school_year) +
     field('Award Number', fd.award_number) +
     field('Congress District', fd.congress_district);
-
   const docsEl = document.getElementById('acadModalDocs');
   const docsSec = document.getElementById('acadModalDocsSection');
   if (d.docs) {
@@ -338,13 +318,10 @@ function openAcademicModal(row) {
   } else {
     docsSec.style.display = 'none';
   }
-
   lockDecision(d.status, 'acadDecisionForm', 'acadDecided', d.remarks);
-
   document.getElementById('academicModal').style.display = 'flex';
 }
 function closeAcadModal() { document.getElementById('academicModal').style.display = 'none'; }
-
 // ── Affirmative / Staff modal ─────────────────────────────────────────────────
 function openAffModal(id, name, type, course, shs, suc, status, remarks) {
   document.getElementById('affModalAppId').value = id;
@@ -360,7 +337,6 @@ function openAffModal(id, name, type, course, shs, suc, status, remarks) {
   lockDecision(status, 'affDecisionForm', 'affDecided', remarks);
   document.getElementById('affModal').style.display = 'flex';
 }
-
 function openStaffModal(row) {
   const d = row.dataset;
   document.getElementById('affModalAppId').value = d.appid;
@@ -387,9 +363,7 @@ function openStaffModal(row) {
   lockDecision(d.status, 'affDecisionForm', 'affDecided', d.remarks);
   document.getElementById('affModal').style.display = 'flex';
 }
-
 function closeAffModal() { document.getElementById('affModal').style.display = 'none'; }
-
 // ── Table filter ──────────────────────────────────────────────────────────────
 </script>
 {% endblock %}

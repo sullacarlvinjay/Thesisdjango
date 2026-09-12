@@ -1,0 +1,74 @@
+{% comment %}
+One programme's scholars, as an external partner sees them.
+
+The same table the SDSO reads in vpsea/_scholar_table.html — same classes, so
+the sort in table-sort.js and the filter bar in table-filter.js drive it without
+either of them learning about partners — differing in the one column that has to
+differ: what this account may do to the row.
+
+Two things the office's copy has are deliberately absent. A custom column is
+printed, not typed into: the office names those columns and owns their values,
+and a partner has no endpoint to save one through. And an award row carries no
+buttons at all — it is a BiPSU student's own record, which the student typed and
+the office verified, so it is shown and left alone. What a partner may change is
+its own imported rows, and only while they are still unclaimed.
+{% endcomment %}
+<table class="scholar-table" data-sortable data-filterable>
+  <thead>
+    <tr>
+      <th>#</th>
+      {% for col in columns %}<th{% if col.filterable %} data-filter="{{ col.label }}"{% endif %}>{{ col.label }}</th>{% endfor %}
+      <th data-no-sort>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td class="cell-no">{{ row.no }}</td>
+      {% for cell in row.cells %}
+      <td class="{% if cell.key == 'last_name' %}cell-name{% elif cell.key == 'brgy_st' or cell.key == 'municipality' or cell.key == 'province' or cell.key == 'award_number' or cell.key == 'cong_dist' %}cell-muted{% endif %}">
+        {% if cell.key == 'gwa' and cell.value %}
+        <span class="badge badge-success">{{ cell.value }}</span>
+        {% else %}
+        {{ cell.value|default:"—" }}
+        {% endif %}
+      </td>
+      {% endfor %}
+      <td class="cell-actions">
+        {% if row.kind == 'imported' %}
+        <button type="button" class="btn btn-outline" data-preview-open="scholarModal"
+                data-scholar-edit="{{ row.obj.pk }}"
+                data-last-name="{{ row.obj.last_name }}"
+                data-first-name="{{ row.obj.first_name }}"
+                data-middle-name="{{ row.obj.middle_name }}"
+                data-gender="{{ row.obj.gender }}"
+                data-course="{{ row.obj.course }}"
+                data-year-level="{% if row.obj.year_level %}{{ row.obj.year_level }}{% endif %}"
+                data-gwa="{% if row.obj.gwa %}{{ row.obj.gwa }}{% endif %}"
+                data-student-id="{{ row.obj.student_id }}"
+                data-award-number="{{ row.obj.award_number }}"
+                data-congress-district="{{ row.obj.congress_district }}"
+                data-barangay="{{ row.obj.barangay }}"
+                data-municipality="{{ row.obj.municipality }}"
+                data-province="{{ row.obj.province }}">Edit</button>
+        <form method="post" action="/partner/scholars/"
+              data-confirm="Remove {{ row.obj.full_name|default:'this scholar' }} from your {{ active_type }} list?"
+              data-confirm-detail="This removes the one row for {{ selected_sy }}. Nothing else on the list is touched, and no BiPSU student account is affected."
+              data-confirm-tone="danger" data-confirm-label="Remove">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete" />
+          <input type="hidden" name="type" value="{{ active_type }}" />
+          <input type="hidden" name="sy" value="{{ selected_sy }}" />
+          <input type="hidden" name="scholar_id" value="{{ row.obj.pk }}" />
+          <button type="submit" class="btn btn-danger-soft">Delete</button>
+        </form>
+        {% else %}
+        <span class="cell-muted">BiPSU account</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="{{ columns|length|add:2 }}" class="cell-empty">{{ empty_message }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

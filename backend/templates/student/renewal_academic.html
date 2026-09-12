@@ -4,19 +4,15 @@
 {% block brand %}Student{% endblock %}
 {% block page_title %}Scholarship Renewal{% endblock %}
 {% block page_subtitle %}Submit your documents to renew your scholarship{% endblock %}
-
 {% block nav %}{% include "student/_nav.html" %}{% endblock %}
-
 {% block content %}
 <div class="space-y-6">
-
   {% if submitted %}
   <div class="card p-5 flex items-center gap-3" style="border-color:#2f9e44;background:#f0fdf4;">
     <svg class="h-5 w-5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <p class="text-sm font-medium" style="color:#2f9e44;">Renewal documents submitted successfully. We'll review them shortly.</p>
   </div>
   {% endif %}
-
   {% if errors %}
   <div class="card p-5" style="border-color:#e03131;background:#fff5f5;">
     {% for e in errors %}
@@ -24,18 +20,66 @@
     {% endfor %}
   </div>
   {% endif %}
-
+  {% if blocked %}
+  <div class="card p-5 flex items-center gap-3" style="border-color:#e03131;background:#fff5f5;">
+    <svg class="h-5 w-5 shrink-0" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+    <div>
+      <p class="text-sm font-semibold" style="color:#e03131;">Renewals Are Closed</p>
+      <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
+    </div>
+  </div>
+  {% elif not open_programmes %}
+  <div class="card p-5">
+    <p class="text-sm font-semibold">Nothing to renew yet</p>
+    <p class="text-xs mt-0.5" style="color:var(--text-muted);">
+      A renewal continues a scholarship you already hold. Once an award is on your
+      record it appears here, and you renew it each semester from this page.
+    </p>
+  </div>
+  {% else %}
   <!-- Submission Form -->
   <div class="card p-6">
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
-      <h3 class="font-semibold">{% if editing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h3>
+      <h3 class="font-semibold">{% if replacing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h3>
       <span class="badge" style="background:#edf2ff;color:#3b5bdb;">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
     </div>
     <p class="text-xs mb-5" style="color:#6b7a99;">Upload the required documents to renew your scholarship for the next semester.</p>
-
     <form method="post" enctype="multipart/form-data" class="space-y-5">
       {% csrf_token %}
-
+      {% if multiple %}
+      {% comment %}
+        Only asked of a student who holds more than one award. Somebody on a
+        single scholarship is not made to answer a question with one possible
+        answer — the view fills it in for them — and a programme whose renewal
+        window is shut is not offered here at all, because picking it would only
+        earn a refusal.
+      {% endcomment %}
+      <div class="space-y-1.5">
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Which scholarship are you renewing? <span style="color:#e03131;">*</span></label>
+        <p class="text-xs mb-2" style="color:#6b7a99;">You hold more than one. Each is renewed separately, with its own documents — submit this form again for the other.</p>
+        <select name="scholarship_type" required>
+          <option value="">— Select scholarship —</option>
+          {% for p in open_programmes %}
+          <option value="{{ p.type }}">{{ p.label }}</option>
+          {% endfor %}
+        </select>
+        {% if editing %}
+        <p class="text-xs mt-1" style="color:#6b7a99;">
+          Already in for this semester and not yet reviewed:
+          {% for stype, r in editing.items %}{{ r.get_scholarship_type_display }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+          Choosing one of those replaces its documents rather than sending a second submission.
+        </p>
+        {% endif %}
+      </div>
+      {% else %}
+      {% for p in open_programmes %}
+      <input type="hidden" name="scholarship_type" value="{{ p.type }}" />
+      <div class="form-subject">
+        <p class="form-subject__label">Renewing</p>
+        <p class="form-subject__value">{{ p.label }}</p>
+      </div>
+      {% endfor %}
+      {% endif %}
       <div>
         <label class="block text-sm font-medium mb-1" style="color:#374151;">Certificate of Enrollment <span style="color:#e03131;">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">Official Certificate of Enrollment from the Registrar's Office for the current semester.</p>
@@ -43,7 +87,6 @@
           class="block w-full text-sm" required />
         <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG</p>
       </div>
-
       <div>
         <label class="block text-sm font-medium mb-1" style="color:#374151;">Certificate of Grades <span style="color:#e03131;">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">Official Certificate of Grades from the Registrar's Office for the previous semester.</p>
@@ -51,9 +94,8 @@
           class="block w-full text-sm" required />
         <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG</p>
       </div>
-
-      <button type="submit" class="btn btn-primary w-full">{% if editing %}Replace Documents{% else %}Submit Renewal{% endif %}</button>
-      {% if editing %}
+      <button type="submit" class="btn btn-primary w-full">{% if replacing %}Replace Documents{% else %}Submit Renewal{% endif %}</button>
+      {% if replacing %}
       <p class="text-xs mt-2" style="color:var(--text-muted);">
         You already have a renewal in for this semester and the office has not
         reviewed it yet. Uploading here replaces the documents on it rather than
@@ -62,7 +104,19 @@
       {% endif %}
     </form>
   </div>
-
+  {% endif %}
+  <!-- Programmes whose renewal window is shut, so a scholar on two awards is
+       told why the second one is not on the form above. -->
+  {% if not blocked %}
+  {% for p in programmes %}{% if not p.open %}
+  <div class="notice notice--warn">
+    <div>
+      <p class="notice__title">{{ p.label }} — renewals closed</p>
+      <p class="notice__body">{{ p.closed_reason }}</p>
+    </div>
+  </div>
+  {% endif %}{% endfor %}
+  {% endif %}
   <!-- Previous Submissions -->
   {% if renewals %}
   <div class="card p-6">
@@ -71,7 +125,7 @@
       {% for r in renewals %}
       <div class="flex items-center justify-between p-4 rounded-xl" style="background:#f6f8fc;">
         <div>
-          <p class="text-sm font-medium" style="color:#1e2a3a;">Renewal — {{ r.term_display|default:"term not recorded" }}</p>
+          <p class="text-sm font-medium" style="color:#1e2a3a;">{{ r.get_scholarship_type_display }} — {{ r.term_display|default:"term not recorded" }}</p>
           <p class="text-xs mt-0.5" style="color:#6b7a99;">Submitted {{ r.submitted_at|date:"M d, Y" }}</p>
           <p class="text-xs mt-0.5" style="color:#6b7a99;">
             COE: {{ r.certificate_of_enrollment.name|default:"—" }} &nbsp;·&nbsp;
@@ -87,6 +141,5 @@
     </div>
   </div>
   {% endif %}
-
 </div>
 {% endblock %}

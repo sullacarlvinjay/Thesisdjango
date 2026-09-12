@@ -1,6 +1,12 @@
 """Rule-based TES recommender: eligibility, priority and ranking, explained.
 
-The whole point of this module is the distinction between *failing* a rule and
+Nothing in this system awards TES. UniFAST does, outside the portal, so what
+the SDSO produces here is a **recommendation** — who the university would put
+forward, and the reason behind every line of it. That is why nothing in this
+module writes to the database: it reads the student record the office already
+holds and states what the rules make of it.
+
+The whole point of the module is the distinction between *failing* a rule and
 *not knowing* whether it was met. A student whose citizenship was never recorded
 has not failed the citizenship test — nobody has run it. Every rule therefore
 returns one of three verdicts, and the overall status has a matching third
@@ -8,11 +14,10 @@ state:
 
     PASS / FAIL / NEEDS VERIFICATION   ->   Eligible / Not Eligible / For Verification
 
-Nothing here writes to the database and nothing here guesses. Each rule names
-the field it read and, when it could not decide, names what is missing so the
-office knows what to go and collect.
+Each rule names the field it read and, when it could not decide, names what is
+missing so the office knows what to go and collect.
 
-Two defaults in the existing schema are traps this module works around:
+Two defaults in the schema are traps this module works around:
 
   * ``StudentProfile.family_income`` defaults to 0.0, so a household that never
     entered anything looks identical to one earning nothing. Ranking that
@@ -22,7 +27,9 @@ Two defaults in the existing schema are traps this module works around:
     'no disability' and 'never asked' look alike. It is treated as an answer
     only where there is positive evidence behind it — see the individual rules.
 
-Field mapping (requirement -> the field actually used):
+Field mapping (requirement -> the field actually used). Every one of them is on
+the student's own record, collected at registration and correctable on My
+Profile, because there is no TES application form here to ask twice:
 
     Citizenship             StudentProfile.citizenship
     Enrolled / CHED-recog.  StudentProfile.year_level, .school
@@ -31,11 +38,9 @@ Field mapping (requirement -> the field actually used):
     Other gov. assistance   Application / ScholarshipLinkRequest rows
     Listahanan              StudentProfile.is_listahanan_household
     4Ps (fallback)          StudentProfile.is_4ps_beneficiary
-    Solo parent dependent   TESApplication.is_solo_parent_dependent
-    ICC / IP                StudentProfile.indigenous_group,
-                            TESApplication.indigenous_people_group
-    PWD                     StudentProfile.disability_type,
-                            TESApplication.disability_type
+    Solo parent dependent   StudentProfile.is_solo_parent_dependent
+    ICC / IP                StudentProfile.indigenous_group
+    PWD                     StudentProfile.disability_type
     Household income        StudentProfile.family_income
     Household size          StudentProfile.household_size
 """
@@ -98,7 +103,6 @@ class RuleResult:
 class Evaluation:
     """Everything the office needs to see, and to defend, for one student."""
     profile: object
-    application: object
     rules: list
     status: str
     priority: str
@@ -309,7 +313,7 @@ def _stated(value):
     return '' if text.casefold() in NEGATIVE_ANSWERS else text
 
 
-def _priority_signals(profile, application):
+def _priority_signals(profile):
     """(confirmed markers, unknown signals) for the Priority 1 groups."""
     markers, unknown = [], []
 
@@ -322,20 +326,16 @@ def _priority_signals(profile, application):
         elif profile.is_4ps_beneficiary is None:
             unknown.append('Listahanan / 4Ps listing')
 
-    if application is not None and application.is_solo_parent_dependent:
+    if profile.is_solo_parent_dependent is True:
         markers.append('Solo parent dependent')
-    elif application is None:
+    elif profile.is_solo_parent_dependent is None:
         unknown.append('Solo parent status')
 
     ip_group = _stated(profile.indigenous_group)
-    if not ip_group and application is not None:
-        ip_group = _stated(application.indigenous_people_group)
     if ip_group:
         markers.append(f'ICC/IP ({ip_group})')
 
     disability = _stated(profile.disability_type)
-    if not disability and application is not None:
-        disability = _stated(application.disability_type)
     if disability:
         markers.append(f'PWD ({disability})')
 
@@ -363,11 +363,8 @@ def _per_capita_income(profile):
 
 # ── the evaluation ──────────────────────────────────────────────────────────
 
-def evaluate(profile, application=None, today=None):
+def evaluate(profile, today=None):
     """Run every rule against one student. Reads only; never writes, never guesses."""
-    if application is None:
-        application = profile.tes_applications.order_by('-submitted_at').first()
-
     rules = [
         _citizenship_rule(profile),
         _enrollment_rule(profile),
@@ -383,7 +380,7 @@ def evaluate(profile, application=None, today=None):
     else:
         status = ELIGIBLE
 
-    markers, unknown_signals = _priority_signals(profile, application)
+    markers, unknown_signals = _priority_signals(profile)
     per_capita, income_state, income_missing = _per_capita_income(profile)
 
     if markers:
@@ -407,7 +404,6 @@ def evaluate(profile, application=None, today=None):
 
     return Evaluation(
         profile=profile,
-        application=application,
         rules=rules,
         status=status,
         priority=priority,

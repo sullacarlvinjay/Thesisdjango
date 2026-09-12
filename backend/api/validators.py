@@ -20,7 +20,7 @@ from django.utils.deconstruct import deconstructible
 # Scans, photographs of certificates, and the occasional PDF export.
 DOCUMENT_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic']
 
-# Office imports: the scholar lists UniFAST and VPSEA roll over each term.
+# Office imports: the scholar lists the SDSO rolls over each term.
 SPREADSHEET_EXTENSIONS = ['xlsx', 'xls', 'csv']
 
 

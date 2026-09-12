@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Reports — {{ office.name }}{% endblock %}
+{% block logo_src %}{{ office.logo_url }}{% endblock %}
+{% block brand %}{{ office.name }}{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block page_subtitle %}Take a scholars list away, one programme at a time{% endblock %}
+{% block nav %}{% include "partner/_nav.html" with active="reports" %}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  {% if error %}
+  <div class="page-alert page-alert-error">{{ error }}</div>
+  {% endif %}
+  {% if not scholarships %}
+  <div class="notice notice--warn">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+      <p class="notice__title">No programmes have been shared with this account yet.</p>
+      <p class="notice__body">There is nothing to report on until the SDSO shares one.</p>
+    </div>
+  </div>
+  {% else %}
+  <div class="card p-6">
+    <h3 class="report-gen-title mb-4">Your programmes</h3>
+    <div class="table-scroll">
+      <table class="partner-table">
+        <thead>
+          <tr><th>Programme</th><th>Type</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for s in scholarships %}
+          <tr>
+            <td class="cell-name">{{ s.name }}</td>
+            <td class="cell-muted">{{ s.type }}</td>
+            <td>
+              <a class="btn btn-primary"
+                 href="/partner/reports/download/?type={{ s.type|urlencode }}&sy={{ term|urlencode }}">
+                Download ({{ term }}) .xlsx
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

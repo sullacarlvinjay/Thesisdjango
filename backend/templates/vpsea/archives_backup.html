@@ -4,9 +4,7 @@
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
 {% block page_subtitle %}Academic, TDP, DOST, CHED, CoScho, Sports, Affirmative, Staff{% endblock %}
-
 {% block nav %}{% include "vpsea/_nav.html" with active="archives" %}{% endblock %}
-
 {% block content %}
 <!-- Type Tabs -->
 <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
@@ -30,7 +28,6 @@
     </button>
   </div>
 </div>
-
 {% if request.GET.added %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Scholar added successfully.</div>
 {% endif %}
@@ -40,7 +37,6 @@
 {% if request.GET.deleted %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Scholar deleted.</div>
 {% endif %}
-
 <!-- Add Scholar Modal -->
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card p-6" style="width:100%;max-width:38rem;max-height:90vh;overflow-y:auto;">
@@ -48,13 +44,10 @@
       <h3 class="font-semibold">Add Scholar — {{ active_type }}</h3>
       <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7a99;">✕</button>
     </div>
-
     <form method="post" action="/vpsea/archives/add/" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
-
       {% if active_type == 'Academic' %}
-      {# ── Academic: full form matching student apply_academic ── #}
       <div class="space-y-4">
         <p class="text-xs font-semibold uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</p>
         <div class="grid grid-cols-2 gap-3">
@@ -77,14 +70,12 @@
             </select>
           </div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Educational Background</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>Elementary School</label><input name="elementary" style="margin-top:0.25rem;" /></div>
           <div><label>High School</label><input name="highschool" style="margin-top:0.25rem;" /></div>
           <div class="col-span-2"><label>Last School Attended</label><input name="last_school" style="margin-top:0.25rem;" /></div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Family Background</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>Father's Name</label><input name="father_name" style="margin-top:0.25rem;" /></div>
@@ -92,14 +83,12 @@
           <div><label>Mother's Name</label><input name="mother_name" style="margin-top:0.25rem;" /></div>
           <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Academic Information</p>
         <div class="grid grid-cols-3 gap-3">
           <div><label>GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" required style="margin-top:0.25rem;" /></div>
           <div><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
           <div><label>School Year</label><input name="school_year" value="{{ active_sy }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
         </div>
-
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Document Upload <span style="color:#6b7a99;font-weight:400;text-transform:none;letter-spacing:0;">PDF, JPG, PNG · Max 5MB each</span></p>
         <div class="space-y-3">
           {% for num, label, hint, fname in add_docs %}
@@ -114,9 +103,7 @@
           {% endfor %}
         </div>
       </div>
-
       {% else %}
-      {# ── Other scholarships: basic info + one proof doc ── #}
       <div class="grid grid-cols-2 gap-3">
         <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
         <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
@@ -153,7 +140,6 @@
         </div>
       </div>
       {% endif %}
-
       <div class="flex gap-2 justify-end mt-5">
         <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="btn btn-outline">Cancel</button>
         <button type="submit" class="btn btn-primary">Add Scholar</button>
@@ -161,7 +147,6 @@
     </form>
   </div>
 </div>
-
 <!-- Upload Excel Modal -->
 <div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:30rem;">
@@ -203,7 +188,6 @@
     </form>
   </div>
 </div>
-
 <!-- New Semester Modal -->
 <div id="newSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
@@ -223,7 +207,6 @@
     </form>
   </div>
 </div>
-
 <!-- Undo Semester Modal -->
 <div id="undoSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
@@ -240,9 +223,7 @@
     </form>
   </div>
 </div>
-
 <div>
-
   <div class="space-y-4">
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -298,10 +279,7 @@
           </div>
         </div>
       </div>
-
       <div style="overflow-x:auto;">
-
-        {# ── Academic ── #}
         {% if active_type == 'Academic' %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -348,8 +326,6 @@
             {% endfor %}
           </tbody>
         </table>
-
-        {# ── NSU Staff ── #}
         {% elif active_type == 'Staff' %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -389,10 +365,7 @@
             {% endfor %}
           </tbody>
         </table>
-
-        {# ── CHED — two blocks ── #}
         {% elif active_type == 'CHED' %}
-        {# Block 1: Full Merit #}
         <div style="margin-bottom:1.25rem;">
           <div style="background:#dbeafe;padding:0.4rem 0.75rem;font-weight:600;font-size:0.8rem;border-radius:6px 6px 0 0;border:1px solid #bfdbfe;">Full Merit / Full Scholar</div>
           <table style="width:100%;border-collapse:collapse;font-size:0.875rem;border:1px solid #e8ecf0;border-top:none;">
@@ -437,7 +410,6 @@
             </tbody>
           </table>
         </div>
-        {# Block 2: Half Merit #}
         <div>
           <div style="background:#dbeafe;padding:0.4rem 0.75rem;font-weight:600;font-size:0.8rem;border-radius:6px 6px 0 0;border:1px solid #bfdbfe;">Half Merit / Half Scholar</div>
           <table style="width:100%;border-collapse:collapse;font-size:0.875rem;border:1px solid #e8ecf0;border-top:none;">
@@ -482,8 +454,6 @@
             </tbody>
           </table>
         </div>
-
-        {# ── TDP / DOST — single table, same columns as CHED ── #}
         {% elif active_type == 'TDP' or active_type == 'DOST' %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -526,8 +496,6 @@
             {% endfor %}
           </tbody>
         </table>
-
-        {# ── GSIS ── #}
         {% elif active_type == 'GSIS' %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -568,8 +536,6 @@
             {% endfor %}
           </tbody>
         </table>
-
-        {# ── Affirmative ── #}
         {% elif active_type == 'Affirmative' %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -607,8 +573,6 @@
             {% endfor %}
           </tbody>
         </table>
-
-        {# ── CoScho / Sports fallback ── #}
         {% else %}
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="archTable">
           <thead><tr style="border-bottom:2px solid #e8ecf0;background:#f6f8fc;">
@@ -650,16 +614,10 @@
           </tbody>
         </table>
         {% endif %}
-
       </div>
     </div>
-
-
-
 </div>
-
 {% endblock %}
-
 {% block extra_js %}
 <script>
 function filterArch() {
@@ -701,7 +659,6 @@ function openDelete(pk, name) {
   document.getElementById('deleteModal').style.display = 'flex';
 }
 </script>
-
 <!-- Edit Modal -->
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card p-6" style="width:100%;max-width:32rem;max-height:90vh;overflow-y:auto;">
@@ -772,7 +729,6 @@ function openDelete(pk, name) {
     </form>
   </div>
 </div>
-
 <!-- Delete Confirm Modal -->
 <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:24rem;">
@@ -789,7 +745,6 @@ function openDelete(pk, name) {
     </form>
   </div>
 </div>
-
 <script>
 document.getElementById('editForm').addEventListener('submit', function(e) {
   e.preventDefault();

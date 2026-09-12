@@ -6,7 +6,7 @@
   <title>Sign In — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=15" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=44" />
   <script>
     // Read before first paint so the page never flashes light before switching.
     if (localStorage.getItem('theme') === 'dark' ||
@@ -17,17 +17,14 @@
 </head>
 <body data-portal="student" class="auth-page">
   <div class="auth-shell">
-
     <div class="auth-brand">
       <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
       <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
       <p class="text-sm mt-1">Scholarship Records Management System</p>
     </div>
-
     <div class="auth-card">
       <h2 class="text-lg font-bold mb-1">Sign in</h2>
       <p class="auth-sub mb-5">Use the email and password you registered with.</p>
-
       {% if error %}
       <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">
         {{ error }}
@@ -36,11 +33,7 @@
         {% endif %}
       </div>
       {% endif %}
-
-      {% comment %}
-        The password was right, but the account is not cleared to sign in yet.
-        This is the one place a message reaches someone who cannot get in.
-      {% endcomment %}
+      
       {% if verification_status == 'pending' %}
       <div class="mb-4 p-3 rounded-lg text-sm badge-warning" style="display:block;border-radius:var(--radius);">
         <p class="font-semibold mb-1">Your account is waiting for verification.</p>
@@ -56,7 +49,6 @@
         <p class="mt-2">If a detail was wrong, <a href="/register/" style="text-decoration:underline;font-weight:600;">register again with the correction</a> — this address is free to use. Otherwise contact the SDSO office; they can verify the account as it stands once the details check out.</p>
       </div>
       {% endif %}
-
       <form method="post">
         {% csrf_token %}
         <div class="space-y-4">
@@ -72,7 +64,6 @@
         </div>
       </form>
     </div>
-
     <p class="auth-footnote">No account yet? <a href="/register/">Register</a></p>
     <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Main Page</a></p>
   </div>

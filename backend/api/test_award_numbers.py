@@ -76,27 +76,6 @@ class AwardNumberTest(TestCase):
         self.assertContains(r, 'NEW-0001')
         self.assertNotContains(r, 'STALE-9999')
 
-    # ── TES belongs to UniFAST, and only there ──────────────────────────────
-
-    def test_unifast_records_an_award_number_for_tes(self):
-        """CHED issues TES award numbers, and UniFAST administers TES."""
-        Scholarship.objects.create(
-            name='Tertiary Education Subsidy', type='TES', category='application',
-            description='x', eligibility='x', requirements=[],
-        )
-        self._award('TES', last='Uy', sid='2024-0005', award='TES-2026-0001')
-        User.objects.create_user(
-            username='unifast@bipsu.edu.ph', email='unifast@bipsu.edu.ph',
-            password='pw', role='unifast',
-        )
-        office = Client()
-        self.assertTrue(office.login(email='unifast@bipsu.edu.ph', password='pw'))
-
-        r = office.get('/unifast/archives/?type=TES')
-        self.assertContains(r, 'Award No.')
-        self.assertContains(r, 'TES-2026-0001')
-        self.assertContains(r, 'name="award_number"')
-
     def test_the_sdso_archives_do_not_offer_an_award_number_for_tes(self):
         """The SDSO side of the house does not carry one for this programme."""
         Scholarship.objects.create(

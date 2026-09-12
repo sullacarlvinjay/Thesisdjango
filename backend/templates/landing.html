@@ -5,20 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiPSU SRMS — Scholarship Portal</title>
   {% load static %}
+  {% load srms_text %}
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=15" />
-  {% comment %}
-    Both of these run before the first paint on purpose, so neither is deferred:
-    one decides the colour scheme, the other raises the loading screen. Let
-    either wait and the reader sees the very moment it exists to hide. The
-    page's own behaviour can wait for the DOM, so it does.
-  {% endcomment %}
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=44" />
+  
   <script src="{% static 'js/theme.js' %}"></script>
   <script src="{% static 'js/skeleton.js' %}"></script>
-  <script src="{% static 'js/landing.js' %}" defer></script>
+  <script src="{% static 'js/landing.js' %}?v=4" defer></script>
 </head>
 <body data-portal="student">
-
 <!-- Loading screen. Structure only — how it looks is section 16 of srms.css and
      static/js/skeleton.js takes it down once the page is ready. Hidden from
      screen readers: there is nothing here to read. -->
@@ -43,20 +38,36 @@
     </div>
   </div>
 </div>
-
 <!-- Navbar -->
 <nav class="landing-nav">
-  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-    <div class="flex items-center gap-3">
+  <div class="landing-nav-row h-16 flex items-center justify-between">
+    <div class="landing-nav-brand flex items-center gap-3">
       <img src="/media/logos/BiPSU.png" alt="BiPSU" class="landing-nav-logo" />
       <div>
         <p class="text-sm font-bold landing-nav-name">BiPSU SRMS</p>
         <p class="text-xs landing-nav-sub">Scholarship Portal</p>
       </div>
     </div>
+    <!-- Two links to the two lists below. Plain anchors on purpose: the
+         scrolling is the browser's, smoothed and offset for this navbar by
+         scroll-behavior and scroll-padding-top on .page-landing, so it works
+         with scripting off and lands under the bar rather than behind it. -->
+    {% if internal or external %}
+    <nav class="landing-jump" aria-label="Jump to a list">
+      {% if internal %}
+      <a href="#internal" class="landing-jump-link" aria-label="Internal Scholarships">
+        <span class="landing-jump-dot landing-jump-dot-internal"></span>Internal<span class="landing-jump-label">Scholarships</span>
+      </a>
+      {% endif %}
+      {% if external %}
+      <a href="#external" class="landing-jump-link" aria-label="External Scholarships">
+        <span class="landing-jump-dot landing-jump-dot-external"></span>External<span class="landing-jump-label">Scholarships</span>
+      </a>
+      {% endif %}
+    </nav>
+    {% endif %}
   </div>
 </nav>
-
 <!-- Hero -->
 <div class="hero hero-facade hero-landing">
   <div class="hero-inner">
@@ -71,10 +82,9 @@
 </div>
 <!-- Scholarship listings, over the campus photograph -->
 <div class="section-photo pt-6 pb-16">
-
 <!-- Internal Scholarships -->
 {% if internal %}
-<div class="max-w-6xl mx-auto px-6 pt-12 pb-2">
+<div id="internal" class="landing-section max-w-6xl mx-auto px-6 pt-12 pb-2">
   <h2 class="text-2xl font-bold mb-1">Internal Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Scholarships offered directly by Biliran Province State University.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -82,19 +92,19 @@
     <div class="card cursor-pointer" role="button" tabindex="0"
          data-scholarship="{{ s.pk }}" aria-label="{{ s.name }} — view details">
       <div class="card-strip card-strip-internal"></div>
-      <div class="p-6">
+      <div class="p-6 card-body">
         <div class="flex items-center gap-3 mb-3">
           <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
           <span class="badge badge-accent">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
-        <p class="text-sm mb-4 card-desc">{{ s.description }}</p>
+        <p class="text-sm mb-4 card-desc">{{ s.description|sentence_case }}</p>
         {% if s.eligibility_list %}
         <div class="space-y-1 text-xs card-reqs">
-          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
+          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e|sentence_case }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between card-foot">
+        <div class="pt-4 flex items-center justify-between card-foot">
           <span class="text-xs font-semibold card-foot-group">Internal</span>
           <span class="text-xs card-foot-cta">View Details →</span>
         </div>
@@ -104,7 +114,6 @@
   </div>
 </div>
 {% endif %}
-
 <!-- Institutional Scholarships -->
 {% if institutional %}
 <div class="max-w-6xl mx-auto px-6 pt-10 pb-12">
@@ -115,19 +124,19 @@
     <div class="card cursor-pointer" role="button" tabindex="0"
          data-scholarship="{{ s.pk }}" aria-label="{{ s.name }} — view details">
       <div class="card-strip card-strip-institutional"></div>
-      <div class="p-6">
+      <div class="p-6 card-body">
         <div class="flex items-center gap-3 mb-3">
           <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
           <span class="badge badge-success">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
-        <p class="text-sm mb-4 card-desc">{{ s.description }}</p>
+        <p class="text-sm mb-4 card-desc">{{ s.description|sentence_case }}</p>
         {% if s.eligibility_list %}
         <div class="space-y-1 text-xs card-reqs">
-          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
+          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e|sentence_case }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between card-foot">
+        <div class="pt-4 flex items-center justify-between card-foot">
           <span class="text-xs font-medium card-foot-group-ok">Institutional</span>
           <span class="text-xs card-foot-cta">View Details →</span>
         </div>
@@ -137,11 +146,9 @@
   </div>
 </div>
 {% endif %}
-
-
 <!-- External Scholarships -->
 {% if external %}
-<div class="max-w-6xl mx-auto px-6 pt-10 pb-2">
+<div id="external" class="landing-section max-w-6xl mx-auto px-6 pt-10 pb-2">
   <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Government and agency-funded scholarships processed externally.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -149,19 +156,19 @@
     <div class="card cursor-pointer" role="button" tabindex="0"
          data-scholarship="{{ s.pk }}" aria-label="{{ s.name }} — view details">
       <div class="card-strip card-strip-external"></div>
-      <div class="p-6">
+      <div class="p-6 card-body">
         <div class="flex items-center gap-3 mb-3">
           <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
           <span class="badge badge-brand badge-strong">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
-        <p class="text-sm mb-4 card-desc">{{ s.description }}</p>
+        <p class="text-sm mb-4 card-desc">{{ s.description|sentence_case }}</p>
         {% if s.eligibility_list %}
         <div class="space-y-1 text-xs card-reqs">
-          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e }}</p>{% endfor %}
+          {% for e in s.eligibility_list|slice:":3" %}<p>✓ {{ e|sentence_case }}</p>{% endfor %}
         </div>
         {% endif %}
-        <div class="mt-4 pt-4 flex items-center justify-between card-foot">
+        <div class="pt-4 flex items-center justify-between card-foot">
           <span class="text-xs font-semibold card-foot-group">External</span>
           <span class="text-xs card-foot-cta">View Details →</span>
         </div>
@@ -171,22 +178,17 @@
   </div>
 </div>
 {% endif %}
-
-
 {% if not internal and not external and not institutional %}
 <div class="max-w-6xl mx-auto px-6 py-16 text-center landing-empty">
   <p class="text-lg font-medium mb-2">No scholarship programs available yet.</p>
   <p class="text-sm">Please check back later.</p>
 </div>
 {% endif %}
-
 </div>
-
 <!-- Footer -->
 <footer class="text-center py-8 text-xs site-footer">
   © 2026 Biliran Province State University · Scholarship Records Management System
 </footer>
-
 <!-- Modals (all scholarships) -->
 {% for s in scholarships %}
 <div class="modal-overlay" id="modal-{{ s.pk }}" data-modal="{{ s.pk }}">
@@ -203,36 +205,32 @@
       <button type="button" class="modal-close" data-close-modal="{{ s.pk }}" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
-
       {% if s.background %}
       <div class="rounded-xl p-4 mb-4 modal-note">
         <p class="text-xs font-semibold uppercase tracking-wider mb-2 modal-note-label">Background</p>
-        <p class="text-sm modal-note-text">{{ s.background }}</p>
+        <p class="text-sm modal-note-text">{{ s.background|sentence_case }}</p>
       </div>
       {% endif %}
-
       {% if s.eligibility_list %}
       <div class="mb-4">
         <p class="text-xs font-semibold uppercase tracking-wider mb-2 modal-label">Eligibility Requirements</p>
         <ul class="space-y-1">
           {% for req in s.eligibility_list %}
-          <li class="text-sm flex gap-2 modal-li"><span class="modal-tick">✓</span> {{ req }}</li>
+          <li class="text-sm flex gap-2 modal-li"><span class="modal-tick">✓</span> {{ req|sentence_case }}</li>
           {% endfor %}
         </ul>
       </div>
       {% endif %}
-
       {% if s.benefits %}
       <div class="mb-6">
         <p class="text-xs font-semibold uppercase tracking-wider mb-2 modal-label">Benefits</p>
         <ul class="space-y-1">
           {% for b in s.benefits %}
-          <li class="text-sm flex gap-2 modal-li"><span class="modal-bullet">•</span> {{ b }}</li>
+          <li class="text-sm flex gap-2 modal-li"><span class="modal-bullet">•</span> {{ b|sentence_case }}</li>
           {% endfor %}
         </ul>
       </div>
       {% endif %}
-
     </div>
     <div class="modal-sheet-foot">
       <button type="button" class="btn btn-outline w-full" data-close-modal="{{ s.pk }}">Close</button>
@@ -240,6 +238,5 @@
   </div>
 </div>
 {% endfor %}
-
 </body>
 </html>

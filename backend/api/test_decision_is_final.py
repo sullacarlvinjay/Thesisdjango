@@ -1,11 +1,11 @@
 """A decision is made once.
 
-Both review offices used to write whatever status was posted, every time it was
+The review screen used to write whatever status was posted, every time it was
 posted, taking no notice of what the application already said. An approval could
 be turned into a rejection days later — the applicant left holding a
 notification that no longer matched their record, and nothing anywhere saying
-who changed it or why. These tests hold both screens to one decision per
-application: SDSO's applications page and UniFAST's TES review.
+who changed it or why. These tests hold the SDSO's applications page to one
+decision per application.
 """
 import datetime
 
@@ -13,7 +13,7 @@ from django.test import Client, TestCase
 
 from api.models import (
     AffirmativeStaffApplication, Application, Notification, Scholarship,
-    StudentProfile, SystemSettings, TESApplication, User,
+    StudentProfile, SystemSettings, User,
 )
 
 
@@ -162,87 +162,3 @@ class SDSODecidesOnceTest(TestCase):
     def test_a_refusal_is_shown_rather_than_swallowed(self):
         r = self.c.get('/vpsea/affirmative/?tab=academic&error=Already+decided.')
         self.assertContains(r, 'Already decided.')
-
-
-class UniFASTDecidesOnceTest(TestCase):
-    """UniFAST's TES review — the same rule, with room for CHED's paperwork."""
-
-    def setUp(self):
-        SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
-        Scholarship.objects.create(
-            name='Tertiary Education Subsidy', type='TES', category='application',
-            description='x', eligibility='x', requirements=[],
-        )
-        User.objects.create_user(
-            username='unifast@bipsu.edu.ph', email='unifast@bipsu.edu.ph',
-            password='pw', role='unifast',
-        )
-        self.c = Client()
-        self.assertTrue(self.c.login(email='unifast@bipsu.edu.ph', password='pw'))
-        self.student = make_student('tes@bipsu.edu.ph', '2024-0002')
-
-    def _tes(self, status='Pending'):
-        return TESApplication.objects.create(student=self.student, status=status)
-
-    def _review(self, app, **post):
-        return self.c.post(f'/unifast/tes-applications/{app.pk}/review/', post)
-
-    def test_a_waiting_application_can_be_decided(self):
-        app = self._tes()
-        self._review(app, status='Approved', remarks='Awarded.', award_number='TES-2026-1')
-
-        app.refresh_from_db()
-        self.assertEqual(app.status, 'Approved')
-        self.assertEqual(Notification.objects.filter(student=self.student).count(), 1)
-
-    def test_an_approval_cannot_be_turned_into_a_rejection(self):
-        app = self._tes('Approved')
-        r = self._review(app, status='Rejected', remarks='No.')
-
-        app.refresh_from_db()
-        self.assertEqual(app.status, 'Approved')
-        self.assertEqual(app.remarks, '')
-        self.assertIn('error=', r['Location'])
-
-    def test_the_award_number_can_still_be_corrected_afterwards(self):
-        """CHED issues it after the decision and the billing report is built on
-        it, so a typo there must not need the decision reopened."""
-        app = self._tes()
-        self._review(app, status='Approved', award_number='TES-2026-0O1')
-        self._review(app, status='Approved', award_number='TES-2026-001')
-
-        app.refresh_from_db()
-        self.assertEqual(app.status, 'Approved')
-        self.assertEqual(app.award_number, 'TES-2026-001')
-        # The correction is bookkeeping, not a second announcement.
-        self.assertEqual(Notification.objects.filter(student=self.student).count(), 1)
-
-    def test_the_award_number_correction_reaches_the_award_itself(self):
-        app = self._tes()
-        self._review(app, status='Approved', award_number='TES-2026-0O1')
-        self._review(app, status='Approved', award_number='TES-2026-001')
-
-        award = Application.objects.get(student=self.student, scholarship__type='TES')
-        self.assertEqual(award.award_number, 'TES-2026-001')
-
-    def test_the_list_endpoint_will_not_overwrite_a_decision_either(self):
-        app = self._tes('Approved')
-        self.c.post('/unifast/tes-applications/', {
-            'app_id': app.id, 'status': 'Rejected', 'remarks': 'No.',
-        })
-
-        app.refresh_from_db()
-        self.assertEqual(app.status, 'Approved')
-
-    def test_a_decided_application_offers_no_status_menu(self):
-        self._tes('Approved')
-        r = self.c.get('/unifast/tes-applications/')
-
-        self.assertNotContains(r, '<select name="status"')
-        self.assertContains(r, 'name="award_number"')
-
-    def test_a_waiting_application_still_offers_one(self):
-        self._tes()
-        r = self.c.get('/unifast/tes-applications/')
-
-        self.assertContains(r, '<select name="status"')

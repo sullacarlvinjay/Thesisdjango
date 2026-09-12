@@ -25,13 +25,10 @@ function chartHasData(canvas) {
     });
   });
 }
-
 function downloadChart(canvasId, filename) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-
   if (!chartHasData(canvas)) return;   // the button is disabled; belt and braces
-
   // Always light: the PNG is going into a report or an email, not back into the
   // page, and a dark-mode export would print as a black block.
   const sheet = document.createElement('canvas');
@@ -41,7 +38,6 @@ function downloadChart(canvasId, filename) {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, sheet.width, sheet.height);
   ctx.drawImage(canvas, 0, 0);
-
   const link = document.createElement('a');
   link.download = filename + '.png';
   link.href = sheet.toDataURL('image/png');
@@ -50,7 +46,6 @@ function downloadChart(canvasId, filename) {
   link.click();
   document.body.removeChild(link);
 }
-
 const gridColor = '#e8ecf0';
 Chart.defaults.font = { family: 'inherit', size: 12 };
 Chart.defaults.color = '#6b7a99';
@@ -58,7 +53,6 @@ const PIE_COLORS = [
   '#3b5bdb','#1971c2','#2f9e44','#f59f00','#e64980',
   '#7048e8','#0ca678','#f76707','#c2255c','#6b7a99',
 ];
-
 // ── Helper: build toggle buttons and re-render chart on click ─────────────────
 function makeToggle(containerId, chartRef, types, buildFn) {
   const container = document.getElementById(containerId);
@@ -76,8 +70,11 @@ function makeToggle(containerId, chartRef, types, buildFn) {
     container.appendChild(btn);
   });
 }
-
 // ── Program Chart ─────────────────────────────────────────────────────────────
+// Every block below is gated on the same flag its canvas is, so the script
+// never reaches for an element the markup left out. Chart.js throws when it is
+// handed null, and one throw here takes down every chart after it.
+{% if show_program %}
 {% if selected_type %}
 const programLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const programData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -111,7 +108,6 @@ function buildProgramChart(type) {
 }
 programRef.chart = buildProgramChart('pie');
 makeToggle('programChartToggle', programRef, ['pie','doughnut','bar','line'], buildProgramChart);
-
 {% else %}
 const rcMap = { {% for t, cnt in rollover_counts.items %}'{{ t }}': {{ cnt }}{% if not forloop.last %},{% endif %}{% endfor %} };
 const allLabels = [{% for t in all_types %}'{{ t }}'{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -150,8 +146,8 @@ function buildProgramChart(type) {
 programRef.chart = buildProgramChart('bar');
 makeToggle('programChartToggle', programRef, ['bar','pie','doughnut','line'], buildProgramChart);
 {% endif %}
-
-{% if gpa_ranges %}
+{% endif %}
+{% if show_gwa %}
 // ── GWA Chart ─────────────────────────────────────────────────────────────────
 const gwaLabels = [{% for g in gpa_ranges %}'{{ g.range }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const gwaData   = [{% for g in gpa_ranges %}{{ g.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -186,7 +182,6 @@ function buildGwaChart(type) {
 gwaRef.chart = buildGwaChart('bar');
 makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
 {% endif %}
-
 // ── School Chart ──────────────────────────────────────────────────────────────
 {% if school_dist %}
 const sLabels = [{% for s in school_dist %}'{{ s.school|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -225,7 +220,6 @@ function buildSchoolChart(type) {
 schoolRef.chart = buildSchoolChart('bar');
 makeToggle('schoolChartToggle', schoolRef, ['bar','pie','doughnut','line'], buildSchoolChart);
 {% endif %}
-
 // ── Course Chart ──────────────────────────────────────────────────────────────
 {% if course_dist %}
 const cLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -263,11 +257,9 @@ function buildCourseChart(type) {
 courseRef.chart = buildCourseChart('bar');
 makeToggle('courseChartToggle', courseRef, ['bar','pie','doughnut','line'], buildCourseChart);
 {% endif %}
-
 // ── Scholars Over Time Chart ──────────────────────────────────────────────────
-{% if trend_data|length > 1 %}
+{% if show_trend %}
 const trendLabels = [{% for t in trend_data %}'{{ t.display|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-
 // One entry per programme. Chart.js index-mode tooltips list every series at a
 // point, so the breakdown that used to be built by hand is now just the tooltip.
 const trendSeries = [
@@ -275,9 +267,7 @@ const trendSeries = [
   { name: '{{ s.type|escapejs }}', data: [{% for c in s.counts %}{{ c }}{% if not forloop.last %},{% endif %}{% endfor %}] }{% if not forloop.last %},{% endif %}
   {% endfor %}
 ];
-
 const trendRef = {};
-
 function buildTrendChart(type) {
   const isLine = type === 'line';
   return new Chart(document.getElementById('trendChart'), {
@@ -332,12 +322,9 @@ function buildTrendChart(type) {
     },
   });
 }
-
 trendRef.chart = buildTrendChart('line');
 makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
 {% endif %}
-
-
 // ── PNG buttons ───────────────────────────────────────────────────────────────
 // Delegated, so the markup carries only which canvas it means. Runs last, once
 // every chart above has been built: a button whose chart came out empty is
@@ -350,7 +337,6 @@ makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
     btn.disabled = true;
     btn.title = 'No data to export for the semester and programme you are viewing.';
   });
-
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.chart-png-btn');
     if (!btn || btn.disabled) return;

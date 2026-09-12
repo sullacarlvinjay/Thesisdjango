@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ office.name }} — BiPSU SRMS{% endblock %}
+{% block logo_src %}{{ office.logo_url }}{% endblock %}
+{% block brand %}{{ office.name }}{% endblock %}
+{% block page_title %}{{ office.name }}{% endblock %}
+{% block page_subtitle %}The scholars BiPSU holds under your programmes{% endblock %}
+{% block nav %}{% include "partner/_nav.html" with active="dashboard" %}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  {% if not has_access %}
+  
+  <div class="notice notice--warn">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+      <p class="notice__title">No programmes have been shared with this account yet.</p>
+      <p class="notice__body">
+        The SDSO decides which scholarships an outside partner can read. Until one is
+        shared, there is nothing here — this is not the same as having no scholars.
+      </p>
+    </div>
+  </div>
+  {% else %}
+  <div class="grid sm:grid-cols-3 gap-4">
+    <div class="card p-5">
+      <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Programmes shared</p>
+      <p class="text-3xl font-bold mt-1">{{ programmes|length }}</p>
+    </div>
+    <div class="card p-5">
+      <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Scholars on file</p>
+      <p class="text-3xl font-bold mt-1">{{ total }}</p>
+    </div>
+    <div class="card p-5">
+      <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Active term</p>
+      <p class="text-3xl font-bold mt-1">{{ term }}</p>
+    </div>
+  </div>
+  <div class="card p-6">
+    <h3 class="report-gen-title mb-1">Your programmes</h3>
+    <p class="text-xs mb-4" style="color:#6b7a99;">
+      Counted across every term on record, not only the active one.
+    </p>
+    <div class="table-scroll">
+      <table class="partner-table">
+        <thead>
+          <tr><th>Programme</th><th>Type</th><th class="partner-table__num">Scholars</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for p in programmes %}
+          <tr>
+            <td class="cell-name">{{ p.scholarship.name }}</td>
+            <td class="cell-muted">{{ p.scholarship.type }}</td>
+            <td class="partner-table__num">{{ p.total }}</td>
+            <td>
+              <a href="/partner/archives/?type={{ p.scholarship.type|urlencode }}"
+                 class="btn btn-outline">Open</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -7,21 +7,28 @@ def system_settings(request):
     except Exception:
         ctx = {'active_semester': '', 'academic_year': ''}
     ctx['pending_accounts'] = _pending_accounts(request)
+    ctx['profile_photo_url'] = _profile_photo_url(request)
     ctx.update(_scholarship_standing(request))
     return ctx
+
+
+def _profile_photo_url(request):
+    """URL of the signed-in user's profile photo, or '' when none is set."""
+    user = getattr(request, 'user', None)
+    if user and user.is_authenticated:
+        return user.photo_url
+    return ''
 
 
 def _scholarship_standing(request):
     """What this student holds, and which programmes are therefore still open.
 
     The student nav hides an Apply page once that programme is closed to them.
-    Which is not the same question as "are they a scholar": TES and an Academic
-    scholarship may be held together, so holding one leaves the other open.
     Individual views used to compute this for their own template, which meant
     the nav quietly showed the wrong thing on every page that forgot to.
     Answered here instead, so it is right on all of them.
     """
-    closed = {'enrolled': False, 'can_apply_academic': False, 'can_apply_tes': False}
+    closed = {'enrolled': False, 'can_apply_academic': False}
     user = getattr(request, 'user', None)
     if not (user and user.is_authenticated and getattr(user, 'role', '') == 'student'):
         return closed
@@ -35,7 +42,6 @@ def _scholarship_standing(request):
     return {
         'enrolled': bool(held),
         'can_apply_academic': can_hold_alongside(held, 'Academic'),
-        'can_apply_tes': can_hold_alongside(held, 'TES'),
     }
 
 

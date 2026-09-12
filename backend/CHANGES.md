@@ -1081,3 +1081,1547 @@ it asserts the fallback From address for a deployment with no mail configured,
 and a developer whose `.env` has `EMAIL_HOST_USER` set will always see their own
 address instead. It passes where mail is unconfigured and fails on a working
 laptop.
+
+
+## The catalogue lists what the university's own chart says BiPSU offers
+
+Four programmes on BiPSU's scholarship chart had no entry, so the landing page
+advertised a shorter list than the university actually runs: **FHE**, **SUC-TDP**,
+**JLSS**, and the **RA 7687** track of the DOST undergraduate scholarship.
+
+The catalogue goes from 10 programmes to 13. Migration 0065 — a `choices` change
+only, no new tables and no data touched.
+
+Two decisions worth not undoing:
+
+* **RA 7687 and Merit are two tracks of one programme, not a stored tier.** The
+  existing entry was named "DOST Merit Scholarship", which is one of the two, so
+  RA 7687 was represented nowhere. It is now "DOST S&T Undergraduate
+  Scholarship" and names both tracks in its eligibility list. It did **not**
+  gain an `award_tier` the way CHED has one: CHED carries a tier because every
+  masterlist prints CHED in two separate blocks, and nothing reports DOST that
+  way — a tier column here would be a field nothing reads. `type` stays `DOST`,
+  which is what the approval routes, the archive tabs and
+  `DEFAULT_COLUMNS_BY_TYPE` all match on.
+* **FHE is listed but not declarable.** `SCHOLARSHIP_TYPE_CHOICES` is the list of
+  awards a student can say they *already hold*, and it feeds
+  `held_scholarship_types`. Free Higher Education under RA 10931 is not awarded
+  to a shortlist — it is the tuition every qualified SUC student already has —
+  so there is nothing for the SDSO to verify, and listing it there would make it
+  *exclusive*: `can_hold_alongside` would then refuse a TES or DOST application
+  from a student for holding what all of them hold. TES is absent from that same
+  list for the related reason that it is applied for in this portal.
+
+SUC-TDP and JLSS **are** declarable: both are awarded by an agency and
+verifiable against the office's records, which is what that list is for.
+
+Seals follow the chart's funding lines — JLSS wears DOST's, FHE and SUC-TDP wear
+UniFAST's. GSIS remains the one programme falling back to BiPSU's seal, because
+there is still no GSIS logo in `media/logos/`; a test now pins that so a future
+programme cannot join it silently.
+
+**The copy is the office's to confirm.** The descriptions, eligibility lines and
+benefits for the three new entries were written from the programme names on the
+chart and general knowledge of the schemes, not from an office document. What is
+structural — `type`, `group`, the seal, and whether a programme is declarable —
+is what the tests hold.
+
+Three tests in `test_bootstrap` asserted `Scholarship.objects.count() == 10`.
+They now compare against `len(SCHOLARSHIPS)`: what each of them means is
+"seeding produces the catalogue and nothing extra", and the office adding a
+programme should not fail three tests that are not about how many there are.
+
+
+## A programme the office adds can say whose seal it wears
+
+`Scholarship.logo_url` resolved the seal from the programme type alone. That
+covers every programme in the catalogue and nothing else — and
+`/vpsea/scholarships/add/` exists precisely to create programmes with types the
+funding map has never heard of, so anything the office added wore BiPSU's seal
+whoever funded it. The fault the mapping was written to fix, reintroduced
+through the one route that can outrun it.
+
+The programme form has a **Logo** picker now, and `Scholarship.logo` stores the
+choice. Migration 0066.
+
+Three things worth knowing:
+
+* **Blank still means "work it out from the type."** The column is an override,
+  not a replacement: every catalogue programme resolves exactly as before, and
+  clearing the box returns a programme to its type's default. `logo_url` reads
+  the column, then `SCHOLARSHIP_LOGOS`, then BiPSU's seal.
+* **It is a picker, not an upload.** `media/logos/` is served straight off the
+  filesystem — `api.media_views` reads it through `FileSystemStorage`,
+  deliberately *not* the uploads bucket — and Render's disk does not survive a
+  deploy, so an uploaded seal would be gone at the next one. The options come
+  from `constants.available_logos()`, which lists the directory, so a seal
+  committed to the repo is offered without a code change. Supporting upload
+  means answering the storage question first.
+* **The posted value is validated, not trusted.** It is rendered straight into
+  an `<img src>`, so `_posted_logo` keeps it only if it is one of the names that
+  listing returned; a path, a URL or a deleted file is discarded and the
+  programme falls back to its type's default.
+
+## Fixed: JLSS appeared as a tab in the UniFAST office's archive
+
+Both archive screens build their tabs from the programmes actually in the
+database, which is what makes a newly added programme appear without a code
+change. UniFAST's list is "its own, plus anything added since that is not the
+SDSO's" — and that second test was an inline literal listing the SDSO's
+programmes. Adding JLSS, DOST's junior-level scholarship, therefore put a DOST
+tab in the wrong office.
+
+The list is `SDSO_TYPES` now, named once beside `UNIFAST_TYPES` instead of
+written out inline.
+
+`UNIFAST_ARCHIVE_TYPES` is separate from `UNIFAST_TYPES` on purpose. FHE and
+SUC-TDP are UniFAST's and belong in its archive, but `UNIFAST_TYPES` also scopes
+the dashboard counts and the analytics charts — adding them there would have
+given both a permanently empty series. What an office *archives* and what it
+*reviews* are different questions, and they now have different lists.
+
+A test asserts every catalogue programme is named in one list or the other.
+Without it, the next programme added falls through the same default and lands in
+whichever office that default happens to point at — which is exactly how JLSS
+got there.
+
+
+## Benefits for the UniFAST programmes come from the 2026 guidelines
+
+The benefit lists on the landing page were written from the programme names.
+Against the UniFAST 2026 guidelines (Board Resolution No. 2026-012, 08 July
+2026) one of them was simply wrong: **Tulong Dunong** promised "a monthly
+stipend for living expenses", a tuition subsidy and a book allowance, where
+Section 3 makes it a single flat grant of PhP 7,500 a semester. **TES** quoted
+only an annual ceiling and named none of its three additional grants.
+
+TES, TDP, SUC-TDP and FHE now carry the figures the guidelines state:
+
+* **TES** — PhP 10,000 a semester / PhP 20,000 the academic year, plus TES-3A
+  (PhP 5,000 a semester for a grantee with a disability), the same again for a
+  dependent of a solo parent or a member of an ICC/IP community, TES-3B (up to
+  PhP 8,000 reimbursed once towards licensure costs) and SARDO (a one-off PhP
+  10,000 after a sudden disruption).
+* **TDP and SUC-TDP** — PhP 7,500 a semester / PhP 15,000 the academic year,
+  released within 15 working days of the university receiving the funds.
+* **FHE** — no tuition and no other school fees, with the deck's one
+  qualification: the *first* copy of the school ID, library ID and handbook is
+  free and repeat copies are charged.
+
+**The SUC rate is the one quoted, and the private-HEI rate is deliberately
+left out.** No BiPSU student is paid on it, and printing both invites a grantee
+to expect the larger figure. A test asserts it stays out.
+
+**One line needs the office's confirmation before it is trusted.** The deck's
+Section 4 appears to show the PhP 5,000 top-up twice — once headed "PWD
+(TES-3A) Additional" and once "Dependent of Solo Parent / IP" — but slide text
+extraction flattens layout, and the CHED Annex 2 column is named "TES-3A (PWD)
+AMOUNT". Either the guidelines widened the top-up beyond PWD and the billing
+under-bills, or the two headings are one block and the second benefit line
+should go. It is written as the deck presents it.
+
+Nothing was quoted for DOST, JLSS, CHED, CoScho, GSIS or the internal
+programmes — those decks cover TES, TDP and FHE only — and a test asserts no
+peso figure leaked into them.
+
+
+## Eligibility and background follow the benefits into the 2026 guidelines
+
+The benefit figures came over first; the prose around them still described the
+programmes in general terms, so a card could quote an exact peso amount beside a
+background paragraph written from the programme name. TES, TDP, SUC-TDP and FHE
+now take all three fields from the same source.
+
+What the guidelines added that the old copy did not say:
+
+* **TES ranks rather than grants.** Priority 1 is a household in the current
+  DSWD Listahanan; solo-parent dependents and NCIP-recognised ICC/IP members are
+  Priority 2 and explicitly *subject to available funds*; the 4Ps list stands in
+  only if the Listahanan is discontinued. The background carries the sentence
+  the guidelines are emphatic about — applying is **in no way automatic
+  eligibility**, being subject to validation and to funds. A student reading the
+  old card had no way to know any of that.
+* **TDP is funded a year at a time.** A new grantee for AY 2026-2027 becomes a
+  continuing grantee *only if similar funding is provided in the following
+  fiscal years*. A first award is not a promise of support to graduation, and
+  the background now says so.
+* **The disqualifiers are eligibility too** — no second undergraduate degree, no
+  other national StuFAP, enrolment in at least two terms an academic year,
+  completion within the maximum residency rule plus a year, and telling CHEDRO
+  about a drop-out, deferment or transfer.
+
+**FHE is the least evidenced of the four and is marked as such.** Its two
+eligibility slides — "Who may avail for FHE" and "Exceptions to FHE" — are
+images, so there is no text to quote. What is listed comes from the parts stated
+in text elsewhere in the deck, and the background says plainly that the office
+should read those slides beside it.
+
+Nothing was rewritten for DOST, JLSS, CHED, CoScho, GSIS or the internal
+programmes. Those decks cover TES, TDP and FHE only.
+
+### A test for prose that compiled wrong
+
+These entries are written as adjacent string literals wrapped across source
+lines, which Python concatenates with nothing in between. Drop the space the
+wrap consumed and `'no other'` compiles to `'noother'` — invisible in the
+source, plainly wrong on the page. It happened twice while this was being
+written: once on a space, and once *inside* `DSWD-certified`, because the
+wrapper broke on the hyphen too.
+
+`CatalogueProseTest` now checks every catalogue string for words run together,
+spaces inserted inside hyphenated words, and stray or doubled whitespace. Worth
+having: proofreading catches this only if you happen to read the one line it
+landed on.
+
+
+## The No Scholarship tab counts only verified students, and can delete one
+
+Two complaints about the same table, `templates/vpsea/archives_unawarded.html`.
+
+**It listed people who had not been let in yet.** The tab excluded accounts the
+office had rejected at registration but kept the ones still sitting in the
+verification queue — the reasoning being that once approved they would be
+exactly the student to invite. In practice that put a registration submitted two
+days ago, with an email address nobody has confirmed, in a table headed "students
+the system has not served", marked *Never applied*. It cannot have applied: the
+account cannot sign in until the office decides on it. The row read as a
+follow-up the office owed the student when the thing actually owed was a decision
+one screen over, on Account Verification, where the same person was already
+queued. Both listings now take `verification_status='approved'` — the archives
+tab and the No Scholarship tab of the students screen, which have to agree.
+
+An **unconfirmed email address is not a reason to hide anyone**. It does not gate
+signing in, only whether mail reaches them, and the accounts screen is the one
+that warns about it. A verified student who never opened the link still appears
+here, and a test says so.
+
+**There was no way to remove a row.** Edit was the only action, so a duplicate
+registration — the office had two for the same person — could be corrected but
+not deleted. `/vpsea/archives/student/<pk>/delete/` takes the account and
+everything that cascades off it, which is the only thing that would take the row
+off the tab; the other archive tabs delete an award and leave the student behind,
+and there is no award here to delete. POST only, so no crawler or mistyped URL
+can remove anybody, and it asks first through the portal's own confirm dialog
+rather than `window.confirm()`.
+
+### A stale display name in the viewer test
+
+`test_declared_scholarship_proof_uses_the_overlay` spelled the overlay label out
+as `DOST Scholarship — proof`. Splitting DOST into the S&T Undergraduate and
+Junior Level Science programmes renamed the choice to `DOST S&T Undergraduate
+Scholarship`, and the test had been failing since — for a rename, not for
+anything about the overlay it exists to check. It now builds the label from
+`get_scholarship_type_display()`, the same source the template reads, and runs it
+through `escape()` because the new name carries an ampersand.
+
+## A TES Validation tab: award numbers and release batches
+
+CHED issues two labels *after* the decision, and neither had a home.
+
+**The award number** could only be typed on one grantee's review form, so
+stamping a term's worth of numbers meant opening every applicant in turn.
+
+**The batch was not stored at all.** It was a parameter of the *download* —
+`?batch=` on the URL, printed onto every row of the Official List alike — so an
+office that released half its grantees in one batch and half in the next had no
+way to say so. It is a column on CHED's form describing a group of grantees, not
+a property of a report, and it is now a field on `TESApplication`
+(migration `0067`).
+
+`/unifast/tes-validation/` lists the approved grantees for a school year with an
+award-number box on every row, a checkbox beside each, and one batch box that
+applies to everything ticked. Only approved grantees appear: CHED issues a
+number against a grantee, not an applicant, and a number typed before the
+decision is a number for an award that may never be made. A hand-made POST
+naming a pending application is refused on the same ground.
+
+**Both buttons save the award numbers.** Reading those boxes only under their
+own button would mean an officer who typed a column of numbers and then pressed
+Assign lost them without being told — the two jobs share a screen because they
+are done in one sitting.
+
+An empty batch box is a value, not a missing field: it takes the ticked
+grantees back out of a batch, because one typed by mistake has to be removable.
+Blank still prints as **On-going**, and `grantee_rows(batch=...)` still stamps
+the argument on grantees who have no batch of their own, so an existing
+`?batch=` download is unchanged for a list nobody has batched yet. A stored
+batch wins over it.
+
+Both actions are written to the activity log. Money follows these two labels
+into CHED's billing, so who stamped what is worth being able to answer.
+
+**This screen is expected to change.** It was asked for alongside a note that
+validation, liquidation and billing are all still being worked out, so nothing
+here should be read as the settled shape of TES validation.
+
+## The two CHED liquidation forms, generated
+
+The office works from a spreadsheet (`TDP-Batch-21.1-127500.xlsx`) whose
+`Reminders` sheet lists what goes back to CHEDRO. Two of those are forms this
+system had the data for and no way to produce:
+
+* **TES-5 Form — Fund Utilization**: what arrived, what went out, what is left.
+* **TES-4 Form — Report of Checks Issued**: every cheque, certified by the cashier.
+
+Both download from the Liquidation tab, which is where they belong — it already
+held the remittance, the credit advice and the report number, which is most of
+the TES-5's heading. `api/tes_liquidation_forms.py` builds them; migration `0068`
+carries the new columns.
+
+### A cheque is not a grantee
+
+The forms are keyed on cheques, and the system only knew about grantees.
+`TESDisbursement` records what reached each *person*, which is what the office
+needs to chase an unclaimed share — but one cheque pays a whole payroll. The
+office's own sheet describes seventeen grantees in a single line: *"17 TDP 21.1
+grantees 2025-2026 1st Sem Arandia, Sheila Mae et al"*.
+
+Grouping disbursements by date would have printed seventeen rows where the form
+has one, and would still have had nowhere to put the cheque number, the DV
+number or the payee — none of which is a fact about a grantee. So `TESCheckIssued`
+records them, and the two models answer their own questions: disbursements say
+who was paid, cheques say what left the account. Both forms read the same cheque
+list, which is why the TES-4 the cashier certifies and the TES-5's disbursement
+block cannot come to disagree.
+
+### Signatories are data, not code
+
+Five named officers sign these — a focal person, a finance officer, the
+president, an audit team leader, and the cashier who swears the TES-4
+certification alone. They are fields on the liquidation row, entered on the
+page. A name compiled into the generator is a name nobody in the office can
+correct without a deploy, and blank prints an empty line above the caption —
+a form waiting for a signature, never somebody else's name on somebody's
+certification.
+
+### What is reproduced, and what is not
+
+The **form**: the same headings, column order, certification wording and
+signature blocks, with the totals and the balance as live formulas so the sheet
+still reconciles if an officer corrects a cell before signing — which is why
+CHED asks for a workbook and not a PDF. Both were rendered through LibreOffice
+and recalculate with no formula errors.
+
+Not reproduced: the office's own file is eight sheets, six of them past
+submissions kept for reference, with two rounds of disbursements stacked down
+the TES-5 page because that is how that batch was paid. One remittance block and
+one disbursement block is the faithful shape of the form itself.
+
+The remittance line's *Particulars* is written as `TES funds for <year>` and
+expected to be edited. The office writes a batch reference there — 'OG TDP
+(Batch 21.1) for the first semester AY 2025-2026' — and nothing recorded here
+can reconstruct that wording. A guess dressed up as a batch reference would be
+worse than a line the officer overwrites.
+
+**Both forms are titled TES-4 and TES-5 whatever the money paid for.** The
+sample is a TDP batch on TES-numbered forms, because these are UniFAST's
+liquidation forms, not the TES programme's.
+
+**This screen is expected to change**, for the reason recorded above the TES
+Validation entry.
+
+## The masterlist gained tables for the three programmes it was missing
+
+SUC-TDP, JLSS and FHE were added to the catalogue, given seals, and made
+archivable — but nobody added them to `PROGRAM_SLOTS`, so the SDSO masterlist
+had no table for any of them. A scholar under one of those three was on file,
+visible in the archives, and absent from the document the office actually files.
+
+The office template carries sixteen program blocks and only eleven were filled;
+the three take `program13`, `program14` and `program15`. `program11` stays
+unused for the reason already recorded there — its table has only a female loop,
+so anything placed in it silently loses half its scholars.
+
+None of the three is reviewed in this portal, so they fill from the office's
+Excel import, which `apps()` already folds in alongside portal applications.
+
+`MasterlistCoversEveryProgrammeTest` now walks `SCHOLARSHIP_TYPE_CHOICES` and
+fails if any programme has no slot. This omission was invisible precisely
+because an empty table and a missing table look identical until somebody counts,
+and the next programme added would have repeated it.
+
+## The student profile no longer shows the derived middle initial
+
+It was a read-only box directly under the Middle Name it is derived from: not
+editable, and saying nothing the field above it does not already say.
+
+**The staff profile keeps its own.** Only the student profile was asked for.
+
+`middle_initial` itself is untouched. The Staff, GSIS, CoScho and Sports
+masterlist columns ask for an initial rather than a middle name, and
+`format_full_name` builds 'Dela Cruz Jr., Juan R.' out of it.
+
+## The TES Validation tab was removed, and the Liquidation page cut back
+
+Both were asked for and then asked to be taken out again. Recorded here so
+neither is re-derived as an improvement later.
+
+### TES Validation is gone entirely
+
+The screen, its route, its nav link, its JavaScript, its tests, and the `batch`
+column it added to `TESApplication` (migration `0069` drops it). `grantee_rows()`
+is back to stamping the `?batch=` argument onto every row of the Official List,
+which is what it did before — so the BATCH column again carries one string for
+the whole download, and an office releasing grantees in two batches again has no
+way to say so. That limitation is known and accepted.
+
+Award numbers are once more entered one at a time on the TES review form.
+
+### The Liquidation page keeps only what generates the two forms
+
+The remittance card and the Statement of account came off. What is left is the
+year summary, the cheque list, and the per-grantee table.
+
+**The consequence worth knowing.** `TESLiquidation` still holds
+`funds_received`, `received_date`, `credit_advice_no`, `report_no`,
+`report_date` and the five signatories, and both forms still print them — but
+nothing in the portal writes them any more. On a term where they were never
+set, the TES-5 prints its remittance line and all four signature blocks blank,
+and the TES-4 prints no report number and no cashier. The workbooks are
+editable, so those are filled in Excel before signing. The columns are kept
+rather than dropped so that a term where the office already entered them still
+prints them, and so re-adding an entry form later is a template change rather
+than a migration.
+
+The two download buttons carry their own school-year picker and name the year
+they will produce — `TES-5 Fund Utilization (2026-2027)`. The remittance card
+used to supply that context, and a workbook downloaded for the wrong term is not
+obviously wrong until CHEDRO reads it.
+
+## The TES batch came back, on the review form
+
+Removed with the Validation tab, then asked for again — this time beside the
+award number on the TES Applications review screen, which is where it belongs:
+CHED issues both labels once a grantee is approved, and they arrive together.
+
+`TESApplication.batch` returns in migration `0071`, and `grantee_rows()` again
+prefers a grantee's own batch over the `?batch=` argument, which stays as the
+fallback for rows nobody has set. Both labels stay editable after the status is
+locked, for the reason the award number always was: CHED issues them *after* the
+decision, so locking them away would strand a typo the office cannot otherwise
+fix. A batch is stripped of surrounding whitespace, because ' 1' and '1' printing
+as two batches on the Official List is not noticed until CHEDRO asks.
+
+## Every programme can be given an application period
+
+The office sets when a programme accepts applications, on the programme's own
+form. Stored as an opening date and a length rather than a start and an end,
+because that is how a window is announced — "open from the 3rd, for two weeks" —
+and a length cannot be typed the wrong way round. The closing date is derived,
+and both ends are inclusive: one day open means the opening day only.
+
+**Blank means always open**, which is deliberately not the same as a window of
+zero days. Every programme predates this field, and a default that closed them
+all would have shut the portal the moment the migration ran.
+
+The three apply flows all honour it. Academic and TES reach it through
+`scholarship_block_reason`, which checks the window *first*: a programme that is
+not open yet is shut to everybody, and telling a student they are ineligible
+when the truth is that nobody can apply until Monday sends them to the office
+with the wrong question. The staff form holds no `StudentProfile` and never went
+through that function, so it asks the window directly.
+
+A student outside the window is told the date, not just refused, and the two
+closures say different things — one is a date to wait for, the other a date that
+passed. Posting anyway is refused too; the template's absence of a form is
+advisory.
+
+A length with no opening date is refused rather than guessed at: "open for 14
+days" from when is a question only the office can answer.
+
+Migrations `0070`–`0071`.
+
+## External partners get accounts of their own
+
+An outside funder — DOST, GSIS, a foundation — can now have an account here.
+UniFAST has a portal because BiPSU administers TES and TDP *for* it; a partner
+has the same standing and a different job, so it gets a different portal: it
+reads the archive of its own scholars and takes a list away. It reviews nothing
+and edits nothing.
+
+**This is the first stage of a larger request.** The custom application-form
+builder the office also asked for is not here; the account model is proven
+first.
+
+### What a partner sees is data, not code
+
+`PartnerOffice` records it, one partner at a time. There is no second hard-coded
+portal and no rule that a partner sees "its own type", because neither survives
+contact with the facts: a partner may fund two programmes, or share one with
+another body. The SDSO ticks the programmes on `/vpsea/partners/`.
+
+**A partner with nothing ticked sees an empty portal, never everyone's.** The
+failure worth guarding against is one funder reading another funder's scholars,
+so the default is nothing, and every partner page filters through
+`visible_types()` rather than deciding for itself. A partner asking for a
+programme it does not hold lands on one it does; the report download refuses
+outright.
+
+Creating a partner makes the office **and** the account that signs in as it, in
+one step — an office nobody can log into is not something the office ever wants,
+and doing it in two leaves a window where one exists with no way in. The
+password is set by the SDSO and told to the partner directly; nothing emails it.
+
+Suspending a partner keeps the account and shuts the portal. Deleting the office
+uses `SET_NULL`, so the people who signed in as it survive, unable to reach the
+portal, and the SDSO decides what to do with them.
+
+### The portal itself
+
+Three pages — Dashboard, Scholars, Reports — and that is deliberate. The
+Scholars table is the partner's own rather than the office's shared partial,
+because that partial ends every row with Edit and Delete and this account
+administers nothing. The columns still come from the programme's own archive
+settings, so what a partner reads matches what the office sees, and the workbook
+downloads in those same columns.
+
+`may_add_scholarships` is recorded and off by default, and nothing acts on it
+yet: a programme a partner adds would appear in the SDSO's archives and reports
+too, so it is the SDSO lending out part of its own catalogue and wants its own
+screen rather than a checkbox that quietly works.
+
+Migration `0072`.
+
+## The archive-column picker shows the table, and partners get their own copy
+
+Three things asked for together, all about the same table.
+
+### The selection no longer runs off the page
+
+`.partner-access__option` is a flex row, and its label `<span>` inherited the
+default `min-width: auto` — so a long programme name refused to shrink and
+pushed the option, its card and the whole page sideways. The text wraps now.
+A flex item that will not shrink is the usual cause of a page that scrolls
+horizontally for no visible reason.
+
+### A partner can be managed, not just created
+
+Rename, reset an account's password, and delete. Deleting takes the accounts
+with it: a login whose office is gone reaches nothing, and leaving it behind is
+an account that exists and does nothing. **The scholars are untouched** — they
+belong to the programme, not to the funder reading them. The model keeps
+`SET_NULL` as the safety net for every other path.
+
+An absent `name` on the access form means "not renaming" and the current name
+stands; present-but-blank is somebody clearing the box, which is a mistake worth
+naming rather than a rename to nothing.
+
+### The picker shows the table's own order, numbered
+
+It listed the catalogue alphabetically with no indication of position, which
+could not answer "what does this table look like" — the question an officer
+opening the form is actually asking. Now the columns in use come first, in their
+own order and numbered, with the rest below; arrows move one, and the numbers
+recompute as you go.
+
+**`clean_choice` keeps the order it is given.** It used to re-sort into catalogue
+order on the stated grounds that the office was choosing *which* columns appear
+rather than rearranging them. That was a smaller claim than the office wanted,
+and two tests asserting the old sort were inverted rather than worked around.
+
+An unconfigured programme now opens with its **default table already ticked**,
+because those defaults are what the archive prints today — sixteen empty boxes
+misrepresented the table being edited.
+
+### A partner's layout cannot reach the office's
+
+`PartnerTableColumns` holds one partner's choice for one programme. Writing a
+partner's edit onto `Scholarship` would rearrange the SDSO's archive from
+outside the university, which is exactly the failure to prevent — so
+`/partner/columns/` has no path to a `Scholarship` row at all, rather than
+being trusted to remember not to take one.
+
+No row means "follow the office", which is why a reset **deletes** the row
+instead of storing an empty list: an empty list would mean "show nothing", and
+those are different answers. The partner's workbook reads the same override, so
+a download matches the page it came from.
+
+Migration `0073`.
+
+## Partners can design the form students fill in
+
+The second stage of the partner work, and the one thing in that portal that is
+not read-only. A funder that wants its own questions asked can ask them, without
+the SDSO writing a page per funder.
+
+### A form collects answers. It does not award anything.
+
+The line the whole feature rests on. A submission records what a student wrote
+and nothing else; the award is still recorded by the office that administers the
+programme, on the archive, exactly as before. So a form filling up cannot
+quietly enrol anybody, and a test asserts no `Application` row appears.
+
+### Two switches, because they answer to two people
+
+A form is live only when the partner has opened it **and** the programme is
+inside the application window the SDSO set. The partner decides whether its form
+is finished; the office decides whether the programme is accepting applications
+at all. Neither should be able to override the other by accident, and the pages
+say which one is shut rather than a single unhelpful "closed".
+
+### Answers are a snapshot
+
+Each stored answer carries the question's label as it read when the student
+answered, beside their value and the field's key. Keying answers to field ids
+alone would mean a partner renaming a question silently rewrote every answer
+already given, and deleting one would leave values nobody could label. The key
+is what lines a row up with its column, so a question **added** later exports
+blank for earlier applicants rather than shifting their answers left — the
+failure a positional export invites.
+
+### What a partner may ask
+
+Short text, paragraph, dropdown, number, date, Yes/No. Every kind renders as one
+plain control, validates on the server without a library, and exports as one
+column. **A file upload is the deliberate omission** — it needs storage, a size
+limit, a virus story and a way to read it back, none of which a text box needs.
+
+The questions are typed by an outside partner and the answers by a student, so
+neither is trusted: a number is normalised through `Decimal` so `007` and `7.0`
+are one answer, a date must parse, and a dropdown refuses anything off its own
+list — otherwise the options would be decorative. An error names the question,
+because "this field is required" on a form somebody else wrote says nothing
+about which one.
+
+A question is always **appended**. Inserting one mid-form would move every
+question after it for anybody part-way through applying.
+
+One submission per student per form per term: a student correcting an answer
+replaces their own rather than filing a second, because the partner reading the
+list wants one row per applicant.
+
+Migration `0074`.
+
+## Removed: the UniFAST portal and the TES application. The recommender moved.
+
+BiPSU no longer administers TES in this system, so the office that did has no
+job here. The whole portal is gone — dashboard, archives, analytics,
+announcements, reports, TES applications, the CHED billing claim and the
+liquidation that answered for it — along with the `unifast` role, the student's
+**Apply: TES** page, and the five tables behind all of it (`TESApplication`,
+`TESBilling`, `TESLiquidation`, `TESDisbursement`, `TESCheckIssued`).
+
+**Migration `0075` drops those tables and the rows in them. It cannot be
+undone.** Reversing it restores the schema, never the data.
+
+The one thing that did not go with the portal is the recommender. See
+*The TES recommender is the SDSO's now*, below.
+
+### The scholarship programmes stay
+
+This is the line the removal was cut along. TES, TDP, SUC-TDP and FHE are still
+in the catalogue and still on the landing page with their descriptions,
+benefits and agency seals: the university offers them, so saying so is still
+true. What went is the machinery for applying, reviewing and paying — not the
+statement that the programme exists.
+
+TES is therefore a catalogue entry with no Apply button, the way FHE has always
+been. It is also not in `SCHOLARSHIP_TYPE_CHOICES`, so a student cannot declare
+it at registration either: nothing here awards or verifies TES, and a
+declaration the office has no record to check against is not worth collecting.
+Any TES award already recorded is an ordinary `Application` row, and the
+masterlist, the archives and the reports go on reading it.
+
+### What the SDSO inherits
+
+One office portal is left, so a few things that existed only to keep two offices
+apart are gone with the second one:
+
+* `VPSEA_EXCLUDED_TYPES` — the SDSO reviews every programme now.
+* The split archive lists. `SDSO_TYPES` is one list covering every programme,
+  and the archive still adds anything in the catalogue that is not named there.
+* `data-portal='unifast'` and its orange palette in `srms.css`. Every portal
+  wears the university's blue and yellow; the attribute stays because it is what
+  lets one of them differ without a template knowing.
+* The per-portal column defaults, which are keyed `'partner'` rather than
+  `'unifast'` now. That default outlived the office it was written for: a funder
+  reports its scholars against the award number it issued, and the SDSO archive
+  lists the same scholars without one.
+
+### Two scholarship rules changed with it
+
+* **`can_hold_alongside`.** TES and an Academic scholarship were the one pair a
+  student could hold together — a UniFAST subsidy beside BiPSU's own recognition
+  of a grade. With TES no longer awarded here, every programme is exclusive, and
+  the check is simply whether the student holds anything yet.
+* **`is_tes_beneficiary` stays.** It is a self-declaration that Affirmative
+  Action disqualifies on, not an award this system records, so it is still asked
+  at registration and still read by the Affirmative rules.
+
+### The Disability Type dropdown survives the report it came from
+
+Disability is kept on `PersonalInformation` and outlived the form it arrived
+with. Its values are still CHED's own, read from the `Disability_List` sheet of
+the bundled Annex 1 workbook — `api/annex1_report.py` is now
+`api/disability_list.py`, holding that lookup and nothing else, so the module
+name says what it does.
+
+
+## The TES recommender is the SDSO's now
+
+The rules in `api/tes_ranking.py` are the one part of the UniFAST portal worth
+keeping, so they stayed and changed hands. **TES Recommendation** is a second
+tab on **Student Ranking**, beside Affirmative Action, and both tabs answer the
+same shape of question: which students the rules put forward, and why.
+
+### It recommends. It does not award.
+
+The line the move rests on. UniFAST awards TES, outside this system entirely, so
+nothing here writes a status onto a student — the page produces a list the SDSO
+can send onward and an explanation for every row of it. Opening **Why?** on a
+row gives the rule-by-rule verdict and names the field each one was read from,
+which is what makes the ranking defensible rather than merely produced.
+
+### It ranks students, because nobody applies
+
+The old version screened pending TES applications. There is no such form now, so
+the population is every student on file. Two lists come out of that: the ranked
+one, and *On file, but not yet rankable* — students whose record cannot answer a
+rule, held out with what is missing named beside them rather than given a
+position their record cannot support.
+
+Missing data has always meant **For Verification**, never **Not Eligible**, and
+that is still the rule the module exists to enforce. A student whose citizenship
+was never recorded has not failed the citizenship test; nobody has run it.
+
+### Where the answers come from
+
+`TESEligibility` is therefore **not** dropped, and registration and My Profile go
+on asking for it — citizenship, Listahanan, 4Ps, previous degree, year first
+enrolled. A rule that could only be answered by a form nobody can fill in would
+report For Verification forever.
+
+One field moved rather than died. `is_solo_parent_dependent` was on the TES
+application form and is a Priority 1 marker the rules read, so it is a column on
+the student's own record now. It is three-state there where the form's version
+defaulted to `False`: a group nobody asked about is not a group the student was
+found not to be in, and a False default would have quietly answered it for every
+student in the university. Migration `0075` copies across the answers already
+given on a TES application before that table goes.
+
+The three-state selects on both forms are what that care looks like from the
+student's side: *Yes*, *No*, and *Not answered yet* — and the page says outright
+that leaving one unanswered never counts against them, but guessing does.
+
+## Changed: a declaration has to land in the ledger its programme keeps
+
+Two changes to "I already hold a scholarship" on the registration form, and one
+reason behind both.
+
+A student's award is an `Application`, which hangs off a `StudentProfile`. The
+BiPSU Staff Scholarship's award is an `AffirmativeStaffApplication`, which does
+not. So a student declaring **Staff** left the office holding a claim it could
+approve into the wrong ledger, or not at all.
+
+### The student list is narrower
+
+`DECLARABLE_SCHOLARSHIP_TYPES` is what the student dropdown offers now — every
+type except `Staff` and `Affirmative`. `SCHOLARSHIP_TYPE_CHOICES` is untouched:
+that is still every award this system records, whoever holds it, and the
+archives, the catalogue and `Scholarship.type` all go on reading it.
+
+`Affirmative` is out for the same structural reason plus one of its own —
+nobody applies for it, so nobody can hold one this system has not itself
+decided.
+
+The server refuses what the dropdown no longer offers. A posted `Staff` is
+turned down in the same words as an unrecognised value, because the list is not
+the control.
+
+### The staff half of the form asks it instead
+
+A staff registration now carries its own Scholarship Data card: **I already hold
+the BiPSU Staff Scholarship**, a proof document, and a note. A checkbox rather
+than a dropdown, because one programme is on offer there and a select with a
+single option is a question that answers itself.
+
+There is no award number, either, and that is not an oversight: BiPSU runs the
+programme, so no funding agency issued one, and the Staff archive has no column
+for it.
+
+### Approving the account records the award
+
+Decided with the account on the Account Verification queue, exactly as a
+student's declaration is — the office is checking one registration, and the
+proof arrived with it. Approving writes an **Approved
+`AffirmativeStaffApplication`** for the active term, so the scholar flows into
+the Staff archive, the masterlist and the reports like every other Staff
+scholar. Rejecting turns the declaration down in the same words and writes no
+award.
+
+The applicant's own details are copied off the `StaffProfile` the registration
+just built rather than asked for a second time — same facts, and a form that
+asked twice would be two records that could disagree.
+
+Two consequences worth knowing:
+
+* **They are not asked to apply again.** `nsu_staff_apply` already blocks anyone
+  with an Approved or Pending Staff application, matched on email, so the award
+  this writes closes that form for them.
+* **Re-approving does not double-count.** The term's row is reused, the same way
+  `approve_declared_scholarship` reuses a student's.
+
+`StaffScholarshipDeclaration` is the record that holds it while it waits — the
+staff counterpart of `ScholarshipLinkRequest`, with no `scholarship_type` column
+because there is only ever one. Migration `0076`.
+
+## Fixed: no email was leaving Render, and nothing said so
+
+Registrations were being told to check their inbox for a confirmation link that
+never arrived. Nothing was misconfigured.
+
+**Render blocks outbound SMTP on free web services** — ports 25, 465 and 587,
+since September 2025. The Gmail settings in the dashboard were correct and
+complete; the connection simply never left the container. Every send waited out
+`EMAIL_TIMEOUT` and was then swallowed by `notify.send_email`, which catches
+everything on purpose so that a mail server cannot take the office's review
+screen down with it. The two behaviours are individually right and together they
+produced a site that looked like it was emailing people and was not.
+
+### It goes out over HTTPS now
+
+`api/email_backends.py` holds a Django email backend that posts to **Brevo**'s
+transactional API on port 443, which nothing blocks. A backend rather than a
+call bolted onto `notify`, because every sender in this system already goes
+through `django.core.mail` — so not one caller changed, and the test suite's
+locmem backend keeps working for the same reason.
+
+Brevo was chosen on one criterion: it verifies a single sender **address** by
+emailing it a link, where Resend and most others verify a whole **domain** by
+DNS record. Nobody here can add records to `bipsu.edu.ph`. Its free tier is 300
+messages a day, against a load of one confirmation per registration and one
+notice per decision.
+
+Stdlib `urllib`, not `requests`. It is one POST of a small JSON body, and the
+free plan's 512 MB is already spoken for.
+
+### Both routes stay, and the deployment picks
+
+`BREVO_API_KEY` set → Brevo. Else `EMAIL_HOST` set → SMTP. Else the console
+backend, as before. Brevo wins when both are set: it is the one that works where
+this is deployed, and a half-configured SMTP left over from before should not
+quietly outrank the route someone deliberately turned on.
+
+SMTP is not deprecated — it is right on a laptop, on any paid instance, and
+wherever the university runs this with its own mail server.
+
+`EMAIL_HOST_USER` is now read outside that branch, because both routes need it:
+on SMTP it is the login, on Brevo it is the verified sender, and
+`DEFAULT_FROM_EMAIL` is derived from it either way.
+
+### A refusal is never reported as a send
+
+The property the backend is built around, because getting it wrong reproduces
+the original bug over a different transport. Brevo answers 201; anything else
+raises `BrevoSendError` carrying **the response body**, which is the actual
+diagnosis — "sender not valid" and "key not found" are both a 4xx otherwise, and
+they are fixed in completely different places.
+
+### Telling the two apart from outside
+
+`manage.py check_email` now reports whichever route is live and names Brevo's
+own refusals alongside the SMTP ones. Its instruction to run it from the Render
+shell was wrong — the free plan has no shell — so it now says to run it against
+the same credentials from a laptop, which tests the key and the sender
+verification, the two things that actually go wrong.
+
+`api/checks.py` keys on `EMAIL_ENABLED` rather than `EMAIL_HOST`, so it stops
+warning when either route is configured, and its hint explains why Render cannot
+use the SMTP one.
+
+### One test was lying
+
+`test_with_no_mail_configured_it_is_still_a_valid_address` failed on any machine
+with a `.env`. Its helper deleted the mail variables before reloading settings —
+but reloading settings re-runs `load_dotenv`, which fills in any key *missing*
+from the environment and leaves alone one already there. Deleting them handed
+the developer's own `.env` straight back, so "nothing configured" quietly meant
+"whatever is in .env". Setting them to `''` instead makes it hermetic.
+
+## Added: a mail panel, because the deployment has no shell
+
+Diagnosing why no email was arriving took several rounds of reading the Render
+dashboard, and the one tool built for it — `manage.py check_email` — needs a
+shell that Render's free plan does not have. Meanwhile the sends that fail are
+exactly the ones nobody is watching: a confirmation link goes out while a
+student is registering, and `notify.send_email` swallows the failure on purpose,
+so that a mail server cannot take a review screen down with it.
+
+**Account Verification** now carries an *Email* panel. It says which route is
+live, what it sends as, what became of the last message, and it will send a test
+and report what actually happened. That is `check_email`, on a page.
+
+It sits there rather than on a page of its own because that is where the office
+already asks whether somebody was told — the "they have been emailed" line is a
+few inches above it. It is collapsed when mail is working and open when it is
+not: a panel that is always open becomes furniture, and this one has to be
+noticed on the day it matters.
+
+### Secrets are reported, never printed
+
+`BREVO_API_KEY` and `EMAIL_HOST_PASSWORD` show as *Set* or *Not set*. The sender
+address is shown in full, because it is not a secret and it is the thing that is
+usually wrong — Brevo refuses any address but the one verified in its dashboard,
+and that refusal was previously the only place that ever said so.
+
+### The last attempt is recorded
+
+Four columns on `SystemSettings`, which is a row that already exists:
+`last_mail_attempt_at`, `last_mail_to`, `last_mail_subject`, `last_mail_error`.
+A blank error against a timestamp means the message left.
+
+`notify.send_email` writes them on both paths, and the write is itself
+best-effort — it runs on the failure path of a function that must not raise, so
+a database that is down while mail is also down must not turn a logged warning
+into a 500. The service log stays the durable record; this is the copy somebody
+can read without one.
+
+What is stored is `str(exception)`, not its class, because the useful half of a
+`BrevoSendError` is the provider's own wording and of an SMTP error the server's.
+"Sender not valid" and "key not found" are both a 4xx otherwise, and they are
+fixed in completely different places.
+
+Migration `0077`.
+
+## Registration asks for the whole record, and takes no less
+
+The form collected the whole student record and refused a registration over
+almost none of it: first and last name, email, the two passwords, and the
+student number. Everything else could be skipped, and was — so the SDSO
+verified accounts against an enrolment list using a name and a number, and the
+TES recommender ranked students whose household size, Listahanan status and
+first year of enrolment nobody had ever supplied. The office collected the rest
+afterwards, by hand, one student at a time, which is the work this form exists
+to save.
+
+Every question on it is answered now, in the browser and again on the server.
+`required` on the input is a convenience for somebody filling the form in;
+`_unanswered` in `api/student_views.py` is the rule, and it is what a curl post
+meets.
+
+**Seven questions stay optional**, and they are the ones a truthful person can
+have no answer to:
+
+| | |
+|---|---|
+| Indigenous Group | asked of everybody, answered by few |
+| Suffix | most people have none |
+| SHS GPA and SUC Exam certificates | the form says they can be uploaded later under My Profile, and a student without a scanner is still a student |
+| Award / Scholar Number | "if your award letter has one" — not every letter does |
+| the two Additional Notes boxes | "anything the office should know" is by definition something there may be nothing of |
+
+Making one of those mandatory does not collect an answer. It collects `N/A`,
+which is worse than a blank because it looks like one.
+
+### Three questions that `required` alone could not have caught
+
+A `<select>` whose first option carries a value is not a question — the browser
+sees something chosen and lets the form go. Three of these were rendering as
+answers nobody had given:
+
+* **Year Level** opened on *1st Year* and posted it for anybody who never
+  looked at it.
+* The four TES three-state questions — Listahanan, 4Ps, solo parent, previous
+  degree — opened on *Not answered yet*, which was a value of its own.
+* **Disability Type** and **Citizenship** opened on *Not answered yet* as well.
+
+All of them now open on an empty *— Select —*, and the server refuses anything
+but Yes or No on the four three-states. `_tristate` is untouched: everywhere
+other than registration — My Profile, the office forms, a scholar imported from
+a spreadsheet — an unanswered question still reads as unanswered, because those
+records may predate anybody asking. Registration is the asking.
+
+The TES card used to tell students to leave anything they were unsure of as
+*Not answered yet*. It no longer can, so it says where to find the answer
+instead.
+
+### One registration payload for the tests
+
+`api/test_registration_payload.py` holds it — `a_student()`, `a_staff_member()`
+and `a_declared_scholar()`, the last being what arrives when the eligibility
+cards are closed and their fields disabled. Seven test modules posted their own
+thirty-line dict before, and thirty-line dicts copied seven times drift: one
+keeps passing about a form nobody has.
+
+`api/test_register_optional_labels.py` still checks both directions of the
+marker — nothing unmarked is optional, nothing marked is required — against the
+rendered page rather than against a list.
+
+## Reports says which school year the masterlist is for
+
+The masterlist was built for the active term and nothing else. Producing last
+semester's list — the one an auditor asks for — meant changing the active term
+in Settings, generating the document, and changing it back, with every other
+screen in the office following along while somebody remembered to.
+
+The Reports tab carries a **School year** picker now. It offers every term the
+office has imported scholars into, plus the active one, and it travels on `?sy=`
+from the page into the preview frame and all three downloads — so the document
+that opens is the document that was on screen. `sy` rather than a name of its
+own because that is what Archives already calls it.
+
+The heading, the file name and the rows all follow it: *LIST OF SCHOLARS FOR 1st
+Semester SY: 2025-2026*, `BiPSU_List_of_Scholars_25_1.docx`.
+
+### What the term does and does not scope
+
+**Imported scholars are scoped by it.** They carry a term because they arrived
+in one spreadsheet for one semester.
+
+**Awards are not, and must not be.** An `Application` carries the term it was
+*granted* in and is renewed term by term against that same row, so which
+semesters it has been current in is written down nowhere to filter on. Scoping
+applications by their own `term_label` would drop every scholar awarded before
+this semester out of the list — the picker would appear to work and quietly
+empty the document.
+
+### A term other than the active one says so
+
+A masterlist downloaded from the wrong year is not obviously wrong once it is a
+file on somebody's desk, so choosing a past term puts an amber banner above the
+preview naming both terms. That banner is `.page-alert-warn`, the third of a set
+that had only `-error` and `-ok`.
+
+### The spreadsheet's heading was reading the raw label
+
+`Download XLSX` stamped *SY: 26-1* while the Word document stamped *SY:
+2026-2027* — one term, spelled two ways, on two files of the same list. It goes
+through `parse_label` now like everything else.
+
+**Still outstanding, and older than this change:** the XLSX export builds its own
+queries rather than going through `masterlist_report`, and never includes
+imported scholars at all. Its rows are portal applications only. The term picker
+cannot fix that; the export needs to be moved onto `build_context` like the DOCX
+and the PDF preview already are.
+
+## An external scholarship is not applied for in this system
+
+TDP, TES, GSIS, FHE and SUC-TDP are decided by UniFAST, CHED or GSIS. The
+student applies to the agency, the agency grants the award, and the office
+receives the awarded list afterwards — which arrives here as a spreadsheet
+import, not as a submission. The Academic Scholarship is the only programme this
+system takes an application for; BiPSU Staff and Affirmative have their own form
+in the staff portal.
+
+Every page in the student portal already worked that way. Two things behind them
+did not.
+
+**The recommendation card offered to start one.** `student/recommendations.html`
+showed **Start Application** for any programme marked
+`category='application'` — which is five external ones — and pointed all of them
+at `/student/apply/tdp/`, a path with no route and no view. The button 404'd for
+every programme but Academic. The card now offers an application for Academic
+alone; an external programme reads *Applied for externally* and carries the
+locked button that recommendation-only programmes already had.
+
+`templates/student/apply_tdp.html`, the form that path would have rendered, is
+deleted. Nothing referenced it and nothing ever routed to it.
+
+**The JSON endpoint accepted one.** `POST /api/student/applications/` took any
+programme in the catalogue. No page in the portal posts to it, but an
+`Application` created there is indistinguishable from a real award — it counts
+on the dashboard, prints on the masterlist and files in the archives. So the
+rule lives on `ApplicationSerializer.validate_scholarship` rather than in a
+template: an externally funded programme is refused with the reason, and
+Academic is unaffected.
+
+What is **not** refused is an award the office already holds. Imported scholars
+and approved link requests write Application rows on external programmes and
+must keep doing so — that is the whole reason those programmes are in the
+catalogue. The rule stops a submission, not a record.
+
+See `api/test_external_not_applied_for.py`.
+
+## Removed: the partner application form
+
+An external partner's portal is a window onto the archive of its own scholars.
+It is not a second place to apply, and the SDSO decided it never should have
+been: a funder that wants its own questions asked asks them on its own site, and
+the office records the award here once the agency grants it — which is what
+every other externally funded programme already does.
+
+So the whole feature goes. **Deliberate.** Deleted with it:
+
+- `api/partner_forms.py` and `api/test_partner_form_builder.py`
+- `templates/partner/form_builder.html`, `templates/partner/submissions.html`,
+  `templates/student/apply_partner.html`
+- `static/js/partner-form-builder.js` and the `.pf-*` block in `srms.css`
+- the **Application form** and **Applications** links in `templates/partner/_nav.html`
+- `partner_form_builder`, `partner_submissions`, `partner_submissions_download`,
+  `student_apply_partner` and `_partner_form` in `api/student_views.py`
+- their four routes in `api/urls.py`
+- `PARTNER_FIELD_KINDS` and `PARTNER_FIELD_KINDS_WITH_CHOICES` in `api/constants.py`
+- the models `PartnerApplicationForm`, `PartnerFormField` and
+  `PartnerFormSubmission` — migration `0078`, which **drops data**
+
+What stays is the reading half: `PartnerOffice` (who a partner is and which
+programmes it may see) and `PartnerTableColumns` (how it lays its own table
+out). Nothing removed here ever created an award — a submission was answers and
+nothing more — so no `Application`, `ImportedScholar` or archive row depended on
+it.
+
+`api/test_partner_offices.py` now checks that the four routes 404 and that the
+sidebar offers neither, because a nav link to a route that 404s is worse than no
+link.
+
+## A registration may declare more than one scholarship
+
+Some students hold two — CHED and a private foundation, DOST and a local
+government grant — and the form asked once. The second award reached the office
+as an email, a phone call, or not at all.
+
+The form asks up to three times now. `DECLARATION_SLOTS` in
+`api/student_views.py` is the list of them, and everything else is read off it:
+the cards `_declaration_slots` draws, the fields `_declared_scholarships` reads,
+and the names `api/test_register_optional_labels.py` expects. The first card
+keeps the bare field names it has always had — `has_scholarship`,
+`scholarship_type` — because every test, cached page and office script names
+them; only the cards after it are numbered.
+
+**Each declaration is its own `ScholarshipLinkRequest`.** Two awards are two
+things to check, against two sets of records, with two proof documents, so the
+account verification queue draws a card each and every control on it names the
+request it belongs to: `award_tier_<pk>`, `archive_id_<pk>`. A single
+`archive_id` would have offered a student's DOST row as the answer to their CHED
+award.
+
+**The same programme twice is refused.** Nobody holds CHED twice; that is one
+award typed into two cards. The unique constraint on `Application` would catch
+it — at the point where the officer had already approved it.
+
+**The SDSO is told.** `notify.office` is the first thing in `api/notify.py` that
+writes *to* the office rather than to an applicant, and it exists because the
+office's only standing signal is a badge counting accounts, which says nothing
+about what is inside any of them. It emails every active VPSEA account and
+writes an `ActivityLog` line, because delivery is best-effort here as everywhere
+and a warning nobody can find afterwards was never given.
+`notify.multiple_declarations` is the wording, raised only at two or more — a
+warning sent for every registration is a warning nobody reads.
+
+**A numbered card is rendered `disabled` by the server, not only `hidden`.** A
+hidden input still posts, so a closed card would have declared a scholarship
+nobody named and refused the registration over it — for every visitor whose
+browser never ran the script. The first card has no such input at all: the
+checkbox above is its flag, and a second input under the same name would have
+declared one for everybody.
+
+See `api/test_second_scholarship.py`.
+
+## The two windows moved to the queues they govern
+
+Whether a programme takes applications was a pair of boxes on its own form under
+Scholarship Programs — three clicks from the queue, on the page an officer opens
+least and never while reviewing. Renewals had no window at all: nothing could
+close them.
+
+Both are now cards above the table they govern. **Application Period** sits on
+the Applications tab and sets the window for that tab's programme — Academic on
+one tab, BiPSU Staff on the other. **Renewal Period** sits on the Renewal
+Applications tab and sets the Academic programme's, which is the only renewal
+this system takes.
+
+Each is a switch and a window, read in that order:
+
+| switch | dates | result |
+| --- | --- | --- |
+| off | anything | closed, and the message offers no date it cannot stand behind |
+| on | none | always open — how every programme behaved before this |
+| on | set | open inside them, both ends inclusive |
+
+The switch is the state a window could not express. "Not yet" and "no longer"
+are dates; "not this semester" is not, and the office used to say it by
+inventing a window that had already passed.
+
+Migration `0079` adds `accepting_applications`, `accepting_renewals`,
+`renewals_open_on` and `renewals_open_days`. Both switches default to True for
+the same reason the dates default to blank: every programme that existed before
+them was open.
+
+`Scholarship._window_end`, `_window_open` and `_window_reason` carry the
+arithmetic once, and the two pairs of methods on either side of them only say
+which columns to read. Two copies is how two windows start disagreeing about
+what "1 day open" means.
+
+**`vpsea_scholarship_edit` no longer writes either window**, and the boxes are
+gone from `vpsea/scholarship_form.html`. That is the failure the move invites: a
+form that stopped asking but kept saving would have closed every programme the
+first time somebody corrected a typo in its name. `api/test_application_window.py`
+checks it.
+
+`_posted_window` now returns a real `date` rather than the string it was typed
+as. Assigning a string to a `DateField` works — Django coerces it on save — but
+the card reports its own closing date straight after saving, and a string cannot
+be added to a `timedelta`.
+
+## A staff member's School may be an office that teaches nobody
+
+The staff registration form and My Profile both offered `BIPSU_SCHOOLS`, which
+is the list a **student** enrols in. Non-teaching personnel are not in any of
+them: they are assigned to the four vice-presidential clusters, the two offices
+under Academic Affairs, or the library. Nor were the graduate and professional
+schools, the Biliran campus's own teacher-education unit, or NSTP.
+
+The staff side reads `BIPSU_STAFF_UNITS` now — `BIPSU_SCHOOLS` plus
+`BIPSU_TEACHING_UNITS` plus `BIPSU_OFFICES` — drawn as two `<optgroup>`s,
+Academic units and Administrative offices. `StaffProfile.school` validates
+against it (migration `0080`, choices only, nothing in the database moves), and
+the field is labelled **School / Office** on both pages and in the error it
+raises.
+
+**`BIPSU_SCHOOLS` is deliberately untouched.** Every entry on it has courses
+under it in `BIPSU_COURSES`, and the Course dropdown on the student half of the
+registration form is built from them and is `required` — so a school with no
+courses is one a student can pick and then be unable to finish the form. That is
+what merging the two lists, the obvious tidy-up, would do. Graduate Studies, Law
+and Governance and Agri-Industries stay off the student list until somebody
+supplies their programmes.
+
+See `api/test_staff_school_units.py`.
+
+## A partner keeps its own scholar list, and the layout picker becomes a dialog
+
+Two changes to the same page, `partner/archives.html`.
+
+### The column picker moved into a dialog
+
+**Columns — lay this table out your own way** was a `<details>` card sitting
+between the tabs and the table, pushing the scholars down the page for a setting
+nobody opens twice a year. It is a **Table layout** button now, off the same row
+as the download, opening a `.modal-overlay` through `static/js/modal-open.js`.
+The form is unchanged and still posts to `/partner/columns/`.
+
+### A partner may add, correct and remove its own scholars
+
+The portal was read-only, and for the awards it shows it still is. What changed
+is the other half of the table: the rows that reached this system as a
+spreadsheet, which is how every programme without a portal arrives. Those are
+the funder's own list, and a funder correcting a misspelt name had to email the
+SDSO and wait.
+
+`partner_scholars` in `api/student_views.py` is the one endpoint for add, edit
+and delete — they share every check that matters, and three views would have
+been three places to forget one. Three rules decide what a partner may touch:
+
+1. **Its own programmes only** — `office.visible_types()`, the same list every
+   other partner page filters on.
+2. **Imported rows only.** An award row is a BiPSU student's own record: they
+   typed it, the office verified it, and they read it in their own portal.
+3. **Unclaimed rows only.** A claimed row was merged into a student's award once
+   the office checked the two were the same person.
+
+**None of the three is enforced by remembering to check.** The row is *found* by
+a query carrying all of them (`filter(pk=…, scholarship_type=stype,
+claimed_by__isnull=True).first()`), so a pk from another programme's list simply
+is not there — a permission check written as a lookup cannot be skipped by a
+later branch. The refusal names none of the three misses: which one it was is
+not the account's business to learn by trying.
+
+`scholarship_type` and `term_label` are **not** editable. Moving a scholar into
+another programme's list is the one edit that reaches outside a partner's own
+scope, so the form does not ask and the view does not read it. Award rows show
+*BiPSU account* in the actions cell rather than a button that would be refused.
+
+Every action writes an `ActivityLog` line naming the office. The SDSO lent out
+part of its own archive; it should be able to see what was done with it without
+asking. A row a partner adds carries `imported_from = 'Added by <office>'`, the
+same column an uploaded sheet fills with its filename.
+
+See `api/test_partner_scholars.py`.
+
+## Every template carried a byte order mark, and every page was in quirks mode
+
+The symptom was a **gap at the top of every signed-in page**, and a page that
+kept scrolling a little past the end of its own content. It was in all three
+portals, for every role, which is what pointed at `base.html` rather than at any
+one screen.
+
+Fifty-two templates began with a UTF-8 BOM — invisible in an editor, added by
+Windows editors on save without saying so. A BOM is not whitespace to an HTML
+parser, so a document that begins with one begins with **content**:
+
+* `<!DOCTYPE html>` is no longer the first thing read, so it is ignored and the
+  page renders in **quirks mode**.
+* The parser closes `<head>` before it has opened it, and every `<meta>`,
+  `<title>`, `<link>` and `<script>` is inserted into the `<body>` instead.
+* The mark itself lays out as an ordinary character and reserves a line box —
+  **24 pixels** of empty band above the page, scrolling with it.
+
+Every template is now saved without one. `api/test_template_encoding.py` checks
+the bytes of every template file, because that is the only place the mark can be
+seen at all, and also checks the login page's response actually starts with its
+doctype. Partials are checked too: `{% include %}` splices the mark into the
+middle of a document, where it is a stray zero-width character inside a nav or a
+table rather than a parse error, and just as invisible.
+
+**If a template ever renders wrong for no visible reason, check this first.**
+
+## The landing cards are justified, and their prose is sentence-cased
+
+Two requests about the same text.
+
+`.card-desc` is `text-align: justify` with `hyphens: auto` — the hyphenation is
+not decoration: the three-column grid puts this text in a 17rem column, and
+justifying a column that narrow without it opens rivers of white space between
+the words.
+
+The capitalisation is a filter, `sentence_case` in
+`api/templatetags/srms_text.py`, applied to descriptions, backgrounds,
+eligibility lines and benefits. **Deliberately not `|capitalize` or `|title`**:
+both rewrite the rest of the line, and this catalogue is full of things already
+spelled the way they are meant to be — CHED, DOST, TES, BiPSU, UniFAST, RA 7687.
+Only a lowercase letter in a sentence-opening position is touched. Nothing edits
+what the office typed; the data is untouched and the filter runs on the way out.
+
+An abbreviation mid-sentence ("e.g. this one") will capitalise after the full
+stop. That is the cost of not keeping a dictionary of abbreviations, and it is
+the smaller of the two errors.
+
+See `api/test_landing_page.py`.
+
+## The landing navbar links to the two lists
+
+**Internal Scholarships** and **External Scholarships**, each with the dot its
+card strip wears, each taking the reader down to the list it names.
+
+They were briefly a marquee of every programme name scrolling past the brand.
+That was a misreading of the request — what was asked for was two labels that
+scroll the page when clicked, not text that scrolls by itself — and it was the
+worse idea anyway: a reader wants to reach a list, not read a moving one.
+
+Plain anchors, so this works with scripting off. Two pieces of CSS make them
+land properly, and both are guarded by `api/test_stylesheet.py`:
+
+* `scroll-padding-top: var(--nav-h)` on `.page-landing`, so the heading arrives
+  *below* the sticky navbar rather than behind it.
+* `scroll-snap-align: start` on each list, so `mandatory` snapping treats the
+  target as a resting place instead of dragging the jump back out.
+
+**`scroll-behavior: smooth` was removed from `.page-landing`, and must not come
+back while the page uses `scroll-snap-type: mandatory`.** Chrome cancels a
+smooth scroll outright inside a mandatory snap container: the snap re-targets
+mid-animation and the page never moves at all. The declaration had been sitting
+there doing nothing — every smooth scroll it asked for was already being
+discarded — and it only became visible when the two links needed to reach the
+lists and silently went nowhere. The `prefers-reduced-motion` block that existed
+solely to switch it off went with it.
+
+The word "Scholarships" is dropped from both links below 640px, where there is
+no room for it twice; the gap in front of it is a CSS margin rather than a
+character, so each link carries an `aria-label` and is announced in full either
+way.
+
+### The brace that ate the facade
+
+Removing the marquee's CSS left one extra `}` behind, six hundred lines above
+`.hero-landing`. A stray brace is not an error anybody sees: the browser treats
+it as the end of a block that was never opened, discards rules until it can
+recover, and renders the page with a piece of the design simply gone. Here that
+piece was the hero's `min-height`, so the campus facade — meant to fill the
+first screen exactly — collapsed to a 225-pixel strip.
+
+`api/test_stylesheet.py` now parses `srms.css` for balanced braces and checks
+the hero rule by name, because balance alone would not have caught it: the rule
+was still in the file, just unreachable.
+
+## A scholar holding two awards renews each of them separately
+
+The renewal page was Academic's alone. It asked Academic's renewal window, wrote
+an `AcademicRenewal` carrying nothing that said which programme it was for, and
+`vpsea_renewals` approved every one of them into an **Academic** award. For a
+student holding two scholarships — two declared at registration and both
+approved, which is the ordinary way it happens — that is three failures:
+
+* the second award could not be renewed at all;
+* both renewals reached the office as identical rows;
+* approving a DOST scholar's renewal silently awarded them Academic.
+
+`AcademicRenewal.scholarship_type` says which (migration `0082`). The rules
+around it:
+
+* **A student on one award is never asked.** A question with one possible answer
+  is not a question; the view fills it in and the form shows what is being
+  renewed.
+* **Only programmes whose renewal window is open are offered**, and a shut one
+  cannot be posted past the form either.
+* **One closed window is not a closed page.** The page is blocked only when
+  *every* programme the student holds is shut; the others are listed beside the
+  form with the reason.
+* **A replacement stays inside its own programme.** The pending-renewal lookup
+  is scoped to the programme as well as the term, so re-uploading for the second
+  award cannot overwrite the first one's documents.
+
+The office's table gained a **Programme** column, approval creates the award
+against the renewal's own programme, and the decision notification names it.
+
+See `api/test_renewal_programmes.py`.
+
+## The SDSO and external partners can change their own password
+
+Neither could. The SDSO could reset a *student's* password from Account
+Verification and a *partner's* from External Partners; a partner could change
+nothing at all, so the office had to type a new password into a form and read it
+back down the phone.
+
+Both roles now have a profile page — `/vpsea/profile/` and `/partner/profile/` —
+carrying their name and the shared password card in `templates/_password_card.html`.
+
+The **current password is asked for**. This is not the office resetting somebody
+else's; it is an account changing its own, and a session left open on a shared
+office machine must not be enough on its own to lock the owner out of it. Empty
+fields mean "leave it alone" — the card sits on the same form as the account's
+name, and saving a corrected surname must not blank a password. A refused change
+saves neither half, so nobody is left guessing which one went through.
+`update_session_auth_hash` keeps the person signed in to the tab they did it in.
+
+The email address is shown and not editable in either portal: it is what the
+account signs in with. Which programmes a partner may read is shown read-only
+too — that is the SDSO's decision, recorded on External Partners, and a partner
+should be able to see what it was given without having to ask.
+
+See `api/test_own_password.py`.
+
+## The staff unit is typed, not picked, and reads as Office / College / Unit
+
+**This partly reverses "Staff registration picks its school from the BiPSU
+list"** above, and on purpose. That change was right about the problem — free
+text matches nothing in a report — and the fix keeps its benefit: the field is
+an `<input list=…>` over a `<datalist>` built from `BIPSU_STAFF_UNIT_GROUPS`, so
+the canonical names are still offered, still filtered as you type, and still
+what almost everybody selects.
+
+What it no longer does is *refuse everything else*. A university reorganises
+faster than a hard-coded list can be migrated, and an employee whose unit was
+renamed last year had to pick the nearest wrong thing. `StaffEmployment.school`
+dropped its `choices` (migration `0081`); the label is **Office / College /
+Unit** on both the registration form and My Profile, and the required-field
+error names it the same way.
+
+`<datalist>` has no `<optgroup>`, so the two groups arrive flat. Nothing is
+lost — the browser filters the list as you type, which is what the grouping was
+there to spare a reader from doing by eye.
+
+The label is **Office / College / Unit** in both places an employee sets it:
+the **Employment Information** card on the registration form, and the same card
+on My Profile. The field above it still reads **School / Employee ID** — that
+one is an ID number rather than a place, so it was left alone.
+
+Course / Program on the staff apply page gained the same treatment: suggestions
+from `BIPSU_COURSES`, and anything else typed in full, because an
+employee-scholar may be enrolled in a graduate programme and that list is the
+undergraduate catalogue.
+
+See `api/test_staff_school_units.py`.
+
+## A recommender for the Faculty and Staff Scholars programme
+
+The Ranking page's docstring used to say this programme had no tab because it
+has no merit test. It still has no merit test — nothing here is scored — but it
+does have **three qualifications**, and until now nobody could see them applied:
+
+> a. All faculty and employees of the University with permanent appointment.
+> b. All qualified and legitimate dependents of faculty and staff with permanent
+>    appointment.
+> c. Staff dependents who have already graduated a baccalaureate degree are
+>    disqualified from enjoying the scholarship.
+
+`api/staff_ranking.py` reads them off the application and states a verdict with
+its reason, the way `api/tes_ranking.py` does for TES. **Nothing is written to
+the database**, so re-running it cannot change a record and the answer cannot go
+stale. Three readings it gets right, each of which is a way to get it wrong:
+
+* **(c) is about dependents.** Reading it onto employees would disqualify most
+  of the faculty, who hold a degree as a condition of being employed at all.
+* **(b) turns on the employee's appointment, not the dependent's.** A dependent
+  has no appointment; the one that matters belongs to the parent they claim
+  through, and it is looked up by employee ID on `StaffProfile`.
+* **Not knowing is not failing.** A dependent whose parent's ID matches no staff
+  record is *For Verification*, with the ID named, not *Not Qualified*. Turning
+  somebody away over a filing gap is the error that matters here.
+
+'Permanent' and 'Regular' are both accepted — the first is the Board's wording,
+the second is what `EMPLOYMENT_STATUSES` stores, and nobody should have to learn
+which one the screen wants.
+
+See `api/test_staff_recommender.py`.
+
+### Fixed on the way past
+
+`nsu_staff_apply` created a first-time application with `status=new_status` — a
+name from the office's review view that has never existed in that one. A staff
+member's **first** application raised `NameError`; only a re-application, which
+takes the other branch, ever went through. It is `'Pending Validation'` now, the
+same status the update branch sets.
+
+## Affirmative Action ranks on its mandate, not on grades
+
+The PASUC-8 proposal behind this programme has two halves, and only one of them
+was in the system. Section 2 says who is **eligible** — SHS GPA of 75%, at least
+50% in the SUC-administered admission exam, not already a TES beneficiary — and
+`AffirmativeRecommendation.evaluate_and_sync` has always tested exactly those
+three, correctly. The mandate paragraph says who the programme is **for**:
+
+> 1. coming from the indigenous groups;
+> 2. person with disabilities;
+> 3. students from public schools; and
+> 4. students from depressed areas
+
+None of that reached the ranking. Two of the four groups were on every student
+record already — collected for TES, which reads them as priority markers — and
+invisible to this programme; the other two were not collected at all. So the
+Student Ranking page ordered the shortlist by a fit score of 50% SHS GPA + 50%
+admission exam, and an affirmative action programme handed the Board of Regents
+a **merit list** — the one thing §1 of its own proposal says it is not:
+
+> The grades will not be the only factor to qualify. Qualifiers may not
+> necessarily be indigent nor excellent academic performers. They may be outside
+> the 4Ps of the DSWD.
+
+`api/affirmative_ranking.py` now reads the four groups off the student's record,
+and the page, the workbook and the DRF endpoint order the shortlist by them —
+most groups first, the fit score demoted to a **tie-break** between students the
+mandate reaches equally. The three eligibility rules are untouched.
+
+**The groups order the list. They do not gate it.** A student in none of the four
+is still eligible and still ranked; a student in all four who fails a §2 rule is
+still turned down. Reading the mandate as a fourth rule would turn a description
+of who the programme is for into a bar to clear, which is what §1 forbids.
+
+### Two questions nobody was asking
+
+Public-school origin and depressed area could not be derived from anything on
+file, so both are now asked:
+
+* `EducationalBackground.highschool_is_public` — no reading of a school's *name*
+  tells you whether it is public.
+* `SocioEconomicProfile.is_from_depressed_area` — **the proposal never defines
+  "depressed area"**, so nothing tries to. It is declared by the student and
+  verified by the office, the way Listahanan and 4Ps already are. Deliberately
+  not derived from the address: classifying a barangay would mean holding a list
+  this system has no source for, and a stale list would quietly drop students out
+  of a mandate.
+
+Both are three-state — Yes / No / not yet asked — and **required at
+registration**, of every student rather than only of applicants, because the
+whole design turns on the difference between an answered "no" and a question
+nobody put. An unanswered one is reported as unanswered on the page ("2
+unanswered") and named in the workbook's *Unanswered Group Questions* column, so
+the office can go and ask rather than a student silently losing a place.
+
+They are answerable on My Profile **after the school names lock**. Locking them
+alongside `highschool` would have shut every student registered before today
+permanently out of a group the mandate may well reach them through.
+
+Migration `0084`. See `api/test_affirmative_target_groups.py`.
+
+### Fixed on the way past
+
+* `0032_user_photo.py` was an uncommitted, unapplied migration branching off
+  `0031_staff_scholarship_group_internal`, which left the graph with two leaf
+  nodes — `makemigrations` and `migrate` both refused to run at all. `User.photo`
+  is on the committed model and no other migration adds it, so the file is
+  needed: it is `0083_user_photo` now, on the tip.
+* The DRF ranking endpoint ran its own query rather than
+  `_affirmative_ranking_data`. Survivable only while both sorted on the same
+  column; it would have answered "who are the top five?" differently from the
+  page the moment the page started sorting on groups. It goes through the same
+  function now.

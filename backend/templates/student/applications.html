@@ -3,11 +3,7 @@
 {% block brand %}Student{% endblock %}
 {% block page_title %}My Applications{% endblock %}
 {% block page_subtitle %}Track and manage your submitted applications{% endblock %}
-
 {% block nav %}{% include "student/_nav.html" %}{% endblock %}
-
-
-
 {% block content %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
@@ -44,35 +40,13 @@
           </td>
         </tr>
         {% endfor %}
-
-        {% for t in tes_applications %}
-        <tr>
-          <td class="font-mono text-xs">TES-{{ t.id|stringformat:"07d" }}</td>
-          <td class="font-medium">TES — Tertiary Education Subsidy</td>
-          <td>{{ t.submitted_at|date:"M d, Y" }}</td>
-          <td>
-            {% if t.status == "Approved" %}<span class="badge badge-success">{{ t.status }}</span>
-            {% elif t.status == "Rejected" %}<span class="badge badge-destructive">{{ t.status }}</span>
-            {% else %}<span class="badge badge-warning">{{ t.status }}</span>{% endif %}
-          </td>
-          <td style="color:#6b7a99;">{{ t.remarks|default:"—" }}</td>
-          <td>{{ t.updated_at|date:"M d, Y" }}</td>
-          <td>
-            <button class="btn btn-outline" style="padding:0.25rem 0.75rem;font-size:0.75rem;" onclick="openModal('tes-{{ t.id }}')">
-              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            </button>
-          </td>
-        </tr>
-        {% endfor %}
-
-        {% if not applications and not tes_applications %}
+        {% if not applications %}
         <tr><td colspan="7" class="text-center py-8" style="color:#6b7a99;">No applications yet.</td></tr>
         {% endif %}
       </tbody>
     </table>
   </div>
 </div>
-
 <!-- ── Overlay Modal ─────────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -83,19 +57,15 @@
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
-
 <!-- ── Hidden detail templates (one per application) ─────────────────────── -->
 <div style="display:none;">
-
   {% for a in applications %}
   <div id="app-{{ a.id }}">
-
     {% if a.remarks %}
     <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:#fff7ed;border:1px solid #fed7aa;color:#92400e;">
       <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
     </div>
     {% endif %}
-
     <p class="section-title">Personal Information</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Student Number</label><span>{{ a.student.student_id }}</span></div>
@@ -108,7 +78,6 @@
       <div class="detail-field"><label>Municipality</label><span>{{ a.student.municipality|default:"—" }}</span></div>
       <div class="detail-field"><label>Province</label><span>{{ a.student.province|default:"—" }}</span></div>
     </div>
-
     {% if a.scholarship.type == "Academic" %}
     <p class="section-title">Educational Background</p>
     <div class="detail-grid">
@@ -116,7 +85,6 @@
       <div class="detail-field"><label>High School</label><span>{{ a.form_data.highschool|default:"—" }}</span></div>
       <div class="detail-field"><label>Last School Attended</label><span>{{ a.form_data.last_school|default:"—" }}</span></div>
     </div>
-
     <p class="section-title">Family Background</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Father's Name</label><span>{{ a.form_data.father_name|default:"—" }}</span></div>
@@ -124,7 +92,6 @@
       <div class="detail-field"><label>Mother's Name</label><span>{{ a.form_data.mother_name|default:"—" }}</span></div>
       <div class="detail-field"><label>Mother's Occupation</label><span>{{ a.form_data.mother_occupation|default:"—" }}</span></div>
     </div>
-
     <p class="section-title">Academic Information</p>
     <div class="detail-grid">
       <div class="detail-field"><label>GWA</label><span>{{ a.form_data.gwa|default:a.student.gwa|default:"—" }}</span></div>
@@ -132,7 +99,6 @@
       <div class="detail-field"><label>School Year</label><span>{{ a.form_data.school_year|default:"—" }}</span></div>
     </div>
     {% endif %}
-
     {% if a.scholarship.type == "Staff" %}
     <p class="section-title">Staff Information</p>
     <div class="detail-grid">
@@ -142,7 +108,6 @@
       <div class="detail-field"><label>Date of Regularization</label><span>{{ a.form_data.date_of_regularization|default:"—" }}</span></div>
     </div>
     {% endif %}
-
     {% if a.documents.all %}
     <p class="section-title">Submitted Documents</p>
     <div class="detail-grid">
@@ -154,88 +119,22 @@
       {% endfor %}
     </div>
     {% endif %}
-
     <p class="section-title">Application Status</p>
     <div class="detail-grid">
       <div class="detail-field"><label>Status</label><span>{{ a.status }}</span></div>
       <div class="detail-field"><label>Submitted</label><span>{{ a.submitted_at|date:"M d, Y" }}</span></div>
       <div class="detail-field"><label>Last Updated</label><span>{{ a.updated_at|date:"M d, Y" }}</span></div>
     </div>
-
   </div>
   {% endfor %}
-
-  {% for t in tes_applications %}
-  <div id="tes-{{ t.id }}">
-
-    {% if t.remarks %}
-    <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:#fff7ed;border:1px solid #fed7aa;color:#92400e;">
-      <span class="font-semibold">Admin Remarks:</span> {{ t.remarks }}
-    </div>
-    {% endif %}
-
-    <p class="section-title">Personal Information</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Student ID</label><span>{{ t.student.student_id }}</span></div>
-      <div class="detail-field"><label>Last Name</label><span>{{ t.student.user.last_name }}</span></div>
-      <div class="detail-field"><label>Given Name</label><span>{{ t.student.user.first_name }}</span></div>
-      <div class="detail-field"><label>Middle Name</label><span>{{ t.student.middle_name|default:"—" }}</span></div>
-      <div class="detail-field"><label>LRN</label><span>{{ t.lrn|default:"—" }}</span></div>
-      <div class="detail-field"><label>Sex</label><span>{{ t.student.gender|default:"—" }}</span></div>
-      <div class="detail-field"><label>Birthdate</label><span>{{ t.birthdate|date:"M d, Y"|default:"—" }}</span></div>
-      <div class="detail-field"><label>Year Level</label><span>{{ t.student.year_level }}</span></div>
-      <div class="detail-field"><label>Complete Program</label><span>{{ t.complete_program|default:"—" }}</span></div>
-    </div>
-
-    <p class="section-title">Family Background</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Father's Last Name</label><span>{{ t.student.father_last_name|default:"—" }}</span></div>
-      <div class="detail-field"><label>Father's Given Name</label><span>{{ t.student.father_first_name|default:"—" }}</span></div>
-      <div class="detail-field"><label>Father's Middle Name</label><span>{{ t.student.father_middle_name|default:"—" }}</span></div>
-      <div class="detail-field"><label>Mother's Last Name</label><span>{{ t.student.mother_last_name|default:"—" }}</span></div>
-      <div class="detail-field"><label>Mother's Given Name</label><span>{{ t.student.mother_first_name|default:"—" }}</span></div>
-      <div class="detail-field"><label>Mother's Middle Name</label><span>{{ t.student.mother_middle_name|default:"—" }}</span></div>
-    </div>
-
-    <p class="section-title">Address & Contact</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Street & Barangay</label><span>{{ t.street_barangay|default:"—" }}</span></div>
-      <div class="detail-field"><label>City/Municipality</label><span>{{ t.city_municipality|default:"—" }}</span></div>
-      <div class="detail-field"><label>Province</label><span>{{ t.province|default:"—" }}</span></div>
-      <div class="detail-field"><label>Region</label><span>{{ t.region|default:"—" }}</span></div>
-      <div class="detail-field"><label>ZIP Code</label><span>{{ t.zip_code|default:"—" }}</span></div>
-      <div class="detail-field"><label>Contact Number</label><span>{{ t.contact_number|default:"—" }}</span></div>
-      <div class="detail-field"><label>Email Address</label><span>{{ t.email_address|default:"—" }}</span></div>
-    </div>
-
-    <p class="section-title">Additional Information</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Disability Type</label><span>{{ t.disability_type|default:"N/A" }}</span></div>
-      <div class="detail-field"><label>Solo Parent Dependent</label><span>{% if t.is_solo_parent_dependent %}Yes{% else %}No{% endif %}</span></div>
-      <div class="detail-field"><label>First-Gen College Student</label><span>{% if t.is_first_gen_college %}Yes{% else %}No{% endif %}</span></div>
-      <div class="detail-field"><label>Indigenous People Group</label><span>{{ t.indigenous_people_group|default:"Not Applicable" }}</span></div>
-    </div>
-
-    <p class="section-title">Application Status</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Status</label><span>{{ t.status }}</span></div>
-      <div class="detail-field"><label>Submitted</label><span>{{ t.submitted_at|date:"M d, Y" }}</span></div>
-      <div class="detail-field"><label>Last Updated</label><span>{{ t.updated_at|date:"M d, Y" }}</span></div>
-    </div>
-
-  </div>
-  {% endfor %}
-
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
   function openModal(id) {
     const src = document.getElementById(id);
     const titleMap = {
       {% for a in applications %}'app-{{ a.id }}': '{{ a.scholarship.name }} — APP-{{ a.id|stringformat:"07d" }}',{% endfor %}
-      {% for t in tes_applications %}'tes-{{ t.id }}': 'TES — Tertiary Education Subsidy — TES-{{ t.id|stringformat:"07d" }}',{% endfor %}
     };
     document.getElementById('modalTitle').textContent = titleMap[id] || '';
     document.getElementById('modalBody').innerHTML = src ? src.innerHTML : '';

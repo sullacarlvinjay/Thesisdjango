@@ -86,7 +86,7 @@ class CheckEmailTest(TestCase):
                 self.run_it()
 
         message = str(caught.exception)
-        self.assertIn('refused the message', message)
+        self.assertIn('was refused', message)
         self.assertIn('DEFAULT_FROM_EMAIL', message)
 
     @override_settings(EMAIL_BACKEND=SMTP, EMAIL_HOST='smtp.example.com')
@@ -145,16 +145,25 @@ class DefaultFromEmailTest(TestCase):
     """
 
     def from_email(self, **env):
+        """DEFAULT_FROM_EMAIL as settings.py would derive it from `env`.
+
+        Unset variables are set to '' rather than deleted, and that is the whole
+        trick: reloading settings.py re-runs ``load_dotenv``, which fills in any
+        key *missing* from the environment but leaves alone one that is already
+        there. Deleting them therefore handed the developer's own .env back to
+        the test, so 'no mail configured' quietly meant 'whatever is in .env'.
+        """
         import importlib
         import os
 
         import config.settings
 
-        keys = ('EMAIL_HOST', 'EMAIL_HOST_USER', 'DEFAULT_FROM_EMAIL')
+        keys = ('BREVO_API_KEY', 'EMAIL_HOST', 'EMAIL_HOST_USER',
+                'DEFAULT_FROM_EMAIL')
         saved = {k: os.environ.get(k) for k in keys}
         try:
             for k in keys:
-                os.environ.pop(k, None)
+                os.environ[k] = ''
             os.environ.update(env)
             return importlib.reload(config.settings).DEFAULT_FROM_EMAIL
         finally:
@@ -205,25 +214,32 @@ class DeployCheckTest(TestCase):
         from api.checks import email_is_configured_in_production
         return email_is_configured_in_production(None)
 
-    @override_settings(DEBUG=False, EMAIL_HOST='', EMAIL_BACKEND=CONSOLE)
+    @override_settings(DEBUG=False, EMAIL_ENABLED=False, EMAIL_BACKEND=CONSOLE)
     def test_a_deployment_with_no_mail_host_is_warned_about(self):
         issues = self.run_check()
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0].id, 'api.W001')
         self.assertIn('no email will be sent', issues[0].msg)
-        self.assertIn('Render dashboard', issues[0].hint)
         self.assertIn('check_email', issues[0].hint)
 
-    @override_settings(DEBUG=False, EMAIL_HOST='smtp.gmail.com')
+    @override_settings(DEBUG=False, EMAIL_ENABLED=True)
     def test_a_configured_deployment_is_silent(self):
         self.assertEqual(self.run_check(), [])
 
-    @override_settings(DEBUG=True, EMAIL_HOST='')
+    @override_settings(DEBUG=False, EMAIL_ENABLED=False, EMAIL_BACKEND=CONSOLE)
+    def test_it_names_both_routes_so_neither_looks_like_the_only_one(self):
+        """Render cannot use SMTP and a laptop has no Brevo key; say so."""
+        hint = self.run_check()[0].hint
+        self.assertIn('BREVO_API_KEY', hint)
+        self.assertIn('EMAIL_HOST', hint)
+        self.assertIn('blocks outbound', hint)
+
+    @override_settings(DEBUG=True, EMAIL_ENABLED=False)
     def test_a_laptop_is_silent(self):
         """The console backend is the correct setting there, not a mistake."""
         self.assertEqual(self.run_check(), [])
 
-    @override_settings(DEBUG=False, EMAIL_HOST='',
+    @override_settings(DEBUG=False, EMAIL_ENABLED=False,
                        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
     def test_a_test_run_is_silent(self):
         """Django's runner forces DEBUG=False and swaps in locmem.
@@ -233,7 +249,7 @@ class DeployCheckTest(TestCase):
         """
         self.assertEqual(self.run_check(), [])
 
-    @override_settings(DEBUG=False, EMAIL_HOST='', EMAIL_BACKEND=CONSOLE)
+    @override_settings(DEBUG=False, EMAIL_ENABLED=False, EMAIL_BACKEND=CONSOLE)
     def test_it_is_a_warning_and_never_an_error(self):
         """A deploy must not fail over mail: the site works without it."""
         from django.core.checks import Error

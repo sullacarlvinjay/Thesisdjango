@@ -7,6 +7,7 @@ imported from an Excel list.
 from django.test import TestCase, Client
 
 from api.models import StaffProfile, StudentProfile, User
+from api.test_registration_payload import a_staff_member, a_student
 
 
 class RegistrationFormMixin:
@@ -14,18 +15,7 @@ class RegistrationFormMixin:
         self.c = Client()
 
     def _register(self, **overrides):
-        data = {
-            'account_type': 'student',
-            'first_name': 'Juan', 'last_name': 'Dela Cruz',
-            'middle_name': 'Ramirez', 'suffix': 'Jr.',
-            'email': 'juan@bipsu.edu.ph',
-            'password': 'demo1234', 'confirm_password': 'demo1234',
-            'student_id': '2022-00999',
-            'school': 'School of Technologies and Computer Studies', 'course': 'BSCS',
-            'year_level': '2', 'contact_number': '09181234567',
-        }
-        data.update(overrides)
-        return self.c.post('/register/', data)
+        return self.c.post('/register/', a_student(suffix='Jr.', **overrides))
 
 
 class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
@@ -38,15 +28,30 @@ class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
         self.assertEqual(profile.full_name, 'Dela Cruz Jr., Juan R.')
 
     def test_no_middle_name_leaves_the_initial_blank_not_a_stray_period(self):
-        self._register(middle_name='', suffix='')
-        profile = StudentProfile.objects.get(student_id='2022-00999')
+        """Not through the form, which asks for one — through the office side,
+        which does not. Half the records here arrive from an Excel import whose
+        MIDDLE NAME column is blank, and a name that renders 'Dela Cruz, Juan .'
+        on a masterlist is the office's problem whatever wrote the row."""
+        user = User.objects.create_user(
+            username='nomiddle@bipsu.edu.ph', email='nomiddle@bipsu.edu.ph',
+            password='pw', first_name='Juan', last_name='Dela Cruz', role='student')
+        profile = StudentProfile.objects.create(
+            user=user, student_id='2022-00998', course='BSCS', year_level=2)
         self.assertEqual(profile.middle_initial, '')
         self.assertEqual(profile.full_name, 'Dela Cruz, Juan')
 
+    def test_the_form_will_not_send_without_one(self):
+        """Which is why the office had a MIDDLE NAME column full of blanks: the
+        only form that ever wrote to it did not insist."""
+        r = self._register(middle_name='')
+        self.assertContains(r, 'Middle Name is required')
+        self.assertFalse(StudentProfile.objects.filter(student_id='2022-00999').exists())
+
     def test_a_staff_signing_up_gets_a_profile_of_their_own(self):
-        self._register(account_type='nsu_staff', email='staff@bipsu.edu.ph',
-                       school_id='32-1-213313', department='School of Engineering',
-                       position='Instructor I')
+        self.c.post('/register/', a_staff_member(
+            email='staff@bipsu.edu.ph', middle_name='Ramirez',
+            school_id='32-1-213313', department='School of Engineering',
+            position='Instructor I'))
         staff = StaffProfile.objects.get(user__email='staff@bipsu.edu.ph')
         self.assertEqual(staff.employee_id, '32-1-213313')
         self.assertEqual(staff.department, 'School of Engineering')
@@ -60,10 +65,10 @@ class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
 
     def test_a_rejected_staff_signup_comes_back_with_them_still_filled_in(self):
         # Mismatched passwords: the form re-renders and must not lose the typing.
-        r = self._register(account_type='nsu_staff', email='staff@bipsu.edu.ph',
-                           confirm_password='different',
-                           school_id='32-1-213313', department='School of Engineering',
-                           position='Instructor I')
+        r = self.c.post('/register/', a_staff_member(
+            email='staff@bipsu.edu.ph', confirm_password='different',
+            school_id='32-1-213313', department='School of Engineering',
+            position='Instructor I'))
         self.assertContains(r, 'Passwords do not match')
         self.assertContains(r, 'value="32-1-213313"')
         self.assertContains(r, 'value="Instructor I"')
@@ -78,15 +83,24 @@ class RegistrationSchoolTest(RegistrationFormMixin, TestCase):
         self.assertEqual(profile.school, 'School of Technologies and Computer Studies')
         self.assertEqual(profile.course, 'BSCS')
 
-    def test_a_missing_school_is_recovered_from_the_course(self):
-        self._register(school='')
-        profile = StudentProfile.objects.get(student_id='2022-00999')
-        self.assertEqual(profile.school, 'School of Technologies and Computer Studies')
+    def test_the_form_will_not_send_without_a_school(self):
+        """It used to be recovered from the course when nobody picked one. The
+        recovery is still there — see school_for_course, which the analytics
+        and the archive both lean on for records that predate the dropdown —
+        but a registration no longer relies on it."""
+        r = self._register(school='')
+        self.assertContains(r, 'School is required')
+        self.assertFalse(StudentProfile.objects.filter(student_id='2022-00999').exists())
 
     def test_an_unrecognised_course_leaves_the_school_blank_rather_than_guessing(self):
-        self._register(school='', course='Batchelor of Science in Computer Science ')
-        profile = StudentProfile.objects.get(student_id='2022-00999')
-        self.assertEqual(profile.school, '')
+        """The recovery itself, where it still runs: a course typed free-hand
+        years ago matches nothing on the list, and a wrong school on a
+        masterlist is worse than an empty column."""
+        from api.constants import school_for_course
+        self.assertEqual(school_for_course('BSCS'),
+                         'School of Technologies and Computer Studies')
+        self.assertEqual(
+            school_for_course('Batchelor of Science in Computer Science '), '')
 
     def test_the_form_offers_the_schools_instead_of_a_free_text_course(self):
         html = self.c.get('/register/').content.decode()
@@ -112,6 +126,18 @@ class StudentProfilePageMiddleNameTest(TestCase):
         self.c.post('/student/profile/', {'middle_name': 'Reyes'})
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.middle_name, 'Reyes')
+        self.assertEqual(self.profile.middle_initial, 'R.')
+
+    def test_the_profile_does_not_show_the_derived_initial(self):
+        """It was a read-only box under the Middle Name it is derived from: not
+        editable, and saying nothing the field above it does not. The initial
+        itself is unchanged — the masterlist columns are where it is what the
+        column actually asks for."""
+        self.c.post('/student/profile/', {'middle_name': 'Reyes'})
+        html = self.c.get('/student/profile/').content.decode()
+        self.assertNotIn('Middle Initial', html)
+        self.assertIn('Middle Name', html)
+        self.profile.refresh_from_db()
         self.assertEqual(self.profile.middle_initial, 'R.')
 
     def test_it_locks_once_saved_so_a_name_on_file_cannot_be_swapped(self):

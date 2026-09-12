@@ -77,24 +77,39 @@ class ColumnChoiceTest(TestCase):
             self.assertIn('award_number', keys, stype)
             self.assertIn('cong_dist', keys, stype)
 
-    def test_the_two_offices_keep_their_own_default_where_they_disagreed(self):
-        """UniFAST reported TES against an award number; the SDSO archive did not."""
+    def test_a_partner_keeps_its_own_default_where_the_two_disagreed(self):
+        """A funder reports against the award number it issued; the SDSO does not."""
         sdso = [c['key'] for c in scholar_columns.resolve(None, 'TES')]
-        unifast = [c['key'] for c in scholar_columns.resolve(None, 'TES', 'unifast')]
+        partner = [c['key'] for c in scholar_columns.resolve(None, 'TES', 'partner')]
         self.assertNotIn('award_number', sdso)
-        self.assertIn('award_number', unifast)
+        self.assertIn('award_number', partner)
 
-    def test_a_configured_programme_ignores_which_office_is_asking(self):
-        """Choosing the columns once is what makes the two offices agree."""
+    def test_a_configured_programme_ignores_who_is_asking(self):
+        """Choosing the columns once is what makes the two tables agree."""
         programme = Scholarship(name='TES', type='TES', table_columns=['last_name'])
-        for portal in ('', 'unifast'):
+        for portal in ('', 'partner'):
             keys = [c['key'] for c in scholar_columns.resolve(programme, 'TES', portal)]
             self.assertEqual(keys, ['last_name'])
 
-    def test_columns_come_back_in_catalogue_order_not_the_order_ticked(self):
-        """The office is choosing which columns appear, not rearranging them."""
+    def test_columns_keep_the_order_they_were_given(self):
+        """The order is the office's now. It used to be re-sorted into catalogue
+        order on the grounds that the office was choosing which columns appear
+        rather than rearranging them — a smaller claim than they wanted, and the
+        picker numbers the columns precisely so the order can be read and set."""
         chosen = scholar_columns.clean_choice(['course', 'last_name', 'award_number'])
-        self.assertEqual(chosen, ['award_number', 'last_name', 'course'])
+        self.assertEqual(chosen, ['course', 'last_name', 'award_number'])
+
+    def test_a_column_named_twice_is_kept_once(self):
+        """Two copies would print the same value under the same heading."""
+        self.assertEqual(
+            scholar_columns.clean_choice(['course', 'last_name', 'course']),
+            ['course', 'last_name'])
+
+    def test_the_chosen_order_survives_all_the_way_to_the_table(self):
+        programme = Scholarship(name='X', type='X',
+                                table_columns=['course', 'last_name'])
+        keys = [c['key'] for c in scholar_columns.resolve(programme)]
+        self.assertEqual(keys, ['course', 'last_name'])
 
     def test_a_key_that_is_not_a_column_is_dropped(self):
         self.assertEqual(scholar_columns.clean_choice(['last_name', 'shoe_size']),
@@ -104,19 +119,6 @@ class ColumnChoiceTest(TestCase):
         programme = Scholarship(name='X', type='X', table_columns=['shoe_size'])
         keys = [c['key'] for c in scholar_columns.resolve(programme)]
         self.assertEqual(keys, scholar_columns.DEFAULT_COLUMNS)
-
-    def test_the_unifast_table_keeps_its_own_default_on_the_page(self):
-        """Not just in resolve() — the page the office actually opens."""
-        SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
-        Scholarship.objects.create(name='TES', type='TES', category='application',
-                                   description='x', eligibility='x', requirements=[])
-        User.objects.create_user(username='u@bipsu.edu.ph', email='u@bipsu.edu.ph',
-                                 password='pw', first_name='U', last_name='Officer',
-                                 role='unifast')
-        c = Client()
-        self.assertTrue(c.login(email='u@bipsu.edu.ph', password='pw'))
-        html = c.get('/unifast/archives/', {'type': 'TES'}).content.decode()
-        self.assertIn('Award No.', headings_of(html))
 
     def test_a_custom_column_keys_off_its_name_so_renaming_it_back_finds_the_values(self):
         self.assertEqual(scholar_columns.custom_key('Batch No.'), 'extra_batch_no')
@@ -185,11 +187,18 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
         self.assertIn('GWA', headings)
         self.assertNotIn('Award No.', headings)
 
-    def test_ticking_a_column_puts_it_in_the_table(self):
+    def test_ticking_a_column_puts_it_in_the_table_where_it_was_put(self):
+        """Stored order is rendered order — the picker numbers the columns so
+        the office can set it, and the archive has to honour what it set."""
         self.programme.table_columns = ['last_name', 'award_number']
         self.programme.save(update_fields=['table_columns'])
-        headings = headings_of(self.archive())
-        self.assertEqual(headings, ['#', 'Award No.', 'Last Name', 'Actions'])
+        self.assertEqual(headings_of(self.archive()),
+                         ['#', 'Last Name', 'Award No.', 'Actions'])
+
+        self.programme.table_columns = ['award_number', 'last_name']
+        self.programme.save(update_fields=['table_columns'])
+        self.assertEqual(headings_of(self.archive()),
+                         ['#', 'Award No.', 'Last Name', 'Actions'])
 
     def test_unticking_a_column_takes_it_out(self):
         self.programme.table_columns = ['last_name']
@@ -358,12 +367,11 @@ class ScholarshipFormTest(TestCase):
         self.assertEqual(custom_column_names(html), ['Batch'])
 
 
-class BothOfficesReadTheSameChoiceTest(TestCase):
-    """A programme names its columns once; the SDSO and UniFAST tables agree.
+class TheArchiveReadsTheProgrammesChoiceTest(TestCase):
+    """A programme names its columns once and the archive page renders those.
 
-    The two archive pages carried separate hand-written tables, so the same
-    programme could be listed with different columns depending on which office
-    was looking at it.
+    The archive used to carry a hand-written table per programme, so the columns
+    on screen and the columns the office had chosen could disagree.
     """
 
     def setUp(self):
@@ -376,24 +384,22 @@ class BothOfficesReadTheSameChoiceTest(TestCase):
         self.imported = ImportedScholar.objects.create(
             scholarship_type='TDP', term_label='26-1', last_name='Cruz',
             first_name='Juan', course='BSIT', year_level=2, student_id='2021-00099')
-        for role, email in (('vpsea', 'v@bipsu.edu.ph'), ('unifast', 'u@bipsu.edu.ph')):
-            User.objects.create_user(username=email, email=email, password='pw',
-                                     first_name=role, last_name='Officer', role=role)
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            first_name='V', last_name='Officer', role='vpsea')
 
     def as_office(self, email, url):
         c = Client()
         self.assertTrue(c.login(email=email, password='pw'))
         return c, c.get(url, {'type': 'TDP'}).content.decode()
 
-    def test_both_offices_render_the_same_headings(self):
+    def test_the_page_renders_the_headings_the_programme_names(self):
         _, sdso = self.as_office('v@bipsu.edu.ph', '/vpsea/archives/')
-        _, unifast = self.as_office('u@bipsu.edu.ph', '/unifast/archives/')
-        self.assertEqual(headings_of(sdso), ['#', 'Award No.', 'Last Name', 'Batch', 'Actions'])
-        self.assertEqual(headings_of(unifast), headings_of(sdso))
+        self.assertEqual(headings_of(sdso), ['#', 'Last Name', 'Award No.', 'Batch', 'Actions'])
 
-    def test_unifast_can_save_a_column_value_of_its_own(self):
-        c, _ = self.as_office('u@bipsu.edu.ph', '/unifast/archives/')
-        c.post('/unifast/archives/columns/', {
+    def test_the_office_can_save_a_column_value(self):
+        c, _ = self.as_office('v@bipsu.edu.ph', '/vpsea/archives/')
+        c.post('/vpsea/archives/columns/', {
             'type': 'TDP', 'sy': '26-1',
             f'extra__imported__{self.imported.pk}__extra_batch': '2026-B',
         })
@@ -408,8 +414,234 @@ class BothOfficesReadTheSameChoiceTest(TestCase):
         StudentProfile.objects.create(user=user, student_id='2022-00111')
         c = Client()
         self.assertTrue(c.login(email='ana@bipsu.edu.ph', password='pw'))
-        for url in ('/vpsea/archives/columns/', '/unifast/archives/columns/'):
-            c.post(url, {'type': 'TDP',
-                         f'extra__imported__{self.imported.pk}__extra_batch': 'nope'})
+        c.post('/vpsea/archives/columns/',
+               {'type': 'TDP',
+                f'extra__imported__{self.imported.pk}__extra_batch': 'nope'})
         self.imported.refresh_from_db()
         self.assertEqual(self.imported.extra_data, {})
+
+
+class ACustomColumnDeclaresWhatItHoldsTest(TestCase):
+    """The kind of data a column the office added is allowed to hold.
+
+    A custom column used to be a name and an empty text box on every row, so one
+    'Batch' column came back holding '2026-A', '2026 A', 'AY 2026', 'n/a' and
+    blank — in the column a report groups by. The office says what the column
+    holds at the moment it names it, and that answer is what the row's box is
+    made of, what a typed value is checked against, and what kind of cell the
+    archive's workbook carries.
+    """
+
+    def test_the_kind_is_stored_beside_the_name(self):
+        columns = scholar_columns.clean_custom(
+            ['Batch', 'Stipend', 'Awarded On'], ['text', 'number', 'date'], ['', '', ''])
+        self.assertEqual([c['type'] for c in columns], ['text', 'number', 'date'])
+
+    def test_a_choice_list_keeps_the_options_as_a_list(self):
+        columns = scholar_columns.clean_custom(
+            ['Tier'], ['choice'], ['Full, Partial , Full'])
+        self.assertEqual(columns[0]['type'], 'choice')
+        self.assertEqual(columns[0]['options'], ['Full', 'Partial'])
+
+    def test_a_choice_list_with_no_options_is_a_text_column(self):
+        """A dropdown nobody can pick anything from is a column that can never
+        be filled in."""
+        columns = scholar_columns.clean_custom(['Tier'], ['choice'], ['  '])
+        self.assertEqual(columns[0]['type'], 'text')
+        self.assertNotIn('options', columns[0])
+
+    def test_a_kind_that_is_not_one_of_the_offered_ones_reads_as_text(self):
+        columns = scholar_columns.clean_custom(['Batch'], ['sql'], [''])
+        self.assertEqual(columns[0]['type'], 'text')
+
+    def test_a_blank_row_does_not_slide_the_kinds_onto_the_wrong_columns(self):
+        """The three field lists are parallel and read by position. Dropping the
+        blank before pairing them is how a Date column ends up refusing dates."""
+        columns = scholar_columns.clean_custom(
+            ['Batch', '', 'Stipend'], ['text', 'date', 'number'], ['', '', ''])
+        self.assertEqual([(c['label'], c['type']) for c in columns],
+                         [('Batch', 'text'), ('Stipend', 'number')])
+
+    def test_a_column_stored_before_kinds_existed_reads_as_text(self):
+        programme = Scholarship(name='X', type='X', table_columns=['last_name'],
+                                extra_columns=[{'key': 'extra_batch', 'label': 'Batch'}])
+        batch = scholar_columns.resolve(programme)[-1]
+        self.assertEqual(batch['type'], 'text')
+        self.assertEqual(batch['options'], [])
+
+
+class OnlyThatKindOfValueIsStoredTest(TestCase):
+    """What ``clean_value`` accepts, refuses and normalises."""
+
+    def cleaned(self, kind, raw, options=None):
+        column = {'type': kind, 'options': options or []}
+        return scholar_columns.clean_value(column, raw)
+
+    def test_blank_is_always_allowed(self):
+        """A column the office added is not one every scholar has an answer for."""
+        for kind in ('text', 'number', 'date', 'choice', 'yesno'):
+            self.assertEqual(self.cleaned(kind, '   ', ['Full']), '')
+
+    def test_a_number_column_refuses_what_is_not_a_number(self):
+        self.assertIsNone(self.cleaned('number', 'n/a'))
+        self.assertIsNone(self.cleaned('number', '2,500 pesos'))
+
+    def test_a_number_column_refuses_the_two_floats_that_are_not_figures(self):
+        """float() reads both, and neither survives the trip to an int."""
+        self.assertIsNone(self.cleaned('number', 'inf'))
+        self.assertIsNone(self.cleaned('number', 'nan'))
+
+    def test_a_number_is_stored_the_way_it_would_be_written(self):
+        self.assertEqual(self.cleaned('number', ' 2500 '), '2500')
+        self.assertEqual(self.cleaned('number', '2,500'), '2500')
+        self.assertEqual(self.cleaned('number', '1.5'), '1.5')
+
+    def test_a_date_column_stores_iso_and_refuses_a_non_date(self):
+        self.assertEqual(self.cleaned('date', '2026-06-15'), '2026-06-15')
+        self.assertEqual(self.cleaned('date', '15/06/2026'), '2026-06-15')
+        self.assertIsNone(self.cleaned('date', 'sometime in June'))
+
+    def test_a_choice_column_refuses_an_answer_not_on_its_list(self):
+        self.assertEqual(self.cleaned('choice', 'full', ['Full', 'Partial']), 'Full',
+                         "and stores it in the office's own spelling")
+        self.assertIsNone(self.cleaned('choice', 'Three-quarters', ['Full', 'Partial']))
+
+    def test_a_yes_no_column_takes_only_those_two(self):
+        self.assertEqual(self.cleaned('yesno', 'yes'), 'Yes')
+        self.assertIsNone(self.cleaned('yesno', 'maybe'))
+
+    def test_a_text_column_still_takes_anything(self):
+        self.assertEqual(self.cleaned('text', '  2026-A  '), '2026-A')
+
+
+class TheRowsBoxIsTheKindTheColumnDeclaredTest(ArchiveFixtureMixin, TestCase):
+    """What the office types a value into, on the archive page."""
+
+    def with_columns(self, *extras):
+        self.programme.table_columns = ['last_name']
+        self.programme.extra_columns = list(extras)
+        self.programme.save(update_fields=['table_columns', 'extra_columns'])
+        return self.archive()
+
+    def test_a_choice_column_is_a_dropdown_of_its_options(self):
+        html = self.with_columns({'key': 'extra_tier', 'label': 'Tier',
+                                  'type': 'choice', 'options': ['Full', 'Partial']})
+        self.assertIn(f'name="extra__award__{self.award.pk}__extra_tier"', html)
+        self.assertIn('<option value="Full">Full</option>', html)
+        self.assertIn('<option value="Partial">Partial</option>', html)
+
+    def test_a_yes_no_column_offers_those_two_without_being_given_them(self):
+        html = self.with_columns({'key': 'extra_hostel', 'label': 'Hostel',
+                                  'type': 'yesno'})
+        self.assertIn('<option value="Yes">Yes</option>', html)
+        self.assertIn('<option value="No">No</option>', html)
+
+    def test_a_date_column_gets_a_date_box_and_a_number_a_number_box(self):
+        html = self.with_columns(
+            {'key': 'extra_awarded_on', 'label': 'Awarded On', 'type': 'date'},
+            {'key': 'extra_stipend', 'label': 'Stipend', 'type': 'number'})
+        self.assertIn('type="date"', html)
+        self.assertIn('type="number"', html)
+
+    def test_the_value_already_stored_is_the_one_selected(self):
+        self.with_columns({'key': 'extra_tier', 'label': 'Tier', 'type': 'choice',
+                           'options': ['Full', 'Partial']})
+        scholar_columns.set_extra_values(self.award, {'extra_tier': 'Partial'})
+        self.assertIn('<option value="Partial" selected>Partial</option>',
+                      self.archive())
+
+
+class AValueThatIsNotThatKindIsNotStoredTest(ArchiveFixtureMixin, TestCase):
+    """Refused per cell, and counted, so a forty-row save still lands."""
+
+    def setUp(self):
+        super().setUp()
+        self.programme.table_columns = ['last_name']
+        self.programme.extra_columns = [
+            {'key': 'extra_stipend', 'label': 'Stipend', 'type': 'number'},
+            {'key': 'extra_tier', 'label': 'Tier', 'type': 'choice',
+             'options': ['Full', 'Partial']},
+        ]
+        self.programme.save(update_fields=['table_columns', 'extra_columns'])
+
+    def save(self, **fields):
+        return self.c.post('/vpsea/archives/columns/',
+                           {'type': 'Academic', 'sy': self.term, **fields})
+
+    def test_a_number_column_handed_words_keeps_the_cell_it_had(self):
+        self.save(**{f'extra__award__{self.award.pk}__extra_stipend': '2500'})
+        self.save(**{f'extra__award__{self.award.pk}__extra_stipend': 'n/a'})
+        self.award.refresh_from_db()
+        self.assertEqual(self.award.form_data['extra_stipend'], '2500')
+
+    def test_the_office_is_told_how_many_boxes_to_go_back_to(self):
+        response = self.save(**{
+            f'extra__award__{self.award.pk}__extra_stipend': 'n/a',
+            f'extra__award__{self.award.pk}__extra_tier': 'Three-quarters',
+        })
+        self.assertIn('columns_bad=2', response['Location'])
+        # And the count reaches the page as a sentence, rather than sitting in
+        # the query string with nothing rendering it.
+        followed = self.c.get(response['Location']).content.decode()
+        self.assertIn('2 values did not match', followed)
+
+    def test_the_rows_that_were_fine_are_still_saved(self):
+        response = self.save(**{
+            f'extra__award__{self.award.pk}__extra_stipend': 'n/a',
+            f'extra__imported__{self.imported.pk}__extra_stipend': '1800',
+        })
+        self.imported.refresh_from_db()
+        self.assertEqual(self.imported.extra_data['extra_stipend'], '1800')
+        self.assertIn('columns_saved=1', response['Location'])
+
+    def test_a_column_belonging_to_some_other_programme_is_not_written(self):
+        """The field name carries the column key, so it cannot be taken on
+        trust: only a column this programme actually has is saved."""
+        self.save(**{f'extra__award__{self.award.pk}__extra_somebody_elses': 'x'})
+        self.award.refresh_from_db()
+        self.assertNotIn('extra_somebody_elses', self.award.form_data)
+
+
+class TheFormAsksWhatTheColumnHoldsTest(TestCase):
+    """The kind is chosen where the column is named, not guessed at later."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            first_name='V', last_name='Officer', role='vpsea')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
+
+    def test_the_form_offers_every_kind(self):
+        """A new programme has no custom columns yet, so there is no <select> on
+        the page to read — the kinds reach the row the office adds through the
+        list the server hands the script, which is what is checked here. A
+        second copy of the kinds in column-picker.js is the thing this avoids:
+        it could offer one the server would not accept."""
+        html = self.c.get('/vpsea/scholarships/add/').content.decode()
+        for key, label in scholar_columns.CUSTOM_TYPES:
+            self.assertIn(f'{key}:{label}', html)
+
+    def test_adding_a_scholarship_stores_the_kinds_chosen(self):
+        self.c.post('/vpsea/scholarships/add/', {
+            'name': 'Sports Scholarship', 'type': 'Sports', 'group': 'internal',
+            'description': 'x', 'background': '', 'eligibility_list': '', 'benefits': '',
+            'table_columns': ['last_name'],
+            'extra_columns': ['Batch', 'Tier'],
+            'extra_types': ['number', 'choice'],
+            'extra_options': ['', 'Full, Partial'],
+        })
+        stored = Scholarship.objects.get(type='Sports').extra_columns
+        self.assertEqual([(c['label'], c['type']) for c in stored],
+                         [('Batch', 'number'), ('Tier', 'choice')])
+        self.assertEqual(stored[1]['options'], ['Full', 'Partial'])
+
+    def test_the_edit_form_shows_the_kind_and_the_options_back(self):
+        programme = Scholarship.objects.create(
+            name='TDP Scholarship', type='TDP', category='application',
+            description='x', eligibility='x', requirements=[],
+            extra_columns=[{'key': 'extra_tier', 'label': 'Tier', 'type': 'choice',
+                            'options': ['Full', 'Partial']}])
+        html = self.c.get(f'/vpsea/scholarships/{programme.pk}/edit/').content.decode()
+        self.assertIn('<option value="choice" selected>', html)
+        self.assertIn('value="Full, Partial"', html)

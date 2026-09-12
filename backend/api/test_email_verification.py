@@ -13,6 +13,7 @@ from django.test import TestCase, Client, override_settings
 
 from api import email_verify
 from api.models import User, StudentProfile, SystemSettings
+from api.test_registration_payload import a_student
 
 
 class BrokenBackend:
@@ -108,12 +109,8 @@ class ConfirmationLinkTest(TestCase):
         self.c = Client()
 
     def _register(self, **extra):
-        self.c.post('/register/', dict({
-            'account_type': 'student', 'first_name': 'Juan', 'last_name': 'Cruz',
-            'email': 'juan@gmail.com', 'password': 'pw12345',
-            'confirm_password': 'pw12345', 'student_id': '23-0001',
-            'course': 'BSCS', 'year_level': '1',
-        }, **extra))
+        self.c.post('/register/',
+                    a_student(email='juan@gmail.com', student_id='23-0001', **extra))
         return mail.outbox[-1].body
 
     @override_settings(SITE_URL='https://srms.bipsu.edu.ph')
@@ -141,12 +138,8 @@ class RegistrationConfirmationTest(TestCase):
         self.c = Client()
 
     def _register(self, email='juan@gmail.com', student_id='23-0001'):
-        return self.c.post('/register/', {
-            'account_type': 'student',
-            'first_name': 'Juan', 'last_name': 'Cruz',
-            'email': email, 'password': 'pw12345', 'confirm_password': 'pw12345',
-            'student_id': student_id, 'course': 'BSCS', 'year_level': '1',
-        })
+        return self.c.post('/register/',
+                           a_student(email=email, student_id=student_id))
 
     def _link(self):
         """The confirmation path out of the message that was just sent."""
@@ -354,12 +347,14 @@ class DecisionEmailTest(TestCase):
         """The console backend accepts everything and reports success.
 
         Saying 'they have been emailed' on the strength of that is the silent
-        lie the standing warning exists to stop.
+        lie the mail panel exists to stop. The standing warning that used to sit
+        here is that panel's 'Not configured' badge now, driven by the same
+        EMAIL_ENABLED — see api/test_mail_panel.py.
         """
         r = self._decide('approve', 'Welcome.')
         page = self.c.get(r['Location'])
         self.assertNotContains(page, 'They have been emailed')
-        self.assertContains(page, 'Email is not configured on this deployment')
+        self.assertContains(page, 'Not configured')
 
     @override_settings(EMAIL_ENABLED=True)
     def test_the_office_is_told_when_the_email_did_not_go_out(self):
@@ -401,13 +396,12 @@ class DecisionEmailTest(TestCase):
 
     @override_settings(EMAIL_ENABLED=False)
     def test_the_office_is_warned_when_no_mail_server_is_configured(self):
-        self.assertContains(self.c.get('/vpsea/accounts/'),
-                            'Email is not configured on this deployment')
+        """The mail panel says so on the page, without being opened."""
+        self.assertContains(self.c.get('/vpsea/accounts/'), 'Not configured')
 
     @override_settings(EMAIL_ENABLED=True)
     def test_that_warning_is_absent_once_mail_is_configured(self):
-        self.assertNotContains(self.c.get('/vpsea/accounts/'),
-                               'Email is not configured on this deployment')
+        self.assertNotContains(self.c.get('/vpsea/accounts/'), 'Not configured')
 
 
 class OfficeAccountsAreExemptTest(TestCase):
@@ -422,10 +416,6 @@ class OfficeAccountsAreExemptTest(TestCase):
     def test_only_the_public_form_withholds_that_trust(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
-        Client().post('/register/', {
-            'account_type': 'student', 'first_name': 'Juan', 'last_name': 'Cruz',
-            'email': 'juan@gmail.com', 'password': 'pw12345',
-            'confirm_password': 'pw12345', 'student_id': '23-0001',
-            'course': 'BSCS', 'year_level': '1',
-        })
+        Client().post('/register/',
+                      a_student(email='juan@gmail.com', student_id='23-0001'))
         self.assertFalse(User.objects.get(email='juan@gmail.com').email_verified)

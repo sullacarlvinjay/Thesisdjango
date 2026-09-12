@@ -5,42 +5,31 @@
 {% block page_title %}Scholarship Renewal{% endblock %}
 {% block page_subtitle %}{{ semester }} — SY {{ academic_year }}{% endblock %}
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
-
 {% block content %}
-
 {% if submitted %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
   ✓ Renewal submitted successfully. The SDSO will review your documents.
 </div>
 {% endif %}
-
 {% for e in errors %}
 <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ e }}</div>
 {% endfor %}
-
 <div class="grid lg:grid-cols-2 gap-6">
-
-  {# ── Submission form ──────────────────────────────────────────────────────── #}
   <div class="card p-6">
     <h3 class="font-semibold mb-1">Submit Renewal Documents</h3>
     <p class="text-xs mb-5" style="color:#6b7a99;">Upload your documents for {{ semester }} SY {{ academic_year }}. All documents must be certified official copies.</p>
-
     <form method="post" enctype="multipart/form-data" class="space-y-4">
       {% csrf_token %}
-
       <div class="space-y-1.5">
         <label>Supporting Document <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>
         <p class="text-xs" style="color:#6b7a99;">Employment certificate, clearance, or any document required by the SDSO for renewal.</p>
         <input name="supporting_document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>
-
       <div class="pt-2">
         <button type="submit" class="btn btn-primary w-full">Submit Renewal</button>
       </div>
     </form>
   </div>
-
-  {# ── Renewal history ──────────────────────────────────────────────────────── #}
   <div class="card p-6">
     <h3 class="font-semibold mb-4">Renewal History</h3>
     {% if renewals %}
@@ -76,6 +65,5 @@
     <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet.</p>
     {% endif %}
   </div>
-
 </div>
 {% endblock %}

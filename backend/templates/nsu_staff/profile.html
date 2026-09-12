@@ -5,23 +5,46 @@
 {% block page_title %}My Profile{% endblock %}
 {% block page_subtitle %}Your employee record{% endblock %}
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
-
 {% block content %}
-
 {% if saved %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
   ✓ Profile saved successfully.
 </div>
 {% endif %}
-
 {% for e in errors %}
 <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ e }}</div>
 {% endfor %}
-
+{% include "_staff_units_datalist.html" %}
 <form method="post" enctype="multipart/form-data" class="space-y-6">
   {% csrf_token %}
 
-  {# ── Account Information ──────────────────────────────────────────────────── #}
+  <!-- Profile Photo -->
+  <div class="card p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Profile Photo</p>
+    <div class="flex items-center gap-5">
+      <label for="staffPhotoInput" class="relative cursor-pointer shrink-0" title="Change profile photo">
+        {% if profile_photo_url %}
+        <img src="{{ profile_photo_url }}" alt="{{ user.initials|default:'S' }}"
+             class="h-20 w-20 rounded-full object-cover"
+             style="border:3px solid var(--brand);" />
+        {% else %}
+        <div class="h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold"
+             style="background:var(--brand);color:var(--on-brand);">{{ user.initials|default:"S" }}</div>
+        {% endif %}
+        <span class="absolute bottom-0 right-0 h-6 w-6 rounded-full flex items-center justify-center"
+              style="background:#fff;border:2px solid var(--brand);">
+          <svg class="h-3.5 w-3.5" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </span>
+        <input id="staffPhotoInput" type="file" name="photo" accept="image/*"
+               style="display:none;" onchange="this.form.submit()" />
+      </label>
+      <div>
+        <p class="text-sm font-medium">{{ user.get_full_name }}</p>
+        <p class="text-xs mt-0.5" style="color:#6b7a99;">Click your photo to upload a new one. JPG, PNG or WebP, square crop recommended.</p>
+      </div>
+    </div>
+  </div>
+
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Account Information</p>
     <p class="text-xs mb-4" style="color:#6b7a99;">Email is managed by the administrator and cannot be changed here.</p>
@@ -44,8 +67,6 @@
       </div>
     </div>
   </div>
-
-  {# ── Personal Details ─────────────────────────────────────────────────────── #}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Personal Details</p>
     <p class="text-xs mb-4" style="color:#6b7a99;">Kept on your own record, not on any one application. Correcting something here never changes an application the office already reviewed.</p>
@@ -89,7 +110,6 @@
         <input name="contact_number" value="{{ staff.contact_number }}" placeholder="09XXXXXXXXX" />
       </div>
     </div>
-
     <div class="grid sm:grid-cols-3 gap-4 mt-4">
       <div class="space-y-1.5">
         <label>Barangay / Street</label>
@@ -105,8 +125,6 @@
       </div>
     </div>
   </div>
-
-  {# ── Employment Details ───────────────────────────────────────────────────── #}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Employment Details</p>
     <p class="text-xs mb-4" style="color:#6b7a99;">Your appointment as it stands today. The Staff Scholarship is open to regular employees, so keep this current.</p>
@@ -116,13 +134,10 @@
         <input name="employee_id" value="{{ staff.employee_id }}" placeholder="e.g. 32-1-213313" />
       </div>
       <div class="space-y-1.5">
-        <label>School</label>
-        <select name="school">
-          <option value="">— Select —</option>
-          {% for value, label in bipsu_schools %}
-          <option value="{{ value }}" {% if staff.school == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
+        <label>Office / College / Unit</label>
+        <input name="school" value="{{ staff.school }}" list="bipsuStaffUnits"
+               placeholder="Start typing, or pick from the list" autocomplete="off" />
+        <p class="text-xs" style="color:#6b7a99;">BiPSU's own offices, colleges and units are suggested as you type. If yours has been renamed or is not listed, type it in full.</p>
       </div>
       <div class="space-y-1.5">
         <label>Department</label>
@@ -189,8 +204,6 @@
       </div>
     </div>
   </div>
-
-  {# ── Scholarship Record — read only ───────────────────────────────────────── #}
   {% if aff_app %}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">BiPSU Staff Scholarship Record</p>
@@ -250,7 +263,6 @@
     <p class="text-xs mt-3" style="color:#92400e;">If you believe a record already exists, contact the SDSO — it may be filed under a different email address.</p>
   </div>
   {% endif %}
-
   <div class="flex justify-end">
     <button type="submit" class="btn btn-primary">Save Profile</button>
   </div>
