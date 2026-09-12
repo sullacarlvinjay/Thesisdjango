@@ -1055,6 +1055,13 @@ def _is_enrolled(profile):
     return bool(held_scholarship_types(profile))
 
 
+def _system_settings():
+    """The single SystemSettings row, created on first use."""
+    from .models import SystemSettings
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    return settings_obj
+
+
 def _validate_proof(uploaded, settings_obj):
     """Server-side check for an uploaded proof document.
 
@@ -1215,6 +1222,95 @@ def student_applications(request):
     })
 
 
+# ── Adding a scholarship won after registration ────────────────────────────
+#
+# The registration form asks what a student already holds, and until now that
+# was the only time anybody was ever asked. A student who registered in first
+# year holding nothing and won DOST in second had nowhere to say so: the answer
+# lived on a form only a new account could reach, and they already had one. The
+# award reached the office by email, by phone, or not at all — which is the
+# work this system exists to save — while their portal went on showing no
+# scholarship, offering no renewal, and counting them among the unserved on
+# every report the office ran.
+#
+# So My Profile carries the registration form's Scholarship Data card: the same
+# checkbox, the same three cards behind it, the same field names, the same
+# script. My Profile is already where a student answers "what is true about me
+# now" and already shows what they hold, so the answer to "and I hold this too"
+# belongs on it rather than on a page of its own. The SDSO decides what it
+# writes where it decides every other one, on Account Verification.
+# ``filed_in_portal`` is only which door a row came through, so that page can
+# tell a registration still waiting to be released from an account that was
+# released terms ago.
+
+
+def pending_declarations():
+    """Scholarships added by students whose accounts are already verified.
+
+    Account Verification shows these in their own section. They cannot ride on
+    an account decision the way a registration's do — that decision was taken
+    terms ago — so each is verified or refused on its own.
+
+    Oldest first: one added three weeks ago is decided before one added this
+    morning.
+    """
+    return (ScholarshipLinkRequest.objects
+            .select_related('student__user', 'reviewed_by', 'matched_archive',
+                            *STUDENT_DETAILS)
+            .filter(status='Pending', filed_in_portal=True)
+            .order_by('submitted_at', 'pk'))
+
+
+def declarable_types(profile):
+    """The programmes this student could still add, as (value, label).
+
+    Answered through :func:`can_hold_alongside` rather than by asking whether
+    they hold anything at all, so the one place that knows which programmes may
+    sit together stays the one place that knows it. When that rule loosens
+    again — TES beside Academic was the exception for most of this system's
+    life — this list loosens with it and nothing here needs editing.
+    """
+    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+    held = held_scholarship_types(profile) if profile else set()
+    return [(value, label) for value, label in DECLARABLE_SCHOLARSHIP_TYPES
+            if can_hold_alongside(held, value)]
+
+
+def declaration_blocked_reason(profile):
+    """Why this student cannot add a scholarship today. '' when they can.
+
+    Three different things stand in the way and each earns its own sentence.
+    "You cannot do this" with no reason attached is what sends a student to the
+    office to ask, which is the queue at the counter this page exists to
+    shorten.
+    """
+    if not profile:
+        return ('Your student record is not set up yet. Open My Profile and '
+                'fill it in first — the office matches a scholarship to their '
+                'own records by your name and student number, and cannot check '
+                'one that has neither.')
+
+    waiting = (ScholarshipLinkRequest.objects
+               .filter(student=profile, status='Pending')
+               .order_by('submitted_at').first())
+    if waiting:
+        return (f'You have already told the SDSO about the '
+                f'{waiting.get_scholarship_type_display()} and they are still '
+                'checking it. Wait for that decision — sending the same award '
+                'twice puts one thing in front of them twice.')
+
+    if not declarable_types(profile):
+        from .models import SCHOLARSHIP_TYPE_CHOICES
+        labels = dict(SCHOLARSHIP_TYPE_CHOICES)
+        named = ', '.join(sorted(labels.get(t, t)
+                                 for t in held_scholarship_types(profile)))
+        return (f'This account already holds the {named}. Every programme here '
+                'is exclusive, so there is nothing to add beside it. If that is '
+                'no longer right — an award that ended, or one recorded in '
+                'error — the SDSO corrects it from their side.')
+    return ''
+
+
 @login_required(login_url='/login/')
 def student_notifications(request):
     profile = StudentProfile.objects.filter(user=request.user).first()
@@ -1369,6 +1465,7 @@ def student_profile(request):
     profile = StudentProfile.objects.filter(user=request.user).first()
     errors = []
     saved = False
+    declared_count = 0
     if request.method == 'POST' and profile:
         p = request.POST
         u = profile.user
@@ -1468,11 +1565,48 @@ def student_profile(request):
             profile.barangay = p.get('barangay', profile.barangay)
             profile.municipality = p.get('municipality', profile.municipality)
             profile.province = p.get('province', profile.province)
+
+        # A scholarship won since they registered, declared on the same card the
+        # registration form asks it on. Read by the same _declared_scholarships,
+        # so the two cannot drift apart in what they accept or in the words they
+        # refuse it with — and ignored outright when the page had no business
+        # offering the question, so a stale tab cannot file one anyway.
+        declarations = []
+        if not declaration_blocked_reason(profile):
+            declarations, declaration_errors = _declared_scholarships(
+                p, request.FILES)
+            errors.extend(declaration_errors)
+            allowed = dict(declarable_types(profile))
+            for declared in declarations:
+                if declared['scholarship_type'] not in allowed:
+                    from .models import SCHOLARSHIP_TYPE_CHOICES
+                    label = dict(SCHOLARSHIP_TYPE_CHOICES).get(
+                        declared['scholarship_type'], declared['scholarship_type'])
+                    errors.append(f'The {label} cannot be added alongside what '
+                                  'this account already holds. Reload this page '
+                                  'to see what is still open to you.')
+
+        # One form, one save. A proof document the office would refuse takes the
+        # whole page back rather than letting half of it through: a student who
+        # corrected their surname and mistyped a file should not have to guess
+        # which of the two was kept.
         if not errors:
             profile.save()
             saved = True
+            for declared in declarations:
+                ScholarshipLinkRequest.objects.create(
+                    student=profile, filed_in_portal=True, **declared)
+            if declarations:
+                # A registration announces itself: it lands on the verification
+                # queue and somebody has to look at it before anyone can sign
+                # in. These arrive on an account already released, so without
+                # telling the office they would sit in a section nobody had a
+                # reason to scroll to.
+                notify.scholarship_added(profile, declarations)
+                declared_count = len(declarations)
     import json
     from .constants import CIVIL_STATUSES
+    from .models import CHED_TIER_CHOICES
     address_locked = bool(profile and profile.barangay and profile.municipality and profile.province)
     # A group locks only once it is complete, so a half-filled one stays open.
     civil_status_locked = bool(profile and profile.civil_status)
@@ -1495,6 +1629,15 @@ def student_profile(request):
         'family_locked': family_locked,
         'civil_statuses': CIVIL_STATUSES,
         'scholarships_held': _scholarship_records(profile),
+        # The registration form's Scholarship Data card, asked again here. The
+        # slots, the programme list and the tiers are the same three lists that
+        # form is built from — see _declaration_slots and _register_context.
+        'declared_count': declared_count,
+        'scholarship_blocked_reason': declaration_blocked_reason(profile),
+        'scholarship_types': declarable_types(profile),
+        'ched_tiers': CHED_TIER_CHOICES,
+        'declaration_slots': _declaration_slots(request.POST if errors else None),
+        'max_upload_mb': _system_settings().max_file_size_mb or 5,
         **_disability_fields(
             request.POST.get('disability_type') if errors else None,
             request.POST.get('disability_type_other', '') if errors else '',
@@ -2034,7 +2177,7 @@ def declared_scholarships(profile):
         return []
     return list(ScholarshipLinkRequest.objects
                 .select_related('student__user', *STUDENT_DETAILS)
-                .filter(student=profile, status='Pending')
+                .filter(student=profile, status='Pending', filed_in_portal=False)
                 .order_by('submitted_at', 'pk'))
 
 
@@ -4757,6 +4900,58 @@ def mail_status(settings_obj):
     }
 
 
+def _decide_added_scholarship(request):
+    """Verify or refuse one scholarship a signed-in student added themselves.
+
+    Its own small decision on the Account Verification page rather than part of
+    one: the account behind it was released terms ago, so there is no
+    verification left to carry it. The two buttons are the same two buttons,
+    and they call the same two functions the registration cards call — nothing
+    about the award this writes differs by which door the claim came through.
+    """
+    from urllib.parse import quote
+    from .models import ImportedScholar, SystemSettings
+
+    req = pending_declarations().filter(
+        id=request.POST.get('declaration_id')).first()
+    if not req:
+        return redirect('/vpsea/accounts/?error=That+scholarship+is+no+longer+'
+                        'waiting+for+a+decision')
+
+    action = request.POST.get('action')
+    message = request.POST.get('message', '').strip()
+
+    if action == 'reject':
+        if not message:
+            return redirect('/vpsea/accounts/?error=Say+why+before+turning+a+'
+                            'scholarship+down.+Your+reason+is+the+only+thing+'
+                            'the+student+is+told')
+        reject_declared_scholarship(req, request.user, message)
+        return redirect('/vpsea/accounts/?scholarship=rejected')
+
+    if action != 'approve':
+        return redirect('/vpsea/accounts/')
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    archive = None
+    archive_id = request.POST.get(f'archive_id_{req.pk}', '').strip()
+    if archive_id:
+        archive = ImportedScholar.objects.filter(
+            id=archive_id, scholarship_type=req.scholarship_type,
+            term_label=settings_obj.academic_year, claimed_by__isnull=True,
+        ).first()
+        if not archive:
+            return redirect('/vpsea/accounts/?error=That+archive+row+is+no+'
+                            'longer+available')
+
+    _award, problem = approve_declared_scholarship(
+        req, request.user, archive=archive, remarks=message,
+        tier=request.POST.get(f'award_tier_{req.pk}', ''))
+    if problem:
+        return redirect(f'/vpsea/accounts/?error={quote(problem)}')
+    return redirect('/vpsea/accounts/?scholarship=approved')
+
+
 @_vpsea_required
 def vpsea_accounts(request):
     """Verification queue for accounts that registered themselves.
@@ -4783,6 +4978,11 @@ def vpsea_accounts(request):
             'applicants will be told what the office decided, and registrants '
             'can confirm their address.')
         return redirect(f'/vpsea/accounts/?tested={1 if ok else 0}&to={quote(to)}')
+
+    # A scholarship added from a student portal is decided on its own, below
+    # the registrations: the account it belongs to has already been released.
+    if request.method == 'POST' and request.POST.get('declaration_id'):
+        return _decide_added_scholarship(request)
 
     if request.method == 'POST':
         account = User.objects.filter(
@@ -4926,7 +5126,7 @@ def vpsea_accounts(request):
     per_student = defaultdict(list)
     for req in (ScholarshipLinkRequest.objects
                 .select_related('reviewed_by', 'matched_archive')
-                .filter(student__user__in=decided)
+                .filter(student__user__in=decided, filed_in_portal=False)
                 .order_by('submitted_at', 'pk')):
         per_student[req.student_id].append(req)
     # Latest last, so the last write wins: one registration declares once, but
@@ -4946,10 +5146,21 @@ def vpsea_accounts(request):
     from .models import CHED_TIER_CHOICES
 
     settings_obj.refresh_from_db()
+    # The same evidence the registration cards get: this term's unclaimed
+    # imported rows that could be this person, and the earlier terms they turn
+    # up in, which decide nothing but say the office has seen them before.
+    added = list(pending_declarations())
+    for req in added:
+        req.archive_candidates = list(_archive_candidates(req, active_label))
+        req.other_semester_rows = list(
+            _archive_candidates(req).exclude(term_label=active_label)[:5])
+
     return render(request, 'vpsea/accounts.html', {
         'active': 'accounts',
         'pending': pending,
         'decided': decided,
+        'added_scholarships': added,
+        'scholarship_decision': request.GET.get('scholarship', ''),
         'mail': mail_status(settings_obj),
         'tested': request.GET.get('tested'),
         'tested_to': request.GET.get('to', ''),

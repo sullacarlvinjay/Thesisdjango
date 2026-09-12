@@ -265,6 +265,41 @@ def multiple_declarations(profile, declarations):
                   '\n\n'.join(lines))
 
 
+def scholarship_added(profile, declarations):
+    """Tell the SDSO a verified student has added a scholarship to their account.
+
+    A scholarship declared at registration needs no announcement: the
+    registration is itself a thing somebody has to look at before that person
+    can sign in, and the declaration rides in on it. One added from inside an
+    account released terms ago arrives with nothing attached — no new account,
+    no application — so unannounced it sits in a section of the page the
+    officer had no reason to scroll to.
+
+    Named for the event rather than the channel, the way
+    :func:`multiple_declarations` is, so the wording lives in one place.
+    """
+    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+
+    labels = dict(DECLARABLE_SCHOLARSHIP_TYPES)
+    named = ', '.join(labels.get(d['scholarship_type'], d['scholarship_type'])
+                      for d in declarations)
+    student = profile.user.get_full_name() or profile.user.email
+    plural = 'scholarships' if len(declarations) > 1 else 'a scholarship'
+
+    lines = [
+        f'{student} ({profile.student_id}) has added {plural} to their '
+        f'account: {named}.',
+        'They registered before they held it, so it was not part of the '
+        'account you already verified. Each one waits under "Scholarships '
+        'added by verified students" on Account Verification, with its own '
+        'proof document, and each is verified or refused on its own.',
+    ]
+    if getattr(settings, 'SITE_URL', ''):
+        lines.append(f'They are waiting here: {settings.SITE_URL}/vpsea/accounts/')
+
+    return office(f'{student} added {plural}: {named}', '\n\n'.join(lines))
+
+
 def decision(target, subject, status, remarks='', detail='', link=''):
     """Announce a review outcome.
 

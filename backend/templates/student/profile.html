@@ -43,6 +43,10 @@
 {% if saved %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
   ✓ Profile saved. Your applications will now be pre-filled with this information.
+  {% if declared_count %}
+  The {% if declared_count > 1 %}{{ declared_count }} scholarships you added are{% else %}scholarship you added is{% endif %}
+  with the SDSO — they check it against their records and you will get a notification either way.
+  {% endif %}
 </div>
 {% endif %}
 <script>
@@ -479,39 +483,140 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </label>
     </div>
   </div>
+  <!-- Scholarship Data. The registration form's card, asked again: a student
+       who registered before they won something has nowhere else to say so.
+       Field names, element ids and behaviour are register.html's — see
+       _declared_scholarships in api/student_views.py for the reader. -->
+  <div class="card p-6">
+    <p class="declare-eyebrow">Scholarship Data</p>
+    <p class="declare-hint declare-hint--lead">
+      What you hold, as the office recorded it. To correct any of it, contact the SDSO.
+    </p>
+
+    {% if scholarships_held %}
+    <div class="space-y-3 mb-5">
+      {% for s in scholarships_held %}
+      <div class="held-award">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="held-award__name">{{ s.name }}</p>
+            <p class="held-award__sub">
+              {% if s.term %}{{ s.term }}{% endif %}
+              {% if s.award_number %}&nbsp;·&nbsp; Award No. <span class="font-mono">{{ s.award_number }}</span>{% endif %}
+            </p>
+          </div>
+          <span class="badge {% if s.status == 'Approved' %}badge-success{% elif s.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %} shrink-0">{{ s.status }}</span>
+        </div>
+        {% if s.note %}<p class="held-award__note">{{ s.note }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if scholarship_blocked_reason %}
+    <p class="declare-hint">{{ scholarship_blocked_reason }}</p>
+    {% else %}
+    <label class="flex items-center gap-2 cursor-pointer text-sm">
+      <input type="checkbox" id="hasScholarship" name="has_scholarship" class="check-inline"
+             {% if declaration_slots.0.open %}checked{% endif %} />
+      I hold a scholarship the office has not recorded yet
+    </label>
+    <div class="space-y-1.5 mt-3">
+      <label>Which scholarship</label>
+      <select name="scholarship_type" id="scholarshipType" data-type-for="1">
+        <option value="">— Which scholarship? —</option>
+        {% for value, label in scholarship_types %}
+        <option value="{{ value }}" {% if declaration_slots.0.type == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <p class="declare-hint">
+        Tick this only for a scholarship you hold now and the office has not recorded yet.
+        If you hold more than one, name the first here — the cards below have room for the others.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if not scholarship_blocked_reason %}
+  {% for slot in declaration_slots %}
+  <div data-slot="{{ slot.n }}" id="{{ slot.card_id }}" class="card p-6"
+       {% if not slot.open %}hidden{% endif %}>
+    {% if slot.extra %}
+    <input type="hidden" name="has_scholarship{{ slot.suffix }}" value="on"
+           {% if not slot.open %}disabled{% endif %} />
+    {% endif %}
+    <div class="declare-card-head">
+      <p class="declare-eyebrow">Scholarship Data{% if slot.extra %} {{ slot.n }}{% endif %}</p>
+      {% if slot.extra %}
+      <button type="button" class="btn btn-outline declare-drop" data-drop-slot="{{ slot.n }}">Remove</button>
+      {% endif %}
+    </div>
+    <p class="declare-hint declare-hint--lead">
+      The SDSO verifies this against their records. Once approved it is recorded as your award
+      and appears under My Applications.
+    </p>
+    <div class="declare-form">
+      {% if slot.extra %}
+      <div class="space-y-1.5">
+        <label>Which scholarship</label>
+        <select name="scholarship_type{{ slot.suffix }}" id="{{ slot.type_id }}" data-type-for="{{ slot.n }}">
+          <option value="">— Which scholarship? —</option>
+          {% for value, label in scholarship_types %}
+          <option value="{{ value }}" {% if slot.type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="declare-hint">Name each scholarship once. The office verifies them one at a time.</p>
+      </div>
+      {% endif %}
+
+      <div class="space-y-1.5" id="{{ slot.tier_id }}" data-ched-tier {% if slot.type != 'CHED' %}hidden{% endif %}>
+        <label>CHED Award Tier</label>
+        <p class="declare-hint">Your award letter says which. Full Merit covers full tuition; Half Merit is the partial grant.</p>
+        <select name="award_tier{{ slot.suffix }}">
+          <option value="">— Select tier —</option>
+          {% for value, label in ched_tiers %}
+          <option value="{{ value }}" {% if slot.tier == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="space-y-1.5">
+        <label>Award / Scholar Number <span class="label-optional">Optional</span></label>
+        <input name="award_number{{ slot.suffix }}" value="{{ slot.award_number }}" class="font-mono"
+               placeholder="e.g. 2026-DOST-00194" />
+        <p class="declare-hint">If your award letter has one, it lets the office match you to their records automatically.</p>
+      </div>
+
+      <div class="space-y-1.5">
+        <label>Proof Document</label>
+        <input type="file" name="proof_document{{ slot.suffix }}" accept=".pdf,.jpg,.jpeg,.png" />
+        <p class="declare-hint">Your award letter, certificate, or any official document proving the scholarship. PDF, JPG or PNG · maximum {{ max_upload_mb }} MB.</p>
+      </div>
+
+      <div class="space-y-1.5">
+        <label>Additional Notes <span class="label-optional">Optional</span></label>
+        <textarea name="notes{{ slot.suffix }}" rows="3" placeholder="Anything the office should know about this award">{{ slot.notes }}</textarea>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <div id="addScholarshipRow" hidden>
+    <button type="button" class="btn btn-outline w-full" id="addScholarship">
+      + I hold another scholarship
+    </button>
+  </div>
+  {% endif %}
+
   <div class="flex justify-end gap-3">
     <a href="/student/applications/" class="btn btn-outline">Cancel</a>
     <button type="submit" class="btn btn-primary">Save Profile</button>
   </div>
 </form>
 
-{% if scholarships_held %}
-<div class="card p-6 mt-6">
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Data</p>
-  <p class="text-xs mb-4" style="color:#6b7a99;">
-    What you hold, as the office recorded it. To correct any of it, contact the SDSO.
-  </p>
-  <div class="space-y-3">
-    {% for s in scholarships_held %}
-    <div class="p-4 rounded-xl" style="background:#f6f8fc;">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p class="text-sm font-medium" style="color:#1e2a3a;">{{ s.name }}</p>
-          <p class="text-xs mt-0.5" style="color:#6b7a99;">
-            {% if s.term %}{{ s.term }}{% endif %}
-            {% if s.award_number %}&nbsp;·&nbsp; Award No. <span class="font-mono">{{ s.award_number }}</span>{% endif %}
-          </p>
-        </div>
-        <span class="badge {% if s.status == 'Approved' %}badge-success{% elif s.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %} shrink-0">{{ s.status }}</span>
-      </div>
-      {% if s.note %}<p class="text-xs mt-2" style="color:#6b7a99;">{{ s.note }}</p>{% endif %}
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
 {% endblock %}
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
+<script src="{% static 'js/register-scholarship.js' %}?v=2"></script>
 {% endblock %}

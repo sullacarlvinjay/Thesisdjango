@@ -3165,3 +3165,141 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   /* The row's two buttons stack rather than squeezing the last column. */
   .record-actions { flex-direction: column; align-items: stretch; }
 }
+
+
+/* ── Adding a scholarship ──────────────────────────────────────────────────
+   My Profile carries the registration form's Scholarship Data cards, so a
+   student who registered before they won something has somewhere to say so;
+   .declaration-card below is how one looks waiting for a decision in its own
+   section of Account Verification.
+
+   Built from the same furniture as the two pages they came from — .card,
+   .badge, .detail-grid — so only what is genuinely new is here, and written
+   against the tokens, so dark mode is a token swap rather than an override of
+   a colour hard-coded into a template. */
+
+.declare-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+  margin: 0 0 0.35rem;
+}
+
+/* The quiet line under a field, and under a section heading when it carries
+   --lead. Same size as the registration form's, which is the form this one is
+   a continuation of. */
+.declare-hint {
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 0;
+}
+.declare-hint--lead { margin-bottom: 1.25rem; }
+.declare-hint a { color: var(--brand); text-decoration: underline; }
+
+/* One award already on the record, above the question asking for another.
+   Read-only: correcting one is the office's to do. */
+.held-award {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+.held-award__name {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.held-award__sub,
+.held-award__note {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.held-award__note { margin-top: 0.5rem; }
+
+/* Inputs are full-width across these forms; a checkbox is not an input in that
+   sense, and stretching one turns a tick box into a grey bar. */
+.check-inline { width: auto; }
+
+.declare-form { display: grid; gap: 1.25rem; }
+
+/* The card's own heading, with Remove sitting opposite it on every card but
+   the first — which cannot be removed, because a form with no cards on it is
+   a page that does nothing. */
+.declare-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.declare-drop {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* ── One waiting scholarship, on Account Verification ──────────────────────
+   Amber, like the declaration cards the registrations carry on that page: both
+   are a claim somebody is being asked to check against records this system
+   does not hold. */
+
+.declaration-card {
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-lg);
+  background: var(--warn-bg);
+}
+.declaration-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.declaration-card__who { min-width: 0; }
+.declaration-card__name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.declaration-card__sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.declaration-card__note,
+.declaration-card__aside {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.declaration-card a { color: var(--brand); text-decoration: underline; }
+
+.declaration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.declaration-actions__field { flex: 1 1 20rem; min-width: 14rem; }
+.declaration-actions__reject {
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+@media (max-width: 640px) {
+  /* Verify and Reject stack rather than squeezing onto one line beside the
+     message field, where the two were a mis-tap apart. */
+  .declaration-actions { flex-direction: column; align-items: stretch; }
+}

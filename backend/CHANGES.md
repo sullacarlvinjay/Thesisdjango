@@ -7,6 +7,57 @@ several of them removed something that used to work.
 
 ---
 
+## A scholarship won after registration can be added from My Profile
+
+The registration form asks what a student already holds, and that was the only
+time anybody was ever asked. A student who registered in first year holding
+nothing and won DOST in second had nowhere to say so — the question lived on a
+form only a new account could reach, and they already had one. Their portal went
+on showing no scholarship, offered no renewal, and counted them among the
+unserved on every report, while their name sat unclaimed in the office's
+imported list.
+
+**My Profile now carries the registration form's Scholarship Data card.** Not a
+page of its own: My Profile is already where a student answers "what is true
+about me now", and it already listed what they hold. The card is the same card —
+the same `I hold a scholarship…` checkbox, the same three cards behind it, the
+same field names, and `static/js/register-scholarship.js` itself driving them,
+so "+ I hold another scholarship" and **Remove** behave exactly as on
+registration. It is read by the same `_declared_scholarships`, so the two doors
+cannot drift apart in what they accept or in the words they refuse it with.
+
+The read-only list of held awards did not go anywhere; it is now the top of that
+card rather than a card of its own, and it no longer vanishes for a student
+holding nothing — which was exactly the student with something to declare.
+
+One form, one save: a proof document the office would refuse takes the whole
+page back rather than letting half of it through. `declaration_blocked_reason`
+closes the question — with a sentence saying why — when there is no student
+record yet, one already waiting, or an award already held.
+
+**The SDSO decides it on Account Verification**, in a section of its own —
+*Scholarships added by verified students* — below the registrations. Not a queue
+of its own: the office decides scholarships in one place. It cannot ride on an
+account decision the way a registration's declaration does, because that account
+was released terms ago, so each is verified or refused on its own with the same
+two buttons, the same archive matching and the same CHED tier correction.
+Verifying calls `approve_declared_scholarship`, exactly as the registration cards
+do — nothing about the award it writes differs by which door the claim came
+through.
+
+The **Account Verification badge** now counts these as well as waiting
+registrations. They carry no other signal at all — no new account, no
+application — so an officer with an empty registration queue would have read a
+clear sidebar with awards sitting undecided behind it. `notify.scholarship_added`
+emails the office when one arrives, for the same reason.
+
+`ScholarshipLinkRequest.filed_in_portal` (migration `0086`) is only which door a
+row came through, so Account Verification can tell a registration still waiting
+to be released from an account released terms ago. Existing rows are `False`,
+which is correct: all of them came from registration forms.
+
+Guarded by `api/test_add_scholarship.py`.
+
 ## Student record split into detail tables
 
 `StudentProfile` had grown to about forty columns covering six unrelated

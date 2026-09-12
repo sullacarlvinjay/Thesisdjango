@@ -401,8 +401,11 @@ class ScholarshipDataCardTest(TestCase):
     """What the student can see of their own scholarship afterwards.
 
     The Link Scholarship page is gone, so the record of what they hold — and of
-    a declaration still being checked — lives on My Profile, in a read-only
-    Scholarship Data card. A student holding nothing sees no card at all.
+    a declaration still being checked — lives on My Profile, in the Scholarship
+    Data card. The card is the registration form's, asked again: it lists the
+    awards on the record and then asks whether there is one more, which is how
+    a student who won something after they registered says so. See
+    api/test_add_scholarship.py for that half of it.
     """
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
@@ -418,10 +421,13 @@ class ScholarshipDataCardTest(TestCase):
         self.c = Client()
         self.assertTrue(self.c.login(email='noel@bipsu.edu.ph', password='pw'))
 
-    def test_no_card_while_the_student_holds_nothing(self):
+    def test_the_card_asks_rather_than_disappearing_when_they_hold_nothing(self):
+        # It used to render only for a student who held something, which left
+        # the one person with something to declare looking at no card at all.
         r = self.c.get('/student/profile/')
         self.assertEqual(r.context['scholarships_held'], [])
-        self.assertNotContains(r, 'Scholarship Data')
+        self.assertContains(r, 'Scholarship Data')
+        self.assertContains(r, 'I hold a scholarship the office has not recorded yet')
 
     def test_an_award_is_named_on_the_card(self):
         Application.objects.create(

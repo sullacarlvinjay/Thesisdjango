@@ -1830,6 +1830,22 @@ class ScholarshipLinkRequest(TermStamped):
     # as form_data['scholar_type'] when the request is approved, which is what
     # the masterlists read.
     award_tier = models.CharField(max_length=10, choices=CHED_TIER_CHOICES, blank=True)
+    # Which door this declaration came in through, and therefore which queue
+    # decides it. False is the registration form: the SDSO decides those on the
+    # account verification queue, as part of releasing the account. True is a
+    # student who was verified terms ago and has since won something — a second
+    # year taking DOST is the ordinary case — declaring it from inside their own
+    # portal, where there is no account decision to attach it to.
+    #
+    # Stored rather than inferred from the account's verification status. The
+    # two are the same thing today and would have partitioned the queues
+    # correctly, but only by coincidence: an officer re-verifying an account
+    # would have moved every declaration ever made with it onto the other
+    # queue. A row should say which door it came through.
+    filed_in_portal = models.BooleanField(
+        default=False,
+        help_text='Declared from the student portal rather than on the '
+                  'registration form.')
 
     # Review trail
     remarks = models.TextField(blank=True)

@@ -46,18 +46,22 @@ def _scholarship_standing(request):
 
 
 def _pending_accounts(request):
-    """Badge count for the account verification queue, VPSEA users only.
+    """Badge count for the Account Verification page, VPSEA users only.
 
-    Registrations pile up unseen otherwise — nobody can sign in until someone
-    looks at them.
+    Everything waiting on that page, not only the registrations: it also
+    decides the scholarships students add to accounts it released terms ago,
+    and those carry no other signal at all — no new account, no application —
+    so an officer with an empty registration queue would read a clear sidebar
+    and leave awards sitting undecided behind it.
     """
     user = getattr(request, 'user', None)
     if not (user and user.is_authenticated and getattr(user, 'role', '') == 'vpsea'):
         return 0
     from .models import User
+    from .student_views import pending_declarations
     try:
         return User.objects.filter(
             verification_status='pending', role__in=('student', 'nsu_staff'),
-        ).count()
+        ).count() + pending_declarations().count()
     except Exception:
         return 0

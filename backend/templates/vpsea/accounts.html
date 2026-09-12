@@ -19,6 +19,17 @@
 </div>
 {% endif %}
 
+{% if scholarship_decision == 'approved' %}
+<div class="page-alert page-alert-ok">
+  ✓ Scholarship verified. It is recorded as their award for {{ active_label }} and appears under My Applications.
+</div>
+{% endif %}
+{% if scholarship_decision == 'rejected' %}
+<div class="page-alert page-alert-warn">
+  Scholarship turned down. Your reason is what they will read in their portal.
+</div>
+{% endif %}
+
 {% if emailed == '0' %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
   <span class="font-semibold">The decision was saved, but the email did not go out.</span>
@@ -238,6 +249,114 @@
   <p class="text-sm" style="color:#6b7a99;">Nothing waiting. New registrations land here.</p>
   {% endif %}
 </div>
+
+{% comment %}
+  Scholarships a signed-in student added themselves, on an account this office
+  released terms ago. They cannot ride on an account decision the way the cards
+  above do — that decision is long made — so each is verified or refused on its
+  own, with the same two buttons and the same archive matching.
+{% endcomment %}
+{% if added_scholarships %}
+<div class="card p-6 mb-4">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#92400e;">Scholarships added by verified students</p>
+  <p class="text-xs mb-4" style="color:#6b7a99;">
+    A student who registered before they won something adds it from their own portal. These accounts
+    are already verified, so each scholarship is a decision on its own. Verifying one records the
+    Approved award for <strong>{{ active_label }}</strong> — it flows into the archives, reports,
+    ranking and renewals like any other — and claims the imported row you match it to.
+  </p>
+  <div class="space-y-4">
+    {% for req in added_scholarships %}
+    <div class="declaration-card">
+      <form method="post" enctype="multipart/form-data" class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="declaration_id" value="{{ req.id }}" />
+
+        <div class="declaration-card__head">
+          <div class="declaration-card__who">
+            <p class="declaration-card__name">{{ req.student.user.get_full_name|default:req.student.user.email }}</p>
+            <p class="declaration-card__sub">
+              {{ req.student.student_id }}
+              {% if req.student.course %}&nbsp;·&nbsp;{{ req.student.course }}{% endif %}
+              {% if req.student.year_level %}&nbsp;·&nbsp;Year {{ req.student.year_level }}{% endif %}
+            </p>
+          </div>
+          <span class="badge badge-warning">{{ req.get_scholarship_type_display }}</span>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-field"><label>For the term</label><span>{{ req.term_display|default:req.term_label|default:"—" }}</span></div>
+          <div class="detail-field"><label>Award number</label><span class="font-mono">{{ req.award_number|default:"—" }}</span></div>
+          <div class="detail-field"><label>Sent</label><span>{{ req.submitted_at|date:"M j, Y" }}</span></div>
+          <div class="detail-field"><label>Proof</label>
+            <span>
+              {% if req.proof_document %}
+              <a href="{{ req.proof_document.url }}" data-doc="{{ req.get_scholarship_type_display }} — proof">View document</a>
+              {% else %}—{% endif %}
+            </span>
+          </div>
+        </div>
+
+        {% if req.notes %}
+        <p class="declaration-card__note"><strong>Their note:</strong> {{ req.notes }}</p>
+        {% endif %}
+
+        {% if req.scholarship_type == 'CHED' %}
+        <div class="space-y-1.5">
+          <label>CHED Award Tier</label>
+          <p class="declaration-card__aside">
+            The student said <strong>{{ req.get_award_tier_display|default:"nothing" }}</strong>.
+            Correct it here if the proof says otherwise — the masterlists report the two tiers separately.
+          </p>
+          <select name="award_tier_{{ req.pk }}">
+            {% for value, label in ched_tiers %}
+            <option value="{{ value }}" {% if req.award_tier == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        {% if req.archive_candidates %}
+        <div class="space-y-1.5">
+          <label>Merge with an imported row <span class="label-optional">Optional</span></label>
+          <p class="declaration-card__aside">Rows from this term's uploaded {{ req.get_scholarship_type_display }} list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
+          <select name="archive_id_{{ req.pk }}">
+            <option value="">— No imported row —</option>
+            {% for row in req.archive_candidates %}
+            <option value="{{ row.id }}">{{ row.last_name }}, {{ row.first_name }}{% if row.student_id %} · {{ row.student_id }}{% endif %}{% if row.award_number %} · {{ row.award_number }}{% endif %}{% if row.imported_from %} · {{ row.imported_from }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <p class="declaration-card__aside">
+          No row in this term's {{ req.get_scholarship_type_display }} import ({{ active_label }}) matches them —
+          ordinary for a mid-year award, because the agency's list often has not arrived yet.
+          Verifying still records the award; nothing is claimed.
+        </p>
+        {% endif %}
+
+        {% if req.other_semester_rows %}
+        <p class="declaration-card__aside">
+          Same scholar in earlier imports, as evidence only:
+          {% for row in req.other_semester_rows %}{{ row.term_label }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+        {% endif %}
+
+        <div class="declaration-actions">
+          <div class="space-y-1.5 declaration-actions__field">
+            <label>Message to them <span class="label-optional">Required to reject</span></label>
+            <input name="message" placeholder="e.g. That award letter is from another university." />
+          </div>
+          <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
+          <button type="submit" name="action" value="reject" class="btn btn-outline declaration-actions__reject">Reject</button>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>
   <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#3b5bdb;">Recently decided</p>
