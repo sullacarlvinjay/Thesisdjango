@@ -123,11 +123,27 @@ class ChedIsTwoTabsTest(ArchiveTabFixtures, TestCase):
         self.assertIn('Cruz', self.page(type='CHED', tier='Full').content.decode())
 
     def test_an_imported_row_stays_where_the_report_has_always_put_it(self):
-        """An imported CHED row carries no tier, and the masterlist has always
-        printed an unclassified scholar under Full. Splitting the tabs does not
-        move anybody: the row is on Full, exactly as it was in the Full block."""
+        """An imported CHED row carries no tier, and it prints under Full.
+        Splitting the tabs does not move anybody: the row is on Full, exactly
+        as it was in the Full block."""
         self.assertIn('Cruz', self.page(type='CHED', tier='Full').content.decode())
         self.assertNotIn('Cruz', self.page(type='CHED', tier='Half').content.decode())
+
+    def test_an_untiered_award_prints_under_full_like_an_untiered_import(self):
+        """The other half of the same rule, and the half that was wrong.
+
+        An award carries its tier in ``form_data['scholar_type']``, and an award
+        approved before the office was asked for one carries nothing. That was
+        read as Half while a blank on an imported row was read as Full — so one
+        unclassified scholar landed on a different tab according to which table
+        they arrived in, and an officer who recorded an award number on the Full
+        tab was sent back to Full to find the scholar gone. See split_ched.
+        """
+        untiered = self.scholar('Bautista', '2022-00009', '')
+        self.assertEqual(untiered.form_data['scholar_type'], '')
+
+        self.assertIn('Bautista', self.page(type='CHED', tier='Full').content.decode())
+        self.assertNotIn('Bautista', self.page(type='CHED', tier='Half').content.decode())
 
     def test_between_them_the_two_tabs_hold_every_ched_scholar(self):
         """The split is a division, not a filter. Nobody may fall out of both."""
@@ -173,9 +189,9 @@ class ChedIsTwoTabsTest(ArchiveTabFixtures, TestCase):
     # ── adding a scholar from a tab ─────────────────────────────────────────
 
     def test_a_scholar_added_on_the_full_tab_is_stored_as_full(self):
-        """ched_tier() reads a missing tier as Half. Without the tab stamping
-        the tier, the office would add someone on Full and watch them appear on
-        the other tab."""
+        """An untiered row prints under Full anyway, so this would pass without
+        the tier being stored. It is here for the record the office keeps: a row
+        added on the Full tab says Full rather than saying nothing."""
         response = self.c.post('/vpsea/archives/add/', {
             'scholarship_type': 'CHED', 'tier': 'Full',
             'first_name': 'Mia', 'last_name': 'Torres',

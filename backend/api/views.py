@@ -1,25 +1,54 @@
-﻿from rest_framework import generics, status
+from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.authtoken.models import Token
 from django.db.models import Count
+from . import email_verify
 from .models import (
     STUDENT_DETAILS,
-    User, StudentProfile, Scholarship, Application, Notification,
+    StudentProfile, Scholarship, Application, Notification,
     Announcement, AcademicRenewal, ImportedScholar,
-    ActivityLog, SystemSettings,
+    ActivityLog,
 )
 from .serializers import (
     RegisterSerializer, LoginSerializer, StudentProfileSerializer,
     ScholarshipSerializer, ApplicationSerializer, NotificationSerializer,
     AnnouncementSerializer, AcademicRenewalSerializer,
     ImportedScholarSerializer,
-    ActivityLogSerializer, SystemSettingsSerializer, AdminUserSerializer,
 )
 
 
-# â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Who may call what ─────────────────────────────────────────────────────────
+#
+# settings.REST_FRAMEWORK sets IsAuthenticated as the default, which answers
+# "is this a signed-in account" and nothing else. Every /api/vpsea/ endpoint
+# below reads or writes the whole office's records, so on that default a
+# student's own token reached all of them: the applicant list is every
+# applicant's data, and VPSEAApplicationDetailView is a PATCH away from
+# approving your own application.
+#
+# The web portal never had that hole — api.student_views._vpsea_required checks
+# the role on every page. This is the same check, spelled the way DRF expects
+# it, so the two doors into the office agree about who may come in.
+
+OFFICE_ROLES = ('vpsea', 'super')
+
+
+class IsOfficeStaff(BasePermission):
+    """An SDSO account, or a superuser. Nobody else reaches an office endpoint."""
+
+    message = 'This endpoint is for SDSO office accounts.'
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user and user.is_authenticated
+            and (user.is_superuser or getattr(user, 'role', '') in OFFICE_ROLES)
+        )
+
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -28,6 +57,10 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        # Prove the address the same way the web form does. Best-effort, and
+        # after the account is saved: a mail server that is down must not lose
+        # a registration — see api.email_verify.send_confirmation.
+        email_verify.send_confirmation(user, request)
         # No token: the account is not usable until the SDSO verifies it, and
         # handing one out here would walk straight around that.
         return Response({
@@ -54,7 +87,7 @@ class LoginView(APIView):
                     'This account is waiting for SDSO verification.'),
             }, status=status.HTTP_403_FORBIDDEN)
         token, _ = Token.objects.get_or_create(user=user)
-        ActivityLog.objects.create(user=user, action=f"Logged in")
+        ActivityLog.objects.create(user=user, action='Logged in')
         return Response({'token': token.key, 'role': user.role})
 
 
@@ -64,7 +97,7 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# â”€â”€ Student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Student ───────────────────────────────────────────────────────────────────
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = StudentProfileSerializer
@@ -131,7 +164,7 @@ class StudentDashboardView(APIView):
         })
 
 
-# â”€â”€ VPSEA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── VPSEA ─────────────────────────────────────────────────────────────────────
 
 class VPSEAStudentRankingView(APIView):
     """Who the Affirmative Action rules currently pass, and on what.
@@ -143,6 +176,7 @@ class VPSEAStudentRankingView(APIView):
     "The same thing" is literal: this returns the rows _affirmative_ranking_data
     built, in the order it built them, target groups first.
     """
+    permission_classes = [IsOfficeStaff]
 
     def get(self, request):
         # Built from the same _affirmative_ranking_data the page renders, so the
@@ -195,11 +229,13 @@ class VPSEAStudentRankingView(APIView):
 
 
 class VPSEAApplicationListView(generics.ListAPIView):
+    permission_classes = [IsOfficeStaff]
     serializer_class = ApplicationSerializer
     queryset = Application.objects.select_related('student__user', 'scholarship', *STUDENT_DETAILS).all()
 
 
 class VPSEAApplicationDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsOfficeStaff]
     serializer_class = ApplicationSerializer
     queryset = Application.objects.all()
 
@@ -212,6 +248,7 @@ class VPSEAApplicationDetailView(generics.RetrieveUpdateAPIView):
 
 
 class VPSEARenewalListView(generics.ListAPIView):
+    permission_classes = [IsOfficeStaff]
     serializer_class = AcademicRenewalSerializer
 
     def get_queryset(self):
@@ -219,6 +256,7 @@ class VPSEARenewalListView(generics.ListAPIView):
 
 
 class VPSEARenewalDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsOfficeStaff]
     serializer_class = AcademicRenewalSerializer
     queryset = AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).all()
 
@@ -231,6 +269,7 @@ class VPSEARenewalDetailView(generics.RetrieveUpdateAPIView):
 
 
 class VPSEAArchiveListView(generics.ListAPIView):
+    permission_classes = [IsOfficeStaff]
     serializer_class = ImportedScholarSerializer
 
     def get_queryset(self):
@@ -238,6 +277,7 @@ class VPSEAArchiveListView(generics.ListAPIView):
 
 
 class VPSEAArchiveUploadView(APIView):
+    permission_classes = [IsOfficeStaff]
     def post(self, request, type):
         import openpyxl
         file = request.FILES.get('file')
@@ -252,7 +292,11 @@ class VPSEAArchiveUploadView(APIView):
                     scholarship_type=type,
                     course=str(row[1]) if row[1] else '',
                     gwa=float(row[2]) if row[2] else 0.0,
-                    year_level=int(row[3]) if row[3] else 2024,
+                    # The model's own default. A blank year level used to land
+                    # here as 2024 — a calendar year in a column that holds 1
+                    # to 4, which printed as "Year 2024" on every archive table
+                    # and every report the row reached.
+                    year_level=int(row[3]) if row[3] else 0,
                     imported_from=file.name,
                 )
                 created += 1
@@ -261,7 +305,6 @@ class VPSEAArchiveUploadView(APIView):
 
 
 def _approval_trend():
-    from django.db.models.functions import TruncMonth
     from django.utils import timezone
     import datetime
     months = []
@@ -279,9 +322,9 @@ def _approval_trend():
 
 
 class VPSEAAnalyticsView(APIView):
+    permission_classes = [IsOfficeStaff]
     def get(self, request):
-        from django.db.models.functions import TruncMonth
-        # The course and the GWA are columns on the enrolment row now, so these
+            # The course and the GWA are columns on the enrolment row now, so these
         # aggregate across the relation rather than off the profile table.
         course_dist = [
             {'course': row['enrollment__course'], 'scholars': row['scholars']}
@@ -312,6 +355,7 @@ class VPSEAAnalyticsView(APIView):
 
 
 class VPSEAAnnouncementListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsOfficeStaff]
     serializer_class = AnnouncementSerializer
     queryset = Announcement.objects.all().order_by('-created_at')
 
@@ -321,16 +365,39 @@ class VPSEAAnnouncementListCreateView(generics.ListCreateAPIView):
 
 
 class VPSEAReportsView(APIView):
+    """The masterlists this office can actually produce, one per term on file.
+
+    It used to answer with four invented rows — a fixed 'Scholarship Master List
+    A.Y. 2024-2025' at '2.4 MB', a 'GWA Distribution Report' that no code here
+    has ever built — with plausible names and sizes attached to nothing. A
+    caller could not tell them from real ones, which is the whole problem with
+    a stub that answers 200.
+
+    What the office really has is one masterlist per term, built on demand by
+    api.masterlist_report and downloaded from /vpsea/reports/. That is what
+    this lists, with the term it covers and the URL that produces it, and no
+    size: the document does not exist until somebody asks for it.
+    """
+    permission_classes = [IsOfficeStaff]
+
     def get(self, request):
+        from .models import SystemSettings
+        from . import masterlist_report
+
         return Response([
-            {'name': 'Scholarship Master List A.Y. 2024-2025', 'desc': 'Consolidated list of all active scholars.', 'size': '2.4 MB'},
-            {'name': 'Academic Scholarship Approval Report Q2', 'desc': 'Approval, rejection and renewal statistics.', 'size': '812 KB'},
-            {'name': 'GWA Distribution Report', 'desc': 'Cohort-wise GWA breakdown.', 'size': '640 KB'},
-            {'name': 'TDP Recipients Report', 'desc': 'List of TDP recipients with subsidy amounts.', 'size': '1.1 MB'},
+            {
+                'term': label,
+                'name': 'BiPSU List of Scholars — {sy} {semester}'.format(
+                    **SystemSettings.parse_label(label)),
+                'desc': 'Every approved scholar for the term, by programme.',
+                'url': f'/vpsea/reports/download/?sy={label}',
+            }
+            for label in masterlist_report.known_terms()
         ])
 
 
 class VPSEADashboardView(APIView):
+    permission_classes = [IsOfficeStaff]
     def get(self, request):
         apps = Application.objects.all()
         return Response({

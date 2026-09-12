@@ -9,6 +9,7 @@ The block is assembled by the template out of office-entered programme names
 and per-filter conditionals, so it is generated code, and generated code is
 worth parsing before a browser has to.
 """
+import json
 import os
 import re
 import shutil
@@ -106,3 +107,89 @@ class AnalyticsScriptParsesTest(TestCase):
         html = self.c.get('/vpsea/analytics/').content.decode()
         self.assertIn('programChart', html)
         self.assertParses()
+
+
+@unittest.skipIf(NODE is None, 'node is not installed')
+class LegendLabelsFitTest(AnalyticsScriptParsesTest):
+    """Legend labels are shortened before Chart.js draws them.
+
+    A right-hand legend is painted inside the canvas, so a label wider than the
+    space beside the pie is clipped where the canvas ends — the office reported
+    "Bachelor of Science in Business Administ" with the rest of the word gone.
+
+    Cutting on width alone does not fix it: every BiPSU degree opens with
+    "Bachelor of Science in", so a dozen courses cut to a dozen identical
+    labels. The prefix is dropped first, and these run the page's own function
+    in node to prove the labels it produces still tell the courses apart.
+    """
+
+    def run_legend(self, labels):
+        """`legendText` from the rendered page, applied to each label."""
+        html = self.c.get('/vpsea/analytics/').content.decode()
+        block = next(b for b in SCRIPTS.findall(html) if 'legendText' in b)
+        start = block.index('const DEGREE_PREFIX')
+        end = block.index('function shortLegendLabels')
+        source = (block[start:end]
+                  + os.linesep
+                  + 'console.log(JSON.stringify('
+                  + json.dumps(labels) + '.map(legendText)));')
+        handle, path = tempfile.mkstemp(suffix='.js')
+        try:
+            with os.fdopen(handle, 'w', encoding='utf-8') as fh:
+                fh.write(source)
+            # Decoded as UTF-8 rather than the console codepage: the one
+            # character this asserts on is an ellipsis, and cp1252 turns it
+            # into something that is not the character the page writes.
+            proc = subprocess.run([NODE, path], capture_output=True, text=True,
+                                  encoding='utf-8', timeout=60)
+        finally:
+            os.unlink(path)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    # The labels from the office's own screenshot of the clipped legend.
+    REPORTED = [
+        'Bachelor of Science in Business Administration',
+        'Bachelor of Science in Hospitality Management',
+        'Bachelor of Science in Industrial Technology',
+        'Bachelor of Secondary Education',
+        'Bachelor of Science in Criminology',
+        'Bachelor of Science in Information Systems',
+        'Bachelor of Science in Tourism Management',
+        'Bachelor of Science in Computer Science',
+        'Bachelor of Arts in Economics',
+        'Bachelor of Arts in Communication',
+        'Bachelor of Science in Civil Engineering',
+        'Bachelor of Science in Nursing',
+    ]
+
+    def test_every_reported_label_fits_without_being_cut(self):
+        """None of the twelve needs an ellipsis once the degree prefix is
+        gone — which is the whole of the reported bug."""
+        for label, short in zip(self.REPORTED, self.run_legend(self.REPORTED)):
+            with self.subTest(label=label):
+                self.assertNotIn('…', short)
+                self.assertLessEqual(len(short), 26)
+
+    def test_the_labels_still_tell_the_courses_apart(self):
+        """The failure mode of a plain width cut: twelve rows reading
+        'Bachelor of Science in Busi…', 'Bachelor of Science in Hosp…'."""
+        shortened = self.run_legend(self.REPORTED)
+        self.assertEqual(len(set(shortened)), len(self.REPORTED))
+        for short in shortened:
+            with self.subTest(short=short):
+                self.assertNotIn('Bachelor', short)
+
+    def test_a_course_stored_as_an_acronym_is_left_alone(self):
+        """Profiles hold 'BSCS'; only the imported sheets spell degrees out.
+        Shortening must not touch what is already short."""
+        acronyms = ['BSCS', 'BSEd - Mathematics', 'BSIT - Culinary Technology']
+        self.assertEqual(self.run_legend(acronyms), acronyms)
+
+    def test_a_name_too_long_even_when_shortened_is_cut_with_an_ellipsis(self):
+        """The cap still exists — it is just no longer what does the work."""
+        long_name = 'Bachelor of Science in Hotel and Restaurant Management Technology'
+        short = self.run_legend([long_name])[0]
+        self.assertTrue(short.endswith('…'))
+        self.assertEqual(len(short), 26)
+        self.assertTrue(short.startswith('Hotel'))

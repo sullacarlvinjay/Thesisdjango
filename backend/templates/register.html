@@ -6,26 +6,13 @@
   <title>Register — BiPSU SRMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=44" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=48" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     }
   </script>
-  <style>
-    /* Page-specific only — fields, buttons and cards come from srms.css. */
-    .type-card {
-      border: 2px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1rem;
-      cursor: pointer;
-      background: var(--surface);
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .type-card.selected-student { border-color: var(--brand); background: var(--brand-soft); }
-    .type-card.selected-staff   { border-color: #2f9e44; background: var(--ok-bg); }
-  </style>
 </head>
 <body data-portal="student" class="auth-page auth-page--tall">
   <div class="auth-shell auth-shell--wide">

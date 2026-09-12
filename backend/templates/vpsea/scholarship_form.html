@@ -104,6 +104,15 @@
           the archive report can sort and total it. Choice list is the one to pick
           when there is a fixed set of answers; type them separated by commas.
         </p>
+        <p class="col-picker__hint">
+          <strong>An upload fills it too.</strong> Give the column the same name
+          as the heading in the agency's spreadsheet and every row is filled on
+          import, so a column the file already carries never has to be typed.
+          The heading has to match the name — capitals and spacing do not matter,
+          but <em>Batch</em> and <em>Batch No.</em> are two different columns. A
+          cell holding the wrong kind of thing is left empty and counted for you
+          rather than stored.
+        </p>
         <div id="customColumns" data-custom-types="{% for key, label in custom_types %}{{ key }}:{{ label }}{% if not forloop.last %}|{% endif %}{% endfor %}">
           {% for col in custom_columns %}
           <div class="col-picker__row" data-custom-column>

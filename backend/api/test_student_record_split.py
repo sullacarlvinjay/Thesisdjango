@@ -143,7 +143,7 @@ class EnrollmentDataTest(StudentFactoryMixin, TestCase):
         self.assertEqual(profile.exam_score, 82.5)
 
     def test_the_office_form_offers_the_enrollment_fields_it_saves(self):
-        officer = User.objects.create_user(
+        User.objects.create_user(
             username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
             first_name='V', last_name='Officer', role='vpsea')
         c = Client()
@@ -358,3 +358,58 @@ class TheRestApiKeepsItsShapeTest(StudentFactoryMixin, TestCase):
         body = c.get('/api/vpsea/analytics/').json()
         self.assertEqual(body['course_distribution'],
                          [{'course': 'BSCS', 'scholars': 1}])
+
+
+class TheCancelButtonStaysOnThisSiteTest(TestCase):
+    """``?next=`` is rendered straight into the Cancel button's href.
+
+    The office student form takes its Cancel destination off the query string so
+    a link from the archives comes back to the archives. Unvalidated, that is a
+    destination an attacker picks: a crafted link handed to a signed-in officer
+    puts an off-site button inside the office's own page, wearing the office's
+    own styling. Nothing in the templates or the tests ever passed the
+    parameter, which is why it went unnoticed.
+
+    Checked the way Django checks its own login redirect — same host, and not a
+    scheme that could leave the site.
+    """
+
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            first_name='V', last_name='Officer', role='vpsea')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
+
+    def cancel_url(self, **params):
+        return self.c.get('/vpsea/students/add/', params).context['cancel_url']
+
+    def test_a_path_on_this_site_is_kept(self):
+        self.assertEqual(
+            self.cancel_url(next='/vpsea/archives/?type=CHED'),
+            '/vpsea/archives/?type=CHED')
+
+    def test_no_parameter_falls_back_to_the_student_list(self):
+        self.assertEqual(self.cancel_url(), '/vpsea/students/')
+
+    def test_another_site_is_refused(self):
+        for elsewhere in ('https://evil.example/phish',
+                          '//evil.example/phish',
+                          'http://evil.example',
+                          'javascript:alert(1)'):
+            with self.subTest(next=elsewhere):
+                self.assertEqual(self.cancel_url(next=elsewhere),
+                                 '/vpsea/students/',
+                                 f'{elsewhere} reached the Cancel button')
+
+    def test_the_edit_form_is_held_to_the_same_rule(self):
+        user = User.objects.create_user(
+            username='s@bipsu.edu.ph', email='s@bipsu.edu.ph', password='pw',
+            first_name='Ana', last_name='Cruz', role='student')
+        profile = StudentProfile.objects.create(
+            user=user, student_id='2026-0001', course='BSCS')
+        page = self.c.get(f'/vpsea/students/{profile.pk}/edit/',
+                          {'next': 'https://evil.example/phish'})
+        self.assertEqual(page.context['cancel_url'], '/vpsea/students/')

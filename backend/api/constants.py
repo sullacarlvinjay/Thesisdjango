@@ -73,7 +73,6 @@ REVIEW_STATUSES = [
 # Everything not listed here — Pending Validation, Pending — is a
 # submission still waiting on the office.
 DECIDED_APPLICATION_STATUSES = ('Approved', 'Rejected', 'Needs Revision')
-DECIDED_REVIEW_STATUSES = ('Approved', 'Rejected')
 
 # The other side of the same line: what the APPLICANT may still change.
 #
@@ -83,7 +82,6 @@ DECIDED_REVIEW_STATUSES = ('Approved', 'Rejected')
 # are final, and a student can no more edit those than a reviewer can overwrite
 # them.
 EDITABLE_APPLICATION_STATUSES = ('Pending Validation', 'Needs Revision')
-EDITABLE_REVIEW_STATUSES = ('Pending',)
 
 # A recommendation says whether the rules pass, and nothing else. There is no
 # 'Endorsed' any more: the award itself is recorded on the Archives page like

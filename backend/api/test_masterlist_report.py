@@ -224,7 +224,7 @@ class MasterlistPreviewTest(MasterlistFixtures, TestCase):
         r = self.c.get('/vpsea/reports/')
         self.assertEqual(r.status_code, 200)
         headings = [s[0] for s in r.context['sections']]
-        expected = [h for _slot, h, _k, _l, _hs in
+        expected = [h for _slot, h, _k, _l in
                     __import__('api.masterlist_report', fromlist=['x']).PROGRAM_SLOTS]
         self.assertEqual(headings, expected)
 
@@ -531,7 +531,7 @@ class MasterlistColumnShapeTest(MasterlistFixtures, TestCase):
     def test_headers_are_read_from_the_template_not_hardcoded(self):
         headings = masterlist_report.slot_headers()
         # Every filled slot has an entry, and the shapes genuinely differ.
-        for slot, _h, _k, _l, _hs in masterlist_report.PROGRAM_SLOTS:
+        for slot, _h, _k, _l in masterlist_report.PROGRAM_SLOTS:
             self.assertIn(slot, headings, slot)
         self.assertGreater(len({len(v) for v in headings.values()}), 1,
                            'all slots came out the same width — headers look hardcoded')
@@ -626,7 +626,7 @@ class MasterlistCoversEveryProgrammeTest(TestCase):
         from api.constants import SCHOLARSHIP_TYPE_CHOICES
         from api.masterlist_report import PROGRAM_SLOTS
 
-        keys = {key for _, _, key, _, _ in PROGRAM_SLOTS}
+        keys = {key for _, _, key, _ in PROGRAM_SLOTS}
         # CHED is split across two tables, Full and Half, which the office
         # reports separately; TES and FHE are not declarable so they are not in
         # the choices list, and are checked on their own below.
@@ -640,7 +640,7 @@ class MasterlistCoversEveryProgrammeTest(TestCase):
     def test_the_programmes_applied_for_rather_than_declared_have_slots_too(self):
         from api.masterlist_report import PROGRAM_SLOTS
 
-        keys = {key for _, _, key, _, _ in PROGRAM_SLOTS}
+        keys = {key for _, _, key, _ in PROGRAM_SLOTS}
         for key in ('TES', 'FHE'):
             self.assertIn(key, keys)
 
@@ -649,7 +649,7 @@ class MasterlistCoversEveryProgrammeTest(TestCase):
         would silently lose half its scholars."""
         from api.masterlist_report import PROGRAM_SLOTS
 
-        slots = [slot for slot, _, _, _, _ in PROGRAM_SLOTS]
+        slots = [slot for slot, _, _, _ in PROGRAM_SLOTS]
         self.assertEqual(len(slots), len(set(slots)))
         self.assertNotIn('program11', slots)
 

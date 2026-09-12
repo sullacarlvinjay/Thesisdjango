@@ -2625,3 +2625,215 @@ Migration `0084`. See `api/test_affirmative_target_groups.py`.
   column; it would have answered "who are the top five?" differently from the
   page the moment the page started sorting on groups. It goes through the same
   function now.
+
+## The office REST endpoints check the role
+
+`settings.REST_FRAMEWORK` sets `IsAuthenticated` as the default permission,
+which asks one question: is there an account behind this request. Every
+`/api/vpsea/` view inherited that and narrowed nothing, so a **student's own
+token reached all eleven** — the applicant list is every applicant's data, and
+`/api/vpsea/applications/<pk>/` was a `PATCH` away from approving your own
+application. The web portal never had the hole; `student_views._vpsea_required`
+checks the role on every page.
+
+`views.IsOfficeStaff` is that same check in DRF's vocabulary, on all eleven.
+A Django superuser passes it whatever `role` column it carries, because a
+superuser administers this site and may never have been given one.
+
+Do not remove `permission_classes` from these views to "let the frontend read
+them". See `api/test_api_permissions.py`, which checks both halves — the
+refusals, and that an officer still gets through.
+
+## The API registration door proves its address too
+
+`User.email_verified` defaults to `True` because an account the office creates
+itself is not asked to prove an address the office already had. `RegisterSerializer`
+inherited that default and sent no confirmation link, so an account made through
+`/api/auth/register/` reached the SDSO's queue reading **address confirmed**
+beside an address nobody had ever written to — the one fact that column exists
+to keep honest.
+
+It sets `email_verified = False` now and `RegisterView` sends the link, exactly
+as the web form does. Still no token, and still `pending`: confirming an address
+is not the SDSO's decision. See `api/test_email_verification.py`.
+
+### Fixed on the way past
+
+* `_unawarded_rows` used `date.min` with no `date` imported — a `NameError`
+  waiting for the first application with no `submitted_at`.
+* `vpsea_report_download` carried **391 lines of an older Word builder after its
+  `return`**. None of it could run; every name in it was undefined at that point.
+* The Excel archive upload endpoint gave a blank year-level cell a value of
+  `2024`, in a column that holds 1 to 4.
+* `VPSEAReportsView` answered `200` with four invented report filenames and
+  sizes — "Scholarship Master List A.Y. 2024-2025", "2.4 MB" — for documents no
+  code here has ever produced. It lists the masterlists the office can actually
+  build now, one per term on file.
+* `vpsea_student_add` and `vpsea_student_edit` defaulted the term to
+  `'2025-2026'` / `'1st Semester'` written into the view. They read the active
+  term through `_active_term()` now — the same fault the student apply page had
+  already fixed.
+* `vpsea_student_edit`'s context wrote `v_elementary`, `v_highschool`,
+  `v_last_school` and `v_father_name` twice each in one dict literal. Python
+  keeps the last, so the first four were dead.
+* The `?next=` on the office student form went straight into an `href`. A
+  crafted link handed to a signed-in officer put an off-site destination on a
+  button inside the office's own page. `_safe_next` validates it against the
+  request host.
+* `vpsea_archive_import` pasted the raw exception into a query string, so a
+  message containing `&` or a newline reached the officer truncated or not at
+  all. Percent-encoded.
+* `nsu_staff_apply` guarded its whole validation block with `if True:` under a
+  comment about a draft this page never had; `nsu_staff_renewal` guarded its
+  save with `if not errors:` over a list nothing appended to, leaving the render
+  below it unreachable. Both flattened.
+* `api/views.py` and `api/student_views.py` both carried a UTF-8 BOM, and
+  `views.py` had been round-tripped through cp1252 — 212 rule characters read as
+  `â”€`. In `student_views.py` the damage was in *output*: `2Ã—2 ID Photo` on
+  three forms and `VICTOR C. CAÃ‘EZO, JR.` in the footer of the Excel report the
+  office files.
+* `split_ched` and all six gender splits in the Excel report used `x not in list`,
+  a scan per row. One pass against a set of primary keys instead — the pattern
+  is gone from the codebase.
+* `vpsea_scholarship_toggle` read the row back with `.get()` to negate it, so a
+  programme deleted in another tab answered with a 500.
+* `vpsea_archive_add` and `nsu_staff_apply` still wrote `or '2000-01-01'` for a
+  missing birth date. `ApplicantInformation.date_of_birth` has been nullable
+  since the record split, and that fallback is the one the model's own docstring
+  names as the thing it replaced.
+
+### Removed as dead
+
+Nothing here did anything. `templates/vpsea/archives_backup.html` (762 lines, no
+view rendered it); `static/js/select-by-group.js` (no template loaded it — its
+only consumer was the TES form, gone); Django's empty `api/tests.py` stub;
+`SDSO_TYPES`, `TARGET_GROUPS`, `DECIDED_REVIEW_STATUSES` and
+`EDITABLE_REVIEW_STATUSES`; a fifth column in `PROGRAM_SLOTS` nothing unpacked;
+a duplicated `@login_required` and a `u.save()` that rewrote every `User` column
+unchanged; 33 unused imports and 7 unused locals; and 68 lines of `srms.css`
+matching no class in any template or script — **every selector in that file now
+matches something.**
+
+The two `<style>` blocks in `register.html` and `registration_received.html`
+moved into `srms.css`, and the hand-written cache-buster — which had drifted to
+`?v=44` in five templates while `base.html` was on `?v=46` — is `?v=47`
+everywhere.
+
+## An unclassified CHED scholar is a Full one
+
+CHED is the one programme reported in two blocks, and splitting the archive into
+a tab per tier turned a question nobody had needed to answer into one that shows
+on screen: **which block does a scholar carry no tier belong in?**
+
+The two halves of the system had answered it differently. `ImportedScholar` read
+a blank `award_tier` as **Full**; `split_ched` read a blank `ched_tier()` as
+**Half**. So one unclassified scholar landed on a different tab according to
+which table they had arrived in — and an officer who recorded an award number on
+the Full tab was redirected back to Full to find the scholar gone.
+
+**Unclassified is Full**, on both sides. Only a row that reads as 'half' is half.
+`split_ched` was the side that moved.
+
+The reason it used to be the other way is real and no longer applies: this code
+had always put anything not named 'full' in half, which was fine while CHED was
+one page with two stacked bands and nobody could add to a particular one. A tab
+per tier is a place the office *adds* scholars from, and a row added on the Full
+tab has to be on the Full tab.
+
+**This changes the filed masterlist.** An unclassified CHED award now prints in
+the CHED FULL MERIT block of the Word document rather than CHED HALF MERIT — the
+same rule the archive tabs and the Excel report follow, which is the point:
+three reports of one programme cannot disagree about where a scholar is.
+
+Two tests moved with it. `test_ched_still_reports_in_two_tier_blocks` read both
+bands off one page and compared their heading rows; it is
+`test_both_ched_tiers_report_the_one_programme_the_same_way` now and asserts the
+same thing across the two tabs. And `test_archive_tabs.py` gained
+`test_an_untiered_award_prints_under_full_like_an_untiered_import` — the award
+side of the rule the imported side already had a test for, and the side that was
+wrong.
+
+## A BiPSU employee is not a student of this system
+
+Approving a **BiPSU Staff** application on the Affirmative/Staff queue used to
+build a Django account with `role='student'`, a `StudentProfile` numbered
+`AFF-<id>` where the employee had no student number, and an `Application`
+nothing reads.
+
+A Staff scholar's record *is* the `AffirmativeStaffApplication` — the Staff
+archive tab, the masterlist's BiPSU STAFF block and the reports all read it
+directly. The student record was surplus, and it put a BiPSU employee on **My
+Students**, on the **No Scholarship** archive tab, and on the **TES
+recommendation the SDSO sends onward to UniFAST**, which is where it was
+spotted.
+
+**Affirmative Action still builds one, and should.** That programme's scholars
+are students: the four target groups are read off a student's own record and
+`AffirmativeRecommendation` hangs off `StudentProfile`. The two programmes share
+one branch and only Staff is excluded from it — `api/test_staff_are_not_students.py`
+asserts both halves side by side so neither can be changed without the other
+being considered.
+
+The TES list had a second fault of its own: it ranked **every** `StudentProfile`
+with no filter at all, so a registrant the office had rejected, or had not
+decided on yet, was on a list that leaves the building. It covers verified
+accounts only now — the same rule the No Scholarship tab and the Students screen
+already applied.
+
+### Clearing up what the old branch already made
+
+    python manage.py prune_staff_student_profiles            # show, change nothing
+    python manage.py prune_staff_student_profiles --delete    # act
+
+Deployments that ran the old code still carry those records, and Render's free
+plan has no shell — so this is written to be safe run against a production
+database from a laptop, the way `check_email` is. Nothing is written without
+`--delete`.
+
+It removes only a profile whose address owns a Staff application the employee
+filed **for themselves** (`is_nsu_staff`) *and* which has never been used as a
+student. A **dependent's** claim is reported and never touched: a dependent is a
+different person from the employee and may be a genuine BiPSU student.
+
+Deliberately **not** the rule: "the student number starts `AFF-`". Approving an
+Affirmative application still mints one, and those scholars are real — an
+earlier draft pruned on the prefix alone and would have deleted them. There is a
+test named for exactly that.
+
+## An uploaded sheet fills the columns the office added
+
+A custom column could only ever be **typed** — one scholar at a time, in a box
+on the archive page. For a programme with a portal that is merely tedious. For
+the ones without — DOST, CHED, GSIS, CoScho, TDP, most of the catalogue — it was
+worse: those arrive *entirely* as the agency's spreadsheet, so a column the
+funder's own file already carried had to be retyped row by row, and the next
+import replaced the term's rows and lost every cell of it again.
+
+`_scholars_from_sheet` fills them now. **Matched on the heading, not the
+position** — a funder lays its file out as it likes, and the name is the only
+thing the two ends share. The slug compared is the one `custom_key()` already
+derives, so `Batch`, `BATCH` and `  batch  ` are one column; `Batch No.` is a
+different one and stays unmatched rather than being guessed at.
+
+Two things the matching has to refuse, both with a test named for them:
+
+* **A position the import contract already claims is never read as a custom
+  column.** A sheet whose `Sex` column happens to sit where a matching heading
+  would otherwise be must not have that value read into two fields.
+* **A cell of the wrong kind is refused, not stored.** `clean_value` is the same
+  rule a typed value goes through, so a column holds one kind of thing however
+  it was filled. The count comes back as `columns_bad=` on the redirect —
+  a column half filled by an import, with nothing saying so, is the failure this
+  feature could most easily have become.
+
+**Excel dates needed translating first.** openpyxl returns a real `datetime` for
+a date cell and `clean_value` reads text, so untranslated a Date column refused
+every *correctly* formatted date in the file and kept only the ones somebody had
+typed as a string — backwards, and silent. See `_cell_for_custom_column`.
+
+A partner's import fills **its own** added columns, through
+`_partner_override`, not the office's — a partner laying the table out its own
+way named those columns and it is those its file should fill.
+
+`_scholars_from_sheet` returns `(rows, refused)` now rather than a list. Both
+callers unpack it. See `api/test_import_fills_custom_columns.py`.

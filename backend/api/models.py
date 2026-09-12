@@ -1104,15 +1104,6 @@ class Scholarship(models.Model):
     requirements = models.JSONField(default=list)
     is_active = models.BooleanField(default=True)
 
-    # ── The archive table this programme is listed in.
-    #
-    # Programmes are not reported alike — GSIS carries no award number, Sports
-    # has neither barangay nor congressional district — and the archive page
-    # used to answer that with one hand-written table per programme. The office
-    # chooses the columns instead: `table_columns` are keys from
-    # api/scholar_columns.COLUMNS, and `extra_columns` are ones the office named
-    # itself, as [{'key', 'label'}], whose values are typed per scholar. Empty
-    # means the default set — see scholar_columns.resolve.
     # ── Whose seal this programme wears.
     #
     # Blank means "work it out from the type", which is right for every
@@ -1173,6 +1164,15 @@ class Scholarship(models.Model):
         null=True, blank=True,
         help_text='How many days renewals stay open, counting the first.')
 
+    # ── The archive table this programme is listed in.
+    #
+    # Programmes are not reported alike — GSIS carries no award number, Sports
+    # has neither barangay nor congressional district — and the archive page
+    # used to answer that with one hand-written table per programme. The office
+    # chooses the columns instead: `table_columns` are keys from
+    # api/scholar_columns.COLUMNS, and `extra_columns` are ones the office named
+    # itself, as [{'key', 'label'}], whose values are typed per scholar. Empty
+    # means the default set — see scholar_columns.resolve.
     table_columns = models.JSONField(
         default=list, blank=True,
         help_text='Column keys from api/scholar_columns.COLUMNS. Empty means the default set.')
@@ -1437,8 +1437,8 @@ class ImportedScholar(PhilippineAddress):
     imported_from = models.CharField(max_length=100, blank=True)
     # Which CHED block this row belongs to, for the one programme the office
     # reports in two. Blank on every other programme, and blank on a CHED row
-    # from a spreadsheet that did not say — split_ched's caller reads a blank
-    # as Full, which is where an unclassified imported row has always printed.
+    # from a spreadsheet that did not say — a blank is read as Full, the same
+    # rule split_ched applies to an award, so the two agree.
     award_tier = models.CharField(max_length=10, choices=CHED_TIER_CHOICES, blank=True)
     # Values for the custom columns a programme has added — an Application keeps
     # its equivalents in form_data. Imported rows need their own because for
@@ -2264,8 +2264,9 @@ def ched_tier(app):
     created before the field existed or imported under a tier-specific name;
     then nothing, for rows no one has ever classified.
     """
-    # Read defensively: an imported row carries neither field, and an unclassified
-    # record is exactly what the ''-means-Half fallback below is for.
+    # Read defensively: an imported row carries neither field. '' is a real
+    # answer here — "nobody has classified this one" — and split_ched decides
+    # which block that belongs in.
     declared = ((getattr(app, 'form_data', None) or {}).get('scholar_type') or '').lower()
     name = (app.scholarship.name or '').lower() if getattr(app, 'scholarship_id', None) else ''
     for text in (declared, name):
@@ -2279,11 +2280,24 @@ def ched_tier(app):
 def split_ched(apps):
     """Split approved CHED applications into the (full, half) report blocks.
 
-    Every masterlist prints CHED as two tables, so an unclassified row still has
-    to land in one of them. It goes to half — where this code has always put
-    anything not named 'full' — rather than silently disappearing from the
-    report.
+    CHED is reported in two tables everywhere — the masterlist, the Excel
+    report, and one archive tab per tier — so an unclassified row still has to
+    land in one of them rather than silently disappearing.
+
+    **It lands in full.** Only a row that reads as 'half' is half; every other
+    answer from :func:`ched_tier`, the blank included, is full. That is the rule
+    ``ImportedScholar.award_tier`` is already read by, and the two have to
+    agree — an award and an imported row describing the same unclassified
+    scholar cannot print in different blocks according to which table they
+    arrived in, which is what sent a scholar the office had just added on the
+    Full tab to the other one.
+
+    It used to be the reverse, on the grounds that this code had always put
+    anything not named 'full' in half. That was true while CHED was one page
+    with two bands and nobody could add to a particular one; a tab per tier is
+    a place the office adds scholars, and an untiered row has to be on the tab
+    it was added from.
     """
-    apps = list(apps)
-    full = [a for a in apps if ched_tier(a) == 'Full']
-    return full, [a for a in apps if a not in full]
+    tiers = [(a, ched_tier(a)) for a in apps]
+    return ([a for a, tier in tiers if tier != 'Half'],
+            [a for a, tier in tiers if tier == 'Half'])

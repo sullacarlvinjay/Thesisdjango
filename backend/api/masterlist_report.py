@@ -27,25 +27,25 @@ TEMPLATE_PATH = os.path.join(
 # there would silently drop its male scholars.
 # (slot, heading, source key, layout, header style)
 PROGRAM_SLOTS = [
-    ('program1',  'ACADEMIC',        'Academic',    'gendered', 'academic'),
-    ('program2',  'BiPSU STAFF',     'Staff',       'students', 'staff'),
-    ('program3',  'AFFIRMATIVE',     'Affirmative', 'gendered', 'award'),
-    ('program4',  'CHED FULL MERIT', 'CHED_FULL',   'gendered', 'award'),
-    ('program5',  'CHED HALF MERIT', 'CHED_HALF',   'gendered', 'award'),
-    ('program6',  'DOST',            'DOST',        'gendered', 'award'),
-    ('program7',  'TDP',             'TDP',         'gendered', 'award'),
-    ('program8',  'TES',             'TES',         'gendered', 'award'),
-    ('program9',  'GSIS',            'GSIS',        'gendered', 'award'),
-    ('program10', 'CoScho',          'CoScho',      'gendered', 'award'),
-    ('program12', 'SPORTS',          'Sports',      'gendered', 'award'),
+    ('program1',  'ACADEMIC',        'Academic',    'gendered'),
+    ('program2',  'BiPSU STAFF',     'Staff',       'students'),
+    ('program3',  'AFFIRMATIVE',     'Affirmative', 'gendered'),
+    ('program4',  'CHED FULL MERIT', 'CHED_FULL',   'gendered'),
+    ('program5',  'CHED HALF MERIT', 'CHED_HALF',   'gendered'),
+    ('program6',  'DOST',            'DOST',        'gendered'),
+    ('program7',  'TDP',             'TDP',         'gendered'),
+    ('program8',  'TES',             'TES',         'gendered'),
+    ('program9',  'GSIS',            'GSIS',        'gendered'),
+    ('program10', 'CoScho',          'CoScho',      'gendered'),
+    ('program12', 'SPORTS',          'Sports',      'gendered'),
     # The three programmes the catalogue gained from BiPSU's own chart. They
     # were listed as scholarships and archivable, but the masterlist still had
     # no table for them, so a scholar under any of them was on file and absent
     # from the document the office files. None is reviewed in this portal —
     # they fill from the office's Excel import, which apps() already includes.
-    ('program13', 'SUC-TDP',         'SUC-TDP',     'gendered', 'award'),
-    ('program14', 'DOST-JLSS',       'JLSS',        'gendered', 'award'),
-    ('program15', 'FHE',             'FHE',         'gendered', 'award'),
+    ('program13', 'SUC-TDP',         'SUC-TDP',     'gendered'),
+    ('program14', 'DOST-JLSS',       'JLSS',        'gendered'),
+    ('program15', 'FHE',             'FHE',         'gendered'),
 ]
 ALL_SLOTS = [f'program{i}' for i in range(1, 17)]
 
@@ -401,7 +401,7 @@ def build_context(sources=None, term_label=None):
                for slot in ALL_SLOTS}
     summary = []
 
-    for slot, heading, key, layout, header_style in PROGRAM_SLOTS:
+    for slot, heading, key, layout in PROGRAM_SLOTS:
         records = sources.get(key, [])
         # A slot now holds a mix of shapes — an imported row can sit beside a
         # portal application in the same table — so the builder is chosen per

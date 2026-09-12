@@ -111,13 +111,6 @@ class RolloverOnRemoteStorageTest(TestCase):
                    for row in self.page('25-2').context['course_dist']}
         self.assertEqual(courses, {'BSCE': 2, 'BSIT': 1})
 
-    def test_the_school_tally_is_built_from_that_same_sheet(self):
-        self.rollover('CHED', '25-2', [['Cruz', 'BSCE'], ['Lim', 'BSCE']],
-                      ['Name', 'Course'])
-        schools = {row['school']: row['scholars']
-                   for row in self.page('25-2').context['school_dist']}
-        self.assertEqual(sum(schools.values()), 2)
-
     def test_gwa_bands_come_off_a_sheet_with_no_local_path(self):
         self.rollover('Academic', '25-2',
                       [['Cruz', 1.1], ['Lim', 1.4], ['Reyes', 1.45]],

@@ -62,6 +62,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         # The same gate as the web form: registering yourself never releases the
         # account, whichever door it came through.
         validated_data['verification_status'] = 'pending'
+        # And the same for the address. User.email_verified defaults to True
+        # because an account the office creates itself is not asked to prove an
+        # address the office already had — this door is the public form, so it
+        # is asked, and the SDSO's queue showed 'confirmed' beside an address
+        # nobody had ever written to. RegisterView sends the link.
+        validated_data['email_verified'] = False
         user = User(**validated_data)
         user.set_password(password)
         user.save()

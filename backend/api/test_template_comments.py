@@ -10,7 +10,6 @@ Nothing about that is visible in a view test that checks for the values it
 expects to find, so this checks the templates themselves.
 """
 import os
-import re
 
 from django.conf import settings
 from django.test import TestCase

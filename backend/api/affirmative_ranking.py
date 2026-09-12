@@ -57,9 +57,6 @@ PWD = 'Person with a disability'
 PUBLIC_SCHOOL = 'Public school'
 DEPRESSED_AREA = 'Depressed area'
 
-# In the order the proposal lists them, which is the order they are shown in.
-TARGET_GROUPS = (INDIGENOUS, PWD, PUBLIC_SCHOOL, DEPRESSED_AREA)
-
 
 @dataclass(frozen=True)
 class TargetGroups:

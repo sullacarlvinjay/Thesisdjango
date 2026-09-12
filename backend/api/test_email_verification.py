@@ -419,3 +419,61 @@ class OfficeAccountsAreExemptTest(TestCase):
         Client().post('/register/',
                       a_student(email='juan@gmail.com', student_id='23-0001'))
         self.assertFalse(User.objects.get(email='juan@gmail.com').email_verified)
+
+
+class TheAPIRegistrationDoorAsksTheSameThingTest(TestCase):
+    """/api/auth/register/ is a public form too, whatever its content type.
+
+    It set neither ``email_verified`` nor a confirmation link, so an account
+    made through it reached the SDSO's queue reading 'address confirmed' when
+    nobody had ever written to that address — the one fact the column exists to
+    keep honest.
+    """
+
+    payload = {
+        'email': 'api-registrant@gmail.com',
+        'password': 'a-long-enough-password',
+        'first_name': 'Juan',
+        'last_name': 'Dela Cruz',
+        'student_id': '23-9001',
+        'course': 'BSIT',
+        'year_level': 1,
+        'gwa': 1.5,
+    }
+
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        mail.outbox = []
+
+    def test_the_account_it_makes_has_not_proved_its_address(self):
+        response = Client().post('/api/auth/register/', self.payload,
+                                 content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(email=self.payload['email'])
+        self.assertFalse(user.email_verified,
+                         'the API door trusted an address nobody has written to')
+
+    def test_it_sends_the_confirmation_link(self):
+        Client().post('/api/auth/register/', self.payload,
+                      content_type='application/json')
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('/register/verify/', mail.outbox[0].body)
+        user = User.objects.get(email=self.payload['email'])
+        self.assertIsNotNone(user.email_confirmation_sent_at)
+
+    def test_opening_that_link_confirms_the_account(self):
+        """End to end, so the token the API mailed is one this site accepts."""
+        Client().post('/api/auth/register/', self.payload,
+                      content_type='application/json')
+        link = re.search(r'/register/verify/[^\s]+/', mail.outbox[0].body).group(0)
+        Client().get(link)
+        self.assertTrue(User.objects.get(email=self.payload['email']).email_verified)
+
+    def test_it_still_refuses_to_release_the_account(self):
+        """Confirming an address is not the SDSO's decision — see verify_email."""
+        Client().post('/api/auth/register/', self.payload,
+                      content_type='application/json')
+        user = User.objects.get(email=self.payload['email'])
+        self.assertEqual(user.verification_status, 'pending')
+        self.assertFalse(user.can_sign_in)

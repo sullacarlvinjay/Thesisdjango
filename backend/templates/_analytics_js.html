@@ -53,6 +53,44 @@ const PIE_COLORS = [
   '#3b5bdb','#1971c2','#2f9e44','#f59f00','#e64980',
   '#7048e8','#0ca678','#f76707','#c2255c','#6b7a99',
 ];
+// ── Helper: legend labels that fit the canvas ─────────────────────────────────
+// A right-hand legend is drawn inside the canvas, so a label wider than the
+// space left over is simply clipped — "Bachelor of Science in Business Administ"
+// with the rest of the word gone.
+//
+// Truncating on width alone would not help here: every BiPSU degree opens with
+// "Bachelor of Science in", so thirteen courses cut to the same length produce
+// thirteen identical labels. The degree prefix is dropped first — what tells
+// one course from another is the tail, not the head — and only what is left is
+// capped. The slice the reader loses is still in the tooltip, which keeps the
+// name in full.
+const DEGREE_PREFIX = /^bachelor\s+(?:of\s+)?(?:science|arts)?\s*(?:in\s+)?/i;
+const LEGEND_MAX = 26;
+function legendText(text) {
+  const short = String(text).replace(DEGREE_PREFIX, '').trim() || String(text);
+  return short.length > LEGEND_MAX ? short.slice(0, LEGEND_MAX - 1) + '…' : short;
+}
+// Chart.js keeps the pie and doughnut label generator on Chart.overrides rather
+// than on defaults — one label per slice instead of one per dataset — so the
+// type's own generator is the one wrapped, and defaults is only the fallback.
+function shortLegendLabels(chart) {
+  const type = chart.config.type;
+  const generate = (Chart.overrides[type] && Chart.overrides[type].plugins
+                    && Chart.overrides[type].plugins.legend
+                    && Chart.overrides[type].plugins.legend.labels
+                    && Chart.overrides[type].plugins.legend.labels.generateLabels)
+                || Chart.defaults.plugins.legend.labels.generateLabels;
+  return generate(chart).map(item =>
+    Object.assign({}, item, { text: legendText(item.text) }));
+}
+// The legend every pie and doughnut on this page uses.
+function pieLegend(display, position) {
+  return {
+    display,
+    position: position || 'right',
+    labels: { boxWidth: 12, font: { size: 11 }, generateLabels: shortLegendLabels },
+  };
+}
 // ── Helper: build toggle buttons and re-render chart on click ─────────────────
 function makeToggle(containerId, chartRef, types, buildFn) {
   const container = document.getElementById(containerId);
@@ -96,7 +134,7 @@ function buildProgramChart(type) {
     options: {
       responsive: true,
       plugins: {
-        legend: { position: isPie ? 'right' : 'top', labels: { boxWidth: 12, font: { size: 11 } }, display: isPie },
+        legend: pieLegend(isPie, isPie ? 'right' : 'top'),
         tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} scholars` } },
       },
       scales: isPie ? {} : {
@@ -134,7 +172,7 @@ function buildProgramChart(type) {
     options: {
       responsive: true,
       plugins: {
-        legend: { display: isPie, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+        legend: pieLegend(isPie),
       },
       scales: isPie ? {} : {
         x: { grid: { color: gridColor } },
@@ -182,22 +220,22 @@ function buildGwaChart(type) {
 gwaRef.chart = buildGwaChart('bar');
 makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
 {% endif %}
-// ── School Chart ──────────────────────────────────────────────────────────────
-{% if school_dist %}
-const sLabels = [{% for s in school_dist %}'{{ s.school|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-const sData   = [{% for s in school_dist %}{{ s.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
-const schoolRef = {};
-function buildSchoolChart(type) {
+// ── Scholars per Academic Year ────────────────────────────────────────────────
+{% if show_years %}
+const yLabels = [{% for y in year_dist %}'{{ y.year|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const yData   = [{% for y in year_dist %}{{ y.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const yearRef = {};
+function buildYearChart(type) {
   const isPie = type === 'pie' || type === 'doughnut';
-  return new Chart(document.getElementById('schoolChart'), {
-    type: isPie ? type : 'bar',
+  return new Chart(document.getElementById('yearChart'), {
+    type: isPie ? type : (type === 'line' ? 'line' : 'bar'),
     data: {
-      labels: sLabels,
+      labels: yLabels,
       datasets: [{
         label: 'Scholars',
-        data: sData,
-        backgroundColor: isPie ? PIE_COLORS : '#7048e8',
-        borderColor: '#7048e8',
+        data: yData,
+        backgroundColor: isPie ? PIE_COLORS : '#0b7285',
+        borderColor: '#0b7285',
         borderWidth: isPie ? 1 : 2,
         borderRadius: isPie ? 0 : 6,
         fill: type === 'line',
@@ -205,20 +243,19 @@ function buildSchoolChart(type) {
       }],
     },
     options: {
-      // Horizontal by default: a school's name is a sentence, and it has room
-      // to be read on the y-axis where it would be turned on its side below.
-      indexAxis: (!isPie && type !== 'line') ? 'y' : 'x',
+      // Vertical bars: a year reads left to right as time, the way the trend
+      // above it does, and there are few enough of them to label upright.
       responsive: true,
-      plugins: { legend: { display: isPie } },
+      plugins: { legend: pieLegend(isPie, 'top') },
       scales: isPie ? {} : {
-        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
-        y: { grid: { color: gridColor } },
+        x: { grid: { color: gridColor } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
       },
     },
   });
 }
-schoolRef.chart = buildSchoolChart('bar');
-makeToggle('schoolChartToggle', schoolRef, ['bar','pie','doughnut','line'], buildSchoolChart);
+yearRef.chart = buildYearChart('bar');
+makeToggle('yearChartToggle', yearRef, ['bar','line','pie','doughnut'], buildYearChart);
 {% endif %}
 // ── Course Chart ──────────────────────────────────────────────────────────────
 {% if course_dist %}
@@ -246,7 +283,7 @@ function buildCourseChart(type) {
     options: {
       indexAxis: (!isPie && type !== 'line') ? 'y' : 'x',
       responsive: true,
-      plugins: { legend: { display: isPie } },
+      plugins: { legend: pieLegend(isPie, 'top') },
       scales: isPie ? {} : {
         x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
         y: { grid: { color: gridColor } },

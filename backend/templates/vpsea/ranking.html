@@ -18,35 +18,39 @@
 {% elif active_tab == 'Staff' %}
 {% include "vpsea/_staff_ranking.html" %}
 {% else %}
-<form method="get" action="/vpsea/ranking/" class="card p-4 mb-5 flex flex-wrap items-end gap-4">
-  <div class="space-y-1">
-    <label class="text-xs font-medium" style="color:#6b7a99;">Passing GPA threshold (%)</label>
-    <input name="passing" type="number" step="0.5" min="50" max="100"
-           value="{{ passing_threshold }}" style="width:8rem;" />
+{% comment %}
+  The Affirmative Action tab of the Ranking page.
+
+  Structure only — every class here is defined in srms.css alongside the TES and
+  Staff tabs', which this deliberately mirrors. It used to be written in inline
+  hex: #6b7a99 for muted text, #aaa for a missing value, #e8ecf0 for the fit-score
+  track. Those are light-mode literals, so the one recommender of the three that
+  was not built from tokens was also the one that stayed white in dark mode — and
+  three recommenders that look like three different products are three things for
+  the office to learn.
+
+  The rules, the ordering and the wording of every verdict are in
+  api/affirmative_ranking.py. Nothing here decides anything.
+{% endcomment %}
+<div class="rec-summary">
+  <div class="card p-4">
+    <p class="rec-summary__label">Eligible</p>
+    <p class="rec-summary__value rec-summary__value--ok">{{ eligible_count }}</p>
   </div>
-  <button type="submit" class="btn btn-outline">Apply</button>
-</form>
+  <div class="card p-4">
+    <p class="rec-summary__label">Not Eligible</p>
+    <p class="rec-summary__value rec-summary__value--danger">{{ ineligible_count }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="rec-summary__label">In a Target Group</p>
+    <p class="rec-summary__value rec-summary__value--info">{{ in_target_group_count }}</p>
+  </div>
+</div>
 <div class="card p-6">
-  <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-    <div>
-      <h3 class="font-semibold">Enrolled Students — Rule-Based Recommendation</h3>
-      <p class="text-xs mt-0.5" style="color:#6b7a99;">
-        <span style="color:#2f9e44;font-weight:600;">{{ eligible_count }}</span> eligible ·
-        <span style="color:#dc2626;">{{ ineligible_count }}</span> not meeting all rules ·
-        <span style="color:#3b5bdb;font-weight:600;">{{ in_target_group_count }}</span> of the
-        eligible in a target group · students are not shown this evaluation
-      </p>
-      <!-- Said on the page because the order is the part an office reads
-           without checking: this is not a merit list, and a reader who assumes
-           it is would take the wrong five names to the Board. -->
-      <p class="text-xs mt-1" style="color:#6b7a99;">
-        Ordered by the four groups the programme is for, then by fit score to
-        separate students the mandate reaches equally. Grades are not the only
-        factor — PASUC-8 proposal, §1.
-      </p>
-    </div>
-    <div class="flex gap-2 flex-wrap">
-      <input id="recSearch" placeholder="Search name or ID…" style="width:14rem;"
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-1">
+    <h3 class="font-semibold">Affirmative Action — Rule-Based Recommendation</h3>
+    <div class="rec-actions">
+      <input id="recSearch" class="rec-search" placeholder="Search name or student ID…"
              oninput="filterTable('recSearch','recTable','data-name')" />
       <!-- The same rows this table is showing, in a file the office can file.
            Carries the threshold so the download is the list on screen, not a
@@ -59,113 +63,136 @@
       <form method="post" action="/vpsea/ranking/?passing={{ passing_threshold }}">
         {% csrf_token %}
         <input type="hidden" name="action" value="resync">
-        <button type="submit" class="btn btn-outline text-xs">↻ Re-evaluate</button>
+        <button type="submit" class="btn btn-outline">↻ Re-evaluate</button>
       </form>
     </div>
   </div>
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="recTable">
+  <div class="rec-note">
+    <p>
+      Every enrolled student on file is screened — students are not shown this
+      evaluation, and producing it writes no status onto anybody.
+    </p>
+    <p><strong>Order, applied in this sequence:</strong></p>
+    <ol>
+      <li><strong>Target group</strong> — the four the programme is for: indigenous
+          groups, persons with disabilities, students from public schools, students
+          from depressed areas. Most groups first.</li>
+      <li><strong>Fit score</strong>, highest first — 50% SHS GPA + 50% admission exam.
+          A tie-break between students the mandate reaches equally.</li>
+      <li><strong>Surname</strong>, alphabetically, to break any remaining tie.</li>
+    </ol>
+    <p>
+      This is <strong>not a merit list</strong>. Grades are not the only factor, and a
+      qualifier need be neither indigent nor an excellent performer — PASUC-8
+      proposal, §1. The groups order the shortlist; they never gate it.
+    </p>
+  </div>
+  <form method="get" action="/vpsea/ranking/" class="rec-filter">
+    <label for="passingThreshold">Passing GPA threshold (%)</label>
+    <input id="passingThreshold" name="passing" type="number" step="0.5" min="50" max="100"
+           value="{{ passing_threshold }}" />
+    <button type="submit" class="btn btn-outline">Apply</button>
+  </form>
+  <div class="table-scroll">
+    <table class="rec-table" id="recTable">
       <thead>
-        <tr style="border-bottom:1px solid #e8ecf0;">
-          <th class="th-cell" style="width:3rem;">Rank</th>
+        <tr>
+          <th class="th-cell th-cell--rank">Rank</th>
           <th class="th-cell">Student</th>
           <th class="th-cell">Course / Year</th>
           <th class="th-cell" title="Rule 1: SHS GPA ≥ {{ passing_threshold }}%">
             SHS GPA
-            <span class="text-xs font-normal" style="color:#6b7a99;">&ge;{{ passing_threshold }}%</span>
+            <span class="th-cell__note">&ge;{{ passing_threshold }}%</span>
           </th>
           <th class="th-cell" title="Rule 2: SUC Exam ≥ 50%">
             SUC Exam
-            <span class="text-xs font-normal" style="color:#6b7a99;">&ge;50%</span>
+            <span class="th-cell__note">&ge;50%</span>
           </th>
-          <th class="th-cell" title="Rule 3: Not a TES beneficiary">
-            Not TES
-          </th>
+          <th class="th-cell" title="Rule 3: Not a TES beneficiary">Not TES</th>
           <th class="th-cell" title="Who the programme is for: indigenous groups, persons with disabilities, students from public schools, students from depressed areas. Not a requirement — it orders the list.">
             Target Group
-            <span class="text-xs font-normal" style="color:#6b7a99;">orders the list</span>
+            <span class="th-cell__note">orders the list</span>
           </th>
           <th class="th-cell" title="50% SHS GPA + 50% admission exam. A tie-break between students in the same number of target groups — never a qualification.">
             Fit Score
-            <span class="text-xs font-normal" style="color:#6b7a99;">tie-break</span>
+            <span class="th-cell__note">tie-break</span>
           </th>
           <th class="th-cell">Status</th>
         </tr>
       </thead>
       <tbody>
         {% for r in rec_rows %}
-        <tr class="trow" data-name="{{ r.profile.user.get_full_name|lower }} {{ r.profile.student_id|lower }}"
-            style="border-bottom:1px solid #f1f3f9;{% if not r.eligible %}opacity:.6;{% endif %}">
-          <td class="td-cell">
+        <tr class="trow{% if not r.eligible %} trow--dim{% endif %}"
+            data-name="{{ r.profile.user.get_full_name|lower }} {{ r.profile.student_id|lower }}">
+          <td class="rec-cell rec-cell--rank">
             {% if r.eligible %}
-              {% if r.rank == 1 %}<span style="font-size:1.1rem;">🥇</span>
-              {% elif r.rank == 2 %}<span style="font-size:1.1rem;">🥈</span>
-              {% elif r.rank == 3 %}<span style="font-size:1.1rem;">🥉</span>
-              {% else %}<span class="font-mono text-sm" style="color:#6b7a99;">#{{ r.rank }}</span>
+              {% if r.rank == 1 %}<span class="rec-medal">🥇</span>
+              {% elif r.rank == 2 %}<span class="rec-medal">🥈</span>
+              {% elif r.rank == 3 %}<span class="rec-medal">🥉</span>
+              {% else %}<span class="rec-rank-number">#{{ r.rank }}</span>
               {% endif %}
             {% else %}
-              <span class="font-mono text-sm" style="color:#aaa;">—</span>
+              <span class="rec-none">—</span>
             {% endif %}
           </td>
-          <td class="td-cell">
-            <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-                   style="background:{% if r.rec.status == 'Qualified' %}#2f9e44{% elif r.rec.status == 'Not Qualified' %}#dc2626{% else %}#3b5bdb{% endif %};">
+          <td class="rec-cell">
+            <div class="rec-person">
+              <span class="rec-avatar rec-avatar--{% if r.rec.status == 'Qualified' %}ok{% elif r.rec.status == 'Not Qualified' %}danger{% else %}info{% endif %}">
                 {{ r.profile.user.first_name|first }}
-              </div>
-              <div>
-                <p class="font-medium leading-tight">{{ r.profile.user.get_full_name }}</p>
-                <p class="text-xs" style="color:#6b7a99;">{{ r.profile.student_id }}</p>
-              </div>
+              </span>
+              <span class="rec-person__text">
+                <span class="rec-person__name">{{ r.profile.user.get_full_name }}</span>
+                <span class="rec-person__id">{{ r.profile.student_id }}</span>
+              </span>
             </div>
           </td>
-          <td class="td-cell">
-            {{ r.profile.course }}<br>
-            <span class="text-xs" style="color:#6b7a99;">Year {{ r.profile.year_level }}</span>
+          <td class="rec-cell">
+            {{ r.profile.course }}
+            <span class="rec-subline">Year {{ r.profile.year_level }}</span>
           </td>
-          <td class="td-cell">
-            <div class="flex flex-col gap-0.5">
+          <td class="rec-cell">
+            <div class="rec-stack">
               {% if r.profile.shs_gpa is not None %}
                 <span class="badge {% if r.gpa_pass %}badge-success{% else %}badge-destructive{% endif %}">
                   {{ r.profile.shs_gpa }}%
                 </span>
                 {% if r.profile.shs_gpa_cert %}
-                  <a href="{{ r.profile.shs_gpa_cert.url }}" data-doc="{{ r.profile.user.get_full_name }} — SHS GPA Certificate"
-                     class="text-xs" style="color:#3b5bdb;">📄 cert</a>
+                  <a href="{{ r.profile.shs_gpa_cert.url }}" class="rec-cert"
+                     data-doc="{{ r.profile.user.get_full_name }} — SHS GPA Certificate">📄 cert</a>
                 {% else %}
-                  <span class="text-xs" style="color:#f59f00;">no cert</span>
+                  <span class="rec-missing">no cert</span>
                 {% endif %}
               {% else %}
-                <span style="color:#aaa;">—</span>
+                <span class="rec-none">—</span>
               {% endif %}
             </div>
           </td>
-          <td class="td-cell">
-            <div class="flex flex-col gap-0.5">
+          <td class="rec-cell">
+            <div class="rec-stack">
               {% if r.profile.suc_exam_percent is not None %}
                 <span class="badge {% if r.exam_pass %}badge-success{% else %}badge-destructive{% endif %}">
                   {{ r.profile.suc_exam_display }}
                 </span>
                 {% if r.profile.suc_exam_cert %}
-                  <a href="{{ r.profile.suc_exam_cert.url }}" data-doc="{{ r.profile.user.get_full_name }} — SUC Exam Certificate"
-                     class="text-xs" style="color:#3b5bdb;">📄 cert</a>
+                  <a href="{{ r.profile.suc_exam_cert.url }}" class="rec-cert"
+                     data-doc="{{ r.profile.user.get_full_name }} — SUC Exam Certificate">📄 cert</a>
                 {% else %}
-                  <span class="text-xs" style="color:#f59f00;">no cert</span>
+                  <span class="rec-missing">no cert</span>
                 {% endif %}
               {% else %}
-                <span style="color:#aaa;">—</span>
+                <span class="rec-none">—</span>
               {% endif %}
             </div>
           </td>
-          <td class="td-cell">
+          <td class="rec-cell">
             {% if r.not_tes %}
               <span class="badge badge-success">✓</span>
             {% else %}
               <span class="badge badge-destructive">✗ TES</span>
             {% endif %}
           </td>
-          <td class="td-cell">
-            <div class="flex flex-col items-start gap-0.5">
+          <td class="rec-cell">
+            <div class="rec-stack rec-stack--start">
               {% for group in r.groups.markers %}
                 <span class="badge badge-brand">{{ group }}</span>
               {% empty %}
@@ -174,30 +201,29 @@
                   and an em dash that meant both would hide the difference the
                   line below exists to show.
                 {% endcomment %}
-                <span style="color:#aaa;">—</span>
+                <span class="rec-none">—</span>
               {% endfor %}
               {% if r.groups.unknown %}
-                <span class="text-xs" style="color:#f59f00;"
-                      title="{{ r.groups.unknown|join:' · ' }}">
+                <span class="rec-missing" title="{{ r.groups.unknown|join:' · ' }}">
                   {{ r.groups.unknown|length }} unanswered
                 </span>
               {% endif %}
             </div>
           </td>
-          <td class="td-cell">
+          <td class="rec-cell">
             {% if r.eligible %}
-            <div class="flex items-center gap-2">
-              <div style="width:5rem;background:#e8ecf0;border-radius:9999px;height:0.5rem;">
-                <div style="height:0.5rem;border-radius:9999px;width:{{ r.rec.fit_score }}%;
-                     background:{% if r.rec.fit_score >= 80 %}#2f9e44{% elif r.rec.fit_score >= 50 %}#f59f00{% else %}#dc2626{% endif %};"></div>
-              </div>
-              <span class="font-semibold text-sm">{{ r.rec.fit_score }}%</span>
+            <div class="rec-fit">
+              <span class="rec-fit__track">
+                <span class="rec-fit__bar rec-fit__bar--{% if r.rec.fit_score >= 80 %}ok{% elif r.rec.fit_score >= 50 %}warn{% else %}danger{% endif %}"
+                      style="width:{{ r.rec.fit_score }}%"></span>
+              </span>
+              <span class="rec-fit__value">{{ r.rec.fit_score }}%</span>
             </div>
             {% else %}
-              <span style="color:#aaa;">—</span>
+              <span class="rec-none">—</span>
             {% endif %}
           </td>
-          <td class="td-cell">
+          <td class="rec-cell">
             {% if r.rec.status == 'Disqualified' %}
               <span class="badge badge-destructive">Disqualified</span>
             {% elif r.eligible %}
@@ -209,9 +235,9 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="9" style="padding:3rem;text-align:center;color:#6b7a99;">
-            No enrolled students have submitted eligibility data yet.<br>
-            <span class="text-xs">Students must fill in SHS GPA and SUC Exam Score in their profile.</span>
+          <td colspan="9" class="rec-empty">
+            No enrolled students have submitted eligibility data yet.
+            <span class="rec-empty__hint">Students must fill in SHS GPA and SUC Exam Score in their profile.</span>
           </td>
         </tr>
         {% endfor %}

@@ -172,8 +172,9 @@ class ArchiveFixtureMixin:
         self.c = Client()
         self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
 
-    def archive(self, stype='Academic'):
-        return self.c.get('/vpsea/archives/', {'type': stype}).content.decode()
+    def archive(self, stype='Academic', **query):
+        return self.c.get('/vpsea/archives/',
+                          {'type': stype, **query}).content.decode()
 
 
 class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
@@ -214,15 +215,23 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
         self.assertIn('Cruz', html)         # the imported row
         self.assertIn('Imported', html)     # and it kept its own delete
 
-    def test_ched_still_reports_in_two_tier_blocks(self):
+    def test_both_ched_tiers_report_the_one_programme_the_same_way(self):
+        """CHED is still two blocks; each block is a tab now, not a band.
+
+        This used to read both bands off one page and compare their heading
+        rows. The columns belong to the *programme*, and CHED is one programme
+        whichever tier a scholar is on, so the same thing is asserted across the
+        two tabs. That the band itself is gone is api/test_archive_tabs.py.
+        """
         Scholarship.objects.create(name='CHED Merit', type='CHED',
                                    category='application', description='x',
                                    eligibility='x', requirements=[])
-        html = self.archive('CHED')
-        self.assertIn('Full Merit / Full Scholar', html)
-        self.assertIn('Half Merit / Partial Scholar', html)
-        self.assertEqual(headings_of(html, 0), headings_of(html, 1),
-                         'both CHED blocks report the same programme')
+        full = headings_of(self.archive('CHED', tier='Full'))
+        half = headings_of(self.archive('CHED', tier='Half'))
+
+        self.assertEqual(full, half,
+                         'the two CHED tabs report the same programme')
+        self.assertIn('Award No.', full)      # CHED's own default column set
 
     def test_an_affirmative_or_staff_table_renders_from_its_own_records(self):
         for stype in ('Affirmative', 'Staff'):

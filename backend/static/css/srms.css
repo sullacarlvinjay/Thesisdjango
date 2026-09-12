@@ -239,7 +239,6 @@ button:focus-visible,
 }
 
 /* A card that leads a page — the portal's colour along its top edge. */
-.card-accent { border-top: 3px solid var(--brand); }
 
 
 /* --------------------------------------------------------------------------
@@ -600,10 +599,6 @@ tr:hover td      { background: var(--surface-sunken); }
   background-image: linear-gradient(135deg, var(--wash-strong), var(--wash-soft)),
                     url('../img/backgrounds/Student.JPG');
 }
-.hero-registration {
-  background-image: linear-gradient(135deg, var(--wash-soft), var(--wash-strong)),
-                    url('../img/backgrounds/registration-campus.jpg');
-}
 
 .hero h1, .hero h2 { color: #fff; }
 .hero .hero-eyebrow {
@@ -737,6 +732,26 @@ tr:hover td      { background: var(--surface-sunken); }
   .auth-card  { padding: 1.25rem; border-radius: var(--radius-lg); }
   .auth-brand { margin-bottom: 1.25rem; }
 }
+
+/* Pick-your-account-type, on the registration form. Two cards side by side,
+   and the one you chose says so by colour: BiPSU blue for a student, green for
+   an employee, because the two portals are different places to end up. */
+.type-card {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+.type-card.selected-student { border-color: var(--brand); background: var(--brand-soft); }
+.type-card.selected-staff   { border-color: #2f9e44; background: var(--ok-bg); }
+
+/* The waiting room's pulse. The page reloads itself while the SDSO decides, and
+   a dot that breathes is what says so without a spinner claiming work is
+   happening in this browser. */
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.waiting-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
 
 /* At night the photograph is the brightest thing on screen, so it gets a
    heavier wash and the card drops to near-black. */
@@ -902,31 +917,6 @@ tr:hover td      { background: var(--surface-sunken); }
   color: var(--text-muted);
 }
 
-.report-note {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  background: var(--brand-soft);
-  border-color: var(--brand);
-}
-.report-note svg   { flex-shrink: 0; margin-top: 0.1rem; color: var(--brand); }
-.report-note-title { font-size: 0.85rem; font-weight: 600; color: var(--brand); }
-.report-note-body  { font-size: 0.75rem; margin-top: 0.15rem; color: var(--text-soft); }
-
-.report-stat-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-.report-stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin-top: 0.35rem;
-  color: var(--brand);
-}
-.report-stat-value-accent { color: var(--accent-strong); }
-
 .report-error {
   display: flex;
   align-items: center;
@@ -938,24 +928,6 @@ tr:hover td      { background: var(--surface-sunken); }
 .report-error svg { flex-shrink: 0; }
 .report-error p   { font-size: 0.875rem; font-weight: 500; }
 
-/* A status tab that carries how many rows are behind it. A row of unlabelled
-   tabs beside an empty queue reads as 'there is nothing', which is the opposite
-   of what three decided requests one click away means. */
-.tab-filter {
-  padding: 0.3rem 0.75rem;
-  font-size: 0.75rem;
-  gap: 0.4rem;
-}
-.tab-count {
-  display: inline-block;
-  min-width: 1.25rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  background: rgba(127, 127, 127, 0.18);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  text-align: center;
-}
 
 /* The report controls sit in the head of the card holding the list they act
    on — the school year, the download and the preview beside the table they
@@ -973,13 +945,6 @@ tr:hover td      { background: var(--surface-sunken); }
   color: var(--text);
 }
 .report-gen-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-
-/* The preview sheet: 30 CHED columns, so it scrolls sideways inside the
-   dialog rather than stretching it past the viewport. */
-.report-gen-sheet { max-width: 76rem; }
-.report-gen-sheet .table-scroll { max-height: 60vh; overflow-y: auto; }
-.report-gen-sheet th { white-space: nowrap; }
-.report-gen-sheet td { white-space: nowrap; }
 
 @media (max-width: 640px) {
   .report-gen-head { align-items: stretch; }
@@ -1876,7 +1841,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   word-break: break-word;
 }
 
-.error-page .btn-auth { display: block; text-align: center; }
 
 
 /* ── Card toolbar ────────────────────────────────────────────────────────────
@@ -2069,24 +2033,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
     min-width: 0;
     width: auto;
   }
-}
-
-
-/* ── Wide filter field ───────────────────────────────────────────────────────
-   A text input whose content is genuinely long — the TES batch line reads
-   "On-going (10,11,12,12.1,13,13.1 & 13.2)" — so it wants room on a desktop and
-   has to give it back on a phone, where 22rem is wider than the screen. */
-
-.field-wide { min-width: 22rem; }
-
-@media (max-width: 640px) {
-  .field-wide { min-width: 0; width: 100%; }
-  /* The form around it wraps to a column so the Apply button is not squeezed
-     onto the same line as a full-width field. */
-  .filter-form { width: 100%; }
-  .filter-form > * { min-width: 0; }
-  .filter-form-field { flex: 1 1 100%; }
-  .filter-form > .btn { width: 100%; justify-content: center; }
 }
 
 
@@ -2305,11 +2251,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
   margin-bottom: 0.75rem;
 }
-.col-picker__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.4rem 0.75rem;
-}
 .col-picker__option {
   display: flex;
   align-items: center;
@@ -2405,17 +2346,17 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 
 
-/* ── Scholars-by-school tally ──────────────────────────────────────────────
-   The exact counts under the chart. A bar says which school is largest; the
+/* ── Scholars-per-academic-year tally ───────────────────────────────
+   The exact counts under the chart. A bar says which year was largest; the
    office still has to read a number off it to put in a report. */
 
-.school-tally {
+.year-tally {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
   font-size: 0.8125rem;
 }
-.school-tally th {
+.year-tally th {
   text-align: left;
   padding: 0.4rem 0.5rem;
   font-size: 0.72rem;
@@ -2423,14 +2364,14 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
 }
-.school-tally td {
+.year-tally td {
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border);
   color: var(--text);
 }
-.school-tally tr:last-child td { border-bottom: none; }
-.school-tally th:last-child,
-.school-tally__count { text-align: right; font-variant-numeric: tabular-nums; }
+.year-tally tr:last-child td { border-bottom: none; }
+.year-tally th:last-child,
+.year-tally__count { text-align: right; font-variant-numeric: tabular-nums; }
 
 
 /* ── Sortable table headings ───────────────────────────────────────────────
@@ -2813,7 +2754,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
 }
 .th-cell--rank { width: 3rem; }
-.td-cell { padding: 0.6rem 0.75rem; vertical-align: top; }
 
 /* The count cards above the table. Five figures that have to be readable at a
    glance and in the same order every time, so they get a fixed grid rather than
@@ -2934,7 +2874,96 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
 }
 
-.rec-empty { font-size: 0.875rem; color: var(--text-muted); }
+.rec-empty {
+  padding: 3rem 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+.rec-empty__hint { display: block; margin-top: 0.35rem; font-size: 0.75rem; }
+
+/* ── The Affirmative tab's own pieces ──────────────────────────────────────
+   The three recommenders share everything above; these are the parts only
+   Affirmative has — a ranked medal, the student's initial, and the fit-score
+   bar. They were inline hex in the template until now, which is why this was
+   the one tab of the three that stayed light in dark mode. */
+
+/* A qualifier a rule turned down is still listed — the office reads it for the
+   reason — but it is not competing for a place. */
+.trow--dim { opacity: 0.6; }
+
+.rec-medal { font-size: 1.1rem; }
+.rec-rank-number {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+/* A value nobody has supplied. Dimmer than muted text so an empty cell is not
+   mistaken for a short answer. */
+.rec-none { color: var(--text-muted); opacity: 0.7; }
+
+.rec-person { display: flex; align-items: center; gap: 0.5rem; }
+.rec-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  width: 1.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+.rec-avatar--ok     { background: var(--ok); }
+.rec-avatar--danger { background: var(--danger); }
+.rec-avatar--info   { background: var(--brand); }
+.rec-person__text { display: flex; flex-direction: column; line-height: 1.2; }
+.rec-person__name { font-weight: 500; }
+.rec-person__id   { font-size: 0.75rem; color: var(--text-muted); }
+
+.rec-subline {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.rec-stack { display: flex; flex-direction: column; gap: 0.15rem; }
+.rec-stack--start { align-items: flex-start; }
+.rec-cert { font-size: 0.75rem; color: var(--brand); }
+
+/* The tie-break, drawn rather than printed: the office compares rows down the
+   column faster than it reads two-digit numbers. */
+.rec-fit { display: flex; align-items: center; gap: 0.5rem; }
+.rec-fit__track {
+  width: 5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.rec-fit__bar { display: block; height: 100%; border-radius: 9999px; }
+.rec-fit__bar--ok     { background: var(--ok); }
+.rec-fit__bar--warn   { background: var(--warn); }
+.rec-fit__bar--danger { background: var(--danger); }
+.rec-fit__value { font-size: 0.875rem; font-weight: 600; }
+
+/* The GPA threshold. A row inside the card rather than a card of its own above
+   it: it changes what the table below shows, so it belongs to that table. */
+.rec-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.rec-filter label { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
+.rec-filter input { width: 7rem; }
+
+.th-cell__note {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
 
 @media (max-width: 640px) {
   .rec-reason__label,

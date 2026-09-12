@@ -474,12 +474,13 @@ def rows_for(records, columns, start=1):
         number = start + offset
         flat = _row_for(number, record)
         extras = extra_values(record)
+        search_name, search_id = _search_terms(record, flat)
         rows.append({
             'no': number,
             'obj': record,
             'kind': kind_of(record),
             'cells': [_cell(column, flat, extras) for column in columns],
-            'search_name': _search_terms(record, flat)[0],
-            'search_id': _search_terms(record, flat)[1],
+            'search_name': search_name,
+            'search_id': search_id,
         })
     return rows

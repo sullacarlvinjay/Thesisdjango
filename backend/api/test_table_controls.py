@@ -16,7 +16,7 @@ from django.test import Client, TestCase
 
 from api.models import (
     AcademicRenewal, AffirmativeStaffApplication, Application, Scholarship,
-    ScholarshipLinkRequest, StudentProfile, SystemSettings, User,
+    StudentProfile, SystemSettings, User,
 )
 
 

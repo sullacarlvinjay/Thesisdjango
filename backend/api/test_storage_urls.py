@@ -11,7 +11,6 @@ the bucket is private. On a public bucket there would have been no error at
 all: the documents would simply have been served to anyone holding a link.
 """
 
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from .storage import ProtectedS3Storage

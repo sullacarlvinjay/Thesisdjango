@@ -57,7 +57,7 @@ class EmptyChartsTest(TestCase):
         html = r.content.decode()
         for flag in ('show_program', 'show_gwa', 'show_trend'):
             self.assertFalse(r.context[flag], flag)
-        for canvas in ('programChart', 'gwaChart', 'schoolChart', 'courseChart',
+        for canvas in ('programChart', 'gwaChart', 'courseChart',
                        'trendChart'):
             self.assertNotIn(canvas, html, f'{canvas} drawn with nothing in it')
 
@@ -95,7 +95,6 @@ class EmptyChartsTest(TestCase):
         html = self.page(stype='TDP').content.decode()
         self.assertNotIn('gwaChart', html)
         # …and the charts that came after it in the script are still built.
-        self.assertIn('schoolChart', html)
         self.assertIn('courseChart', html)
 
     def test_every_canvas_in_the_markup_is_one_the_script_builds(self):
@@ -103,7 +102,7 @@ class EmptyChartsTest(TestCase):
                        {'stype': 'CHED'}):
             self.award(hash(str(params)) % 9000 + 100, 'Academic')
             html = self.page(**params).content.decode()
-            for canvas in ('programChart', 'gwaChart', 'schoolChart',
+            for canvas in ('programChart', 'gwaChart',
                            'courseChart', 'trendChart'):
                 drawn = f'id="{canvas}"' in html
                 built = f"getElementById('{canvas}')" in html

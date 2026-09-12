@@ -1,4 +1,4 @@
-﻿from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -6,12 +6,11 @@ from . import scholar_columns
 from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, Notification, Announcement, User, AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from django.core.files.base import ContentFile
 from django.db import transaction
 from . import notify
 from django.http import HttpResponse
+from datetime import date
 from io import BytesIO
-from decimal import Decimal, InvalidOperation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -792,7 +791,7 @@ def register_view(request):
             # ── BiPSU Staff: the employment details go on the StaffProfile,
             #    which is the employee's own record. The application itself
             #    is created when they actually apply, not here.
-            from .models import AffirmativeStaffApplication, StaffProfile
+            from .models import StaffProfile
             # Picked from the BiPSU list, not typed — same dropdown the student
             # form and My Profile use. Under its own name because the student
             # block posts a 'school' of its own from the same form, and the last
@@ -1366,7 +1365,6 @@ def student_renewal_academic(request):
 
 
 @login_required(login_url='/login/')
-@login_required(login_url='/login/')
 def student_profile(request):
     profile = StudentProfile.objects.filter(user=request.user).first()
     errors = []
@@ -1374,7 +1372,6 @@ def student_profile(request):
     if request.method == 'POST' and profile:
         p = request.POST
         u = profile.user
-        u.save()
         # The given and family names are the office's to set, but nothing in the
         # system ever collected the middle name — which the masterlist exports
         # carry as their own MIDDLE NAME and M.I. columns — so the student
@@ -1505,16 +1502,6 @@ def student_profile(request):
     })
 
 
-# - Scholarship types the office archives -----------------------------------
-
-# Every programme the SDSO administers. The archive builds a tab per entry
-# and adds any programme in the catalogue that is not named here, so a new
-# programme appears without an edit — this list only fixes the order the
-# familiar ones are shown in.
-SDSO_TYPES = ['Academic', 'TDP', 'SUC-TDP', 'FHE', 'TES', 'DOST', 'JLSS',
-              'CHED', 'CoScho', 'Sports', 'Affirmative', 'Staff', 'GSIS']
-
-
 def _change_own_password(request, user):
     """Apply a password change the signed-in account asked for. Returns errors.
 
@@ -1608,6 +1595,38 @@ def _vpsea_required(view_fn):
             return redirect('/login/')
         return view_fn(request, *args, **kwargs)
     return wrapper
+
+
+def _safe_next(request, fallback):
+    """A ``?next=`` the page may link to, or ``fallback``.
+
+    The value is rendered straight into an ``href``, so it is checked the way
+    Django checks its own login redirect: same host, and not a scheme that
+    could leave the site. A crafted link is otherwise an off-site button on a
+    page the officer has every reason to trust.
+    """
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    wanted = request.GET.get('next') or ''
+    if wanted and url_has_allowed_host_and_scheme(
+            wanted, allowed_hosts={request.get_host()},
+            require_https=request.is_secure()):
+        return wanted
+    return fallback
+
+
+def _active_term():
+    """The term the office is working in, expanded: ``{'sy', 'semester', …}``.
+
+    The office forms that record a term need a default, and the only correct
+    one is the active term. Two of them carried '2025-2026' and '1st Semester'
+    written into the view instead — the same fault the student apply page
+    already had fixed, where a hard-coded term meant every submission claimed a
+    year the office had long since rolled past.
+    """
+    from .models import SystemSettings
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    return SystemSettings.parse_label(settings_obj.academic_year)
 
 
 # ── The two windows, set where the work is ──────────────────────────────────
@@ -1773,7 +1792,7 @@ def vpsea_affirmative_applications(request):
                 )
             except Application.DoesNotExist:
                 pass
-            return redirect(f'/vpsea/affirmative/?tab=academic')
+            return redirect('/vpsea/affirmative/?tab=academic')
         else:
             try:
                 aff_app = AffirmativeStaffApplication.objects.get(id=app_id)
@@ -1789,8 +1808,26 @@ def vpsea_affirmative_applications(request):
                     f'Your {aff_app.get_qualified_for_display()} application',
                     new_status, remarks,
                 )
-                # On approval: create Django User + StudentProfile + Application
-                if new_status == 'Approved' and not User.objects.filter(email=aff_app.email).exists():
+                # An approved Affirmative scholar is a student of this
+                # university, so approval builds the student record the rest of
+                # the system reads them through — AffirmativeRecommendation
+                # hangs off StudentProfile, and the Student Ranking page is
+                # where that programme is decided.
+                #
+                # **Never for Staff.** BiPSU Staff is the one programme on this
+                # queue whose scholars are employees, and their record *is* the
+                # AffirmativeStaffApplication: the Staff archive tab, the
+                # masterlist's BiPSU STAFF block and the reports all read it
+                # directly — see _archive_records and masterlist_report._sources.
+                # Approving one used to make a role='student' account, a
+                # StudentProfile numbered 'AFF-<id>' where the employee had no
+                # student number, and an Application nothing reads — so a BiPSU
+                # employee turned up on My Students, on the No Scholarship
+                # archive tab, and on the TES recommendation the SDSO sends
+                # onward to UniFAST. Nothing read any of it.
+                if (new_status == 'Approved'
+                        and aff_app.qualified_for != 'Staff'
+                        and not User.objects.filter(email=aff_app.email).exists()):
                     name_parts = aff_app.full_name.strip().split()
                     first_name = name_parts[0] if name_parts else ''
                     last_name = name_parts[-1] if len(name_parts) > 1 else ''
@@ -1862,7 +1899,6 @@ def vpsea_affirmative_applications(request):
 @_vpsea_required
 def vpsea_dashboard(request):
     from .models import Application, AcademicRenewal, AffirmativeStaffApplication, SystemSettings
-    from django.db.models import Q
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
     active_sy = parsed['sy']
@@ -1889,7 +1925,6 @@ def vpsea_dashboard(request):
 def vpsea_renewals(request):
     if request.method == 'POST':
         from .models import SystemSettings
-        from django.utils import timezone
         # The Renewal Period card, which is this tab's own setting rather than
         # a decision on anybody's renewal. It sets Academic's window; every
         # other programme's is set on that programme's own form, and the student
@@ -2012,8 +2047,8 @@ def approve_declared_scholarship(req, reviewer, archive=None, remarks='', tier='
     marks the matched imported row as claimed so the same person is not counted
     twice. Returns (application, error); the error is a sentence for the officer.
     """
-    from .models import (CHED_TIER_CHOICES, ImportedScholar, Notification,
-                         ActivityLog, SystemSettings)
+    from .models import (CHED_TIER_CHOICES, Notification, ActivityLog,
+                         SystemSettings)
     from django.utils import timezone
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
@@ -2492,10 +2527,11 @@ def _archive_records(stype, term_label, tier=None):
         full, half = split_ched(awards.order_by('student__user__last_name'))
         # An imported row says which block it is in, and a row that does not —
         # a spreadsheet with no tier column, every row uploaded before the two
-        # tabs existed — prints under Full, where the report has always put an
-        # unclassified scholar rather than dropping it. See split_ched.
+        # tabs existed — prints under Full. Same rule split_ched applies to an
+        # award above, and it has to be: one unclassified scholar cannot be on
+        # a different tab according to which table they arrived in.
         imported_half = [r for r in imported_rows if r.award_tier == 'Half']
-        imported_full = [r for r in imported_rows if r not in imported_half]
+        imported_full = [r for r in imported_rows if r.award_tier != 'Half']
         blocks = [
             ('Full', 'Full Merit / Full Scholar', list(full) + imported_full,
              'No approved CHED full scholars yet.'),
@@ -2517,7 +2553,7 @@ def _archive_records(stype, term_label, tier=None):
 
 @_vpsea_required
 def vpsea_archives(request):
-    from .models import Application, AffirmativeStaffApplication, ScholarListImport, SystemSettings, AcademicRenewal, ActivityLog
+    from .models import ScholarListImport, SystemSettings, ActivityLog
     stype = request.GET.get('type', 'Academic')
     # Which CHED block this tab is. A bare ?type=CHED — an old bookmark, or a
     # redirect written before the split — lands on Full rather than on no tab
@@ -2542,8 +2578,6 @@ def vpsea_archives(request):
 
     selected_parsed = SystemSettings.parse_label(selected_label)
     selected_sy = selected_parsed['sy']   # e.g. '2025-2026'
-    sy_start = selected_parsed['sy_start']
-    sy_end = selected_parsed['sy_end']
 
     next_label = settings_obj.next_label()
     # Human-readable label for display: '2025-2026 — 1st Semester'
@@ -2591,7 +2625,7 @@ def vpsea_archives(request):
             (1, 'Certificate of Grades', 'Official COG from the Registrar for the previous semester.', 'doc_certificate_of_grades'),
             (2, 'Certificate of Enrollment', 'Official COE from the Registrar for the current semester.', 'doc_certificate_of_enrollment'),
             (3, 'Prospectus / Subject Checklist', 'Program prospectus or subject checklist showing enrolled subjects.', 'doc_prospectus'),
-            (4, '2Ã—2 ID Photo', 'Recent 2Ã—2 ID photo with white background.', 'doc_id_photo'),
+            (4, '2×2 ID Photo', 'Recent 2×2 ID photo with white background.', 'doc_id_photo'),
             (5, 'Application Form', 'Signed and accomplished scholarship application form.', 'doc_application_form'),
         ],
         'col_hint': COLUMN_HINTS.get(stype, ''),
@@ -2626,10 +2660,10 @@ def vpsea_archive_add(request):
     p = request.POST
     f = request.FILES
     stype = p.get('scholarship_type', 'Academic')
-    # The CHED tab the form was opened from. Without it a scholar added on the
-    # Full tab is stored with no tier, and ched_tier() reads a missing tier as
-    # Half — so the office would add someone to one tab and watch them appear
-    # in the other. `back` returns to the tab they were on.
+    # The CHED tab the form was opened from, stamped onto the row. An untiered
+    # row prints under Full, so adding on the Full tab would work without
+    # this — but the Half tab could then be read from and never added to.
+    # `back` returns to the tab they were on.
     tier = p.get('tier', '') if stype == 'CHED' else ''
     if tier not in CHED_ARCHIVE_TIERS:
         tier = ''
@@ -2724,7 +2758,7 @@ def vpsea_archive_add(request):
             barangay=p.get('barangay', ''),
             municipality=p.get('municipality', ''),
             province=p.get('province', ''),
-            date_of_birth=p.get('date_of_birth') or '2000-01-01',
+            date_of_birth=p.get('date_of_birth') or None,
             gender=p.get('gender', ''),
             course=p.get('course', ''),
             year_level=int(p.get('year_level', 1) or 1),
@@ -2966,7 +3000,7 @@ def vpsea_student_record_delete(request, pk):
 
 @_vpsea_required
 def vpsea_archive_edit(request, pk):
-    from .models import Application, AffirmativeStaffApplication, StudentProfile, SystemSettings
+    from .models import Application, AffirmativeStaffApplication
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     p = request.POST
@@ -3044,7 +3078,10 @@ def vpsea_archive_delete(request, pk):
 
 @_vpsea_required
 def vpsea_new_semester(request):
-    from .models import SystemSettings, ScholarListImport, ActivityLog, Application, AffirmativeStaffApplication
+    from .models import (
+        SystemSettings, ScholarListImport, ActivityLog, Application,
+        AffirmativeStaffApplication, ImportedScholar,
+    )
     from django.core.files.base import ContentFile
     import openpyxl
     from io import BytesIO
@@ -3057,6 +3094,17 @@ def vpsea_new_semester(request):
 
     parsed = SystemSettings.parse_label(label)
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+
+    # The term that is ending, read before the active one is moved on. The
+    # snapshot below is of that term's scholars, and it used to be stamped with
+    # `label` — the term just beginning — because the save happened first and
+    # nothing had kept the old value. So the outgoing term was archived under
+    # the incoming term's name: analytics and the archives, which read a past
+    # term by its label, found nothing under the one that had just ended, and
+    # the new term opened holding a list of the previous term's scholars.
+    outgoing_label = settings_obj.academic_year
+    outgoing = SystemSettings.parse_label(outgoing_label)
+
     settings_obj.academic_year = label
     settings_obj.active_semester = parsed['semester']
     settings_obj.save()
@@ -3085,12 +3133,33 @@ def vpsea_new_semester(request):
                 status='Approved', scholarship__type=scholarship_type
             ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
 
+        # The scholars the office uploaded for the term that is ending, which
+        # this snapshot left out entirely. Only two programmes here have a
+        # portal of their own; for every other one an imported row is not a
+        # supplement to the approved applications, it is the entire list — so
+        # the sheet saved on rollover was empty for most of the catalogue, and
+        # said so with a scholar_count of 0.
+        #
+        # Claimed rows are excluded for the reason _archive_records excludes
+        # them: that scholar has an Application in the queryset above, and
+        # listing both writes them down twice.
+        imported = list(ImportedScholar.objects.filter(
+            scholarship_type=scholarship_type, term_label=outgoing_label,
+            claimed_by__isnull=True,
+        ).order_by('last_name', 'first_name'))
+
+        records = list(qs) + imported
+        programme_name = (
+            Scholarship.objects.filter(type=scholarship_type)
+            .values_list('name', flat=True).first() or scholarship_type
+        )
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = 'Scholars'
         ws.append(header)
-        for i, record in enumerate(qs, 1):
-            cells = _rollover_fields(record)
+        for i, record in enumerate(records, 1):
+            cells = _rollover_fields(record, programme_name)
             row = [''] * len(header)
             row[0] = i
             for idx, field in col_map:
@@ -3100,27 +3169,28 @@ def vpsea_new_semester(request):
         buf = BytesIO()
         wb.save(buf)
         buf.seek(0)
-        return buf, qs.count()
+        return buf, len(records)
 
     created = 0
     for t in ALL_TYPES:
-        if ScholarListImport.objects.filter(term_label=label, scholarship_type=t).exists():
+        if ScholarListImport.objects.filter(term_label=outgoing_label, scholarship_type=t).exists():
             continue
         buf, count = _build_excel(t)
         rollover = ScholarListImport(
             scholarship_type=t,
-            school_year=parsed['sy'],
-            semester=parsed['semester'],
-            term_label=label,
+            school_year=outgoing['sy'],
+            semester=outgoing['semester'],
+            term_label=outgoing_label,
             scholar_count=count,
             imported_by=request.user,
         )
-        rollover.excel_file.save(f'{t}_{label}.xlsx', ContentFile(buf.read()), save=True)
+        rollover.excel_file.save(f'{t}_{outgoing_label}.xlsx', ContentFile(buf.read()), save=True)
         created += 1
 
     ActivityLog.objects.create(
         user=request.user,
-        action=f'New semester started: {label} ({parsed["sy"]} {parsed["semester"]}). Saved lists for {created} scholarship types.'
+        action=f'New semester started: {label} ({parsed["sy"]} {parsed["semester"]}). '
+               f'Saved lists for {created} scholarship types under {outgoing_label}.'
     )
     return redirect(f'/vpsea/archives/?type={stype}')
 
@@ -3172,15 +3242,49 @@ COLUMN_MAPS = {
 }
 
 
-def _rollover_fields(record):
-    """One approved scholar's cells, keyed by the field names COLUMN_MAPS uses.
+def _rollover_fields(record, programme_name=''):
+    """One scholar's cells, keyed by the field names COLUMN_MAPS uses.
 
-    Both shapes an approved scholar can arrive in — an Application with a
-    StudentProfile behind it, or an AffirmativeStaffApplication carrying its own
-    copy of the details — reduce to the same dict here. That is what lets
-    _build_excel lay a rollover out by the import contract without caring which
-    table the row came from.
+    All three shapes a scholar can arrive in — an Application with a
+    StudentProfile behind it, an AffirmativeStaffApplication carrying its own
+    copy of the details, or an ImportedScholar row off an office upload —
+    reduce to the same dict here. That is what lets _build_excel lay a rollover
+    out by the import contract without caring which table the row came from.
+
+    ``programme_name`` names the scholarship in the one shape that cannot say it
+    itself: the import drops the sheet's programme column rather than storing
+    it, so the caller — which knows the type it is building the sheet for —
+    supplies it. The other two shapes read it off their own award and ignore it.
     """
+    from .models import ImportedScholar
+
+    if isinstance(record, ImportedScholar):
+        # Round-trips the import contract: the same fields _scholars_from_sheet
+        # read out of the uploaded sheet, written back into the columns it
+        # reads, so a rollover sheet can be uploaded straight back.
+        return {
+            'last_name': record.last_name,
+            'first_name': record.first_name,
+            'middle_name': record.middle_name,
+            # The import stores whichever of the two the sheet had under
+            # middle_name, so the initial is taken from it rather than kept
+            # separately.
+            'middle_initial': (record.middle_name or '')[:1],
+            'sex': record.gender or '',
+            'barangay': record.barangay or '',
+            'municipality': record.municipality or '',
+            'province': record.province or '',
+            'course': record.course or '',
+            'year': record.year_level or '',
+            'gwa': f'{record.gwa:.2f}' if record.gwa else '',
+            'student_number': record.student_id or '',
+            'award_number': record.award_number or '',
+            'congress_district': record.congress_district or '',
+            'pct': '', 'pct_type': '',
+            'scholarship': programme_name,
+            'scholarship_program': programme_name,
+        }
+
     if isinstance(record, AffirmativeStaffApplication):
         pct = '100' if record.is_nsu_staff else '75'
         name = ('BiPSU Staff Scholarship' if record.is_nsu_staff
@@ -3305,16 +3409,88 @@ def vpsea_rollover_delete(request, pk):
     return redirect(f'/vpsea/archives/?type={stype}')
 
 
-def _scholars_from_sheet(file, stype, term_label, imported_from=None):
-    """The scholar rows one uploaded workbook describes, unsaved.
+def _custom_columns_for(stype, override=None):
+    """The columns the office — or a partner — added to this programme's table."""
+    programme = Scholarship.objects.filter(type=stype).first()
+    return [column for column
+            in scholar_columns.resolve(programme, stype, override=override)
+            if column['custom']]
 
-    Nothing is written here and nothing is deleted: the caller decides what the
-    new rows replace and inside which transaction, because the office replaces
-    a whole term and a partner replaces only the part of it that is its own.
+
+def _sheet_custom_columns(headings, col_map, columns):
+    """Which spreadsheet column feeds which added column: ``{index: column}``.
+
+    Matched on the **heading**, not the position. A funder's own file puts its
+    columns where it likes, and the office named the column after whatever the
+    funder calls it — so the name is the only thing the two ends share. The slug
+    compared is the one :func:`~api.scholar_columns.custom_key` derives, so
+    'Batch', 'BATCH' and ' batch ' are one column, while 'Batch No.' is a
+    different one and stays unmatched rather than being guessed at.
+
+    Positions the import contract already claims are never read here. A sheet
+    whose 'Sex' column happens to sit where a heading would otherwise match must
+    not have that value read twice, into two different fields.
+    """
+    by_key = {column['key']: column for column in columns}
+    claimed = {0} | {index for index, _field in col_map}
+
+    matched = {}
+    for index, heading in enumerate(headings):
+        if index in claimed or heading is None:
+            continue
+        column = by_key.get(scholar_columns.custom_key(str(heading)))
+        # First heading wins, so a sheet naming one column twice fills it once.
+        if column is not None and column['key'] not in {c['key'] for c in matched.values()}:
+            matched[index] = column
+    return matched
+
+
+def _cell_for_custom_column(column, raw):
+    """One spreadsheet cell as its column declared it, or None to refuse it.
+
+    The same rule :func:`~api.scholar_columns.clean_value` applies to a value
+    the office types, so a column holds one kind of thing however it was filled.
+
+    What has to happen first is a translation. openpyxl hands back what Excel
+    stored — a real ``datetime`` for a date cell, a ``float`` for a number — and
+    ``clean_value`` reads text. Left alone, a Date column would refuse every
+    correctly formatted date in the file and accept only the ones typed as
+    strings, which is exactly backwards.
+    """
+    import datetime
+
+    if isinstance(raw, datetime.datetime):
+        raw = raw.date().isoformat()
+    elif isinstance(raw, datetime.date):
+        raw = raw.isoformat()
+    if raw is None or str(raw).strip() == '':
+        return ''
+    return scholar_columns.clean_value(column, raw)
+
+
+def _scholars_from_sheet(file, stype, term_label, imported_from=None,
+                         custom_columns=None):
+    """``(rows, refused)`` for one uploaded workbook. Nothing is written.
+
+    The caller decides what the new rows replace and inside which transaction,
+    because the office replaces a whole term and a partner replaces only the
+    part of it that is its own.
 
     Kept in one function for the same reason COLUMN_MAPS is one table — two
     copies of this loop would be two spreadsheet contracts, and the second one
     would be discovered by a funder whose import silently lost a column.
+
+    **Columns the office added are filled from the sheet too.** They could only
+    be typed before, one scholar at a time, on the archive page — which for the
+    programmes that arrive *entirely* as a spreadsheet, which is most of them,
+    meant retyping every cell of a column the source file already had, and
+    losing it again on the next import. A heading that names an added column
+    fills it; see :func:`_sheet_custom_columns`.
+
+    ``refused`` counts cells that named an added column but held the wrong kind
+    of thing — a word in a Number column. Those are left empty rather than
+    stored, the way a typed one is, and the count is reported to the office so a
+    silently half-filled column is not something they find out about later.
     """
     import openpyxl
 
@@ -3323,7 +3499,12 @@ def _scholars_from_sheet(file, stype, term_label, imported_from=None):
     ws = openpyxl.load_workbook(file).active
     col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
 
-    records = []
+    if custom_columns is None:
+        custom_columns = _custom_columns_for(stype)
+    headings = [cell.value for cell in ws[1]] if ws.max_row else []
+    from_sheet = _sheet_custom_columns(headings, col_map, custom_columns)
+
+    records, refused = [], 0
     for row in ws.iter_rows(min_row=2, values_only=True):
         if not row or row[0] is None:
             continue
@@ -3354,6 +3535,15 @@ def _scholars_from_sheet(file, stype, term_label, imported_from=None):
         address = extra.get('address', '')
         addr_parts = [x.strip() for x in address.split(',')] if address else []
 
+        added = {}
+        for index, column in from_sheet.items():
+            cleaned = _cell_for_custom_column(
+                column, row[index] if index < len(row) else None)
+            if cleaned is None:
+                refused += 1
+            elif cleaned != '':
+                added[column['key']] = cleaned
+
         records.append(ImportedScholar(
             scholarship_type=stype,
             term_label=term_label,
@@ -3370,9 +3560,10 @@ def _scholars_from_sheet(file, stype, term_label, imported_from=None):
             student_id=extra.get('student_number', extra.get('student_id', '')),
             award_number=extra.get('award_number', ''),
             congress_district=extra.get('congress_district', ''),
+            extra_data=added,
             imported_from=imported_from or file.name,
         ))
-    return records
+    return records, refused
 
 
 @_vpsea_required
@@ -3394,7 +3585,7 @@ def vpsea_archive_import(request):
         active_semester = parsed['semester']
         rollover_parsed = SystemSettings.parse_label(rollover_label) if '-' in rollover_label else {'sy': rollover_label, 'semester': active_semester}
 
-        records = _scholars_from_sheet(file, stype, rollover_label)
+        records, refused = _scholars_from_sheet(file, stype, rollover_label)
 
         # Replace the term's rows only once the new ones are in hand, and in one
         # transaction. The delete used to run before the sheet was parsed, so a
@@ -3424,9 +3615,17 @@ def vpsea_archive_import(request):
             user=request.user,
             action=f'Imported {file.name} ({created} rows) for {stype} as "{rollover_label}"'
         )
-    except Exception as e:
-        return redirect(f'/vpsea/archives/?type={stype}&import_error={e}')
-    return redirect(f'/vpsea/archives/?type={stype}&import_ok={created}')
+    except Exception as exc:
+        from urllib.parse import quote
+        return redirect(f'/vpsea/archives/?type={quote(stype)}&import_error='
+                        + quote(str(exc)))
+    target = f'/vpsea/archives/?type={stype}&import_ok={created}'
+    # A column the office added and the sheet filled is worth saying so —
+    # and a cell the sheet held the wrong kind of thing in even more so,
+    # because that column is now half filled and nothing else would say.
+    if refused:
+        target += f'&columns_bad={refused}'
+    return redirect(target)
 
 
 
@@ -3552,12 +3751,6 @@ def _sheet_name(title):
     return (title.translate(_BAD_SHEET_CHARS).strip() or 'Scholars')[:31]
 
 
-# What a scholar is counted under when no school is recorded and their course
-# matches none of BiPSU's. Named rather than left blank so it reads as a gap in
-# the record on the chart, which is what it is.
-UNRECORDED_SCHOOL = 'Not recorded'
-
-
 def _rollover_workbook(field_file):
     """The uploaded rollover sheet, opened through whatever storage holds it.
 
@@ -3585,7 +3778,6 @@ def _analytics_context(request, all_types, include_gwa=True):
     same code path.
     """
     from .models import ScholarListImport, SystemSettings
-    import openpyxl
     from collections import defaultdict
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
@@ -3634,76 +3826,44 @@ def _analytics_context(request, all_types, include_gwa=True):
     selected_semester = selected_parsed['semester']
     selected_type = request.GET.get('stype', '')
 
-    # Scholar count per type: rollover records + ImportedScholar imports
-    from .models import ImportedScholar
-    # Scholar count per type: if selected = active semester, use live DB counts
-    # otherwise use ImportedScholar imports or ScholarListImport snapshot
+    def _sheet_for(stype):
+        """The uploaded sheet for one programme and the selected term, if any."""
+        return ScholarListImport.objects.filter(
+            scholarship_type=stype, term_label=selected_label).first()
+
+    # Scholar count per programme, in the same three steps for every term:
+    # the records the system holds live, then the rows an office imported, then
+    # — only if neither found anybody — the count off the uploaded sheet.
+    #
+    # The active term used to stop after the first two. A sheet uploaded for the
+    # term the office is working in was therefore invisible here while the same
+    # sheet, one rollover later, counted perfectly: the page went blank at the
+    # moment the term turned over rather than when the scholars went away.
     rollover_counts = {}
     for t in ALL_TYPES:
         if selected_label == active_label:
-            # Current semester — no rollover yet, count from live approved records
             if t in ('Affirmative', 'Staff'):
                 from .models import AffirmativeStaffApplication
-                rollover_counts[t] = (
-                    AffirmativeStaffApplication.objects.filter(
-                        status='Approved', qualified_for=t
-                    ).count()
-                    + _imported_current(t).count()
-                )
+                counted = AffirmativeStaffApplication.objects.filter(
+                    status='Approved', qualified_for=t
+                ).count()
             else:
-                # Imported scholars count too. Only the past-semester branch
-                # below ever looked at them, so a list uploaded into the active
-                # term showed nothing here until the term rolled over.
-                rollover_counts[t] = (
-                    Application.objects.filter(
-                        status='Approved', scholarship__type=t
-                    ).count()
-                    + _imported_current(t).count()
-                )
+                counted = Application.objects.filter(
+                    status='Approved', scholarship__type=t
+                ).count()
+            counted += _imported_current(t).count()
         else:
-            # Past semester — prefer ImportedScholar rows, fall back to rollover snapshot
-            import_count = ImportedScholar.objects.filter(scholarship_type=t, term_label=selected_label).count()
-            if import_count:
-                rollover_counts[t] = import_count
-            else:
-                r = ScholarListImport.objects.filter(scholarship_type=t, term_label=selected_label).first()
-                rollover_counts[t] = r.scholar_count if r else 0
+            counted = ImportedScholar.objects.filter(
+                scholarship_type=t, term_label=selected_label).count()
 
-    def _course_counts_from_rollover(stype):
-        # Current semester — pull from live approved records
-        if selected_label == active_label:
-            from django.db.models import Count as DCount
-            counts = {}
-            if stype in ('Affirmative', 'Staff'):
-                from .models import AffirmativeStaffApplication
-                qs = AffirmativeStaffApplication.objects.filter(
-                    status='Approved', qualified_for=stype
-                ).values('enrollment__course').annotate(n=DCount('id'))
-                for r in qs:
-                    key = r['enrollment__course'] or 'Unknown'
-                    counts[key] = counts.get(key, 0) + r['n']
-            else:
-                qs = Application.objects.filter(
-                    status='Approved', scholarship__type=stype
-                ).values('student__enrollment__course').annotate(n=DCount('id'))
-                for r in qs:
-                    key = r['student__enrollment__course'] or 'Unknown'
-                    counts[key] = counts.get(key, 0) + r['n']
-            # …and the imported rows for the same term, which this branch used
-            # to leave out entirely.
-            for r in _imported_current(stype).values('course').annotate(n=DCount('id')):
-                key = r['course'] or 'Unknown'
-                counts[key] = counts.get(key, 0) + r['n']
-            return counts
-        # Past semester — first try ImportedScholar (imported rows)
-        ar_counts = {}
-        for rec in ImportedScholar.objects.filter(scholarship_type=stype, term_label=selected_label).values('course'):
-            c = rec['course'] or 'Unknown'
-            ar_counts[c] = ar_counts.get(c, 0) + 1
-        if ar_counts:
-            return ar_counts
-        # Fall back to rollover excel file
-        r = ScholarListImport.objects.filter(scholarship_type=stype, term_label=selected_label).first()
+        if not counted:
+            record = _sheet_for(t)
+            counted = record.scholar_count if record else 0
+        rollover_counts[t] = counted
+
+    def _course_counts_from_sheet(stype):
+        """Courses tallied off the uploaded sheet, for a term with no rows."""
+        r = _sheet_for(stype)
         if not r or not r.excel_file:
             return {}
         try:
@@ -3725,59 +3885,40 @@ def _analytics_context(request, all_types, include_gwa=True):
                              stype, selected_label)
             return {}
 
-    def _school_counts(stype):
-        """Scholars per BiPSU school for one programme.
-
-        Only an award and a staff application record a school of their own. An
-        imported row and a rollover sheet carry a course and nothing else, so
-        theirs is worked out from it — and `school_for_course` matches a course
-        exactly or not at all, so a scholar whose course was typed free-hand is
-        reported as unrecorded rather than filed under a school someone guessed.
-        """
-        from .constants import school_for_course
-
-        counts = defaultdict(int)
-
-        def add(school, course, n=1):
-            named = (school or '').strip()
-            counts[named or school_for_course(course) or UNRECORDED_SCHOOL] += n
-
+    def _course_counts_from_rollover(stype):
+        # Same three steps as rollover_counts, and in the same order, so the
+        # tally and the total can never come off different records.
+        counts = {}
         if selected_label == active_label:
+            from django.db.models import Count as DCount
             if stype in ('Affirmative', 'Staff'):
                 from .models import AffirmativeStaffApplication
-                rows = AffirmativeStaffApplication.objects.filter(
+                qs = AffirmativeStaffApplication.objects.filter(
                     status='Approved', qualified_for=stype
-                ).values('enrollment__school', 'enrollment__course')
-                for r in rows:
-                    add(r['enrollment__school'], r['enrollment__course'])
+                ).values('enrollment__course').annotate(n=DCount('id'))
+                for r in qs:
+                    key = r['enrollment__course'] or 'Unknown'
+                    counts[key] = counts.get(key, 0) + r['n']
             else:
-                rows = Application.objects.filter(
+                qs = Application.objects.filter(
                     status='Approved', scholarship__type=stype
-                ).values('student__enrollment__school', 'student__enrollment__course')
-                for r in rows:
-                    add(r['student__enrollment__school'],
-                        r['student__enrollment__course'])
-            for r in _imported_current(stype).values('course'):
-                add('', r['course'])
-            return dict(counts)
+                ).values('student__enrollment__course').annotate(n=DCount('id'))
+                for r in qs:
+                    key = r['student__enrollment__course'] or 'Unknown'
+                    counts[key] = counts.get(key, 0) + r['n']
+            # …and the imported rows for the same term, which this branch used
+            # to leave out entirely.
+            for r in _imported_current(stype).values('course').annotate(n=DCount('id')):
+                key = r['course'] or 'Unknown'
+                counts[key] = counts.get(key, 0) + r['n']
+        else:
+            for rec in ImportedScholar.objects.filter(
+                scholarship_type=stype, term_label=selected_label
+            ).values('course'):
+                c = rec['course'] or 'Unknown'
+                counts[c] = counts.get(c, 0) + 1
 
-        # A past semester is read from imported rows or the uploaded sheet, and
-        # neither carries a school — so the course counts already built for that
-        # term are rolled up rather than queried a second time.
-        for course, n in _course_counts_from_rollover(stype).items():
-            add('', '' if course == 'Unknown' else course, n)
-        return dict(counts)
-
-    # School distribution
-    if selected_type and selected_type in ALL_TYPES:
-        raw_schools = _school_counts(selected_type)
-    else:
-        raw_schools = defaultdict(int)
-        for t in ALL_TYPES:
-            for k, v in _school_counts(t).items():
-                raw_schools[k] += v
-    school_dist = [{'school': k, 'scholars': v}
-                   for k, v in sorted(raw_schools.items(), key=lambda x: -x[1])]
+        return counts or _course_counts_from_sheet(stype)
 
     # Course distribution
     if selected_type and selected_type in ALL_TYPES:
@@ -3789,58 +3930,75 @@ def _analytics_context(request, all_types, include_gwa=True):
                 raw[k] += v
     course_dist = [{'course': k, 'scholars': v} for k, v in sorted(raw.items(), key=lambda x: -x[1])]
 
-    # GWA distribution — current sem: live DB; past sem: ImportedScholar or rollover excel
-    gpa_ranges = [{'range': r, 'count': 0} for r in ['1.00-1.25', '1.26-1.50', '1.51-1.75', '1.76-2.00', '2.01-2.50']]
+    # ── GWA distribution ──────────────────────────────────────────────────────
+    # The same three steps again — live records, imported rows, uploaded sheet —
+    # against the same term, so the GWA card describes the scholars the two
+    # cards above it just counted. It read only live Applications for the active
+    # term before, which left an imported Academic list counted in every chart
+    # but this one.
+    GWA_BANDS = ['1.00-1.25', '1.26-1.50', '1.51-1.75', '1.76-2.00', '2.01-2.50']
+
+    def _band(value):
+        """The band one GWA falls in, or None for a blank or an out-of-range one."""
+        try:
+            g = float(value or 0)
+        except (ValueError, TypeError):
+            return None
+        if g < 1.0:
+            return None
+        for band, ceiling in zip(GWA_BANDS, (1.25, 1.50, 1.75, 2.00, 2.50)):
+            if g <= ceiling:
+                return band
+        return None
+
+    def _banded(values):
+        buckets = {band: 0 for band in GWA_BANDS}
+        found = False
+        for value in values:
+            band = _band(value)
+            if band:
+                buckets[band] += 1
+                found = True
+        return buckets if found else None
+
+    def _gwa_from_sheet():
+        record = _sheet_for('Academic')
+        if not record or not record.excel_file:
+            return None
+        try:
+            ws = _rollover_workbook(record.excel_file).active
+            gwa_col = next((cell.column - 1 for cell in ws[1]
+                            if cell.value and 'gwa' in str(cell.value).lower()), None)
+            if gwa_col is None:
+                return None
+            return _banded(
+                row[gwa_col] for row in ws.iter_rows(min_row=2, values_only=True)
+                if row and row[0] is not None and gwa_col < len(row)
+            )
+        except Exception:
+            logger.exception('analytics: could not read Academic rollover '
+                             'sheet for %s', selected_label)
+            return None
+
     if not include_gwa:
         # TES and TDP are needs-based — they are not banded by GWA.
         gpa_ranges = []
-    elif selected_label == active_label:
-        buckets = {'1.00-1.25': 0, '1.26-1.50': 0, '1.51-1.75': 0, '1.76-2.00': 0, '2.01-2.50': 0}
-        for p in Application.objects.filter(
-            status='Approved', scholarship__type='Academic'
-        ).values('student__enrollment__gwa'):
-            g = p['student__enrollment__gwa'] or 0
-            if 1.0 <= g <= 1.25: buckets['1.00-1.25'] += 1
-            elif g <= 1.50: buckets['1.26-1.50'] += 1
-            elif g <= 1.75: buckets['1.51-1.75'] += 1
-            elif g <= 2.00: buckets['1.76-2.00'] += 1
-            elif g <= 2.50: buckets['2.01-2.50'] += 1
-        gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
     else:
-        ar_academic = ImportedScholar.objects.filter(scholarship_type='Academic', term_label=selected_label)
-        if ar_academic.exists():
-            buckets = {'1.00-1.25': 0, '1.26-1.50': 0, '1.51-1.75': 0, '1.76-2.00': 0, '2.01-2.50': 0}
-            for rec in ar_academic.values('gwa'):
-                g = rec['gwa'] or 0
-                if 1.0 <= g <= 1.25: buckets['1.00-1.25'] += 1
-                elif g <= 1.50: buckets['1.26-1.50'] += 1
-                elif g <= 1.75: buckets['1.51-1.75'] += 1
-                elif g <= 2.00: buckets['1.76-2.00'] += 1
-                elif g <= 2.50: buckets['2.01-2.50'] += 1
-            gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
+        if selected_label == active_label:
+            buckets = _banded(
+                [p['student__enrollment__gwa'] for p in Application.objects.filter(
+                    status='Approved', scholarship__type='Academic'
+                ).values('student__enrollment__gwa')]
+                + [r['gwa'] for r in _imported_current('Academic').values('gwa')]
+            )
         else:
-            acad_r = ScholarListImport.objects.filter(scholarship_type='Academic', term_label=selected_label).first()
-            if acad_r and acad_r.excel_file:
-                try:
-                    ws = _rollover_workbook(acad_r.excel_file).active
-                    gwa_col = next((cell.column - 1 for cell in ws[1] if cell.value and 'gwa' in str(cell.value).lower()), None)
-                    if gwa_col is not None:
-                        buckets = {'1.00-1.25': 0, '1.26-1.50': 0, '1.51-1.75': 0, '1.76-2.00': 0, '2.01-2.50': 0}
-                        for row in ws.iter_rows(min_row=2, values_only=True):
-                            if row and row[0] is not None:
-                                try:
-                                    g = float(row[gwa_col]) if gwa_col < len(row) and row[gwa_col] else 0
-                                    if 1.0 <= g <= 1.25: buckets['1.00-1.25'] += 1
-                                    elif g <= 1.50: buckets['1.26-1.50'] += 1
-                                    elif g <= 1.75: buckets['1.51-1.75'] += 1
-                                    elif g <= 2.00: buckets['1.76-2.00'] += 1
-                                    elif g <= 2.50: buckets['2.01-2.50'] += 1
-                                except (ValueError, TypeError):
-                                    pass
-                        gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
-                except Exception:
-                    logger.exception('analytics: could not read Academic rollover '
-                                     'sheet for %s', selected_label)
+            buckets = _banded(
+                r['gwa'] for r in ImportedScholar.objects.filter(
+                    scholarship_type='Academic', term_label=selected_label
+                ).values('gwa')
+            )
+        buckets = buckets or _gwa_from_sheet() or {band: 0 for band in GWA_BANDS}
+        gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
 
     # ── Scholars-over-time trend ──────────────────────────────────────────────
     # Build a chronological list of (label, display, total_scholars) covering
@@ -3858,8 +4016,6 @@ def _analytics_context(request, all_types, include_gwa=True):
     trend_data = []
     for lbl in trend_labels_sorted:
         parsed = SystemSettings.parse_label(lbl)
-        display = f"{parsed['sy']}\n{parsed['semester']}"   # two-line label for x-axis
-        short   = f"{parsed['sy']} S{parsed['sy_start'] and lbl.split('-')[1] or '?'}"
 
         # One pass per semester. The total and the per-programme breakdown are
         # the same counts, and this used to run every one of these queries twice
@@ -3876,21 +4032,26 @@ def _analytics_context(request, all_types, include_gwa=True):
                     c = Application.objects.filter(
                         status='Approved', scholarship__type=t
                     ).count()
+                # The imported rows, which this point on the line left out — so
+                # the active term dipped to whatever arrives through a portal
+                # and the chart showed a collapse in the current semester that
+                # every other card on the page disagreed with.
+                c += _imported_current(t).count()
             else:
-                # Prefer ImportedScholar row count, fall back to rollover snapshot
                 c = ImportedScholar.objects.filter(
                     scholarship_type=t, term_label=lbl
                 ).count()
-                if not c:
-                    r = ScholarListImport.objects.filter(
-                        scholarship_type=t, term_label=lbl
-                    ).first()
-                    c = r.scholar_count if r else 0
+            if not c:
+                r = ScholarListImport.objects.filter(
+                    scholarship_type=t, term_label=lbl
+                ).first()
+                c = r.scholar_count if r else 0
             counts[t] = c
 
         parsed_display = f"{parsed['sy']} — {parsed['semester']}"
         trend_data.append({
             'label': lbl,
+            'sy': parsed['sy'],
             'display': parsed_display,
             'total': sum(counts.values()),
             'counts': counts,
@@ -3913,6 +4074,120 @@ def _analytics_context(request, all_types, include_gwa=True):
         for t in series_types
     ]
 
+    # ── Scholars per academic year ────────────────────────────────────────────
+    # How many people held a scholarship in each academic year — counted as
+    # people, not as entries.
+    #
+    # This cannot be a sum of the year's semesters. A scholar enrolled in both
+    # the 1st and the 2nd semester of 2025-2026 appears on both lists and is
+    # still one scholar, so adding the terms reports them twice. Nor can it be
+    # the larger of the two terms: that never double counts, but it loses a
+    # scholar who was on one semester's list and not the other.
+    #
+    # So the year's scholars are gathered as a set of people and counted once
+    # each — across its semesters, and across programmes too, because somebody
+    # holding two awards is still one scholar. That is why this number is
+    # usually smaller than the programme bars added together.
+    def _identity(student_id, last, first):
+        """One scholar, in a form two records of them agree on.
+
+        A student number identifies somebody outright, and is compared with the
+        punctuation and case taken out because the same number is typed
+        '32-1-00042' on one sheet and '3210 0042' on the next. Only a record
+        with no number at all falls back to the name, and to the last and first
+        only: the middle name is an initial on one list and spelled out on
+        another, so including it would split one person into two.
+        """
+        digits = ''.join(ch for ch in (student_id or '').upper() if ch.isalnum())
+        if digits:
+            return f'id:{digits}'
+        name = ' '.join(' '.join((last or '', first or '')).upper().split())
+        return f'name:{name}' if name else None
+
+    def _identities_from_sheet(stype, label):
+        """The people named in an uploaded sheet, for a term held only as one."""
+        record = ScholarListImport.objects.filter(
+            scholarship_type=stype, term_label=label).first()
+        if not record or not record.excel_file:
+            return set()
+        try:
+            ws = _rollover_workbook(record.excel_file).active
+
+            def column(*wanted):
+                for cell in ws[1]:
+                    heading = str(cell.value or '').strip().lower()
+                    if heading and any(w in heading for w in wanted):
+                        return cell.column - 1
+                return None
+
+            last_col = column('last name')
+            first_col = column('first name')
+            id_col = column('student number', 'student id', 'student no')
+            if last_col is None and id_col is None:
+                return set()
+
+            def cell(row, index):
+                if index is None or index >= len(row):
+                    return ''
+                return str(row[index]).strip() if row[index] is not None else ''
+
+            people = set()
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if not row or row[0] is None:
+                    continue
+                key = _identity(cell(row, id_col), cell(row, last_col),
+                                cell(row, first_col))
+                if key:
+                    people.add(key)
+            return people
+        except Exception:
+            logger.exception('analytics: could not read rollover sheet for %s %s',
+                             stype, label)
+            return set()
+
+    def _scholars_in(stype, label):
+        """The people on one programme's list for one term, as identity keys."""
+        people = set()
+
+        if label == active_label:
+            if stype in ('Affirmative', 'Staff'):
+                from .models import AffirmativeStaffApplication
+                for r in AffirmativeStaffApplication.objects.filter(
+                    status='Approved', qualified_for=stype
+                ).values('enrollment__student_id', 'full_name'):
+                    # full_name is one column here, so it is split back into the
+                    # last and first the other two shapes are keyed on.
+                    parts = (r['full_name'] or '').split()
+                    people.add(_identity(r['enrollment__student_id'],
+                                         parts[-1] if parts else '',
+                                         parts[0] if len(parts) > 1 else ''))
+            else:
+                for r in Application.objects.filter(
+                    status='Approved', scholarship__type=stype
+                ).values('student__student_id', 'student__user__last_name',
+                         'student__user__first_name'):
+                    people.add(_identity(r['student__student_id'],
+                                         r['student__user__last_name'],
+                                         r['student__user__first_name']))
+            rows = _imported_current(stype)
+        else:
+            rows = ImportedScholar.objects.filter(
+                scholarship_type=stype, term_label=label)
+
+        for r in rows.values('student_id', 'last_name', 'first_name'):
+            people.add(_identity(r['student_id'], r['last_name'], r['first_name']))
+
+        people.discard(None)
+        return people or _identities_from_sheet(stype, label)
+
+    year_people = {}
+    for d in trend_data:
+        people = year_people.setdefault(d['sy'], set())
+        for t in series_types:
+            people |= _scholars_in(t, d['label'])
+    year_dist = [{'year': sy, 'scholars': len(people)}
+                 for sy, people in sorted(year_people.items())]
+
     # ── What is actually worth drawing ────────────────────────────────────────
     # A Chart.js canvas given nothing to plot is not blank, it is a labelled
     # empty grid — which reads as "the chart is broken" rather than "nobody is
@@ -3923,8 +4198,8 @@ def _analytics_context(request, all_types, include_gwa=True):
     # script: they used to test slightly different conditions for the GWA card,
     # so filtering to a programme other than Academic left the script building a
     # chart on a canvas the markup had not rendered. Chart.js throws on that,
-    # and every chart below it in the same <script> — School, Course, Scholars
-    # Over Time — never got built.
+    # and every chart below it in the same <script> — Course and Scholars Over
+    # Time — never got built.
     show_program = bool(course_dist) if selected_type else any(rollover_counts.values())
     show_gwa = (
         bool(gpa_ranges)
@@ -3935,16 +4210,19 @@ def _analytics_context(request, all_types, include_gwa=True):
     # itself keeps its zero-filled lines — a line at zero is an answer when
     # there is another line beside it to read it against.
     show_trend = len(trend_data) > 1 and any(any(s['counts']) for s in trend_series)
+    # One year on its own is still worth drawing — unlike the trend, this chart
+    # answers "how many scholars in 2025-2026", which one bar answers fine.
+    show_years = any(y['scholars'] for y in year_dist)
 
     return {
         'rollover_counts': rollover_counts,
         'all_types': ALL_TYPES,
         'course_dist': course_dist,
-        'school_dist': school_dist,
         'gpa_ranges': gpa_ranges,
         'show_program': show_program,
         'show_gwa': show_gwa,
         'show_trend': show_trend,
+        'show_years': show_years,
         'all_sy_display': all_sy_display,
         'selected_sy': selected_label,
         'selected_type': selected_type,
@@ -3952,6 +4230,7 @@ def _analytics_context(request, all_types, include_gwa=True):
         'active_sy': active_label,
         'trend_data': trend_data,
         'trend_series': trend_series,
+        'year_dist': year_dist,
     }
 
 
@@ -4117,397 +4396,6 @@ def vpsea_report_download(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
-    # — Page layout: landscape, legal-ish wide ————————————————
-    section = doc.sections[0]
-    section.orientation = 1  # LANDSCAPE
-    section.page_width = Inches(13.0)
-    section.page_height = Inches(8.5)
-    section.left_margin = Inches(0.5)
-    section.right_margin = Inches(0.5)
-    section.top_margin = Inches(0.9)
-    section.bottom_margin = Inches(0.4)
-
-    # — Helpers ————————————————————————————————
-    def add_heading(text, bold=False, size=11, align=WD_ALIGN_PARAGRAPH.CENTER):
-        p = doc.add_paragraph()
-        p.alignment = align
-        run = p.add_run(text)
-        run.bold = bold
-        run.font.size = Pt(size)
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(0)
-        return p
-
-    def add_blank():
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(0)
-
-    def set_cell_border(cell):
-        tc = cell._tc
-        tcPr = tc.get_or_add_tcPr()
-        for edge in ('top', 'left', 'bottom', 'right'):
-            tag = OxmlElement(f'w:{edge}')
-            tag.set(qn('w:val'), 'single')
-            tag.set(qn('w:sz'), '4')
-            tag.set(qn('w:space'), '0')
-            tag.set(qn('w:color'), '000000')
-            tcPr.append(tag)
-
-    def style_header_row(row, bold=True, bg='D9E1F2'):
-        for cell in row.cells:
-            set_cell_border(cell)
-            tc = cell._tc
-            tcPr = tc.get_or_add_tcPr()
-            shd = OxmlElement('w:shd')
-            shd.set(qn('w:val'), 'clear')
-            shd.set(qn('w:color'), 'auto')
-            shd.set(qn('w:fill'), bg)
-            tcPr.append(shd)
-            for para in cell.paragraphs:
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in para.runs:
-                    run.bold = bold
-                    run.font.size = Pt(8)
-
-    def style_data_row(row):
-        for cell in row.cells:
-            set_cell_border(cell)
-            for para in cell.paragraphs:
-                for run in para.runs:
-                    run.font.size = Pt(8)
-
-    def add_scholar_table(headers, sub_headers, rows_data):
-        ncols = len(headers)
-        table = doc.add_table(rows=0, cols=ncols)
-        table.style = 'Table Grid'
-        table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        # Header row 1
-        hrow1 = table.add_row()
-        for i, h in enumerate(headers):
-            hrow1.cells[i].text = h
-        style_header_row(hrow1)
-        # Header row 2 (sub-headers)
-        if sub_headers:
-            hrow2 = table.add_row()
-            for i, h in enumerate(sub_headers):
-                hrow2.cells[i].text = h
-            style_header_row(hrow2)
-        # Data rows
-        for row_vals in rows_data:
-            drow = table.add_row()
-            for i, val in enumerate(row_vals):
-                drow.cells[i].text = str(val) if val is not None else ''
-            style_data_row(drow)
-        return table
-
-    def _split_name(full_name):
-        parts = full_name.strip().split()
-        if len(parts) == 0: return ('', '', '')
-        if len(parts) == 1: return (parts[0], '', '')
-        if len(parts) == 2: return (parts[-1], parts[0], '')
-        last = parts[-1]
-        first = parts[0]
-        middle = ' '.join(parts[1:-1])
-        mi = middle[0] + '.' if middle else ''
-        return (last, first, mi)
-
-    def _name_parts(user):
-        return (user.last_name or '', user.first_name or '', '')
-
-    # — Document header ————————————————————————————
-    add_heading('Republic of the Philippines', bold=False, size=11)
-    add_heading('BILIRAN PROVINCE STATE UNIVERSITY', bold=True, size=11)
-    add_heading('Naval, Biliran', bold=False, size=11)
-    add_blank()
-    add_heading(f'LIST OF SCHOLARS FOR {sem_label}', bold=True, size=16)
-    add_blank()
-
-    # — ACADEMIC ———————————————————————————————
-    academic = Application.objects.filter(
-        status='Approved', scholarship__type='Academic'
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-
-    females = [a for a in academic if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    males   = [a for a in academic if a not in females]
-
-    add_heading('ACADEMIC (@)', bold=True, size=11)
-    add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-    add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-    add_blank()
-
-    headers_acad = ['NO.', 'NAME', 'NAME', 'NAME', 'SEX', 'ADDRESS', 'ADDRESS', 'ADDRESS', 'COURSE', 'YR.', 'GWA', '%', 'SCHOLARSHIP PROGRAM']
-    sub_acad     = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'COURSE', 'YR.', 'GWA', '%', 'SCHOLARSHIP PROGRAM']
-
-    def acad_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            last, first, mi = _name_parts(u)
-            addr = p.address or ''
-            parts = [x.strip() for x in addr.split(',')]
-            brgy = parts[0] if len(parts) > 0 else ''
-            mun  = parts[1] if len(parts) > 1 else ''
-            prov = parts[2] if len(parts) > 2 else ''
-            pct = 'University Scholar' if p.gwa <= 1.29 else ('College Scholars' if p.gwa <= 1.50 else '')
-            rows.append([i, last, first, mi, p.gender or '', brgy, mun, prov, p.course, p.year_level, p.gwa, pct, 'ACADEMIC'])
-        return rows
-
-    p_label = doc.add_paragraph('FEMALE')
-    p_label.paragraph_format.space_before = Pt(0)
-    p_label.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_acad, sub_acad, acad_rows(females))
-    add_blank()
-    p_label2 = doc.add_paragraph('MALE')
-    p_label2.paragraph_format.space_before = Pt(0)
-    p_label2.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_acad, sub_acad, acad_rows(males))
-    add_blank()
-
-    # — BiPSU STAFF ———————————————————————————————
-    staff = AffirmativeStaffApplication.objects.filter(
-        status='Approved', qualified_for='Staff'
-    ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name')
-
-    add_heading('BiPSU STAFF (@)', bold=True, size=11)
-    add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-    add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-    add_blank()
-
-    headers_staff = ['NO. ', 'NAME ', 'NAME ', 'NAME ', 'SEX', 'COURSE ', 'YEAR LEVEL ', 'STUDENT ', '% ', 'SCHOLARSHIP ']
-    sub_staff     = ['NO. ', 'LAST NAME ', 'FIRST NAME ', 'M.I. ', 'SEX', 'COURSE ', 'YEAR LEVEL ', 'NUMBER ', '% ', 'PROGRAM ']
-    staff_rows = []
-    for i, app in enumerate(staff, 1):
-        last, first, mi = _split_name(app.full_name)
-        pct = '100' if app.is_nsu_staff else '75'
-        staff_rows.append([i, last, first, mi, app.gender or '', app.course, app.year_level, app.student_id or '', pct, 'BiPSU STAFF SCHOLARSHIP'])
-    add_scholar_table(headers_staff, sub_staff, staff_rows)
-    add_blank()
-
-    # — AFFIRMATIVE ACTION ————————————————————————————
-    affirmative = AffirmativeStaffApplication.objects.filter(
-        status='Approved', qualified_for='Affirmative'
-    ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name')
-
-    aff_females = [a for a in affirmative if a.gender and a.gender.upper() in ('F', 'FEMALE')]
-    aff_males   = [a for a in affirmative if a not in aff_females]
-
-    add_heading('AFFIRMATIVE ACTION (*)', bold=True, size=11)
-    add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-    add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-    add_blank()
-
-    headers_aff = ['NO.', 'AWARD NUMBER', 'NAME', 'NAME', 'NAME', 'SEX', 'ADDRESS', 'ADDRESS', 'ADDRESS', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-    sub_aff     = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-
-    def aff_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            last, first, mi = _split_name(app.full_name)
-            addr = app.address or ''
-            parts = [x.strip() for x in addr.split(',')]
-            brgy = parts[0] if len(parts) > 0 else ''
-            mun  = parts[1] if len(parts) > 1 else ''
-            prov = parts[2] if len(parts) > 2 else ''
-            rows.append([i, '', last, first, mi, app.gender or '', brgy, mun, prov, '', app.course, app.year_level, 'Affirmative Action Scholarship'])
-        return rows
-
-    p_f = doc.add_paragraph('FEMALE')
-    p_f.paragraph_format.space_before = Pt(0)
-    p_f.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_aff, sub_aff, aff_rows(aff_females))
-    add_blank()
-    p_m = doc.add_paragraph('MALE')
-    p_m.paragraph_format.space_before = Pt(0)
-    p_m.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_aff, sub_aff, aff_rows(aff_males))
-    add_blank()
-
-    # — CHED (FULL MERIT / HALF MERIT) ————————————————————
-    ched_all = Application.objects.filter(
-        status='Approved', scholarship__type='CHED'
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-
-    ched_full, ched_half = split_ched(ched_all)
-
-    headers_ched = ['NO.', 'AWARD NUMBER', 'NAME', 'NAME', 'NAME', 'SEX', 'ADDRESS', 'ADDRESS', 'ADDRESS', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-    sub_ched     = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-
-    def ched_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            last, first, mi = _name_parts(u)
-            addr = p.address or ''
-            parts = [x.strip() for x in addr.split(',')]
-            brgy = parts[0] if len(parts) > 0 else ''
-            mun  = parts[1] if len(parts) > 1 else ''
-            prov = parts[2] if len(parts) > 2 else ''
-            award = app.award_number
-            cong  = app.congress_district
-            rows.append([i, award, last, first, mi, p.gender or '', brgy, mun, prov, cong, p.course, p.year_level, app.scholarship.name])
-        return rows
-
-    for block_title, block_apps in [('FULL MERIT/ FULL SCHOLAR (*)', ched_full), ('HALF MERIT/ PARTIAL SCHOLAR (*)', ched_half)]:
-        add_heading(block_title, bold=True, size=11)
-        add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-        add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-        add_blank()
-        ched_f = [a for a in block_apps if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-        ched_m = [a for a in block_apps if a not in ched_f]
-        pf = doc.add_paragraph('FEMALE')
-        pf.paragraph_format.space_before = Pt(0)
-        pf.paragraph_format.space_after = Pt(0)
-        add_scholar_table(headers_ched, sub_ched, ched_rows(ched_f))
-        add_blank()
-        pm = doc.add_paragraph('MALE')
-        pm.paragraph_format.space_before = Pt(0)
-        pm.paragraph_format.space_after = Pt(0)
-        add_scholar_table(headers_ched, sub_ched, ched_rows(ched_m))
-        add_blank()
-
-    # — DOST —————————————————————————————————
-    dost_all = Application.objects.filter(
-        status='Approved', scholarship__type='DOST'
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-
-    add_heading('DOST (*)', bold=True, size=11)
-    add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-    add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-    add_blank()
-
-    dost_f = [a for a in dost_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    dost_m = [a for a in dost_all if a not in dost_f]
-    pf = doc.add_paragraph('FEMALE')
-    pf.paragraph_format.space_before = Pt(0)
-    pf.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_ched, sub_ched, ched_rows(dost_f))
-    add_blank()
-    pm = doc.add_paragraph('MALE')
-    pm.paragraph_format.space_before = Pt(0)
-    pm.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_ched, sub_ched, ched_rows(dost_m))
-    add_blank()
-
-    # — GSIS —————————————————————————————————
-    gsis_all = Application.objects.filter(
-        status='Approved', scholarship__type='GSIS'
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-
-    add_heading('GSIS (*)', bold=True, size=11)
-    add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-    add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-    add_blank()
-
-    headers_gsis = ['NO.', 'NAME', 'NAME', 'NAME', 'SEX', 'ADDRESS', 'ADDRESS', 'ADDRESS', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-    sub_gsis     = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-
-    def gsis_rows(apps):
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            last, first, mi = _name_parts(u)
-            addr = p.address or ''
-            parts = [x.strip() for x in addr.split(',')]
-            brgy = parts[0] if len(parts) > 0 else ''
-            mun  = parts[1] if len(parts) > 1 else ''
-            prov = parts[2] if len(parts) > 2 else ''
-            cong = app.congress_district
-            rows.append([i, last, first, mi, p.gender or '', brgy, mun, prov, cong, p.course, p.year_level, app.scholarship.name])
-        return rows
-
-    gsis_f = [a for a in gsis_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    gsis_m = [a for a in gsis_all if a not in gsis_f]
-    pf = doc.add_paragraph('FEMALE')
-    pf.paragraph_format.space_before = Pt(0)
-    pf.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_gsis, sub_gsis, gsis_rows(gsis_f))
-    add_blank()
-    pm = doc.add_paragraph('MALE')
-    pm.paragraph_format.space_before = Pt(0)
-    pm.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_gsis, sub_gsis, gsis_rows(gsis_m))
-    add_blank()
-
-    # — TES (TDP) ———————————————————————————————
-    tes_all = Application.objects.filter(
-        status='Approved', scholarship__type='TDP'
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name')
-
-    add_heading('TERTIARY EDUCATION SUBSIDY -TES (*)', bold=True, size=11)
-    add_heading('SCHOLARSHIP GRANT', bold=False, size=11)
-    add_heading(f'{semester} SY: {ay}', bold=False, size=11)
-    add_blank()
-
-    tes_f = [a for a in tes_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    tes_m = [a for a in tes_all if a not in tes_f]
-    pf = doc.add_paragraph('FEMALE')
-    pf.paragraph_format.space_before = Pt(0)
-    pf.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_ched, sub_ched, ched_rows(tes_f))
-    add_blank()
-    pm = doc.add_paragraph('MALE')
-    pm.paragraph_format.space_before = Pt(0)
-    pm.paragraph_format.space_after = Pt(0)
-    add_scholar_table(headers_ched, sub_ched, ched_rows(tes_m))
-    add_blank()
-
-    # — Page footer with signatories (appears on every page) —————————
-    footer = section.footer
-    footer.is_linked_to_previous = False
-    # Clear default empty paragraph
-    for para in footer.paragraphs:
-        p_elem = para._p
-        p_elem.getparent().remove(p_elem)
-
-    footer_table = footer.add_table(rows=2, cols=4, width=Inches(12.0))
-    footer_table.style = 'Table Grid'
-
-    sig_labels = [
-        ('Prepared by:', 'Noted:', 'Recommending approval:', 'Approved:'),
-        (
-            'MARICEL S. SAULAN\nScholarship in charge',
-            'NORMA M. DUALLO, Ph.D.TM\nSDSO Director',
-            'ERWIN G. SALVATIERRA, Ph. D.\nVP for Extension Services,\nStudent and External Affairs',
-            'VICTOR C. CAÃ‘EZO, JR., Ed. D.\nUniversity President',
-        ),
-    ]
-    for ri, row_vals in enumerate(sig_labels):
-        for ci, val in enumerate(row_vals):
-            cell = footer_table.rows[ri].cells[ci]
-            para = cell.paragraphs[0]
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            # remove cell borders
-            tc = cell._tc
-            tcPr = tc.get_or_add_tcPr()
-            for edge in ('top', 'left', 'bottom', 'right'):
-                tag = OxmlElement(f'w:{edge}')
-                tag.set(qn('w:val'), 'none')
-                tcPr.append(tag)
-            if ri == 0:
-                run = para.add_run(val)
-                run.bold = True
-                run.font.size = Pt(8)
-            else:
-                lines = val.split('\n')
-                r1 = para.add_run(lines[0])
-                r1.bold = True
-                r1.font.size = Pt(8)
-                for line in lines[1:]:
-                    para.add_run('\n' + line).font.size = Pt(8)
-
-    # — Save & return —————————————————————————————
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    filename = f'Scholarship_Report_{ay.replace("-","_")}_{semester.replace(" ","_")}.docx'
-    response = HttpResponse(
-        buffer.read(),
-        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
-
 
 @_vpsea_required
 def vpsea_report_download_excel(request):
@@ -4627,7 +4515,8 @@ def vpsea_report_download_excel(request):
         status='Approved', scholarship__type='Academic'
     ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
     females_a = [a for a in academic if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    males_a   = [a for a in academic if a not in females_a]
+    female_pks_a = {a.pk for a in females_a}
+    males_a   = [a for a in academic if a.pk not in female_pks_a]
 
     headers_acad = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'COURSE', 'YR.', 'GWA', '%', 'SCHOLARSHIP PROGRAM']
     write_section(f'ACADEMIC (@) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_acad))
@@ -4670,7 +4559,8 @@ def vpsea_report_download_excel(request):
         status='Approved', qualified_for='Affirmative'
     ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
     aff_females = [a for a in affirmative if a.gender and a.gender.upper() in ('F', 'FEMALE')]
-    aff_males   = [a for a in affirmative if a not in aff_females]
+    female_pks  = {a.pk for a in aff_females}
+    aff_males   = [a for a in affirmative if a.pk not in female_pks]
     headers_aff = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
     write_section(f'AFFIRMATIVE ACTION (*) SCHOLARSHIP GRANT — {semester} SY: {ay}',
                   len(headers_aff))
@@ -4712,7 +4602,8 @@ def vpsea_report_download_excel(request):
     for block_title, block_apps in [('FULL MERIT/ FULL SCHOLAR (*)', ched_full), ('HALF MERIT/ PARTIAL SCHOLAR (*)', ched_half)]:
         write_section(f'{block_title} SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_ched))
         bf = [a for a in block_apps if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-        bm = [a for a in block_apps if a not in bf]
+        female_pks = {a.pk for a in bf}
+        bm = [a for a in block_apps if a.pk not in female_pks]
         write_gender_label('FEMALE', len(headers_ched))
         write_headers(headers_ched)
         write_rows(ched_rows(bf))
@@ -4727,7 +4618,8 @@ def vpsea_report_download_excel(request):
     ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
     write_section(f'DOST (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_ched))
     dost_f = [a for a in dost_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    dost_m = [a for a in dost_all if a not in dost_f]
+    dost_female_pks = {a.pk for a in dost_f}
+    dost_m = [a for a in dost_all if a.pk not in dost_female_pks]
     write_gender_label('FEMALE', len(headers_ched))
     write_headers(headers_ched)
     write_rows(ched_rows(dost_f))
@@ -4754,7 +4646,8 @@ def vpsea_report_download_excel(request):
         return rows
 
     gsis_f = [a for a in gsis_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    gsis_m = [a for a in gsis_all if a not in gsis_f]
+    gsis_female_pks = {a.pk for a in gsis_f}
+    gsis_m = [a for a in gsis_all if a.pk not in gsis_female_pks]
     write_gender_label('FEMALE', len(headers_gsis))
     write_headers(headers_gsis)
     write_rows(gsis_rows(gsis_f))
@@ -4769,7 +4662,8 @@ def vpsea_report_download_excel(request):
     ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
     write_section(f'TERTIARY EDUCATION SUBSIDY -TES (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_ched))
     tes_f = [a for a in tes_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    tes_m = [a for a in tes_all if a not in tes_f]
+    tes_female_pks = {a.pk for a in tes_f}
+    tes_m = [a for a in tes_all if a.pk not in tes_female_pks]
     write_gender_label('FEMALE', len(headers_ched))
     write_headers(headers_ched)
     write_rows(ched_rows(tes_f))
@@ -4782,7 +4676,7 @@ def vpsea_report_download_excel(request):
     # — Page footer with signatories (appears on every printed page) —————
     footer_text = (
         'Prepared by:\t\t\t\t\tNoted:\t\t\t\t\t\tRecommending approval:\t\t\t\t\t\tApproved:\n'
-        'MARICEL S. SAULAN\t\t\t\tNORMA M. DUALLO, Ph.D.TM\t\t\tERWIN G. SALVATIERRA, Ph. D.\t\t\tVICTOR C. CAÃ‘EZO, JR., Ed. D.\n'
+        'MARICEL S. SAULAN\t\t\t\tNORMA M. DUALLO, Ph.D.TM\t\t\tERWIN G. SALVATIERRA, Ph. D.\t\t\tVICTOR C. CAÑEZO, JR., Ed. D.\n'
         'Scholarship in charge\t\t\t\tSDSO Director\t\t\t\t\tVP for Extension Services, Student and External Affairs\t\tUniversity President'
     )
     ws.oddFooter.center.text = footer_text
@@ -4791,7 +4685,6 @@ def vpsea_report_download_excel(request):
     ws.evenFooter.center.size = 8
 
     # — Auto-fit columns (skip MergedCell objects) ——————————————
-    from openpyxl.utils import get_column_letter
     for col_idx in range(1, ws.max_column + 1):
         max_len = 0
         col_letter = get_column_letter(col_idx)
@@ -4873,7 +4766,7 @@ def vpsea_accounts(request):
     which is the only channel that reaches someone who cannot get in yet — so
     a rejection has to say why.
     """
-    from .models import ActivityLog, Notification, StaffProfile, StudentProfile
+    from .models import ActivityLog, StaffProfile, StudentProfile
 
     if request.method == 'POST' and request.POST.get('action') == 'test_email':
         # The shell-less replacement for `manage.py check_email`. It sends a
@@ -5080,7 +4973,7 @@ def vpsea_profile(request):
 
 @_vpsea_required
 def vpsea_students(request):
-    from .models import StudentProfile, Application, Scholarship, SystemSettings
+    from .models import StudentProfile, Application, SystemSettings
     from django.db.models import Q
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
@@ -5232,10 +5125,12 @@ def vpsea_student_add(request):
             return redirect('/vpsea/students/?added=1')
     import json
 
+    active_term = _active_term()
+
     return render(request, 'vpsea/student_form.html', {'errors': errors, 'action': 'Add', 'form_data': request.POST, 'doc_list': _doc_list(),
         # Adding a student creates an application, so the application sections apply.
         'show_application_fields': True,
-        'cancel_url': request.GET.get('next') or '/vpsea/students/',
+        'cancel_url': _safe_next(request, '/vpsea/students/'),
 
         'bipsu_schools': BIPSU_SCHOOLS, 'bipsu_courses_json': json.dumps(BIPSU_COURSES),
         'v_first_name': request.POST.get('first_name', ''),
@@ -5273,8 +5168,8 @@ def vpsea_student_add(request):
         'v_father_occupation': request.POST.get('father_occupation', ''),
         'v_mother_name': request.POST.get('mother_name', ''),
         'v_mother_occupation': request.POST.get('mother_occupation', ''),
-        'v_semester': request.POST.get('semester', '1st Semester'),
-        'v_school_year': request.POST.get('school_year', '2025-2026'),
+        'v_semester': request.POST.get('semester', active_term['semester']),
+        'v_school_year': request.POST.get('school_year', active_term['sy']),
     })
 
 
@@ -5350,6 +5245,7 @@ def vpsea_student_edit(request, pk):
             return redirect('/vpsea/students/?edited=1')
     fd = request.POST if request.method == 'POST' else {}
     afd = (app.form_data or {}) if app else {}
+    active_term = _active_term()
     import json
     return render(request, 'vpsea/student_form.html', {
         'errors': errors, 'action': 'Edit',
@@ -5358,7 +5254,7 @@ def vpsea_student_edit(request, pk):
         # and no documents on file. Showing those sections asks the office to
         # fill in an application that does not exist.
         'show_application_fields': app is not None,
-        'cancel_url': request.GET.get('next') or '/vpsea/students/',
+        'cancel_url': _safe_next(request, '/vpsea/students/'),
         'form_data': fd,
         'doc_list': _doc_list(),
         'bipsu_schools': BIPSU_SCHOOLS, 'bipsu_courses_json': json.dumps(BIPSU_COURSES),
@@ -5391,10 +5287,6 @@ def vpsea_student_edit(request, pk):
         'v_exam_score': fd.get('exam_score', '' if profile.exam_score is None else profile.exam_score),
         'civil_statuses': CIVIL_STATUSES, 'student_levels': STUDENT_LEVELS,
         'semesters': SEMESTERS,
-        'v_elementary': fd.get('elementary', afd.get('elementary', '')),
-        'v_highschool': fd.get('highschool', afd.get('highschool', '')),
-        'v_last_school': fd.get('last_school', afd.get('last_school', '')),
-        'v_father_name': fd.get('father_name', afd.get('father_name', '')),
         'v_elementary': fd.get('elementary', profile.elementary or afd.get('elementary', '')),
         'v_highschool': fd.get('highschool', profile.highschool or afd.get('highschool', '')),
         'v_last_school': fd.get('last_school', profile.last_school or afd.get('last_school', '')),
@@ -5402,8 +5294,8 @@ def vpsea_student_edit(request, pk):
         'v_father_occupation': fd.get('father_occupation', profile.father_occupation or afd.get('father_occupation', '')),
         'v_mother_name': fd.get('mother_name', profile.mother_name or afd.get('mother_name', '')),
         'v_mother_occupation': fd.get('mother_occupation', profile.mother_occupation or afd.get('mother_occupation', '')),
-        'v_semester': fd.get('semester', afd.get('semester', '1st Semester')),
-        'v_school_year': fd.get('school_year', afd.get('school_year', '2025-2026')),
+        'v_semester': fd.get('semester', afd.get('semester', active_term['semester'])),
+        'v_school_year': fd.get('school_year', afd.get('school_year', active_term['sy'])),
         # Extra profile fields for the read-only personal info panel (Edit only)
         'v_civil_status': fd.get('civil_status', profile.civil_status),
         'v_citizenship': profile.citizenship,
@@ -5556,7 +5448,7 @@ def _doc_list():
         ('doc_certificate_of_grades',   'Certificate Of Grades',   'Official COG from the Registrar for the previous semester.'),
         ('doc_certificate_of_enrollment', 'Certificate Of Enrollment', 'Official COE from the Registrar for the current semester.'),
         ('doc_prospectus',              'Prospectus',              'Program prospectus or subject checklist showing enrolled subjects.'),
-        ('doc_id_photo',                'Id Photo',                'Recent 2Ã—2 ID photo with white background.'),
+        ('doc_id_photo',                'Id Photo',                'Recent 2×2 ID photo with white background.'),
         ('doc_application_form',        'Application Form',        'Signed and accomplished scholarship application form.'),
     ]
 
@@ -5792,10 +5684,16 @@ def vpsea_scholarship_edit(request, pk):
 
 @_vpsea_required
 def vpsea_scholarship_toggle(request, pk):
+    """Turn one programme on or off in the catalogue.
+
+    ``Q(is_active=False)`` rather than reading the row back and negating it in
+    Python: the read used ``.get()``, so a programme deleted in another tab
+    answered with a 500 instead of the list the officer was returning to.
+    """
+    from django.db.models import Q
+
     if request.method == 'POST':
-        Scholarship.objects.filter(pk=pk).update(
-            is_active=not Scholarship.objects.get(pk=pk).is_active
-        )
+        Scholarship.objects.filter(pk=pk).update(is_active=Q(is_active=False))
     return redirect('/vpsea/scholarships/')
 
 
@@ -6018,10 +5916,17 @@ def _tes_ranking_data():
     """The TES tab's lists and counts, built once — see _staff_ranking_data."""
     from . import tes_ranking
 
+    # Only accounts the office has verified. This list leaves the building —
+    # it is what the SDSO puts in front of UniFAST — and a registrant the
+    # office rejected, or has not decided on yet, cannot sign in, cannot hold a
+    # scholarship, and has no business on a subsidy recommendation. The same
+    # rule the No Scholarship tab and the Students screen already apply.
+    #
     # The detail rows are joined in rather than fetched per student: reading a
     # profile field is a join now, and the rules read a dozen of them each.
-    profiles = StudentProfile.objects.select_related(
-        'user', *StudentProfile.DETAIL_RELATIONS)
+    profiles = StudentProfile.objects.filter(
+        user__verification_status='approved',
+    ).select_related('user', *StudentProfile.DETAIL_RELATIONS)
 
     evaluations = tes_ranking.rank(profiles)
 
@@ -6104,7 +6009,7 @@ def vpsea_ranking(request):
       Nothing is scored there either — the programme has no merit test — so
       that tab states a verdict and its reason rather than a position.
     """
-    from .models import AffirmativeRecommendation, SystemSettings
+    from .models import AffirmativeRecommendation
 
     scholarship_type = request.GET.get('type', 'Affirmative')
     if scholarship_type == 'TES':
@@ -6374,36 +6279,30 @@ def nsu_staff_renewal(request):
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
     renewals = StaffRenewal.objects.filter(staff_user=user).order_by('-submitted_at')
-    errors = []
-    submitted = False
 
+    # The supporting document is optional here, unlike a student's renewal —
+    # see StaffRenewal.supporting_document — so there is nothing for this form
+    # to refuse and no error branch to take.
     if request.method == 'POST':
-        sup = request.FILES.get('supporting_document')
-        if not errors:
-            StaffRenewal.objects.create(
-                staff_user=user,
-                supporting_document=sup or None,
-            )
-            return redirect('/nsu-staff/renewal/?submitted=1')
-        return render(request, 'nsu_staff/renewal.html', {
-            'renewals': renewals, 'errors': errors,
-            'semester': parsed['semester'], 'academic_year': parsed['sy'],
-            'enrolled': _nsu_staff_enrolled(user),
-        })
+        StaffRenewal.objects.create(
+            staff_user=user,
+            supporting_document=request.FILES.get('supporting_document') or None,
+        )
+        return redirect('/nsu-staff/renewal/?submitted=1')
 
     return render(request, 'nsu_staff/renewal.html', {
         'renewals': renewals,
         'submitted': request.GET.get('submitted'),
         'semester': parsed['semester'],
         'academic_year': parsed['sy'],
-        'errors': errors,
+        'errors': [],
         'enrolled': _nsu_staff_enrolled(user),
     })
 
 
 @_nsu_staff_required
 def nsu_staff_apply(request):
-    from .models import AffirmativeStaffApplication, SystemSettings
+    from .models import AffirmativeStaffApplication
     user = request.user
     staff = _staff_profile(user)
 
@@ -6435,35 +6334,37 @@ def nsu_staff_apply(request):
         p = request.POST
         f = request.FILES
 
-        # Required field validation — skip for draft
-        if True:
-            required = {
-                'first_name': 'First name',
-                'last_name': 'Last name',
-                'date_of_birth': 'Date of birth',
-                'gender': 'Gender',
-                'course': 'Course',
-                'student_number': 'Student / Employee number',
-                'employment_status': 'Employment status',
-                'designation': 'Designation',
-                'years_of_service': 'Years of service',
-                'date_of_regularization': 'Date of regularization',
-            }
-            for field, label in required.items():
-                if not p.get(field, '').strip():
-                    errors.append(f'{label} is required.')
+        # What the form has to answer before the office can read it. It used to
+        # sit under `if True:` behind a comment about drafts — this page has no
+        # draft, and never had one, so the condition was a switch with one
+        # position.
+        required = {
+            'first_name': 'First name',
+            'last_name': 'Last name',
+            'date_of_birth': 'Date of birth',
+            'gender': 'Gender',
+            'course': 'Course',
+            'student_number': 'Student / Employee number',
+            'employment_status': 'Employment status',
+            'designation': 'Designation',
+            'years_of_service': 'Years of service',
+            'date_of_regularization': 'Date of regularization',
+        }
+        for field, label in required.items():
+            if not p.get(field, '').strip():
+                errors.append(f'{label} is required.')
 
-            # A regular appointment is the whole eligibility rule for this
-            # programme — there is nothing else to qualify on.
-            employment = p.get('employment_status', '').strip()
-            if employment and employment != 'Regular':
-                errors.append(
-                    'The BiPSU Staff Scholarship is open to regular employees. '
-                    f'Your appointment is recorded as {employment} — contact the '
-                    'VPSEA office if that is out of date.'
-                )
-            if not f.get('appointment_paper') and not (existing and existing.appointment_paper):
-                errors.append('Appointment paper document is required.')
+        # A regular appointment is the whole eligibility rule for this
+        # programme — there is nothing else to qualify on.
+        employment = p.get('employment_status', '').strip()
+        if employment and employment != 'Regular':
+            errors.append(
+                'The BiPSU Staff Scholarship is open to regular employees. '
+                f'Your appointment is recorded as {employment} — contact the '
+                'VPSEA office if that is out of date.'
+            )
+        if not f.get('appointment_paper') and not (existing and existing.appointment_paper):
+            errors.append('Appointment paper document is required.')
 
         if not errors:
             full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
@@ -6506,7 +6407,7 @@ def nsu_staff_apply(request):
                     barangay=p.get('barangay', ''),
                     municipality=p.get('municipality', ''),
                     province=p.get('province', ''),
-                    date_of_birth=p.get('date_of_birth') or '2000-01-01',
+                    date_of_birth=p.get('date_of_birth') or None,
                     gender=p.get('gender', ''),
                     course=p.get('course', ''),
                     year_level=int(p.get('year_level', 1) or 1),
@@ -6550,8 +6451,7 @@ def nsu_staff_apply(request):
                 staff.appointment_paper = existing.appointment_paper.name
             staff.save()
 
-            param = 'submitted'
-            return redirect(f'/nsu-staff/apply/?{param}=1')
+            return redirect('/nsu-staff/apply/?submitted=1')
 
     return render(request, 'nsu_staff/apply.html', {
         'blocked': False,
@@ -6562,8 +6462,6 @@ def nsu_staff_apply(request):
         'bipsu_courses': BIPSU_COURSES,
         'bipsu_schools': BIPSU_SCHOOLS,
         'enrolled': _nsu_staff_enrolled(user),
-        # Pre-fill from existing draft/rejected record, or fall back to the
-        # User's account fields so the staff member doesn't retype their own info.
         # Filled from the draft/rejected application first, then from the staff
         # member's own profile, then from their account — so nothing already on
         # file has to be retyped.
@@ -7118,8 +7016,12 @@ def partner_archive_import(request, office):
                    else {'sy': term, 'semester': parsed['semester']})
 
     try:
-        records = _scholars_from_sheet(
-            file, stype, term, imported_from=f'{file.name} ({office.name})')
+        records, refused = _scholars_from_sheet(
+            file, stype, term, imported_from=f'{file.name} ({office.name})',
+            # A partner laying the table out its own way names its own
+            # added columns, and it is those its file should fill.
+            custom_columns=_custom_columns_for(
+                stype, override=_partner_override(office, stype)))
     except Exception as exc:
         # Nothing has been deleted at this point, which is the whole reason the
         # parse happens before the transaction rather than inside it.
@@ -7155,7 +7057,10 @@ def partner_archive_import(request, office):
         user=request.user,
         action=f'{office.name} imported {file.name} ({len(records)} rows) for '
                f'{stype} as "{term}", replacing {replaced} of its own row(s)')
-    return redirect(f'{here}&sy={quote(term)}&import_ok={len(records)}')
+    target = f'{here}&sy={quote(term)}&import_ok={len(records)}'
+    if refused:
+        target += f'&columns_bad={refused}'
+    return redirect(target)
 
 
 @_partner_required

@@ -1,5 +1,4 @@
 """Uploaded documents open in the shared overlay, not a new tab."""
-from datetime import date
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, Client

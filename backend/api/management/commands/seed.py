@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from api.models import (
     StudentProfile, Scholarship, Application, Notification,
     Announcement,
-    ActivityLog, SystemSettings, ImportedScholar,
+    ActivityLog, SystemSettings,
     AffirmativeStaffApplication,
 )
 from api.catalogue import ensure_scholarships

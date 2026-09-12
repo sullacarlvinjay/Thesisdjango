@@ -127,7 +127,7 @@ class UnawardedStudentsTest(TestCase):
     # ── why they appear ─────────────────────────────────────────────────────
 
     def test_each_row_says_what_the_office_would_have_to_do(self):
-        never = self._student('Abad', '2024-0010')
+        self._student('Abad', '2024-0010')          # never applied
         pending = self._student('Bello', '2024-0011')
         revising = self._student('Cruz', '2024-0012')
         rejected = self._student('Dizon', '2024-0013')

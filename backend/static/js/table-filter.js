@@ -13,9 +13,8 @@
 // <th data-filter="Program" data-filter-group="School"> — with every cell
 // carrying its own in data-group. That grouping gets a dropdown of its own,
 // ahead of the column's, and narrows it: pick a school and forty programme
-// names drop to the six that school offers. The same pairing select-by-group.js
-// makes of School and Programme on the apply form, for the same reason — a list
-// nobody can scan is a list nobody uses.
+// names drop to the six that school offers — because a list nobody can scan is
+// a list nobody uses.
 //
 // Filtering here rather than on the server keeps it instant and keeps it
 // composable with the sort in table-sort.js, which reorders the same rows.
