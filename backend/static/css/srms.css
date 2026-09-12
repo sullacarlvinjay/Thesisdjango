@@ -3038,3 +3038,130 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   .mail-panel__hint { display: none; }
   .mail-panel__test input { max-width: none; flex: 1 1 100%; }
 }
+
+
+/* ── The account record dialog ─────────────────────────────────────────────
+   On Account Verification's decided list. The queue shows a whole registration
+   under every card; the decided list showed six columns and nothing else, so
+   the moment an account left the queue the evidence behind its decision became
+   unreachable. This is that registration read back — the same detail partial,
+   plus the verdict and what became of every scholarship declared with it.
+
+   Read-only on purpose: nothing in the dialog is a control except the one
+   button that closes it, and the Verify-anyway form stays out on the row where
+   it has always been. */
+
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.record-actions__btn {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.record-actions form { margin: 0; }
+
+/* Wider than the 640px default: this dialog carries the registration's own
+   three-column grids, and at 640 they wrapped to one column each and turned a
+   record into a very long scroll. */
+.record-modal { max-width: 52rem; }
+.record-modal__who { min-width: 0; }
+.record-modal__name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.record-modal__sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* The verdict, first thing in the body, because it is the question the dialog
+   was opened to answer. */
+.record-verdict {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+}
+.record-verdict--approved {
+  background: var(--ok-bg);
+  border-color: var(--ok-border);
+}
+.record-verdict--rejected {
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+}
+.record-verdict__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.record-verdict__by {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.record-verdict__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.record-verdict__aside {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* One card per scholarship the registration declared, with what became of it.
+   Neutral rather than amber: in the queue these are a thing to decide, here
+   they are a thing already decided, and the badge carries the outcome. */
+.record-declaration {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  margin-bottom: 0.75rem;
+}
+.record-declaration:last-child { margin-bottom: 0; }
+.record-declaration__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.record-declaration__name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+.record-declaration__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.record-declaration a { color: var(--brand); text-decoration: underline; }
+
+.record-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  /* The row's two buttons stack rather than squeezing the last column. */
+  .record-actions { flex-direction: column; align-items: stretch; }
+}

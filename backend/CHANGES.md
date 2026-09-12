@@ -2837,3 +2837,49 @@ way named those columns and it is those its file should fill.
 
 `_scholars_from_sheet` returns `(rows, refused)` now rather than a list. Both
 callers unpack it. See `api/test_import_fills_custom_columns.py`.
+## A decided account's registration stays readable
+
+Account Verification laid a whole registration out under every card in the
+queue — identity, enrolment, educational background, scholarship eligibility,
+the socioeconomic answers, the declared awards and their proof — and then threw
+all of it away the moment somebody pressed Verify or Reject. The decided list
+below the queue was six columns: name, role, term, decision, the message the
+officer typed, and who typed it. "Why was this one rejected" had an answer and
+none of the evidence behind it.
+
+**View record** on each decided row opens the same registration again:
+
+* the verdict, with the words that account actually reads — in their portal if
+  they were verified, on the login page if they were not;
+* the account itself: address, whether they ever confirmed it, role, when they
+  registered, whether they can sign in;
+* everything the registration form asked, rendered by the same partial the
+  queue includes — `templates/vpsea/_account_record.html`. One file, so a group
+  added to the form appears under the queue card and in the record or in
+  neither;
+* every scholarship declared with the registration beside what became of it:
+  the award number, the tier, the proof, the imported row it was merged with,
+  and whether an award was written.
+
+That last one had nowhere else to be read at all. **Approving a declaration
+writes an award, so the archives remember it. Rejecting one writes nothing** —
+the link request flips to Rejected and the only trace was a notification in the
+student's own portal, which the office cannot see. The office had no way to
+answer "did this student declare a CHED grant, and what did we say?"
+
+Nothing in the dialog is a control. Verify-anyway stays on the row where it has
+always been, and no archive candidates are offered: nothing is being chosen any
+more.
+
+The decided list's declarations are fetched in two queries for the whole page
+rather than through `declared_scholarships()` per account — that helper answers
+for one student, and twenty-five rows asking it one at a time is fifty queries
+for a page that needs two.
+
+`modal-open.js` now ignores Escape while the document viewer is open, because
+this is the first dialog with `data-doc` proof links inside it: closing a
+preview would otherwise have closed the record underneath it as well.
+
+See `api/test_account_verification.py`,
+`TheDecidedListShowsTheWholeRecordTest` and
+`TheDecidedRecordShowsWhatBecameOfADeclarationTest`.

@@ -4907,6 +4907,41 @@ def vpsea_accounts(request):
             req.other_semester_rows = list(
                 _archive_candidates(req).exclude(term_label=active_label)[:5])
 
+    # The same registrations, read back rather than decided again. A decided
+    # account used to be six columns of summary — who, what role, what the
+    # officer typed — with everything the decision was actually made on out of
+    # reach, so an officer asked "why was this one rejected" had the answer and
+    # none of the evidence. The record dialog on that list is this: the profile
+    # the account claimed, and every scholarship declared with it beside what
+    # became of it. A rejected declaration has no other home at all — it writes
+    # no award, so nothing on the archives remembers it was ever claimed.
+    #
+    # Batched the way the profiles above are, rather than through
+    # declared_scholarships(): that helper answers for one student, and twenty
+    # five rows asking it one at a time is fifty queries for a page that needs
+    # two. No archive candidates either — nothing here is being chosen any more.
+    from collections import defaultdict
+    from .models import StaffScholarshipDeclaration
+
+    per_student = defaultdict(list)
+    for req in (ScholarshipLinkRequest.objects
+                .select_related('reviewed_by', 'matched_archive')
+                .filter(student__user__in=decided)
+                .order_by('submitted_at', 'pk')):
+        per_student[req.student_id].append(req)
+    # Latest last, so the last write wins: one registration declares once, but
+    # a rejected staff member who registers again declares a second time, and
+    # the record is of the decision that stands.
+    per_employee = {}
+    for decl in (StaffScholarshipDeclaration.objects
+                 .select_related('reviewed_by')
+                 .filter(staff_user__in=decided).order_by('submitted_at')):
+        per_employee[decl.staff_user_id] = decl
+    for account in decided:
+        account.staff_declared = per_employee.get(account.id)
+        account.declarations = per_student.get(
+            getattr(account.student_profile, 'pk', None), [])
+
     from django.conf import settings as django_settings
     from .models import CHED_TIER_CHOICES
 

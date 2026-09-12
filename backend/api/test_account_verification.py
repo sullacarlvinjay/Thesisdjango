@@ -587,3 +587,152 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
                                             content_type='application/octet-stream')))
         self.assertContains(r, 'SHS GPA Certificate: Unsupported file type')
         self.assertFalse(User.objects.filter(email='ivy@bipsu.edu.ph').exists())
+
+
+class TheDecidedListShowsTheWholeRecordTest(TestCase):
+    """A decision outlives the card it was made on.
+
+    The queue lays a whole registration out under every account. The decided
+    list underneath it showed six columns — who, what role, what the officer
+    typed — and the moment an account left the queue everything the decision
+    rested on became unreachable: no student number to re-check, no proof to
+    re-open, and, for a declared scholarship, no trace that it had been turned
+    down at all. "Why was this one rejected" had an answer and none of its
+    evidence.
+
+    So the same detail is rendered again in a dialog on that list. It is the
+    same partial the queue includes, which is the point: a group added to the
+    registration form appears in both places or in neither.
+    """
+
+    REGISTRATION = dict(
+        TheQueueShowsWhatTheRegistrationSentTest.REGISTRATION,
+        email='lita@bipsu.edu.ph', student_id='2022-00822',
+        first_name='Lita', last_name='Cruz')
+
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        self.officer = User.objects.create_user(
+            username='sdso@bipsu.edu.ph', email='sdso@bipsu.edu.ph', password='pw',
+            first_name='Rosario', last_name='Bayhon', role='vpsea')
+        Client().post('/register/', dict(self.REGISTRATION))
+        self.student = User.objects.get(email='lita@bipsu.edu.ph')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='sdso@bipsu.edu.ph', password='pw'))
+
+    def _decide(self, action, message=''):
+        return self.c.post('/vpsea/accounts/', {
+            'user_id': self.student.id, 'action': action, 'message': message})
+
+    def test_the_queue_still_renders_its_own_detail(self):
+        """The partial was lifted out of this page; it has to still land in it."""
+        r = self.c.get('/vpsea/accounts/')
+        for value in ('2022-00822', 'Identity &amp; enrolment', 'Biliran NHS',
+                      'Socioeconomic &amp; TES eligibility'):
+            self.assertContains(r, value)
+
+    def test_a_rejected_account_keeps_every_field_it_registered_with(self):
+        self._decide('reject', 'No such student number on the enrolment list.')
+        r = self.c.get('/vpsea/accounts/')
+        # Nothing is waiting any more, so anything below can only be the record.
+        self.assertContains(r, 'Nothing waiting.')
+        for value in ('2022-00822', 'Naval, Biliran', 'Visual Disability',
+                      'Biliran NHS', '92.5', 'Cebuano',
+                      'Identity &amp; enrolment', 'Educational background',
+                      'Scholarship eligibility',
+                      'Socioeconomic &amp; TES eligibility'):
+            self.assertContains(r, value)
+
+    def test_the_record_opens_from_the_row_it_belongs_to(self):
+        self._decide('approve')
+        r = self.c.get('/vpsea/accounts/')
+        self.assertContains(r, f'data-preview-open="record-{self.student.id}"')
+        self.assertContains(r, f'id="record-{self.student.id}"')
+
+    def test_the_decision_itself_is_in_the_record(self):
+        self._decide('reject', 'No such student number on the enrolment list.')
+        r = self.c.get('/vpsea/accounts/')
+        self.assertContains(r, 'No such student number on the enrolment list.')
+        self.assertContains(r, 'Rosario Bayhon')
+
+    def test_an_approved_account_says_so_and_a_rejected_one_does_not(self):
+        self._decide('approve')
+        r = self.c.get('/vpsea/accounts/').content.decode()
+        self.assertIn('record-verdict--approved', r)
+        self.assertNotIn('record-verdict--rejected', r)
+
+    def test_a_registration_that_declared_nothing_says_that_plainly(self):
+        self._decide('approve')
+        self.assertContains(self.c.get('/vpsea/accounts/'),
+                            'This registration declared none')
+
+
+class TheDecidedRecordShowsWhatBecameOfADeclarationTest(TestCase):
+    """A declared scholarship is decided with the account, and then vanishes.
+
+    Approving one writes an award that shows up on the archives. Rejecting one
+    writes nothing at all — so before this, a turned-down declaration existed
+    only as a notification in the student's own portal. The office could not see
+    it had ever been declared, let alone what the reason was.
+    """
+
+    def setUp(self):
+        from api.models import Scholarship
+        from api.test_registration_payload import a_declared_scholar
+        from api.test_second_scholarship import a_proof
+
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        # Approving a declaration writes an Application against the programme,
+        # so the programme has to exist before the officer can say yes.
+        Scholarship.objects.create(
+            name='DOST Scholarship', type='DOST', category='application',
+            description='x', eligibility='x', requirements=[])
+        User.objects.create_user(
+            username='sdso@bipsu.edu.ph', email='sdso@bipsu.edu.ph', password='pw',
+            first_name='Rosario', last_name='Bayhon', role='vpsea')
+        Client().post('/register/', a_declared_scholar(
+            email='noel@bipsu.edu.ph', student_id='23-0455',
+            scholarship_type='DOST', proof_document=a_proof('dost.pdf'),
+            award_number='2026-DOST-0007', notes='Awarded last June.'))
+        self.student = User.objects.get(email='noel@bipsu.edu.ph')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='sdso@bipsu.edu.ph', password='pw'))
+
+    def _decide(self, action, message=''):
+        return self.c.post('/vpsea/accounts/', {
+            'user_id': self.student.id, 'action': action, 'message': message})
+
+    def test_a_rejected_declaration_is_still_legible_afterwards(self):
+        self._decide('reject', 'The award number is not on the DOST list.')
+        r = self.c.get('/vpsea/accounts/')
+        self.assertContains(r, '2026-DOST-0007')
+        self.assertContains(r, 'Awarded last June.')
+        self.assertContains(r, 'badge-destructive">Rejected')
+
+    def test_an_approved_declaration_says_the_award_was_recorded(self):
+        self._decide('approve', 'Checked against the DOST list.')
+        r = self.c.get('/vpsea/accounts/')
+        self.assertContains(r, '2026-DOST-0007')
+        self.assertContains(r, 'badge-success">Approved')
+        self.assertContains(r, 'Yes, on the archives')
+
+    def test_the_proof_is_still_reachable_from_the_record(self):
+        """The document viewer opens it in place, the way the queue card does.
+
+        Labelled with the programme's full name — 'DOST S&T Undergraduate
+        Scholarship', not 'DOST' — because that label is the title the viewer
+        puts above the document, and the code is not what the officer reads.
+        """
+        self._decide('approve')
+        self.assertContains(
+            self.c.get('/vpsea/accounts/'),
+            'data-doc="DOST S&amp;T Undergraduate Scholarship — proof"')
+
+    def test_the_queue_is_unchanged_while_it_is_still_waiting(self):
+        """Undecided, the declaration belongs to the card with the buttons on
+        it — the record dialog is only ever a read-back."""
+        r = self.c.get('/vpsea/accounts/')
+        self.assertContains(r, 'Scholarship declared at registration')
+        self.assertNotContains(r, 'data-preview-open="record-')
