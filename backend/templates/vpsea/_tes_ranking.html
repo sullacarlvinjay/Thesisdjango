@@ -1,16 +1,15 @@
-
 <div class="rec-summary">
   <div class="card p-4">
     <p class="rec-summary__label">Eligible</p>
     <p class="rec-summary__value rec-summary__value--ok">{{ tes_counts.eligible }}</p>
   </div>
   <div class="card p-4">
-    <p class="rec-summary__label">For Verification</p>
-    <p class="rec-summary__value rec-summary__value--warn">{{ tes_counts.verification }}</p>
-  </div>
-  <div class="card p-4">
     <p class="rec-summary__label">Not Eligible</p>
     <p class="rec-summary__value rec-summary__value--danger">{{ tes_counts.not_eligible }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="rec-summary__label">Not Shown</p>
+    <p class="rec-summary__value rec-summary__value--warn">{{ tes_counts.excluded }}</p>
   </div>
   <div class="card p-4">
     <p class="rec-summary__label">Priority 1</p>
@@ -36,9 +35,22 @@
   </div>
   <div class="rec-note">
     <p>
-      Nobody applies for TES here, so every student on file is screened —
-      {{ tes_student_total }} in all. UniFAST awards TES; this list is what the SDSO
-      would recommend, and no status is written onto any student by producing it.
+      Nobody applies for TES here, so every student on file is screened.
+      UniFAST awards TES; this list is what the SDSO would recommend, and no status is
+      written onto any student by producing it.
+    </p>
+    <p>
+      <strong>{{ tes_student_total }} student{{ tes_student_total|pluralize }} ranked
+      below.</strong>
+      {% if tes_excluded %}
+      Another {{ tes_excluded }} {{ tes_excluded|pluralize:"is,are" }} not shown at all:
+      their record still has an unanswered question, and TES is decided on complete
+      records only. Nothing on this page says which students those are or what they are
+      missing — the count is the only trace. They join the list on the next load once the
+      record is filled in, most of which the student can do themselves under My Profile.
+      {% else %}
+      Every student on file has a complete record, so none are being held back.
+      {% endif %}
     </p>
     <p><strong>Order, applied in this sequence:</strong></p>
     <ol>
@@ -50,11 +62,7 @@
           indigenous community member.</li>
       <li><strong>Surname</strong>, alphabetically, to break any remaining tie.</li>
     </ol>
-    <p>
-      Open <em>Why?</em> on any row for the rule-by-rule reason behind its verdict.
-      Students whose record cannot answer a rule are held out into the list below rather
-      than ranked on what is missing.
-    </p>
+    <p>Open <em>Why?</em> on any row for the rule-by-rule reason behind its verdict.</p>
   </div>
   {% if tes_rows %}
   <div class="table-scroll">
@@ -67,9 +75,8 @@
           <th class="th-cell">Eligibility</th>
           <th class="th-cell">Priority</th>
           <th class="th-cell">Per Capita Income</th>
-          <th class="th-cell">Income Ranking</th>
           <th class="th-cell">Recommendation</th>
-          <th class="th-cell">Missing Information</th>
+          <th class="th-cell">Reason</th>
           <th class="th-cell"></th>
         </tr>
       </thead>
@@ -80,23 +87,18 @@
           <td class="rec-cell">{{ e.student_name }}</td>
           <td class="rec-cell rec-cell--muted">{{ e.student_id }}</td>
           <td class="rec-cell">
-            <span class="badge {% if e.status == 'Eligible' %}badge-success{% elif e.status == 'For Verification' %}badge-warning{% else %}badge-destructive{% endif %}">{{ e.status }}</span>
+            <span class="badge {% if e.eligible %}badge-success{% else %}badge-destructive{% endif %}">{{ e.status }}</span>
           </td>
           <td class="rec-cell">
-            <span class="badge {% if e.priority == 'Priority 1' %}badge-info{% elif e.priority == 'Priority 2' %}badge-muted{% else %}badge-warning{% endif %}">{{ e.priority }}</span>
+            <span class="badge {% if e.priority == 'Priority 1' %}badge-info{% else %}badge-muted{% endif %}">{{ e.priority }}</span>
             {% if e.priority_markers %}
             <span class="rec-markers">{{ e.priority_markers|join:" · " }}</span>
             {% endif %}
           </td>
-          <td class="rec-cell">
-            {% if e.per_capita_income %}₱{{ e.per_capita_income|floatformat:2 }}{% else %}<span class="rec-missing">Missing</span>{% endif %}
-          </td>
-          <td class="rec-cell">
-            <span class="badge {% if e.income_rank_state == 'Verified' %}badge-success{% else %}badge-warning{% endif %}">{{ e.income_rank_state }}</span>
-          </td>
+          <td class="rec-cell">₱{{ e.per_capita_income|floatformat:2 }}</td>
           <td class="rec-cell rec-cell--strong">{{ e.recommendation }}</td>
-          <td class="rec-cell rec-cell--missing">
-            {% if e.missing %}{{ e.missing|join:", " }}{% else %}<span class="rec-cell--ok">None</span>{% endif %}
+          <td class="rec-cell">
+            {% if e.reason %}{{ e.reason }}{% else %}<span class="rec-cell--ok">Every rule passed</span>{% endif %}
           </td>
           <td class="rec-cell">
             <button type="button" class="btn btn-outline rec-why"
@@ -104,7 +106,7 @@
           </td>
         </tr>
         <tr id="reason-{{ e.profile.id }}" hidden>
-          <td colspan="10" class="rec-reason-cell">
+          <td colspan="9" class="rec-reason-cell">
             <div class="rec-reason">
               <p class="rec-reason__title">
                 Why {{ e.student_name }} is “{{ e.recommendation }}”
@@ -115,7 +117,7 @@
                   <tr>
                     <td class="rec-reason__label">{{ r.label }}</td>
                     <td class="rec-reason__verdict">
-                      <span class="badge {% if r.verdict == 'PASS' %}badge-success{% elif r.verdict == 'FAIL' %}badge-destructive{% else %}badge-warning{% endif %}">{{ r.verdict }}</span>
+                      <span class="badge {% if r.passed %}badge-success{% else %}badge-destructive{% endif %}">{{ r.verdict }}</span>
                     </td>
                     <td class="rec-reason__detail">
                       {{ r.detail }}
@@ -126,41 +128,24 @@
                   <tr>
                     <td class="rec-reason__label">Priority</td>
                     <td class="rec-reason__verdict">
-                      <span class="badge {% if e.priority == 'Priority 1' %}badge-info{% elif e.priority == 'Priority 2' %}badge-muted{% else %}badge-warning{% endif %}">{{ e.priority }}</span>
+                      <span class="badge {% if e.priority == 'Priority 1' %}badge-info{% else %}badge-muted{% endif %}">{{ e.priority }}</span>
                     </td>
                     <td class="rec-reason__detail">
                       {% if e.priority_markers %}
                         Qualifying groups on file: {{ e.priority_markers|join:", " }}.
-                      {% elif e.priority == 'Priority 2' %}
-                        No Priority 1 group applies — confirmed, not assumed.
                       {% else %}
-                        Priority cannot be settled until the Listahanan / 4Ps listing is checked.
+                        No Priority 1 group applies — confirmed, not assumed.
                       {% endif %}
                     </td>
                   </tr>
                   <tr>
                     <td class="rec-reason__label">Household Per Capita Income</td>
                     <td class="rec-reason__verdict">
-                      <span class="badge {% if e.income_rank_state == 'Verified' %}badge-success{% else %}badge-warning{% endif %}">{{ e.income_rank_state }}</span>
+                      <span class="badge badge-success">Verified</span>
                     </td>
                     <td class="rec-reason__detail">
-                      {% if e.per_capita_income %}
-                        ₱{{ e.per_capita_income|floatformat:2 }} — ₱{{ e.profile.family_income|floatformat:2 }}
-                        across a household of {{ e.profile.household_size }}.
-                      {% else %}
-                        Not computed. Income ranking is left unranked rather than treating an
-                        unrecorded income as ₱0, which would put this student at the top of the list.
-                      {% endif %}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="rec-reason__label">Missing Information</td>
-                    <td class="rec-reason__verdict">
-                      <span class="badge {% if e.missing %}badge-warning{% else %}badge-success{% endif %}">{% if e.missing %}{{ e.missing|length }}{% else %}None{% endif %}</span>
-                    </td>
-                    <td class="rec-reason__detail">
-                      {% if e.missing %}{{ e.missing|join:", " }} — collect these before recommending.
-                      {% else %}Nothing outstanding.{% endif %}
+                      ₱{{ e.per_capita_income|floatformat:2 }} — ₱{{ e.profile.family_income|floatformat:2 }}
+                      across a household of {{ e.profile.household_size }}.
                     </td>
                   </tr>
                 </tbody>
@@ -176,38 +161,3 @@
   <p class="rec-empty">No student has a record complete enough to rank yet.</p>
   {% endif %}
 </div>
-{% if tes_needs_info %}
-<div class="card p-6 mt-4">
-  <h3 class="font-semibold">On file, but not yet rankable</h3>
-  <p class="rec-note rec-note--tight">
-    A rule could not be checked against what these students have on record. They are held
-    out of the ranking rather than given a position their record cannot support. Collect
-    what is listed — the student can fill most of it in themselves under My Profile — and
-    they join the ranking on the next load.
-  </p>
-  <div class="table-scroll">
-    <table class="rec-table">
-      <thead>
-        <tr>
-          <th class="th-cell">Student</th>
-          <th class="th-cell">Student ID</th>
-          <th class="th-cell">Priority</th>
-          <th class="th-cell">What is missing</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for e in tes_needs_info %}
-        <tr class="trow">
-          <td class="rec-cell">{{ e.student_name }}</td>
-          <td class="rec-cell rec-cell--muted">{{ e.student_id }}</td>
-          <td class="rec-cell rec-cell--muted">{{ e.priority }}</td>
-          <td class="rec-cell rec-cell--missing">
-            {% for item in e.missing %}{{ item }}{% if not forloop.last %} &middot; {% endif %}{% empty %}&mdash;{% endfor %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}

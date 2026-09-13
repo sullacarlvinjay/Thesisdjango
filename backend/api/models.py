@@ -764,9 +764,9 @@ class SocioEconomicProfile(StudentDetail):
     """Household means, and the indigenous group a student belongs to.
 
     ``family_income`` is the household's ANNUAL income and defaults to 0.0, which
-    is indistinguishable from 'never entered' — so the TES recommender reads 0.0
-    as missing rather than as a household with no income at all. See
-    api/tes_ranking.py.
+    is indistinguishable from 'never entered' — so the TES screen reads 0.0 as
+    unanswered and holds the student off the list rather than ranking them as
+    the poorest applicant on file. See api/tes_ranking.py.
     """
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='socioeconomic')
@@ -799,14 +799,17 @@ class TESEligibility(StudentDetail):
     """The facts the TES rules turn on, each of them three-state on purpose.
 
     A BooleanField defaulting to False cannot tell 'the office confirmed no'
-    apart from 'nobody has asked yet', and the TES rules turn on that
-    difference: missing data means the requirement needs verification, never
-    that the student failed it. See :mod:`api.tes_ranking`, which reports every
-    one of these as PASS, FAIL or NEEDS VERIFICATION for exactly this reason.
+    apart from 'nobody has asked yet', and the difference decides whether the
+    student is on the list at all: :mod:`api.tes_ranking` is run on complete
+    records only, so an unanswered question here holds the student off the TES
+    recommendation entirely rather than failing them on it. A False-defaulting
+    column would instead have answered for them.
 
-    These are collected at registration and correctable on My Profile. Nothing
-    in this system awards TES — UniFAST does, outside the portal — so what the
-    SDSO produces from them is a recommendation, not a decision.
+    These are collected at registration and correctable on My Profile — which
+    is the only way back onto the list, because nothing tells a student their
+    record is short an answer. Nothing in this system awards TES — UniFAST
+    does, outside the portal — so what the SDSO produces from them is a
+    recommendation, not a decision.
     """
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='tes_eligibility')

@@ -180,20 +180,24 @@ def _tes(wb, data, stamp):
         wb, 'TES Recommendation', 'TES — Rule-Based Recommendation',
         [
             f'{data["counts"]["eligible"]} eligible · '
-            f'{data["counts"]["verification"]} for verification · '
             f'{data["counts"]["not_eligible"]} not eligible · '
-            f'{data["total"]} students screened',
+            f'{data["total"]} students ranked',
+            # The held-back students are a count here for the same reason they
+            # are one on the page: TES is decided on complete records only, and
+            # nothing names who was left out or what they lacked.
+            f'{data["counts"]["excluded"]} student(s) not shown — record still '
+            'has an unanswered question, so no rule was run against it.',
             'UniFAST awards TES. This is what the SDSO would recommend; producing '
             'it writes no status onto any student.',
             stamp,
         ],
         ['Rank', 'Student', 'Student No.', 'Eligibility', 'Priority',
-         'Priority Markers', 'Per Capita Income', 'Income Ranking',
-         'Recommendation'] + [label for _, label in rules] + ['Missing Information'],
+         'Priority Markers', 'Per Capita Income',
+         'Recommendation'] + [label for _, label in rules] + ['Reason'],
         first=True)
 
     rows = []
-    for e in data['rows'] + data['needs_info']:
+    for e in data['rows']:
         rows.append([
             e.rank or '',
             e.student_name,
@@ -201,11 +205,10 @@ def _tes(wb, data, stamp):
             e.status,
             e.priority,
             ' · '.join(e.priority_markers) if e.priority_markers else '',
-            e.per_capita_income if e.per_capita_income is not None else '',
-            e.income_rank_state,
+            e.per_capita_income,
             e.recommendation,
         ] + [_verdict(e, key) for key, _ in rules]
-          + [', '.join(e.missing) if e.missing else 'None'])
+          + [e.reason or 'Every rule passed'])
     _write(ws, head, rows)
 
     ws, head = _sheet(
@@ -214,7 +217,7 @@ def _tes(wb, data, stamp):
          stamp],
         ['Student', 'Student No.', 'Rule', 'Verdict', 'Reading', 'Read From'])
     _write(ws, head, _reason_rows(
-        data['rows'] + data['needs_info'],
+        data['rows'],
         lambda e: e.student_name, lambda e: e.student_id or ''))
 
 

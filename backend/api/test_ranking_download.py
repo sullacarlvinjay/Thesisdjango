@@ -13,15 +13,16 @@ recommendation goes quietly wrong:
   goes through it — same rows, same order, same ranks — rather than running a
   second query that drifts.
 
-* **A rank never appears beside "For Verification".** Both ranking modules
-  number *every* evaluation from 1, held-out ones included, and the page never
-  showed it because its "not yet decidable" table has no Rank column. A
-  spreadsheet has one. A student numbered #3 in a list they are not in is
-  exactly the misreading these pages are written to prevent.
+* **A rank never appears beside a row that is not in the list.** Both ranking
+  modules number *every* evaluation from 1, held-out ones included, and a page
+  could hide it by leaving Rank off a second table. A spreadsheet cannot. TES
+  now settles this upstream - an undecidable record never becomes a row at all
+  - but the Staff list still carries both kinds, so the guard stays.
 
 And one that is the point of the whole page: a verdict travels with its reason.
 TES and Staff carry a second sheet holding the Why? panel, rule by rule.
 """
+from datetime import date
 from io import BytesIO
 
 from django.test import Client, TestCase
@@ -58,6 +59,25 @@ class RankingDownloadFixtures:
         return self.a_student(shs_gpa=91.0, suc_exam_score=42.0, suc_exam_total=50.0,
                               is_tes_beneficiary=False, course='BSCS', year_level=2,
                               **kw)
+
+    # Every answer api.tes_ranking.REQUIRED_ANSWERS asks for. TES is decided on
+    # complete records only, so a student short of one of these is not a row on
+    # the TES sheet - they are part of the count in its title block.
+    TES_COMPLETE = dict(
+        citizenship='Filipino',
+        school='School of Technologies and Computer Studies',
+        course='BSCS', year_level=2,
+        has_previous_degree=False,
+        family_income=120000.0, household_size=5,
+        is_listahanan_household=False, is_4ps_beneficiary=False,
+        is_solo_parent_dependent=False, disability_type='NO',
+    )
+
+    def a_ranked_student(self, **kw):
+        """A record the TES rules can actually be run against."""
+        fields = dict(self.TES_COMPLETE, year_first_enrolled=date.today().year - 1)
+        fields.update(kw)
+        return self.a_student(**fields)
 
     def book(self, tab='Affirmative', **params):
         query = '&'.join(f'{k}={v}' for k, v in params.items())
@@ -165,27 +185,34 @@ class TheAffirmativeListTest(RankingDownloadFixtures, TestCase):
 
 class TheTesListTest(RankingDownloadFixtures, TestCase):
 
-    def test_every_screened_student_is_on_it(self):
-        self.an_eligible_student()
-        self.a_student(email='b@bipsu.edu.ph', student_id='2022-00222',
-                       first='Ben', last='Cruz')
+    def test_every_ranked_student_is_on_it(self):
+        self.a_ranked_student()
+        self.a_ranked_student(email='b@bipsu.edu.ph', student_id='2022-00222',
+                              first='Ben', last='Cruz')
         _, wb = self.book('TES')
         names = {row['Student'] for row in self.rows_of(wb.worksheets[0])}
         self.assertEqual(len(names), 2)
 
-    def test_a_held_out_student_carries_no_rank(self):
-        """The bug this list would otherwise have inherited from rank()."""
+    def test_a_student_the_screen_held_back_is_a_count_not_a_row(self):
+        """They leave no row, no rank and no name - only the tally above it.
+
+        That is the whole trade the policy makes, and the file has to make it
+        the same way the page does: a reader who cannot see the held-back
+        students on screen must not find them in the spreadsheet either.
+        """
+        self.a_ranked_student()
         self.a_student(email='c@bipsu.edu.ph', student_id='2022-00333',
-                       first='Cita', last='Reyes')
+                       first='Cita', last='Reyes')     # nothing else on file
         _, wb = self.book('TES')
-        rows = [r for r in self.rows_of(wb.worksheets[0])
-                if r['Eligibility'] == 'For Verification']
-        self.assertTrue(rows, 'expected a student the rules cannot decide')
-        for row in rows:
-            self.assertIn(row['Rank'], (None, ''), row['Student'])
+        ws = wb.worksheets[0]
+        names = {row['Student'] for row in self.rows_of(ws)}
+        self.assertNotIn('Reyes, Cita', names)
+        self.assertEqual(len(names), 1)
+        titles = ' '.join(str(c.value) for c in ws['A'][:8] if c.value)
+        self.assertIn('1 student(s) not shown', titles)
 
     def test_the_reasons_sheet_carries_the_why_panel(self):
-        self.an_eligible_student()
+        self.a_ranked_student()
         _, wb = self.book('TES')
         self.assertEqual(wb.worksheets[1].title, 'Reasons')
         rules = [row for row in self.rows_of(wb.worksheets[1])]

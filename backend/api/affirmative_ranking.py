@@ -18,8 +18,12 @@ This module reads those four off the student's own record.
 grades will not be the only factor to qualify" and that qualifiers "may not
 necessarily be indigent nor excellent academic performers" and "may be outside
 the 4Ps of the DSWD". Belonging to none of the four disqualifies nobody, and an
-unanswered question is never read as "no" — it is reported as unanswered, the
-way :mod:`api.tes_ranking` reports a rule it could not run.
+unanswered question is never read as "no" — it is reported as unanswered, and
+the student keeps their place on the shortlist either way. This is where the two
+programmes part company: :mod:`api.tes_ranking` screens an incomplete record off
+its list altogether, which it can do because every answer it needs is a
+requirement. None of the four here is a requirement, so none of them can cost a
+student their place.
 
 What the groups change is the **order of the shortlist**. Until now the
 Affirmative tab ordered candidates by a fit score of 50% SHS GPA + 50% admission

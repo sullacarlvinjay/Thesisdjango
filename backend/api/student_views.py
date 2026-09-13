@@ -6192,35 +6192,32 @@ def _tes_ranking_data():
         user__verification_status='approved',
     ).select_related('user', *StudentProfile.DETAIL_RELATIONS)
 
-    evaluations = tes_ranking.rank(profiles)
+    # TES is decided on complete records only, so the cohort is screened before
+    # a rule runs. Students still missing an answer are not ranked, not failed,
+    # and not listed — the office sees how many were held back and nothing else
+    # about them. api/tes_ranking.py sets out what that costs.
+    complete, incomplete = tes_ranking.screen(profiles)
+    evaluations = tes_ranking.rank(complete)
 
-    # Three outcomes, two lists. Eligible and Not Eligible are both decided, so
-    # they share a table and sort together; For Verification is not a verdict at
-    # all and gets held out below with what is missing named.
-    ranked = [e for e in evaluations if e.status != tes_ranking.FOR_VERIFICATION]
-    needs_info = [e for e in evaluations if e.status == tes_ranking.FOR_VERIFICATION]
-    # Only the eligible are numbered, the same way the Affirmative tab does it.
-    # A rank on a Not Eligible row would read as a position in a list they are
-    # not in — they are shown so the office can see the reason, not ranked.
+    # Two outcomes now, one list. Only the eligible are numbered, the same way
+    # the Affirmative tab does it: a rank on a Not Eligible row would read as a
+    # position in a list they are not in — they are shown so the office can see
+    # the reason, not ranked.
     position = 0
-    for evaluation in ranked:
+    for evaluation in evaluations:
         if evaluation.eligible:
             position += 1
             evaluation.rank = position
         else:
             evaluation.rank = None
-    # tes_ranking.rank() numbers every evaluation from 1, held-out ones
-    # included — see the same note in _staff_ranking_data.
-    for evaluation in needs_info:
-        evaluation.rank = None
 
     return {
-        'rows': ranked,
-        'needs_info': needs_info,
+        'rows': evaluations,
         'total': len(evaluations),
+        'excluded': len(incomplete),
         'counts': {
             'eligible': sum(1 for e in evaluations if e.status == tes_ranking.ELIGIBLE),
-            'verification': len(needs_info),
+            'excluded': len(incomplete),
             'not_eligible': sum(1 for e in evaluations if e.status == tes_ranking.NOT_ELIGIBLE),
             'priority_1': sum(1 for e in evaluations if e.priority == tes_ranking.PRIORITY_1),
             'priority_2': sum(1 for e in evaluations if e.priority == tes_ranking.PRIORITY_2),
@@ -6247,7 +6244,7 @@ def _vpsea_tes_ranking(request):
         'ranking_tabs': RANKING_TABS,
         'active_tab': 'TES',
         'tes_rows': data['rows'],
-        'tes_needs_info': data['needs_info'],
+        'tes_excluded': data['excluded'],
         'tes_student_total': data['total'],
         'tes_counts': data['counts'],
     })
@@ -6265,8 +6262,8 @@ def vpsea_ranking(request):
       AffirmativeRecommendation.evaluate_and_sync.
     * **TES** is UniFAST's, awarded outside this system entirely, so what the
       SDSO produces is a recommendation to send onward — never an award. See
-      api/tes_ranking.py, which explains every verdict it reaches and says what
-      is missing rather than guessing.
+      api/tes_ranking.py, which explains every verdict it reaches and screens
+      out incomplete records rather than guessing at them.
 
     * **Faculty and Staff Scholars** is applied for, and its three
       qualifications are read off the application. See api/staff_ranking.py.

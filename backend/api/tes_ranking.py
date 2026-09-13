@@ -1,4 +1,4 @@
-"""Rule-based TES recommender: eligibility, priority and ranking, explained.
+"""Rule-based TES recommender: screening, eligibility, priority and ranking.
 
 Nothing in this system awards TES. UniFAST does, outside the portal, so what
 the SDSO produces here is a **recommendation** — who the university would put
@@ -6,26 +6,28 @@ forward, and the reason behind every line of it. That is why nothing in this
 module writes to the database: it reads the student record the office already
 holds and states what the rules make of it.
 
-The whole point of the module is the distinction between *failing* a rule and
-*not knowing* whether it was met. A student whose citizenship was never recorded
-has not failed the citizenship test — nobody has run it. Every rule therefore
-returns one of three verdicts, and the overall status has a matching third
-state:
+**TES is decided on complete records only.** A student whose record still has an
+unanswered question is not ranked, not failed, and not shown: :func:`screen`
+removes them before a single rule runs, and the page reports how many were held
+back as a count and nothing more. Two consequences the office should know it is
+choosing:
 
-    PASS / FAIL / NEEDS VERIFICATION   ->   Eligible / Not Eligible / For Verification
+  * A student can be missing one answer and be invisible on this page, with
+    nothing on it saying which answer or whose. The count is the only trace.
+  * The gap is not visible where it is fixable either. Nothing here tells the
+    student, and My Profile does not flag an unanswered question — so a record
+    stays incomplete until somebody thinks to look at it.
 
-Each rule names the field it read and, when it could not decide, names what is
-missing so the office knows what to go and collect.
+The screen is deliberately the only place incompleteness is handled. Past the
+screen every rule is a straight PASS or FAIL, because every field it reads has
+an answer by then; a rule that still had to describe a third outcome would mean
+the screen had missed something.
 
-Two defaults in the schema are traps this module works around:
-
-  * ``StudentProfile.family_income`` defaults to 0.0, so a household that never
-    entered anything looks identical to one earning nothing. Ranking that
-    student as the poorest applicant is exactly the error the TES rules warn
-    about, so 0.0 is read as missing.
-  * ``StudentProfile.is_pwd`` is read off the disability the student named, so
-    'no disability' and 'never asked' look alike. It is treated as an answer
-    only where there is positive evidence behind it — see the individual rules.
+What counts as an unanswered question is :data:`REQUIRED_ANSWERS` plus the two
+states in :func:`missing_answers` that are not a blank field at all — a school
+this system cannot recognise, and a declared scholarship the office has not
+decided on. Both leave a rule unable to run rather than able to fail, which is
+the same reason a blank field does.
 
 Field mapping (requirement -> the field actually used). Every one of them is on
 the student's own record, collected at registration and correctable on My
@@ -44,23 +46,17 @@ Profile, because there is no TES application form here to ask twice:
     Household income        StudentProfile.family_income
     Household size          StudentProfile.household_size
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 PASS = 'PASS'
 FAIL = 'FAIL'
-NEEDS_VERIFICATION = 'NEEDS VERIFICATION'
 
 ELIGIBLE = 'Eligible'
 NOT_ELIGIBLE = 'Not Eligible'
-FOR_VERIFICATION = 'For Verification'
 
 PRIORITY_1 = 'Priority 1'
 PRIORITY_2 = 'Priority 2'
-PRIORITY_UNDETERMINED = 'Cannot be finalized'
-
-VERIFIED = 'Verified'
-NEEDS_VERIFICATION_LABEL = 'Needs Verification'
 
 # Institutional reference data, not an assumption about any student: every BiPSU
 # undergraduate programme in api/constants.BIPSU_COURSES runs four years, and the
@@ -75,6 +71,17 @@ PROGRAM_YEARS = {}
 # it must not disqualify anyone.
 CONFLICTING_GOVERNMENT_PROGRAMS = ('TDP', 'DOST', 'CHED')
 
+# Free-text priority fields come back with these instead of an empty string when
+# the answer was "no". Real records in this system already hold "N/A" in
+# disability_type, which read as a disability until this was accounted for.
+NEGATIVE_ANSWERS = frozenset({'n/a', 'na', 'none', 'no', 'wala', '-', '--', 'nil', 'n.a.'})
+
+
+def _stated(value):
+    """The value if it is a real answer, else '' — 'N/A' means no, not unknown."""
+    text = (value or '').strip()
+    return '' if text.casefold() in NEGATIVE_ANSWERS else text
+
 
 @dataclass(frozen=True)
 class RuleResult:
@@ -84,7 +91,6 @@ class RuleResult:
     verdict: str
     detail: str
     source: str = ''
-    missing: tuple = ()
 
     @property
     def passed(self):
@@ -93,10 +99,6 @@ class RuleResult:
     @property
     def failed(self):
         return self.verdict == FAIL
-
-    @property
-    def unverified(self):
-        return self.verdict == NEEDS_VERIFICATION
 
 
 @dataclass
@@ -108,8 +110,6 @@ class Evaluation:
     priority: str
     priority_markers: list
     per_capita_income: float = None
-    income_rank_state: str = NEEDS_VERIFICATION_LABEL
-    missing: list = field(default_factory=list)
     rank: int = None
 
     @property
@@ -125,16 +125,10 @@ class Evaluation:
         return self.status == ELIGIBLE
 
     @property
-    def needs_verification(self):
-        return self.status == FOR_VERIFICATION
-
-    @property
     def recommendation(self):
         """The one-line verdict shown in the Recommendation column."""
         if self.status == NOT_ELIGIBLE:
             return 'Not Recommended'
-        if self.status == FOR_VERIFICATION:
-            return 'For Verification'
         return 'High Priority' if self.priority == PRIORITY_1 else 'Recommended'
 
     def rule(self, key):
@@ -144,77 +138,172 @@ class Evaluation:
         return None
 
     @property
+    def failed_rules(self):
+        """The rules behind a Not Eligible verdict, for the Reason column."""
+        return [r for r in self.rules if r.failed]
+
+    @property
+    def reason(self):
+        """Why this student is not recommended, or '' when they are."""
+        return '; '.join(r.label for r in self.failed_rules)
+
+    @property
     def sort_key(self):
         """Eligibility, then priority, then per-capita income, then markers.
 
-        A student whose per-capita income is unknown sorts after everyone whose
-        income is known rather than to the top or the bottom of the list: not
-        knowing is not evidence of being poor, nor of being well off.
+        Every term is known for every row on the list — that is what the screen
+        buys. Income is a plain ascending number here because there is no longer
+        such a thing as a ranked student whose income was never entered.
         """
-        status_rank = {ELIGIBLE: 0, FOR_VERIFICATION: 1, NOT_ELIGIBLE: 2}[self.status]
-        priority_rank = {PRIORITY_1: 0, PRIORITY_2: 1, PRIORITY_UNDETERMINED: 2}[self.priority]
-        income_known = 0 if self.per_capita_income is not None else 1
-        income = self.per_capita_income if self.per_capita_income is not None else 0.0
         return (
-            status_rank,
-            priority_rank,
-            income_known,
-            income,
+            0 if self.status == ELIGIBLE else 1,
+            0 if self.priority == PRIORITY_1 else 1,
+            self.per_capita_income,
             -len(self.priority_markers),
             (self.profile.user.last_name or '').lower(),
         )
 
 
+# ── the screen ──────────────────────────────────────────────────────────────
+
+# Every answer a rule needs, and the name the office would know it by. Read in
+# the order the rules use them so a listing of what a record lacks follows the
+# same order as the page.
+REQUIRED_ANSWERS = (
+    ('citizenship', 'Citizenship'),
+    ('year_level', 'Year level'),
+    ('has_previous_degree', 'Whether they already hold a degree'),
+    ('year_first_enrolled', 'Year first enrolled'),
+    ('is_solo_parent_dependent', 'Solo parent status'),
+    ('disability_type', 'Disability (or NO for none)'),
+    ('household_size', 'Household size'),
+    ('family_income', 'Household income'),
+)
+
+
+def _pending_declarations(profiles):
+    """{student pk -> the scholarship types they declared and nobody ruled on}.
+
+    One query for the whole cohort. Asking per student turned the screen into a
+    query per row, which is the cost this page was already paying elsewhere and
+    had no reason to pay again.
+    """
+    from .models import ScholarshipLinkRequest
+
+    pending = {}
+    rows = (ScholarshipLinkRequest.objects
+            .filter(student__in=profiles, status='Pending')
+            .values_list('student_id', 'scholarship_type'))
+    for student_id, scholarship_type in rows:
+        pending.setdefault(student_id, set()).add(scholarship_type)
+    return pending
+
+
+def unanswered_on_record(profile):
+    """The gaps readable from the record in hand, without asking the database.
+
+    Split out from :func:`missing_answers` so :func:`evaluate` can hold itself
+    to its own contract for free — everything here is an attribute read, and
+    only the declaration check below costs a query.
+    """
+    from .constants import BIPSU_SCHOOLS
+
+    gaps = []
+    for attribute, label in REQUIRED_ANSWERS:
+        value = getattr(profile, attribute, None)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            gaps.append(label)
+
+    # Zero is how an untouched numeric field looks, not a household of nobody
+    # earning nothing. family_income defaults to 0.0, so reading it as a real
+    # income would rank a student with no data on file as the poorest applicant.
+    if profile.family_income is not None and profile.family_income <= 0:
+        gaps.append('Household income')
+    if profile.household_size is not None and profile.household_size <= 0:
+        gaps.append('Household size')
+
+    # Not a blank field: a school this system cannot place. CHED recognition of
+    # it cannot be confirmed from here, so the enrolment rule has nothing to
+    # decide on either way.
+    school = (profile.school or '').strip()
+    if not school:
+        gaps.append('School')
+    elif school not in dict(BIPSU_SCHOOLS):
+        gaps.append(f'CHED recognition of "{school}"')
+
+    # Listahanan decides priority, and 4Ps stands in only when Listahanan itself
+    # was never checked. One of the two has to have been answered.
+    if profile.is_listahanan_household is None and profile.is_4ps_beneficiary is None:
+        gaps.append('Listahanan / 4Ps listing')
+
+    return tuple(dict.fromkeys(gaps))   # de-duplicated, order kept
+
+
+def missing_answers(profile, pending=None):
+    """What this record still lacks before TES rules can be run on it.
+
+    Empty means the student is ranked. Anything in it means they are held back
+    from the list entirely — see the module docstring for what that costs.
+
+    ``pending`` is the cohort-wide map from :func:`_pending_declarations`; left
+    out, this asks for the one student, which is what a caller screening a
+    single record wants.
+    """
+    gaps = list(unanswered_on_record(profile))
+
+    # Not a blank field: a scholarship the student declared that nobody has
+    # ruled on. Until it is reviewed the system cannot tell ongoing government
+    # assistance from one-time emergency help, so the conflict rule can neither
+    # pass nor fail.
+    if pending is None:
+        pending = _pending_declarations([profile.pk])
+    undecided = pending.get(profile.pk)
+    if undecided:
+        gaps.append('A decision on ' + ', '.join(sorted(undecided)))
+
+    return tuple(dict.fromkeys(gaps))   # de-duplicated, order kept
+
+
+def screen(profiles):
+    """Split students into those TES can be decided for and those it cannot.
+
+    Returns ``(complete, incomplete)``. Only the first list is evaluated; the
+    second exists so the page can say how many students it is not showing.
+    """
+    profiles = list(profiles)
+    pending = _pending_declarations(profiles)
+    complete, incomplete = [], []
+    for profile in profiles:
+        (incomplete if missing_answers(profile, pending=pending) else complete).append(profile)
+    return complete, incomplete
+
+
 # ── individual rules ────────────────────────────────────────────────────────
+#
+# Past the screen every field these read has an answer, so each is a straight
+# PASS or FAIL. None of them re-checks for a blank: if one had to, the screen
+# above would be the thing to fix.
 
 def _citizenship_rule(profile):
     recorded = _stated(profile.citizenship)
-    if not recorded:
-        return RuleResult(
-            'citizenship', 'Citizenship', NEEDS_VERIFICATION,
-            'Citizenship has not been recorded. It is neither assumed Filipino nor assumed otherwise.',
-            source='StudentProfile.citizenship', missing=('Citizenship',))
     if recorded.casefold() in ('filipino', 'filipino citizen', 'philippine', 'pilipino'):
         return RuleResult('citizenship', 'Citizenship', PASS,
                           f'Recorded as {recorded}.', source='StudentProfile.citizenship')
     return RuleResult('citizenship', 'Citizenship', FAIL,
-                      f'Recorded as {recorded}, which is not Filipino citizenship.',
+                      f'Recorded as {recorded or "not Filipino"}, which is not '
+                      'Filipino citizenship.',
                       source='StudentProfile.citizenship')
 
 
 def _enrollment_rule(profile):
-    from .constants import BIPSU_SCHOOLS
-
-    school = (profile.school or '').strip()
-    if not profile.year_level:
-        return RuleResult(
-            'enrollment', 'Current College Enrollment', NEEDS_VERIFICATION,
-            'No year level on file, so current enrolment cannot be confirmed.',
-            source='StudentProfile.year_level', missing=('Year level',))
-    if not school:
-        return RuleResult(
-            'enrollment', 'Current College Enrollment', NEEDS_VERIFICATION,
-            f'Enrolled at year {profile.year_level}, but no school is recorded, so CHED '
-            'recognition of the institution cannot be confirmed.',
-            source='StudentProfile.school', missing=('School',))
-    if school in dict(BIPSU_SCHOOLS):
-        return RuleResult(
-            'enrollment', 'Current College Enrollment', PASS,
-            f'Year {profile.year_level} at {school}, a school of BiPSU — a CHED-recognised SUC.',
-            source='StudentProfile.school')
     return RuleResult(
-        'enrollment', 'Current College Enrollment', NEEDS_VERIFICATION,
-        f'Year {profile.year_level} at "{school}", which is not one of BiPSU\'s schools. '
-        'CHED recognition of that institution needs checking.',
-        source='StudentProfile.school', missing=('CHED recognition of the institution',))
+        'enrollment', 'Current College Enrollment', PASS,
+        f'Year {profile.year_level} at {profile.school}, a school of BiPSU — '
+        'a CHED-recognised SUC.',
+        source='StudentProfile.school')
 
 
 def _first_degree_rule(profile):
-    if profile.has_previous_degree is None:
-        return RuleResult(
-            'first_degree', 'First College Degree', NEEDS_VERIFICATION,
-            'Whether the student already holds an undergraduate degree has not been recorded.',
-            source='StudentProfile.has_previous_degree', missing=('Previous degree',))
     if profile.has_previous_degree:
         return RuleResult('first_degree', 'First College Degree', FAIL,
                           'Already holds an undergraduate degree, so this is not a first degree.',
@@ -226,12 +315,6 @@ def _first_degree_rule(profile):
 
 def _maximum_years_rule(profile, today=None):
     started = profile.year_first_enrolled
-    if not started:
-        return RuleResult(
-            'maximum_years', 'Maximum Years of Study', NEEDS_VERIFICATION,
-            'The year the student first enrolled has not been recorded, so years used '
-            'cannot be counted. Year level alone does not show how long they have been enrolled.',
-            source='StudentProfile.year_first_enrolled', missing=('Year first enrolled',))
     today = today or date.today()
     allowed = PROGRAM_YEARS.get(profile.course, STANDARD_PROGRAM_YEARS) + GRACE_YEARS
     used = today.year - started + 1
@@ -248,14 +331,13 @@ def _maximum_years_rule(profile, today=None):
 
 
 def _other_assistance_rule(profile):
-    """Read from the office's own award records first, then the undecided ones.
+    """Read from the office's own award records.
 
     An approved application or link request for a conflicting programme is hard
-    evidence. A scholarship the student declared at registration that nobody has
-    verified yet leaves them unresolved rather than disqualified: the system
-    cannot tell whether what they hold is government assistance, a private
-    grant, or one-time emergency help, which the rules say must not disqualify
-    anyone.
+    evidence. A declaration nobody has ruled on yet never reaches this rule —
+    the screen holds that student back, because the system cannot tell whether
+    what they hold is government assistance, a private grant, or one-time
+    emergency help, which the rules say must not disqualify anyone.
     """
     from .models import Application, ScholarshipLinkRequest
 
@@ -278,21 +360,6 @@ def _other_assistance_rule(profile):
             f'Currently holds {names} through this office — ongoing government assistance '
             'that TES cannot be held alongside.',
             source='Application / ScholarshipLinkRequest')
-    declared = list(
-        ScholarshipLinkRequest.objects
-        .filter(student=profile, status='Pending')
-        .values_list('scholarship_type', flat=True)
-    )
-    if declared:
-        names = ', '.join(sorted(set(declared)))
-        return RuleResult(
-            'other_assistance', 'Other Government Assistance', NEEDS_VERIFICATION,
-            f'The student declared {names} at registration, but the office has not '
-            'verified the proof yet. Whether it is ongoing government assistance or '
-            'one-time emergency help (DSWD AICS, CHED SMART — neither disqualifying) '
-            'cannot be settled until it is reviewed.',
-            source='ScholarshipLinkRequest (Pending)',
-            missing=('A decision on the declared scholarship',))
     return RuleResult(
         'other_assistance', 'Other Government Assistance', PASS,
         'No approved TDP, DOST or CHED award on file and none declared.',
@@ -301,35 +368,18 @@ def _other_assistance_rule(profile):
 
 # ── priority ────────────────────────────────────────────────────────────────
 
-# Free-text priority fields come back with these instead of an empty string when
-# the answer was "no". Real records in this system already hold "N/A" in
-# disability_type, which read as a disability until this was accounted for.
-NEGATIVE_ANSWERS = frozenset({'n/a', 'na', 'none', 'no', 'wala', '-', '--', 'nil', 'n.a.'})
-
-
-def _stated(value):
-    """The value if it is a real answer, else '' — 'N/A' means no, not unknown."""
-    text = (value or '').strip()
-    return '' if text.casefold() in NEGATIVE_ANSWERS else text
-
-
 def _priority_signals(profile):
-    """(confirmed markers, unknown signals) for the Priority 1 groups."""
-    markers, unknown = [], []
+    """The Priority 1 groups this student is confirmed to be in."""
+    markers = []
 
     if profile.is_listahanan_household is True:
         markers.append('Listahanan household')
-    elif profile.is_listahanan_household is None:
+    elif profile.is_listahanan_household is None and profile.is_4ps_beneficiary is True:
         # 4Ps stands in only when Listahanan itself is unrecorded.
-        if profile.is_4ps_beneficiary is True:
-            markers.append('4Ps beneficiary')
-        elif profile.is_4ps_beneficiary is None:
-            unknown.append('Listahanan / 4Ps listing')
+        markers.append('4Ps beneficiary')
 
     if profile.is_solo_parent_dependent is True:
         markers.append('Solo parent dependent')
-    elif profile.is_solo_parent_dependent is None:
-        unknown.append('Solo parent status')
 
     ip_group = _stated(profile.indigenous_group)
     if ip_group:
@@ -339,32 +389,31 @@ def _priority_signals(profile):
     if disability:
         markers.append(f'PWD ({disability})')
 
-    return markers, unknown
+    return markers
 
 
 def _per_capita_income(profile):
-    """(per-capita income, state, missing fields).
-
-    family_income defaults to 0.0, so zero is read as 'not entered'. Treating it
-    as a real income would rank a student with no data on file as the poorest
-    applicant in the list.
-    """
-    missing = []
-    income = profile.family_income
-    if not income or income <= 0:
-        missing.append('Household income')
-    size = profile.household_size
-    if not size or size <= 0:
-        missing.append('Household size')
-    if missing:
-        return None, NEEDS_VERIFICATION_LABEL, missing
-    return round(income / size, 2), VERIFIED, []
+    """Household income over household size. Both are guaranteed by the screen."""
+    return round(profile.family_income / profile.household_size, 2)
 
 
 # ── the evaluation ──────────────────────────────────────────────────────────
 
 def evaluate(profile, today=None):
-    """Run every rule against one student. Reads only; never writes, never guesses."""
+    """Run every rule against one student whose record is complete.
+
+    Reads only; never writes, never guesses. Passing a profile that has not been
+    through :func:`screen` is a caller error: the rules assume every answer is
+    there, so this says so plainly rather than letting one of them fall over on
+    an arithmetic operand somewhere further down.
+    """
+    gaps = unanswered_on_record(profile)
+    if gaps:
+        raise ValueError(
+            f'{profile} has not been screened — still unanswered: {", ".join(gaps)}. '
+            'Call screen() or rank(), which skip a record like this rather than '
+            'ranking it on what is not there.')
+
     rules = [
         _citizenship_rule(profile),
         _enrollment_rule(profile),
@@ -373,55 +422,28 @@ def evaluate(profile, today=None):
         _other_assistance_rule(profile),
     ]
 
-    if any(r.failed for r in rules):
-        status = NOT_ELIGIBLE
-    elif any(r.unverified for r in rules):
-        status = FOR_VERIFICATION
-    else:
-        status = ELIGIBLE
-
-    markers, unknown_signals = _priority_signals(profile)
-    per_capita, income_state, income_missing = _per_capita_income(profile)
-
-    if markers:
-        priority = PRIORITY_1
-    elif unknown_signals:
-        # No confirmed Priority 1 group, but the deciding list was never checked.
-        priority = PRIORITY_UNDETERMINED
-    else:
-        priority = PRIORITY_2
-
-    missing = []
-    for rule in rules:
-        missing.extend(rule.missing)
-    # An unchecked priority signal only matters while it could still change the
-    # answer. Once a Priority 1 group is confirmed, the others cannot move the
-    # student anywhere, so listing them would send the office chasing paperwork
-    # that changes nothing.
-    if priority != PRIORITY_1:
-        missing.extend(unknown_signals)
-    missing.extend(income_missing)
+    status = NOT_ELIGIBLE if any(r.failed for r in rules) else ELIGIBLE
+    markers = _priority_signals(profile)
 
     return Evaluation(
         profile=profile,
         rules=rules,
         status=status,
-        priority=priority,
+        priority=PRIORITY_1 if markers else PRIORITY_2,
         priority_markers=markers,
-        per_capita_income=per_capita,
-        income_rank_state=income_state,
-        missing=list(dict.fromkeys(missing)),   # de-duplicated, order kept
+        per_capita_income=_per_capita_income(profile),
     )
 
 
 def rank(profiles, today=None):
-    """Evaluate and order a set of students, numbering them from 1.
+    """Evaluate and order the students whose records are complete, from 1.
 
-    Everyone appears, including students whose data is incomplete — they are
-    marked For Verification rather than dropped, so the office can see who still
-    needs chasing instead of quietly losing them.
+    Screens first, so a caller can hand this the whole cohort. Students held
+    back are simply absent from the result — :func:`screen` is the way to find
+    out how many there were.
     """
-    evaluations = [evaluate(p, today=today) for p in profiles]
+    complete, _ = screen(profiles)
+    evaluations = [evaluate(p, today=today) for p in complete]
     evaluations.sort(key=lambda e: e.sort_key)
     for position, evaluation in enumerate(evaluations, start=1):
         evaluation.rank = position

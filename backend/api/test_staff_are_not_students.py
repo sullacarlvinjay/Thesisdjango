@@ -75,8 +75,11 @@ class ApprovingAStaffScholarshipMakesNoStudentTest(TestCase):
         """The list that leaves the building."""
         self.approve()
         data = _tes_ranking_data()
-        listed = [e.student_name for e in data['rows'] + data['needs_info']]
+        listed = [e.student_name for e in data['rows']]
         self.assertEqual(listed, [], f'a staff scholar reached the TES list: {listed}')
+        # Nor the screened population behind it: a staff scholar held back as an
+        # incomplete student record would still be one student too many here.
+        self.assertEqual(data['total'] + data['excluded'], 0)
 
     def test_the_scholar_still_reaches_the_staff_archive(self):
         """Removing the account must not cost the office the award itself."""
@@ -103,28 +106,37 @@ class TheTesListCoversVerifiedStudentsOnlyTest(TestCase):
         return StudentProfile.objects.create(
             user=user, student_id=student_id, course='BSCS', year_level=2)
 
-    def listed(self):
+    def screened(self):
+        """How many students reached the TES screen at all.
+
+        Ranked plus held back: these students carry nothing but a course and a
+        year level, so none of them can be *ranked*. What is under test is
+        which accounts the page will even consider, which is the count before
+        the screen rather than the list after it.
+        """
         data = _tes_ranking_data()
-        return {e.student_id for e in data['rows'] + data['needs_info']}
+        return data['total'] + data['excluded']
 
     def test_a_verified_student_is_screened(self):
         self.student('Lim', '2026-0001', 'approved')
-        self.assertEqual(self.listed(), {'2026-0001'})
+        self.assertEqual(self.screened(), 1)
 
     def test_a_registrant_still_in_the_queue_is_not(self):
         self.student('Cruz', '2026-0002', 'pending')
-        self.assertEqual(self.listed(), set())
+        self.assertEqual(self.screened(), 0)
 
     def test_a_rejected_registrant_is_not(self):
         self.student('Reyes', '2026-0003', 'rejected')
-        self.assertEqual(self.listed(), set())
+        self.assertEqual(self.screened(), 0)
 
     def test_the_counts_follow_the_same_list(self):
         """A total that counted people the table does not show would be the
         office's own cross-check disagreeing with the page under it."""
         self.student('Lim', '2026-0001', 'approved')
         self.student('Cruz', '2026-0002', 'pending')
-        self.assertEqual(_tes_ranking_data()['total'], 1)
+        data = _tes_ranking_data()
+        self.assertEqual(len(data['rows']), data['total'])
+        self.assertEqual(data['total'] + data['excluded'], 1)
 
 
 class PruningWhatTheOldBranchLeftBehindTest(TestCase):
