@@ -1047,15 +1047,16 @@ def student_profile(request):
         if raw_shs:
             try: profile.shs_gpa = float(raw_shs)
             except ValueError: pass
-        raw_total = p.get('suc_exam_total', '').strip()
-        if raw_total:
-            try:
-                total = float(raw_total)
-                profile.suc_exam_total = total if total > 0 else None
-            except ValueError:
-                pass
-        else:
-            profile.suc_exam_total = None
+        if 'suc_exam_total' in p:
+            raw_total = p['suc_exam_total'].strip()
+            if raw_total:
+                try:
+                    total = float(raw_total)
+                    profile.suc_exam_total = total if total > 0 else None
+                except ValueError:
+                    pass
+            else:
+                profile.suc_exam_total = None
         raw_suc = p.get('suc_exam_score', '').strip()
         if raw_suc:
             try: profile.suc_exam_score = float(raw_suc)
