@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register — BiPSU SRMS</title>
   {% include '_favicon.html' %}
+  <meta name="theme-color" content="#1a2168" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
@@ -83,11 +85,11 @@
           </div>
           <div class="space-y-1.5">
             <label>Email</label>
-            <input type="email" name="email" value="{{ post.email }}" placeholder="you@bipsu.edu.ph" required />
+            <input type="email" name="email" value="{{ post.email }}" placeholder="you@bipsu.edu.ph" required autocomplete="email" />
           </div>
           <div class="space-y-1.5">
             <label>Contact Number</label>
-            <input name="contact_number" value="{{ post.contact_number }}" placeholder="09XXXXXXXXX" required />
+            <input type="tel" inputmode="numeric" name="contact_number" value="{{ post.contact_number }}" placeholder="09XXXXXXXXX" required autocomplete="tel" />
           </div>
           
           <div data-student-only class="space-y-3"
@@ -510,11 +512,11 @@
         <div class="space-y-3">
           <div class="space-y-1.5">
             <label>Password</label>
-            <input type="password" name="password" placeholder="••••••••" required />
+            <input type="password" name="password" placeholder="••••••••" required autocomplete="new-password" />
           </div>
           <div class="space-y-1.5">
             <label>Confirm Password</label>
-            <input type="password" name="confirm_password" placeholder="••••••••" required />
+            <input type="password" name="confirm_password" placeholder="••••••••" required autocomplete="new-password" />
           </div>
         </div>
       </div>

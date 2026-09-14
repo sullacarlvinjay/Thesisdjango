@@ -80,7 +80,7 @@
               <option value="">—</option><option value="Male">Male</option><option value="Female">Female</option>
             </select>
           </div>
-          <div><label>Contact Number</label><input name="contact_number" style="margin-top:0.25rem;" /></div>
+          <div><label>Contact Number</label><input name="contact_number" type="tel" style="margin-top:0.25rem;" /></div>
           <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
           <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
           <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
@@ -190,7 +190,7 @@
         </div>
         {% if active_type in 'Affirmative Staff' %}
         <div><label>Date of Birth</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
-        <div><label>Contact Number</label><input name="contact_number" style="margin-top:0.25rem;" /></div>
+        <div><label>Contact Number</label><input name="contact_number" type="tel" style="margin-top:0.25rem;" /></div>
         {% endif %}
         <div class="col-span-2">
           <div class="rounded-xl border p-3 mt-1" style="border-color:#e8ecf0;">
@@ -543,7 +543,7 @@ function openDelete(pk, name) {
         </div>
         <div>
           <label>Contact Number</label>
-          <input id="editContact" name="contact_number" style="margin-top:0.25rem;" />
+          <input id="editContact" name="contact_number" type="tel" style="margin-top:0.25rem;" />
         </div>
         {% if active_type not in 'Affirmative Staff' %}
         <div>

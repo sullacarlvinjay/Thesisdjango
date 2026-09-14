@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{% block title %}BiPSU SRMS{% endblock %}</title>
   {% include '_favicon.html' %}
+  <meta name="theme-color" id="themeColor" content="#ffffff" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -29,10 +30,10 @@
     }
   </script>
   <script>
-    if (localStorage.getItem('theme') === 'dark' ||
-        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    }
+    var srmsDark = localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (srmsDark) document.documentElement.classList.add('dark');
+    document.getElementById('themeColor').setAttribute('content', srmsDark ? '#171c2e' : '#ffffff');
   </script>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
@@ -84,7 +85,7 @@
                 -translate-x-full lg:translate-x-0 transition-transform duration-200">
     <div class="sidebar-head flex items-center gap-2 px-6 py-5">
       <div class="sidebar-logo h-9 w-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
-        <img src="{% block logo_src %}/media/logos/BiPSU.png{% endblock %}" alt="logo" class="h-9 w-9 object-contain" />
+        <img src="{% block logo_src %}/media/logos/BiPSU.png{% endblock %}" alt="" class="h-9 w-9 object-contain" />
       </div>
       <div>
         <p class="sidebar-brand text-sm font-semibold">{% block brand_name %}BiPSU SRMS{% endblock %}</p>
@@ -118,7 +119,8 @@
           <span class="text-xs font-semibold" style="color:var(--brand);">{{ active_semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
         </div>
         {% endif %}
-        <button id="dark-toggle" onclick="toggleDark()" class="relative p-2 rounded-lg hover:bg-muted" style="background:transparent;border:none;cursor:pointer;" title="Toggle dark mode">
+        <button id="dark-toggle" onclick="toggleDark()" class="relative p-2 rounded-lg hover:bg-muted" style="background:transparent;border:none;cursor:pointer;" title="Toggle dark mode"
+                aria-label="Toggle dark mode" aria-pressed="false">
           <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
           <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
         </button>
@@ -171,17 +173,18 @@
 </div>
 {% block extra_js %}{% endblock %}
 <script>
+  function paintTheme(isDark) {
+    document.getElementById('icon-moon').classList.toggle('hidden', isDark);
+    document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
+    document.getElementById('dark-toggle').setAttribute('aria-pressed', isDark ? 'true' : 'false');
+    document.getElementById('themeColor').setAttribute('content', isDark ? '#171c2e' : '#ffffff');
+  }
   function toggleDark() {
     const isDark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    document.getElementById('icon-moon').classList.toggle('hidden', isDark);
-    document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
+    paintTheme(isDark);
   }
-  (function() {
-    const isDark = document.documentElement.classList.contains('dark');
-    document.getElementById('icon-moon').classList.toggle('hidden', isDark);
-    document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
-  })();
+  paintTheme(document.documentElement.classList.contains('dark'));
 </script>
 <div id="sidebarBackdrop" class="sidebar-backdrop lg:hidden" hidden></div>
 <script src="{% static 'js/mobile-nav.js' %}?v=1"></script>
