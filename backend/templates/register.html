@@ -357,15 +357,15 @@
           </div>
           
           <div class="space-y-1.5">
-            <label>SUC Admission Exam Score</label>
+            <label>SUC Admission Exam Score <span class="label-optional">Optional</span></label>
             <div class="suc-score-pair">
               <input name="suc_exam_score" type="number" step="0.01" min="0"
-                     value="{{ post.suc_exam_score }}" placeholder="score, e.g. 35" aria-label="SUC exam score" required />
+                     value="{{ post.suc_exam_score }}" placeholder="score, e.g. 35" aria-label="SUC exam score" />
               <span class="suc-score-of">out of</span>
               <input name="suc_exam_total" type="number" step="0.01" min="1"
-                     value="{{ post.suc_exam_total }}" placeholder="total, e.g. 50" aria-label="Total items" required />
+                     value="{{ post.suc_exam_total }}" placeholder="total, e.g. 50" aria-label="Total items" />
             </div>
-            <p class="text-xs" style="color:var(--text-muted);">Enter 100 as the total if your certificate already gives a percentage.</p>
+            <p class="text-xs" style="color:var(--text-muted);">Enter 100 as the total if your certificate already gives a percentage. Leave both blank if you do not have the score yet — you can add it later under My Profile.</p>
           </div>
           <div class="space-y-1.5">
             <label>SUC Exam Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span> <span class="label-optional">Optional</span></label>

@@ -21,7 +21,7 @@ STUDENT_REQUIRED = {
     'elementary', 'highschool', 'last_school',
     'highschool_is_public', 'is_from_depressed_area',
     'family_income',
-    'shs_gpa', 'suc_exam_score', 'suc_exam_total',
+    'shs_gpa',
     'citizenship', 'household_size', 'year_first_enrolled',
     'is_listahanan_household', 'is_4ps_beneficiary',
     'is_solo_parent_dependent', 'has_previous_degree',
@@ -37,7 +37,8 @@ NEVER_MARKED = (ALWAYS_REQUIRED | STUDENT_REQUIRED | STAFF_REQUIRED
                 | CONDITIONALLY_REQUIRED | CHECKBOXES)
 
 OPTIONAL = ({'suffix', 'indigenous_group',
-             'shs_gpa_cert', 'suc_exam_cert', 'staff_notes'}
+             'shs_gpa_cert', 'suc_exam_cert', 'staff_notes',
+             'suc_exam_score', 'suc_exam_total'}
             | per_card('award_number', 'notes'))
 
 FIELD = re.compile(r'<(?:input|select|textarea)\b[^>]*?\bname="([^"]+)"[^>]*?>')
@@ -87,7 +88,7 @@ class RegistrationOptionalMarkersTest(TestCase):
                 self.assertTrue(found[name]['required'],
                                 f'{name} reads as required but the browser does not ask for it')
 
-    def test_the_optional_seven_are_exactly_the_marked_ones(self):
+    def test_the_marked_fields_are_exactly_the_optional_ones(self):
         marked = {name for name, f in fields(self.html).items() if f['marked']}
         self.assertEqual(marked, OPTIONAL)
 

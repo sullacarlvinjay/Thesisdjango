@@ -412,8 +412,6 @@ _REQUIRED_AFFIRMATIVE_ANSWERS = (
 
 _REQUIRED_OF_AN_APPLICANT = (
     ('shs_gpa', 'SHS Grade Point Average'),
-    ('suc_exam_score', 'SUC Admission Exam Score'),
-    ('suc_exam_total', 'SUC Admission Exam Total'),
     ('citizenship', 'Citizenship'),
     ('household_size', 'Household Size'),
     ('year_first_enrolled', 'Year You First Enrolled in This Course'),
