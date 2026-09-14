@@ -1060,6 +1060,13 @@ def student_profile(request):
         if raw_suc:
             try: profile.suc_exam_score = float(raw_suc)
             except ValueError: pass
+        if profile.suc_exam_score is not None and not profile.suc_exam_total:
+            errors.append('SUC Admission Exam Total is required when a score is '
+                          'given — 42 out of 50 and 42 out of 100 are not the '
+                          'same result, and the rules read the percentage.')
+        elif (profile.suc_exam_score is not None
+              and profile.suc_exam_score > profile.suc_exam_total):
+            errors.append('SUC Admission Exam Score cannot be higher than the total.')
         profile.is_tes_beneficiary = 'is_tes_beneficiary' in p
         if request.FILES.get('shs_gpa_cert'):
             profile.shs_gpa_cert = request.FILES['shs_gpa_cert']

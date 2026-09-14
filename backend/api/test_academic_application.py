@@ -86,7 +86,7 @@ class DraftingIsGoneTest(TestCase):
     def test_the_form_opts_into_the_browser_side_cache(self):
         html = self.c.get('/student/apply/academic/').content.decode()
         self.assertIn('data-cache="apply-academic"', html)
-        self.assertIn('form-cache.js', html)
+        self.assertRegex(html, r'form-cache(\.[0-9a-f]+)?\.js')
 
     def test_a_posted_draft_action_is_submitted_anyway_not_parked(self):
         self.c.post('/student/apply/academic/',
