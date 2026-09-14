@@ -49,9 +49,3 @@ tmp.txt
 tmp_lines.txt
 result.txt
 q-dev-chat-*.html
-
-# Coverage — the .coveragerc config is committed, the measurement data is not
-.coverage
-.coverage.*
-htmlcov/
-coverage.xml

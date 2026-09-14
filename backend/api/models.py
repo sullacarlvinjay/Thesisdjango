@@ -1431,18 +1431,20 @@ def join_parent_name(last, first, middle):
 
 
 def suc_exam_percent(score, total):
-    if score is None or not total or total <= 0:
+    if score is None:
         return None
-    return round(score / total * 100.0, 2)
+    if total:
+        return round(score / total * 100.0, 2)
+    return float(score)
 
 
 def format_exam_score(score, total):
-    if score is None:
-        return ''
     pct = suc_exam_percent(score, total)
     if pct is None:
-        return f'{score:g} — total not recorded'
-    return f'{score:g} / {total:g} ({pct:g}%)'
+        return ''
+    if total:
+        return f'{score:g} / {total:g} ({pct:g}%)'
+    return f'{pct:g}%'
 
 
 def ched_tier(app):
