@@ -1,16 +1,7 @@
-"""Give every BiPSU Staff user a StaffProfile, filled from their application.
-
-Before this, a staff member's employment details lived on whichever
-AffirmativeNSUApplication they had submitted last, matched by email address.
-This lifts the latest such record onto the new profile so nobody has to retype
-what they already filed. The applications keep their copies — they are the
-snapshot the VPSEA office reviewed and must not change.
-"""
 from django.db import migrations
 
 
 def _split_middle(full_name):
-    """Middle name out of a single 'First Middle Last' string, blank if unclear."""
     parts = (full_name or '').strip().split()
     return ' '.join(parts[1:-1]) if len(parts) >= 3 else ''
 
@@ -23,9 +14,6 @@ def backfill(apps, schema_editor):
     for user in User.objects.filter(role='nsu_staff'):
         if StaffProfile.objects.filter(user=user).exists():
             continue
-        # Latest wins, the same rule the staff portal used to read by. A
-        # rejected application still carries correct employment details, so it
-        # is worth reading when there is nothing better.
         app = (AffirmativeNSUApplication.objects
                .filter(email=user.email)
                .order_by('-submitted_at')
@@ -56,8 +44,6 @@ def backfill(apps, schema_editor):
 
 
 def unbackfill(apps, schema_editor):
-    """Drop every profile, including any created after this ran — the details
-    are still on the applications, which is where the old code reads them."""
     apps.get_model('api', 'StaffProfile').objects.all().delete()
 
 

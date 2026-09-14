@@ -1,11 +1,3 @@
-"""Parent names live on the profile, in parts, and are entered exactly once.
-
-StudentProfile used to hold one combined string per parent while a submission
-held the same names split into last / first / middle — two records of one fact,
-in two shapes, kept in step by nobody. The parts won, because the agency forms
-the office fills ask for them separately and a combined name cannot be split
-back reliably.
-"""
 from django.test import Client, TestCase
 
 from api.models import StudentProfile, User
@@ -63,6 +55,5 @@ class ProfileHoldsTheParentNamesTest(TestCase):
         self.assertEqual(p.father_name, '')
 
     def test_the_combined_name_cannot_be_written_to(self):
-        # It is derived. Anything that tries to set it is a bug worth failing on.
         with self.assertRaises(AttributeError):
             self.profile.father_name = 'Someone Else'

@@ -1,16 +1,3 @@
-"""The staff record and its applications split across detail rows.
-
-:class:`~api.models.StaffProfile` carried twenty-four columns and
-:class:`~api.models.AffirmativeStaffApplication` forty. They moved onto
-:class:`~api.models.StaffDetail` and :class:`~api.models.StaffApplicationDetail`
-rows, and both parents proxy them, so nothing that reads an employee or an
-application had to move too — these tests are what says that stayed true.
-
-The application is the case the student record did not have: one table serving
-two programmes, where which half of the columns a row fills depends on
-``qualified_for``. A Staff row fills the employment and staff-eligibility groups
-and leaves the affirmative one blank; an Affirmative row does the reverse.
-"""
 from datetime import date
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -44,8 +31,6 @@ class StaffFactoryMixin:
 
 
 class StaffProfileColumnsStillReadOffTheProfileTest(StaffFactoryMixin, TestCase):
-    """The whole point of the split: no caller had to learn where a field went."""
-
     def test_create_routes_a_moved_column_to_its_detail_row(self):
         staff = self.make_staff(position='Instructor I', employment_status='Regular',
                                 middle_name='Reyes', highest_education='MA Education')
@@ -73,7 +58,6 @@ class StaffProfileColumnsStillReadOffTheProfileTest(StaffFactoryMixin, TestCase)
         self.assertTrue(staff.education.has_baccalaureate)
 
     def test_update_fields_naming_a_moved_column_still_saves_it(self):
-        """The profile view saves with update_fields and did so before the split."""
         staff = self.make_staff(position='Instructor I')
         staff.position = 'Instructor II'
         staff.save(update_fields=['position'])
@@ -111,7 +95,6 @@ class StaffProfileColumnsStillReadOffTheProfileTest(StaffFactoryMixin, TestCase)
         self.assertEqual(StaffEducation.objects.count(), 0)
 
     def test_a_profile_with_no_row_yet_reads_the_default_not_an_error(self):
-        """A row deleted out from under the profile reads as a fresh one would."""
         staff = self.make_staff()
         StaffEducation.objects.filter(staff=staff).delete()
         staff.refresh_from_db()
@@ -120,8 +103,6 @@ class StaffProfileColumnsStillReadOffTheProfileTest(StaffFactoryMixin, TestCase)
 
 
 class StaffProfileDerivedValuesTest(StaffFactoryMixin, TestCase):
-    """The properties that read across the rows the columns landed on."""
-
     def test_years_of_service_still_counts_from_the_hiring_date(self):
         staff = self.make_staff(date_hired=date(2016, 6, 1))
         expected = date.today().year - 2016 - (
@@ -148,13 +129,6 @@ class StaffProfileDerivedValuesTest(StaffFactoryMixin, TestCase):
 
 
 class StaffScholarEnrolmentTest(StaffFactoryMixin, TestCase):
-    """What a studying employee is enrolled in, which had no home before.
-
-    ``StaffEmployment`` says where they work and ``highest_education`` said what
-    they had already finished. The programme the scholarship is actually paying
-    for could only be read off whichever application they last submitted.
-    """
-
     def test_the_course_a_staff_scholar_is_taking_lands_on_the_education_row(self):
         staff = self.make_staff(course='MA Education', year_level=2)
         self.assertEqual(staff.education.course, 'MA Education')
@@ -170,7 +144,6 @@ class StaffScholarEnrolmentTest(StaffFactoryMixin, TestCase):
         self.assertEqual(self.make_staff().year_level, 1)
 
     def test_what_they_study_is_not_where_they_work(self):
-        """department/position describe the job; course describes the degree."""
         staff = self.make_staff(course='MA Education', department='Teacher Education',
                                 position='Instructor I')
         self.assertEqual(staff.education.course, 'MA Education')
@@ -185,8 +158,6 @@ class StaffScholarEnrolmentTest(StaffFactoryMixin, TestCase):
 
 
 class ApplicationColumnsStillReadOffTheApplicationTest(StaffFactoryMixin, TestCase):
-    """The same guarantee for the application, which moved twice as many."""
-
     def test_create_routes_every_group_to_its_detail_row(self):
         app = self.make_application(
             course='MA Education', year_level=1, gender='Female',
@@ -226,7 +197,6 @@ class ApplicationColumnsStillReadOffTheApplicationTest(StaffFactoryMixin, TestCa
         self.assertEqual(ApplicantAffirmativeEligibility.objects.count(), 0)
 
     def test_the_term_stamp_still_fills_itself_in(self):
-        """DetailRows.save() sits between the application and TermStamped.save()."""
         SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
         app = self.make_application()
         self.assertEqual(app.term_label, '26-1')
@@ -260,12 +230,6 @@ class ApplicationColumnsStillReadOffTheApplicationTest(StaffFactoryMixin, TestCa
 
 
 class OneTableTwoProgrammesTest(StaffFactoryMixin, TestCase):
-    """Which groups a row fills is what ``qualified_for`` decides.
-
-    This is the reason the application was worth splitting at all: half the
-    columns were always blank, and which half depended on the programme.
-    """
-
     def test_a_staff_row_leaves_the_affirmative_group_empty(self):
         app = self.make_application(
             qualified_for='Staff', is_nsu_staff=True,
@@ -283,7 +247,6 @@ class OneTableTwoProgrammesTest(StaffFactoryMixin, TestCase):
         self.assertIsNone(app.employment.years_of_service)
 
     def test_the_two_programmes_are_still_told_apart_by_a_column(self):
-        """qualified_for and status stay columns — every office view filters on them."""
         self.make_application(qualified_for='Staff', status='Approved')
         self.make_application(email='juan@bipsu.edu.ph', full_name='Juan Dela Cruz',
                               qualified_for='Affirmative', status='Approved')
@@ -296,8 +259,6 @@ class OneTableTwoProgrammesTest(StaffFactoryMixin, TestCase):
 
 
 class QuerysetsNameTheRelationTest(StaffFactoryMixin, TestCase):
-    """What a proxy cannot cover: the ORM resolves names against the table."""
-
     def test_analytics_still_groups_approved_scholars_by_course(self):
         self.make_application(qualified_for='Staff', status='Approved',
                               course='MA Education')
@@ -320,7 +281,6 @@ class QuerysetsNameTheRelationTest(StaffFactoryMixin, TestCase):
                                        'enrollment__course': 'MA Education'}])
 
     def test_the_employee_id_clash_check_is_still_one_query(self):
-        """employee_id stays a column because the profile view looks it up."""
         first = self.make_staff()
         self.make_staff(email='ana@bipsu.edu.ph', employee_id='32-1-000002')
         clash = StaffProfile.objects.filter(employee_id='32-1-213313').exclude(pk=first.pk)
@@ -335,14 +295,6 @@ class QuerysetsNameTheRelationTest(StaffFactoryMixin, TestCase):
 
 
 class UploadedDocumentsStillResolveToTheirOwnerTest(TestCase):
-    """media_views resolves a file back to its owner with a queryset.
-
-    Those lookups name columns that have moved, so they are the one place a
-    record split can take a document offline without any test noticing: an
-    office role is let through before ownership is ever resolved, and the office
-    is who normally opens these.
-    """
-
     def setUp(self):
         self.client = Client()
 

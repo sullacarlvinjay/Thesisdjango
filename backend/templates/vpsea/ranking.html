@@ -18,20 +18,6 @@
 {% elif active_tab == 'Staff' %}
 {% include "vpsea/_staff_ranking.html" %}
 {% else %}
-{% comment %}
-  The Affirmative Action tab of the Ranking page.
-
-  Structure only — every class here is defined in srms.css alongside the TES and
-  Staff tabs', which this deliberately mirrors. It used to be written in inline
-  hex: #6b7a99 for muted text, #aaa for a missing value, #e8ecf0 for the fit-score
-  track. Those are light-mode literals, so the one recommender of the three that
-  was not built from tokens was also the one that stayed white in dark mode — and
-  three recommenders that look like three different products are three things for
-  the office to learn.
-
-  The rules, the ordering and the wording of every verdict are in
-  api/affirmative_ranking.py. Nothing here decides anything.
-{% endcomment %}
 <div class="rec-summary">
   <div class="card p-4">
     <p class="rec-summary__label">Eligible</p>
@@ -52,9 +38,6 @@
     <div class="rec-actions">
       <input id="recSearch" class="rec-search" placeholder="Search name or student ID…"
              oninput="filterTable('recSearch','recTable','data-name')" />
-      <!-- The same rows this table is showing, in a file the office can file.
-           Carries the threshold so the download is the list on screen, not a
-           list built against the default. -->
       <a class="btn btn-outline"
          href="/vpsea/ranking/download/?type=Affirmative&passing={{ passing_threshold }}">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -196,11 +179,6 @@
               {% for group in r.groups.markers %}
                 <span class="badge badge-brand">{{ group }}</span>
               {% empty %}
-                {% comment %}
-                  Not "none". A student nobody has asked has not answered no,
-                  and an em dash that meant both would hide the difference the
-                  line below exists to show.
-                {% endcomment %}
                 <span class="rec-none">—</span>
               {% endfor %}
               {% if r.groups.unknown %}

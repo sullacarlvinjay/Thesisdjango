@@ -1,20 +1,5 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// ── Download chart as PNG ─────────────────────────────────────────────────────
-// The file this used to save looked broken, and for two separate reasons.
-//
-// A Chart.js canvas is transparent: it never paints a background, it just draws
-// on whatever the card behind it is. toDataURL copies that transparency
-// straight into the PNG, so the axis labels and the grid — mid greys, chosen to
-// sit on white — landed on nothing at all. Opened anywhere with a dark backdrop
-// (Windows Photos, Messenger, a dark-themed Docs) the chart was grey-on-black
-// and read as a corrupt file. So the export is composited onto an opaque sheet
-// first.
-//
-// The second reason really was 'no data'. Every button was drawn whether or not
-// its chart had a single point in it, and an empty chart exports a blank
-// rectangle. Those buttons are now switched off instead — see the bottom of
-// this file.
 function chartHasData(canvas) {
   const chart = (window.Chart && Chart.getChart) ? Chart.getChart(canvas) : null;
   if (!chart) return false;
@@ -28,9 +13,7 @@ function chartHasData(canvas) {
 function downloadChart(canvasId, filename) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-  if (!chartHasData(canvas)) return;   // the button is disabled; belt and braces
-  // Always light: the PNG is going into a report or an email, not back into the
-  // page, and a dark-mode export would print as a black block.
+  if (!chartHasData(canvas)) return;
   const sheet = document.createElement('canvas');
   sheet.width = canvas.width;
   sheet.height = canvas.height;
@@ -41,7 +24,6 @@ function downloadChart(canvasId, filename) {
   const link = document.createElement('a');
   link.download = filename + '.png';
   link.href = sheet.toDataURL('image/png');
-  // Firefox ignores a click on an anchor that is not in the document.
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -53,26 +35,12 @@ const PIE_COLORS = [
   '#3b5bdb','#1971c2','#2f9e44','#f59f00','#e64980',
   '#7048e8','#0ca678','#f76707','#c2255c','#6b7a99',
 ];
-// ── Helper: legend labels that fit the canvas ─────────────────────────────────
-// A right-hand legend is drawn inside the canvas, so a label wider than the
-// space left over is simply clipped — "Bachelor of Science in Business Administ"
-// with the rest of the word gone.
-//
-// Truncating on width alone would not help here: every BiPSU degree opens with
-// "Bachelor of Science in", so thirteen courses cut to the same length produce
-// thirteen identical labels. The degree prefix is dropped first — what tells
-// one course from another is the tail, not the head — and only what is left is
-// capped. The slice the reader loses is still in the tooltip, which keeps the
-// name in full.
 const DEGREE_PREFIX = /^bachelor\s+(?:of\s+)?(?:science|arts)?\s*(?:in\s+)?/i;
 const LEGEND_MAX = 26;
 function legendText(text) {
   const short = String(text).replace(DEGREE_PREFIX, '').trim() || String(text);
   return short.length > LEGEND_MAX ? short.slice(0, LEGEND_MAX - 1) + '…' : short;
 }
-// Chart.js keeps the pie and doughnut label generator on Chart.overrides rather
-// than on defaults — one label per slice instead of one per dataset — so the
-// type's own generator is the one wrapped, and defaults is only the fallback.
 function shortLegendLabels(chart) {
   const type = chart.config.type;
   const generate = (Chart.overrides[type] && Chart.overrides[type].plugins
@@ -83,7 +51,6 @@ function shortLegendLabels(chart) {
   return generate(chart).map(item =>
     Object.assign({}, item, { text: legendText(item.text) }));
 }
-// The legend every pie and doughnut on this page uses.
 function pieLegend(display, position) {
   return {
     display,
@@ -91,7 +58,6 @@ function pieLegend(display, position) {
     labels: { boxWidth: 12, font: { size: 11 }, generateLabels: shortLegendLabels },
   };
 }
-// ── Helper: build toggle buttons and re-render chart on click ─────────────────
 function makeToggle(containerId, chartRef, types, buildFn) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -108,10 +74,6 @@ function makeToggle(containerId, chartRef, types, buildFn) {
     container.appendChild(btn);
   });
 }
-// ── Program Chart ─────────────────────────────────────────────────────────────
-// Every block below is gated on the same flag its canvas is, so the script
-// never reaches for an element the markup left out. Chart.js throws when it is
-// handed null, and one throw here takes down every chart after it.
 {% if show_program %}
 {% if selected_type %}
 const programLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -186,7 +148,6 @@ makeToggle('programChartToggle', programRef, ['bar','pie','doughnut','line'], bu
 {% endif %}
 {% endif %}
 {% if show_gwa %}
-// ── GWA Chart ─────────────────────────────────────────────────────────────────
 const gwaLabels = [{% for g in gpa_ranges %}'{{ g.range }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const gwaData   = [{% for g in gpa_ranges %}{{ g.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
 const gwaRef = {};
@@ -220,7 +181,6 @@ function buildGwaChart(type) {
 gwaRef.chart = buildGwaChart('bar');
 makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
 {% endif %}
-// ── Scholars per Academic Year ────────────────────────────────────────────────
 {% if show_years %}
 const yLabels = [{% for y in year_dist %}'{{ y.year|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const yData   = [{% for y in year_dist %}{{ y.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -243,8 +203,6 @@ function buildYearChart(type) {
       }],
     },
     options: {
-      // Vertical bars: a year reads left to right as time, the way the trend
-      // above it does, and there are few enough of them to label upright.
       responsive: true,
       plugins: { legend: pieLegend(isPie, 'top') },
       scales: isPie ? {} : {
@@ -257,7 +215,6 @@ function buildYearChart(type) {
 yearRef.chart = buildYearChart('bar');
 makeToggle('yearChartToggle', yearRef, ['bar','line','pie','doughnut'], buildYearChart);
 {% endif %}
-// ── Course Chart ──────────────────────────────────────────────────────────────
 {% if course_dist %}
 const cLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const cData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -294,11 +251,8 @@ function buildCourseChart(type) {
 courseRef.chart = buildCourseChart('bar');
 makeToggle('courseChartToggle', courseRef, ['bar','pie','doughnut','line'], buildCourseChart);
 {% endif %}
-// ── Scholars Over Time Chart ──────────────────────────────────────────────────
 {% if show_trend %}
 const trendLabels = [{% for t in trend_data %}'{{ t.display|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-// One entry per programme. Chart.js index-mode tooltips list every series at a
-// point, so the breakdown that used to be built by hand is now just the tooltip.
 const trendSeries = [
   {% for s in trend_series %}
   { name: '{{ s.type|escapejs }}', data: [{% for c in s.counts %}{{ c }}{% if not forloop.last %},{% endif %}{% endfor %}] }{% if not forloop.last %},{% endif %}
@@ -332,7 +286,6 @@ function buildTrendChart(type) {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        // With one programme selected the legend would just repeat the heading.
         legend: {
           display: trendSeries.length > 1,
           position: 'bottom',
@@ -362,11 +315,6 @@ function buildTrendChart(type) {
 trendRef.chart = buildTrendChart('line');
 makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
 {% endif %}
-// ── PNG buttons ───────────────────────────────────────────────────────────────
-// Delegated, so the markup carries only which canvas it means. Runs last, once
-// every chart above has been built: a button whose chart came out empty is
-// switched off and says why, rather than handing over a blank rectangle and
-// leaving the person to wonder whether the export is broken.
 (function () {
   document.querySelectorAll('.chart-png-btn').forEach(function (btn) {
     var canvas = document.getElementById(btn.dataset.png);

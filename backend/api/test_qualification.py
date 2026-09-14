@@ -1,9 +1,3 @@
-"""Who qualifies for what, and where that decision is made.
-
-Affirmative Action is decided from the student's own profile by the rule-based
-recommender. The BiPSU Staff Scholarship has no merit test at all — a regular
-appointment is the whole rule.
-"""
 from django.test import Client, TestCase
 
 from api.models import (
@@ -13,8 +7,6 @@ from api.models import (
 
 
 class StaffQualificationTest(TestCase):
-    """Regular appointment, and nothing else."""
-
     def _application(self, **kw):
         defaults = dict(
             full_name='Maria Santos', email='maria@bipsu.edu.ph',
@@ -43,7 +35,6 @@ class StaffQualificationTest(TestCase):
         self.assertFalse(app.is_regular_staff)
 
     def test_nothing_academic_is_consulted(self):
-        """A regular employee qualifies regardless of grades or TES status."""
         app = self._application(
             is_nsu_staff=True, employment_status='Regular',
             shs_gpa=10.0, suc_exam_score=0.0, is_tes_beneficiary=True,
@@ -88,8 +79,6 @@ class StaffApplyFormTest(TestCase):
 
 
 class AffirmativeQualificationTest(TestCase):
-    """Decided from StudentProfile by the recommender, not by the application."""
-
     def _profile(self, sid, gpa, exam, tes=False):
         u = User.objects.create_user(
             username=f'{sid}@bipsu.edu.ph', email=f'{sid}@bipsu.edu.ph',
@@ -101,10 +90,10 @@ class AffirmativeQualificationTest(TestCase):
         )
 
     def test_the_recommender_reads_the_students_own_profile(self):
-        self._profile('2024-0001', 88.0, 72.0)             # passes
-        self._profile('2024-0002', 70.0, 80.0)             # GPA below 75
-        self._profile('2024-0003', 90.0, 40.0)             # exam below 50
-        self._profile('2024-0004', 90.0, 80.0, tes=True)   # TES beneficiary
+        self._profile('2024-0001', 88.0, 72.0)
+        self._profile('2024-0002', 70.0, 80.0)
+        self._profile('2024-0003', 90.0, 40.0)
+        self._profile('2024-0004', 90.0, 80.0, tes=True)
 
         created, _ = AffirmativeRecommendation.evaluate_and_sync()
         self.assertEqual(created, 1)
@@ -117,7 +106,6 @@ class AffirmativeQualificationTest(TestCase):
         AffirmativeRecommendation.evaluate_and_sync()
         self.assertEqual(AffirmativeRecommendation.objects.count(), 1)
 
-        # The student later turns out to be a TES beneficiary.
         p.is_tes_beneficiary = True
         p.save()
         _, disqualified = AffirmativeRecommendation.evaluate_and_sync()
@@ -125,5 +113,4 @@ class AffirmativeQualificationTest(TestCase):
         self.assertEqual(AffirmativeRecommendation.objects.get().status, 'Disqualified')
 
     def test_the_application_model_no_longer_decides_affirmative(self):
-        """The old determine_qualification() duplicated these rules; it is gone."""
         self.assertFalse(hasattr(AffirmativeStaffApplication, 'determine_qualification'))

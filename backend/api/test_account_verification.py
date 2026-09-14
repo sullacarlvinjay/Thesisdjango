@@ -1,9 +1,3 @@
-"""A self-registered account cannot sign in until the SDSO releases it.
-
-The person is never emailed — this project has no mail configured — so the login
-page is the channel that reaches someone who cannot get in yet. Every test here
-is really about that: does the right message reach the right person.
-"""
 from django.test import Client, TestCase
 
 from api.models import (
@@ -180,8 +174,6 @@ class SDSOVerificationQueueTest(TestCase):
 
 
 class StaffVerificationTest(TestCase):
-    """Staff have no StudentProfile, so the login page is their whole channel."""
-
     def setUp(self):
         self.officer = User.objects.create_user(
             username='vpsea@bipsu.edu.ph', email='vpsea@bipsu.edu.ph', password='pw',
@@ -218,13 +210,6 @@ class StaffVerificationTest(TestCase):
 
 
 class ReleasedWithoutTypingAgainTest(TestCase):
-    """The whole point of the waiting room: verification lets them in by itself.
-
-    The browser that registered is left holding a session that knows who they
-    are, so the moment the SDSO releases the account any page view signs them
-    in — no second trip through the login form.
-    """
-
     def setUp(self):
         self.c = Client()
         self.c.post('/register/', a_student())
@@ -248,7 +233,7 @@ class ReleasedWithoutTypingAgainTest(TestCase):
 
     def test_any_page_releases_them_not_just_the_waiting_room(self):
         self.user.decide_verification('approved', '', self.officer)
-        self.c.get('/')                       # they wandered back to the home page
+        self.c.get('/')
         self.assertIn('_auth_user_id', self.c.session)
 
     def test_the_login_page_does_not_ask_someone_already_let_in_to_type(self):
@@ -281,7 +266,6 @@ class ReleasedWithoutTypingAgainTest(TestCase):
         self.user.decide_verification('approved', '', self.officer)
         self.c.get('/')
         self.assertNotIn('_auth_user_id', self.c.session)
-        # The stale claim is dropped rather than left to linger.
         self.assertNotIn(PENDING_EMAIL, self.c.session)
 
     def test_a_browser_that_never_registered_is_left_alone(self):
@@ -292,16 +276,6 @@ class ReleasedWithoutTypingAgainTest(TestCase):
 
 
 class RejectedRegistrationReleasesTheEmailTest(TestCase):
-    """A rejection is not a life sentence on an email address.
-
-    Rejections are usually 'those details do not match our records' — a mistyped
-    student number, the wrong course. The answer to that is a corrected
-    registration, but the address and the student number stayed claimed by the
-    rejected account, so the one person who could fix the mistake was the only
-    one who could not: unable to re-register, and unable to edit an account they
-    were locked out of.
-    """
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -319,8 +293,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
     def _reject(self, email='juan@gmail.com', note='Student ID is not on our list.'):
         User.objects.get(email=email).decide_verification('rejected', note, self.officer)
 
-    # ── The rule ────────────────────────────────────────────────────────────
-
     def test_a_rejected_email_can_register_again(self):
         self._register()
         self._reject()
@@ -332,7 +304,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.assertEqual(user.first_name, 'Juan Miguel')
 
     def test_the_corrected_student_number_is_what_sticks(self):
-        """The mistyped number was the usual reason for the rejection."""
         self._register(student_id='23-0001')
         self._reject()
         self._register(student_id='23-0002')
@@ -341,7 +312,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.assertEqual(StudentProfile.objects.get().student_id, '23-0002')
 
     def test_a_rejected_student_number_is_free_for_a_different_address(self):
-        """They may have mistyped the email rather than the number."""
         self._register(email='juan@gmail.com', student_id='23-0001')
         self._reject('juan@gmail.com')
 
@@ -360,7 +330,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.assertEqual(user.verification_note, '')
         self.assertIsNone(user.verified_by)
         self.assertIsNone(user.verified_at)
-        # And the address must be proved again — it is a new submission.
         self.assertFalse(user.email_verified)
 
     def test_it_is_back_in_the_sdso_queue(self):
@@ -373,17 +342,13 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.assertContains(r, 'juan@gmail.com')
         self.assertEqual(len(r.context['pending']), 1)
 
-    # ── What still blocks ───────────────────────────────────────────────────
-
     def test_a_pending_registration_still_blocks(self):
-        """It is waiting on the office, not finished with."""
         self._register()
         r = self._register()
         self.assertContains(r, 'Email already registered')
         self.assertEqual(User.objects.filter(email='juan@gmail.com').count(), 1)
 
     def test_an_approved_account_still_blocks(self):
-        """That is somebody's live account, not a failed attempt."""
         self._register()
         User.objects.get(email='juan@gmail.com').decide_verification(
             'approved', 'Welcome.', self.officer)
@@ -399,10 +364,7 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         r = self._register(email='someone.else@gmail.com', student_id='23-0001')
         self.assertContains(r, 'Student ID already registered')
 
-    # ── The office can still see it happened ────────────────────────────────
-
     def test_the_replaced_rejection_is_logged(self):
-        """Its reason matters if the rejection was for something worse than a typo."""
         from api.models import ActivityLog
 
         self._register()
@@ -417,7 +379,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.assertIn('belongs to somebody else', entry.action)
 
     def test_the_log_survives_the_account_it_names(self):
-        """ActivityLog.user is SET_NULL, which is what makes that possible."""
         from api.models import ActivityLog
 
         self._register()
@@ -427,8 +388,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
         self.assertFalse(User.objects.filter(verification_status='rejected').exists())
         self.assertTrue(ActivityLog.objects.filter(
             action__startswith='Rejected registration replaced').exists())
-
-    # ── What the rejected person is told ────────────────────────────────────
 
     def test_the_login_page_says_they_may_register_again(self):
         self._register()
@@ -441,14 +400,6 @@ class RejectedRegistrationReleasesTheEmailTest(TestCase):
 
 
 class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
-    """The officer verifies against their enrolment list, so they need it all.
-
-    The form asks for the whole student record now — Personal Information,
-    Educational Background, Scholarship Eligibility, TES Eligibility and
-    Socioeconomic Information — and a queue that rendered six of those fields
-    was asking an officer to verify a registration they could not read.
-    """
-
     REGISTRATION = {
         'account_type': 'student',
         'first_name': 'Ana', 'last_name': 'Reyes',
@@ -465,9 +416,6 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         'barangay': 'Brgy. Larrazabal', 'municipality': 'Naval', 'province': 'Biliran',
         'elementary': 'Naval Central School', 'highschool': 'Biliran NHS',
         'last_school': 'Biliran NHS',
-        # Two of the four groups the Affirmative Action programme is for. One
-        # answered each way, so the queue renders both branches — see
-        # api/affirmative_ranking.py.
         'highschool_is_public': 'yes', 'is_from_depressed_area': 'no',
         'shs_gpa': '92.5', 'suc_exam_score': '35', 'suc_exam_total': '50',
         'is_tes_beneficiary': 'on',
@@ -476,6 +424,7 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         'is_listahanan_household': 'yes', 'is_4ps_beneficiary': 'no',
         'is_solo_parent_dependent': 'no', 'has_previous_degree': 'no',
         'family_income': '180000', 'indigenous_group': 'Cebuano',
+        'accept_terms': 'yes',
     }
 
     def setUp(self):
@@ -488,8 +437,6 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         self.profile = StudentProfile.objects.get(student_id='2022-00777')
         self.c = Client()
         self.assertTrue(self.c.login(email='sdso@bipsu.edu.ph', password='pw'))
-
-    # ── Stored ──────────────────────────────────────────────────────────────
 
     def test_the_registration_writes_the_whole_record(self):
         p = self.profile
@@ -540,8 +487,6 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
             StudentProfile.objects.get(student_id='2022-00779').disability_type,
             'Speech and language impairment')
 
-    # ── Shown ───────────────────────────────────────────────────────────────
-
     def test_the_queue_renders_every_group_the_form_asked_for(self):
         r = self.c.get('/vpsea/accounts/')
         for heading in ('Identity &amp; enrolment', 'Educational background',
@@ -554,10 +499,6 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
             self.assertContains(r, value)
 
     def test_a_registration_cannot_leave_a_three_state_unanswered(self):
-        """'Not answered yet' used to be a value of its own, which is why the
-        browser's `required` could never have caught it: it sees an option
-        chosen and lets the form go. It is the empty option now, and the server
-        refuses a registration that answers anything but yes or no."""
         r = Client().post('/register/', dict(
             self.REGISTRATION, email='mia@bipsu.edu.ph', student_id='2022-00780',
             is_listahanan_household='unknown', is_4ps_beneficiary='',
@@ -566,20 +507,11 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         self.assertFalse(User.objects.filter(email='mia@bipsu.edu.ph').exists())
 
     def test_the_queue_still_reads_an_unanswered_three_state_as_unanswered(self):
-        """Registration is where the question gets asked. Everywhere else a
-        record may predate the asking — a scholar imported from an office
-        spreadsheet was never asked at all — and the queue has to say so rather
-        than print a confident No."""
         self.profile.is_listahanan_household = None
         self.profile.save()
         self.assertContains(self.c.get('/vpsea/accounts/'), 'Not answered')
 
     def test_the_certificates_are_checked_before_anything_is_written(self):
-        """A public endpoint that writes files has to look at them first.
-
-        `accept="..."` on the input is advisory; the model's own validators do
-        not run on save().
-        """
         from django.core.files.uploadedfile import SimpleUploadedFile
         r = Client().post('/register/', dict(
             self.REGISTRATION, email='ivy@bipsu.edu.ph', student_id='2022-00781',
@@ -590,21 +522,6 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
 
 
 class TheDecidedListShowsTheWholeRecordTest(TestCase):
-    """A decision outlives the card it was made on.
-
-    The queue lays a whole registration out under every account. The decided
-    list underneath it showed six columns — who, what role, what the officer
-    typed — and the moment an account left the queue everything the decision
-    rested on became unreachable: no student number to re-check, no proof to
-    re-open, and, for a declared scholarship, no trace that it had been turned
-    down at all. "Why was this one rejected" had an answer and none of its
-    evidence.
-
-    So the same detail is rendered again in a dialog on that list. It is the
-    same partial the queue includes, which is the point: a group added to the
-    registration form appears in both places or in neither.
-    """
-
     REGISTRATION = dict(
         TheQueueShowsWhatTheRegistrationSentTest.REGISTRATION,
         email='lita@bipsu.edu.ph', student_id='2022-00822',
@@ -626,7 +543,6 @@ class TheDecidedListShowsTheWholeRecordTest(TestCase):
             'user_id': self.student.id, 'action': action, 'message': message})
 
     def test_the_queue_still_renders_its_own_detail(self):
-        """The partial was lifted out of this page; it has to still land in it."""
         r = self.c.get('/vpsea/accounts/')
         for value in ('2022-00822', 'Identity &amp; enrolment', 'Biliran NHS',
                       'Socioeconomic &amp; TES eligibility'):
@@ -635,7 +551,6 @@ class TheDecidedListShowsTheWholeRecordTest(TestCase):
     def test_a_rejected_account_keeps_every_field_it_registered_with(self):
         self._decide('reject', 'No such student number on the enrolment list.')
         r = self.c.get('/vpsea/accounts/')
-        # Nothing is waiting any more, so anything below can only be the record.
         self.assertContains(r, 'Nothing waiting.')
         for value in ('2022-00822', 'Naval, Biliran', 'Visual Disability',
                       'Biliran NHS', '92.5', 'Cebuano',
@@ -669,14 +584,6 @@ class TheDecidedListShowsTheWholeRecordTest(TestCase):
 
 
 class TheDecidedRecordShowsWhatBecameOfADeclarationTest(TestCase):
-    """A declared scholarship is decided with the account, and then vanishes.
-
-    Approving one writes an award that shows up on the archives. Rejecting one
-    writes nothing at all — so before this, a turned-down declaration existed
-    only as a notification in the student's own portal. The office could not see
-    it had ever been declared, let alone what the reason was.
-    """
-
     def setUp(self):
         from api.models import Scholarship
         from api.test_registration_payload import a_declared_scholar
@@ -684,8 +591,6 @@ class TheDecidedRecordShowsWhatBecameOfADeclarationTest(TestCase):
 
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
-        # Approving a declaration writes an Application against the programme,
-        # so the programme has to exist before the officer can say yes.
         Scholarship.objects.create(
             name='DOST Scholarship', type='DOST', category='application',
             description='x', eligibility='x', requirements=[])
@@ -719,20 +624,12 @@ class TheDecidedRecordShowsWhatBecameOfADeclarationTest(TestCase):
         self.assertContains(r, 'Yes, on the archives')
 
     def test_the_proof_is_still_reachable_from_the_record(self):
-        """The document viewer opens it in place, the way the queue card does.
-
-        Labelled with the programme's full name — 'DOST S&T Undergraduate
-        Scholarship', not 'DOST' — because that label is the title the viewer
-        puts above the document, and the code is not what the officer reads.
-        """
         self._decide('approve')
         self.assertContains(
             self.c.get('/vpsea/accounts/'),
             'data-doc="DOST S&amp;T Undergraduate Scholarship — proof"')
 
     def test_the_queue_is_unchanged_while_it_is_still_waiting(self):
-        """Undecided, the declaration belongs to the card with the buttons on
-        it — the record dialog is only ever a read-back."""
         r = self.c.get('/vpsea/accounts/')
         self.assertContains(r, 'Scholarship declared at registration')
         self.assertNotContains(r, 'data-preview-open="record-')

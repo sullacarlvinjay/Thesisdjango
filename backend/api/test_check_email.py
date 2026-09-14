@@ -1,16 +1,3 @@
-"""The one command that is allowed to be loud about mail.
-
-Everything else in this system is deliberately quiet: ``notify.send_email``
-catches and logs so a review screen cannot fail over SMTP, and settings.py falls
-back to the console backend so a laptop and the test suite never touch a mail
-server. Together those mean a misconfigured deployment is indistinguishable from
-a working one — messages go to the service log, every caller is told 'sent', and
-nobody is emailed.
-
-So the property worth guarding here is the opposite of everywhere else: this
-command must refuse to call a non-delivery a success, and must name the cause
-when a send fails rather than swallowing it.
-"""
 from unittest import mock
 
 from django.core.management import call_command
@@ -29,31 +16,23 @@ class CheckEmailTest(TestCase):
         call_command('check_email', to, stdout=out)
         return out.getvalue()
 
-    # ── The failure this exists to catch ────────────────────────────────────
-
     @override_settings(EMAIL_BACKEND=CONSOLE, EMAIL_HOST='')
     def test_the_console_backend_is_reported_as_non_delivery(self):
-        """It prints and discards. Calling that 'sent' is the whole problem."""
         with self.assertRaises(CommandError) as caught:
             self.run_it()
         message = str(caught.exception)
         self.assertIn('console backend', message)
         self.assertIn('nothing is delivered', message)
-        # And says what to do about it, on the deployment where it matters.
         self.assertIn('EMAIL_HOST', message)
         self.assertIn('Render', message)
 
     @override_settings(EMAIL_BACKEND=SMTP, EMAIL_HOST='')
     def test_an_smtp_backend_with_no_host_is_refused_too(self):
-        """The backend can be set while the host it needs is not."""
         with self.assertRaises(CommandError):
             self.run_it()
 
-    # ── Failures are explained, not swallowed ───────────────────────────────
-
     @override_settings(EMAIL_BACKEND=SMTP, EMAIL_HOST='smtp.gmail.com')
     def test_a_refused_login_names_the_app_password(self):
-        """Gmail's own error says 'BadCredentials' and nothing more useful."""
         from smtplib import SMTPAuthenticationError
 
         with mock.patch('api.management.commands.check_email.get_connection') as conn:
@@ -97,13 +76,10 @@ class CheckEmailTest(TestCase):
                 self.run_it()
         self.assertIn('no message was sent', str(caught.exception))
 
-    # ── The success path ────────────────────────────────────────────────────
-
     @override_settings(EMAIL_BACKEND=SMTP, EMAIL_HOST='smtp.example.com',
                        EMAIL_HOST_USER='srms@bipsu.edu.ph',
                        SITE_URL='https://srms.bipsu.edu.ph')
     def test_a_send_that_works_says_accepted_not_delivered(self):
-        """A server accepting a message is not the same as anyone receiving it."""
         with mock.patch('api.management.commands.check_email.get_connection'), \
              mock.patch('api.management.commands.check_email.send_mail', return_value=1):
             out = self.run_it('juan@gmail.com')
@@ -119,12 +95,9 @@ class CheckEmailTest(TestCase):
             out = self.run_it()
         self.assertIn('SITE_URL is unset', out)
 
-    # ── What it prints about itself ─────────────────────────────────────────
-
     @override_settings(EMAIL_BACKEND=SMTP, EMAIL_HOST='smtp.example.com',
                        EMAIL_HOST_PASSWORD='hunter2-app-password')
     def test_the_password_is_never_printed(self):
-        """This runs in a shell whose scrollback is shared and often pasted."""
         with mock.patch('api.management.commands.check_email.get_connection'), \
              mock.patch('api.management.commands.check_email.send_mail', return_value=1):
             out = self.run_it()
@@ -135,24 +108,7 @@ class CheckEmailTest(TestCase):
 
 
 class DefaultFromEmailTest(TestCase):
-    """Who the From line says the message is from.
-
-    Derived from the account being logged into unless something is set
-    explicitly, because a mail server will not honour a From address the sending
-    account does not own: Gmail rewrites it to the authenticated account and
-    delivers under that. A DEFAULT_FROM_EMAIL of no-reply@bipsu.edu.ph on a
-    Gmail login therefore reads as a lie — recipients see the Gmail address.
-    """
-
     def from_email(self, **env):
-        """DEFAULT_FROM_EMAIL as settings.py would derive it from `env`.
-
-        Unset variables are set to '' rather than deleted, and that is the whole
-        trick: reloading settings.py re-runs ``load_dotenv``, which fills in any
-        key *missing* from the environment but leaves alone one that is already
-        there. Deleting them therefore handed the developer's own .env back to
-        the test, so 'no mail configured' quietly meant 'whatever is in .env'.
-        """
         import importlib
         import os
 
@@ -180,7 +136,6 @@ class DefaultFromEmailTest(TestCase):
             'BiPSU SRMS <bipsu.srms@gmail.com>')
 
     def test_an_explicit_address_still_wins(self):
-        """For an institutional mailbox, or a verified 'Send mail as' alias."""
         self.assertEqual(
             self.from_email(EMAIL_HOST='smtp.bipsu.edu.ph',
                             EMAIL_HOST_USER='srms@bipsu.edu.ph',
@@ -188,7 +143,6 @@ class DefaultFromEmailTest(TestCase):
             'BiPSU SRMS <no-reply@bipsu.edu.ph>')
 
     def test_a_blank_override_falls_back_rather_than_sending_from_nobody(self):
-        """An env var set to whitespace is unset, not an empty From line."""
         self.assertEqual(
             self.from_email(EMAIL_HOST='smtp.gmail.com',
                             EMAIL_HOST_USER='bipsu.srms@gmail.com',
@@ -196,20 +150,11 @@ class DefaultFromEmailTest(TestCase):
             'BiPSU SRMS <bipsu.srms@gmail.com>')
 
     def test_with_no_mail_configured_it_is_still_a_valid_address(self):
-        """The console backend prints it; it must not read as 'BiPSU SRMS <>'."""
         self.assertEqual(self.from_email(),
                          'BiPSU SRMS <no-reply@bipsu.edu.ph>')
 
 
 class DeployCheckTest(TestCase):
-    """The warning that finds you, rather than waiting to be looked for.
-
-    api/checks.py exists because settings.py can only see whether EMAIL_HOST is
-    set, and the console backend it falls back to reports success for every
-    message it discards. On a laptop that is right; on a deployment it means
-    nobody has been emailed and nothing said so.
-    """
-
     def run_check(self):
         from api.checks import email_is_configured_in_production
         return email_is_configured_in_production(None)
@@ -228,7 +173,6 @@ class DeployCheckTest(TestCase):
 
     @override_settings(DEBUG=False, EMAIL_ENABLED=False, EMAIL_BACKEND=CONSOLE)
     def test_it_names_both_routes_so_neither_looks_like_the_only_one(self):
-        """Render cannot use SMTP and a laptop has no Brevo key; say so."""
         hint = self.run_check()[0].hint
         self.assertIn('BREVO_API_KEY', hint)
         self.assertIn('EMAIL_HOST', hint)
@@ -236,22 +180,15 @@ class DeployCheckTest(TestCase):
 
     @override_settings(DEBUG=True, EMAIL_ENABLED=False)
     def test_a_laptop_is_silent(self):
-        """The console backend is the correct setting there, not a mistake."""
         self.assertEqual(self.run_check(), [])
 
     @override_settings(DEBUG=False, EMAIL_ENABLED=False,
                        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
     def test_a_test_run_is_silent(self):
-        """Django's runner forces DEBUG=False and swaps in locmem.
-
-        Without this the warning printed on every single `manage.py test`, and
-        one that cries wolf that often is one nobody reads on the day it counts.
-        """
         self.assertEqual(self.run_check(), [])
 
     @override_settings(DEBUG=False, EMAIL_ENABLED=False, EMAIL_BACKEND=CONSOLE)
     def test_it_is_a_warning_and_never_an_error(self):
-        """A deploy must not fail over mail: the site works without it."""
         from django.core.checks import Error
 
         issue = self.run_check()[0]
@@ -259,7 +196,6 @@ class DeployCheckTest(TestCase):
         self.assertFalse(issue.is_serious())
 
     def test_it_is_registered_so_manage_py_runs_it(self):
-        """Unregistered it would be dead code that never once fired."""
         from django.core.checks import registry
 
         self.assertIn(

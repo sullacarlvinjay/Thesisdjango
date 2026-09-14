@@ -14,10 +14,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     year_level = serializers.IntegerField()
     gwa = serializers.FloatField()
     contact_number = serializers.CharField(required=False, allow_blank=True)
-    # The address is three columns, not one. A single 'address' field was
-    # declared here and passed straight to StudentProfile.objects.create(),
-    # where it hit the read-only property of that name and raised
-    # AttributeError — after the User row had already been created.
     barangay = serializers.CharField(required=False, allow_blank=True)
     municipality = serializers.CharField(required=False, allow_blank=True)
     province = serializers.CharField(required=False, allow_blank=True)
@@ -29,12 +25,10 @@ class RegisterSerializer(serializers.ModelSerializer):
     indigenous_group = serializers.CharField(required=False, allow_blank=True)
     parent_employment = serializers.CharField(required=False, allow_blank=True)
     disability_type = serializers.CharField(required=False, allow_blank=True)
-    # Two of the four Affirmative Action groups. Optional here where the web
-    # form requires them: this door is also how the office's own tooling
-    # creates accounts, and an unanswered question stays unanswered rather than
-    # blocking an import — api/affirmative_ranking.py reports it either way.
     highschool_is_public = serializers.BooleanField(required=False, allow_null=True)
     is_from_depressed_area = serializers.BooleanField(required=False, allow_null=True)
+    accept_terms = serializers.BooleanField(required=False, default=False,
+                                            write_only=True)
 
     class Meta:
         model = User
@@ -46,6 +40,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'date_of_birth', 'gender',
             'family_income', 'indigenous_group', 'parent_employment',
             'disability_type', 'highschool_is_public', 'is_from_depressed_area',
+            'accept_terms',
         ]
 
     def create(self, validated_data):
@@ -58,15 +53,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
         profile_data = {f: validated_data.pop(f, None) for f in profile_fields}
         password = validated_data.pop('password')
+        if validated_data.pop('accept_terms', False):
+            from django.utils import timezone
+
+            from . import terms
+            validated_data['terms_version'] = terms.VERSION
+            validated_data['terms_accepted_at'] = timezone.now()
         validated_data['username'] = validated_data['email']
-        # The same gate as the web form: registering yourself never releases the
-        # account, whichever door it came through.
         validated_data['verification_status'] = 'pending'
-        # And the same for the address. User.email_verified defaults to True
-        # because an account the office creates itself is not asked to prove an
-        # address the office already had — this door is the public form, so it
-        # is asked, and the SDSO's queue showed 'confirmed' beside an address
-        # nobody had ever written to. RegisterView sends the link.
         validated_data['email_verified'] = False
         user = User(**validated_data)
         user.set_password(password)
@@ -94,20 +88,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
-    """A student's whole record, flat, the way the API has always returned it.
-
-    Most of these are no longer columns on StudentProfile — they live on the
-    detail rows it hangs off. They are declared here rather than left to
-    ``fields = '__all__'`` because the autodetected list only sees this table's
-    own columns, and dropping forty keys from a response is not a refactor. The
-    profile's :class:`~api.models.DetailField` proxies read and write them, so a
-    PATCH lands on the right row without this serializer knowing which.
-    """
     name = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
     avatar = serializers.SerializerMethodField()
 
-    # ── Enrolment
     school = serializers.CharField(required=False, allow_blank=True)
     course = serializers.CharField(required=False, allow_blank=True)
     level = serializers.CharField(required=False, allow_blank=True)
@@ -120,7 +104,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     exam_score = serializers.FloatField(required=False, allow_null=True)
     gwa = serializers.FloatField(required=False)
 
-    # ── Personal
     middle_name = serializers.CharField(required=False, allow_blank=True)
     suffix = serializers.CharField(required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
@@ -130,22 +113,17 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     contact_number = serializers.CharField(required=False, allow_blank=True)
     disability_type = serializers.CharField(required=False, allow_blank=True)
 
-    # ── Affirmative eligibility
     shs_gpa = serializers.FloatField(required=False, allow_null=True)
     suc_exam_score = serializers.FloatField(required=False, allow_null=True)
     suc_exam_total = serializers.FloatField(required=False, allow_null=True)
     is_tes_beneficiary = serializers.BooleanField(required=False)
 
-    # ── Needs-based and priority-group indicators
     family_income = serializers.FloatField(required=False)
     household_size = serializers.IntegerField(required=False, allow_null=True)
     indigenous_group = serializers.CharField(required=False, allow_blank=True)
     parent_employment = serializers.CharField(required=False, allow_blank=True)
-    # Affirmative Action target groups, three-state for the same reason the TES
-    # answers below are — see api/affirmative_ranking.py.
     is_from_depressed_area = serializers.BooleanField(required=False, allow_null=True)
 
-    # ── TES eligibility. Three-state, so null has to survive the round trip.
     citizenship = serializers.CharField(required=False, allow_blank=True)
     is_listahanan_household = serializers.BooleanField(required=False, allow_null=True)
     is_4ps_beneficiary = serializers.BooleanField(required=False, allow_null=True)
@@ -153,13 +131,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     year_first_enrolled = serializers.IntegerField(required=False, allow_null=True)
     is_solo_parent_dependent = serializers.BooleanField(required=False, allow_null=True)
 
-    # ── Educational background
     elementary = serializers.CharField(required=False, allow_blank=True)
     highschool = serializers.CharField(required=False, allow_blank=True)
     highschool_is_public = serializers.BooleanField(required=False, allow_null=True)
     last_school = serializers.CharField(required=False, allow_blank=True)
 
-    # ── Family background
     father_last_name = serializers.CharField(required=False, allow_blank=True)
     father_first_name = serializers.CharField(required=False, allow_blank=True)
     father_middle_name = serializers.CharField(required=False, allow_blank=True)
@@ -189,13 +165,6 @@ class ScholarshipSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_match(self, obj):
-        """Delegates to Scholarship.match_score, so the API and the web portal
-        agree.
-
-        This method used to carry a second, different formula. For a student
-        with GWA 1.28 on the Academic scholarship the portal showed 80 and this
-        returned 89 — same student, same scholarship, two numbers.
-        """
         request = self.context.get('request')
         if not request or not hasattr(request.user, 'profile'):
             return 0
@@ -218,25 +187,6 @@ class ApplicationSerializer(serializers.ModelSerializer):
         read_only_fields = ['student', 'submitted_at', 'updated_at']
 
     def validate_scholarship(self, scholarship):
-        """An externally funded programme is not applied for here.
-
-        TDP, TES, GSIS, FHE and SUC-TDP are applied for at UniFAST, CHED or
-        GSIS. The agency decides them and the office receives the awarded list
-        afterwards, which reaches this system as a spreadsheet import — so the
-        only Application rows those programmes should ever have are ones an
-        award already stands behind.
-
-        The portal has no page that offers it, but this endpoint took any
-        programme in the catalogue, and an Application created through it is
-        indistinguishable from a real award: it counts on the dashboard, prints
-        on the masterlist and files in the archives.
-
-        Creation only. An award the office already holds is exactly what these
-        programmes are in the catalogue for — imports, approved link requests
-        and approved renewals all write Application rows on them, and the VPSEA
-        endpoint shares this serializer to review one. The rule refuses a
-        submission, not a record.
-        """
         if (self.instance is None
                 and scholarship is not None and scholarship.group == 'external'):
             raise serializers.ValidationError(

@@ -1,17 +1,3 @@
-"""The scholarship a student wins *after* they have already registered.
-
-The registration form asks what a student holds on the day they sign up, and
-for a while that was the only time anyone was ever asked. A first year who held
-nothing and won DOST in second year had nowhere to say so: their portal went on
-showing no scholarship, offered no renewal, and counted them among the unserved
-on every report, while their name sat unclaimed in the office's imported list.
-
-My Profile now carries the registration form's Scholarship Data card — the same
-checkbox, the same three cards behind it, the same field names — and the SDSO
-decides what it writes on Account Verification, beside every other one.
-
-Runs against a throwaway test database, so db.sqlite3 is never touched.
-"""
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
@@ -30,8 +16,6 @@ def a_proof(name='award.pdf', size=1024):
 
 
 class AddScholarshipFromMyProfileTest(TestCase):
-    """A verified student records an award they did not have when they signed up."""
-
     def setUp(self):
         settings_obj = SystemSettings.objects.create(
             pk=1, academic_year='26-1', active_semester='1st Semester')
@@ -44,8 +28,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
                 description='x', eligibility='x', requirements=[],
             )
 
-        # Registered a year ago holding nothing, and long since verified — so
-        # there is no account decision left for a scholarship to ride in on.
         self.user = User.objects.create_user(
             username='juan@bipsu.edu.ph', email='juan@bipsu.edu.ph',
             password='sekritpw123', role='student',
@@ -60,8 +42,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
             password='pw', role='vpsea',
         )
 
-    # ── Signing in as each side ─────────────────────────────────────────────
-
     def student(self):
         c = Client()
         self.assertTrue(c.login(email='juan@bipsu.edu.ph', password='sekritpw123'))
@@ -73,7 +53,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         return c
 
     def add(self, client=None, **extra):
-        """Save My Profile with the Scholarship Data card filled in."""
         data = {
             'has_scholarship': 'on',
             'scholarship_type': 'DOST',
@@ -83,8 +62,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         }
         data.update(extra)
         return (client or self.student()).post(PROFILE, data)
-
-    # ── The card is on My Profile ───────────────────────────────────────────
 
     def test_my_profile_carries_the_card(self):
         r = self.student().get(PROFILE)
@@ -98,12 +75,9 @@ class AddScholarshipFromMyProfileTest(TestCase):
         r = self.student().get(PROFILE)
         slots = r.context['declaration_slots']
         self.assertEqual([s['n'] for s in slots], [1, 2, 3])
-        # The first card's fields keep the bare names every other caller uses;
-        # only the cards after it are numbered and carry their own dropdown.
         self.assertEqual([s['suffix'] for s in slots], ['', '_2', '_3'])
         self.assertFalse(slots[0]['extra'])
         self.assertTrue(slots[1]['extra'])
-        # Nothing is open until the box is ticked.
         self.assertFalse(any(s['open'] for s in slots))
         self.assertContains(r, '+ I hold another scholarship')
 
@@ -119,8 +93,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertEqual(req.award_number, '2026-DOST-00194')
         self.assertEqual(req.status, 'Pending')
         self.assertEqual(req.term_label, self.label)
-        # Which door it came through — all Account Verification needs to tell a
-        # registration still waiting from an account released terms ago.
         self.assertTrue(req.filed_in_portal)
 
     def test_saving_the_profile_without_ticking_the_box_files_nothing(self):
@@ -130,7 +102,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertEqual(ScholarshipLinkRequest.objects.count(), 0)
 
     def test_two_scholarships_can_be_added_at_once(self):
-        # The same second card the registration form offers, with its own proof.
         self.add(**{
             'has_scholarship_2': 'on',
             'scholarship_type_2': 'CHED',
@@ -164,8 +135,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertEqual([h['type'] for h in held], ['DOST'])
         self.assertEqual(held[0]['status'], 'Pending')
 
-    # ── Where the office decides it ─────────────────────────────────────────
-
     def test_it_waits_in_its_own_section_of_account_verification(self):
         self.add()
         r = self.office().get(QUEUE)
@@ -175,8 +144,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertContains(r, 'Scholarships added by verified students')
 
     def test_it_never_rides_on_an_account_decision(self):
-        # Even if the account somehow goes back to the registration queue, the
-        # scholarship stays its own decision.
         self.add()
         self.user.verification_status = 'pending'
         self.user.save(update_fields=['verification_status'])
@@ -188,10 +155,7 @@ class AddScholarshipFromMyProfileTest(TestCase):
     def test_the_sidebar_badge_counts_them(self):
         self.add()
         r = self.office().get(QUEUE)
-        # Nothing else is waiting, so the whole badge is this one scholarship.
         self.assertEqual(r.context['pending_accounts'], 1)
-
-    # ── Deciding it ─────────────────────────────────────────────────────────
 
     def approve(self, **extra):
         req = ScholarshipLinkRequest.objects.filter(status='Pending').first()
@@ -213,7 +177,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertEqual(award.school_year, '2026-2027')
         self.assertEqual(req.linked_application, award)
 
-        # The whole point: the system now knows they are a scholar.
         self.assertEqual(held_scholarship_types(self.profile), {'DOST'})
 
     def test_the_award_reaches_my_applications(self):
@@ -223,7 +186,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertContains(r, 'DOST Scholarship')
 
     def test_verifying_claims_the_matching_imported_row(self):
-        # The agency's list arrives later in the term and names them.
         row = ImportedScholar.objects.create(
             scholarship_type='DOST', term_label=self.label,
             last_name='Dela Cruz', first_name='Juan', student_id='2022-0001',
@@ -273,7 +235,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
 
         r = self.student().get(PROFILE)
         self.assertContains(r, 'another university')
-        # And they may try again, because they hold nothing.
         self.assertEqual(r.context['scholarship_blocked_reason'], '')
 
     def test_turning_one_down_needs_a_reason(self):
@@ -290,7 +251,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.add()
         req_id = ScholarshipLinkRequest.objects.get().id
         self.approve()
-        # The same post again, from an officer whose page was still open.
         r = self.office().post(QUEUE, {
             'declaration_id': req_id, 'action': 'approve', 'message': ''})
         self.assertIn('no+longer', r['Location'])
@@ -314,11 +274,7 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertEqual(req.linked_application.form_data['scholar_type'],
                          'Half Merit / Partial Scholar')
 
-    # ── What it refuses ─────────────────────────────────────────────────────
-
     def test_a_bad_proof_takes_the_whole_save_back(self):
-        # One form, one save: a student should not have to guess which half of
-        # it was kept.
         r = self.add(proof_document=a_proof('virus.exe'), suffix='Jr.')
         self.assertContains(r, 'Unsupported file type')
         self.assertFalse(r.context['saved'])
@@ -343,7 +299,6 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.add()
         r = self.student().get(PROFILE)
         self.assertIn('still checking it', r.context['scholarship_blocked_reason'])
-        # And a stale tab that posts anyway records nothing.
         self.add(scholarship_type='CHED', award_tier='Full')
         self.assertEqual(ScholarshipLinkRequest.objects.count(), 1)
 
@@ -356,11 +311,8 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertEqual(r.context['scholarship_types'], [])
         self.assertNotContains(r, 'I hold a scholarship the office has not recorded yet')
 
-        # A stale tab that posts anyway is ignored rather than filed.
         self.add(scholarship_type='CHED', award_tier='Full')
         self.assertEqual(ScholarshipLinkRequest.objects.count(), 1)
-
-    # ── Who may reach either side ───────────────────────────────────────────
 
     def test_signing_out_closes_my_profile(self):
         r = Client().get(PROFILE)
@@ -378,16 +330,12 @@ class AddScholarshipFromMyProfileTest(TestCase):
         self.assertFalse(Application.objects.filter(student=self.profile).exists())
 
     def test_the_pages_it_replaced_are_gone(self):
-        # The question belongs on My Profile and the decision on Account
-        # Verification; neither earned a screen of its own.
         c = self.student()
         self.assertEqual(c.get('/student/add-scholarship/').status_code, 404)
         self.assertEqual(self.office().get('/vpsea/declarations/').status_code, 404)
 
 
 class ProfileNotSetUpTest(TestCase):
-    """An account with no StudentProfile is told what to fix, not just refused."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')

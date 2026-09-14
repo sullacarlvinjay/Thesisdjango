@@ -4,19 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiPSU SRMS — Scholarship Portal</title>
+  {% include '_favicon.html' %}
   {% load static %}
   {% load srms_text %}
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=52" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
   
   <script src="{% static 'js/theme.js' %}"></script>
   <script src="{% static 'js/skeleton.js' %}"></script>
   <script src="{% static 'js/landing.js' %}?v=4" defer></script>
 </head>
 <body data-portal="student">
-<!-- Loading screen. Structure only — how it looks is section 16 of srms.css and
-     static/js/skeleton.js takes it down once the page is ready. Hidden from
-     screen readers: there is nothing here to read. -->
 <div class="page-skeleton" aria-hidden="true">
   <div class="skeleton-nav">
     <div class="skeleton-nav-inner">
@@ -38,7 +36,6 @@
     </div>
   </div>
 </div>
-<!-- Navbar -->
 <nav class="landing-nav">
   <div class="landing-nav-row h-16 flex items-center justify-between">
     <div class="landing-nav-brand flex items-center gap-3">
@@ -48,10 +45,6 @@
         <p class="text-xs landing-nav-sub">Scholarship Portal</p>
       </div>
     </div>
-    <!-- Two links to the two lists below. Plain anchors on purpose: the
-         scrolling is the browser's, smoothed and offset for this navbar by
-         scroll-behavior and scroll-padding-top on .page-landing, so it works
-         with scripting off and lands under the bar rather than behind it. -->
     {% if internal or external %}
     <nav class="landing-jump" aria-label="Jump to a list">
       {% if internal %}
@@ -68,7 +61,6 @@
     {% endif %}
   </div>
 </nav>
-<!-- Hero -->
 <div class="hero hero-facade hero-landing">
   <div class="hero-inner">
     <p class="text-sm hero-eyebrow mb-3">Biliran Province State University</p>
@@ -80,9 +72,7 @@
     </div>
   </div>
 </div>
-<!-- Scholarship listings, over the campus photograph -->
 <div class="section-photo pt-6 pb-16">
-<!-- Internal Scholarships -->
 {% if internal %}
 <div id="internal" class="landing-section max-w-6xl mx-auto px-6 pt-12 pb-2">
   <h2 class="text-2xl font-bold mb-1">Internal Scholarships</h2>
@@ -114,7 +104,6 @@
   </div>
 </div>
 {% endif %}
-<!-- Institutional Scholarships -->
 {% if institutional %}
 <div class="max-w-6xl mx-auto px-6 pt-10 pb-12">
   <h2 class="text-2xl font-bold mb-1">Institutional Scholarships</h2>
@@ -146,7 +135,6 @@
   </div>
 </div>
 {% endif %}
-<!-- External Scholarships -->
 {% if external %}
 <div id="external" class="landing-section max-w-6xl mx-auto px-6 pt-10 pb-2">
   <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
@@ -185,11 +173,9 @@
 </div>
 {% endif %}
 </div>
-<!-- Footer -->
 <footer class="text-center py-8 text-xs site-footer">
   © 2026 Biliran Province State University · Scholarship Records Management System
 </footer>
-<!-- Modals (all scholarships) -->
 {% for s in scholarships %}
 <div class="modal-overlay" id="modal-{{ s.pk }}" data-modal="{{ s.pk }}">
   <div class="modal modal-sheet">

@@ -101,12 +101,6 @@
             <input name="course" placeholder="e.g. BSCS" list="bipsuCourses"
                    value="{{ prefill.course }}" autocomplete="off" required />
             <p class="text-xs" style="color:#6b7a99;">BiPSU's programmes are suggested as you type. A programme not on the list can be typed in full.</p>
-            {% comment %}
-              Suggestions, not a closed list. An employee-scholar may be enrolled
-              in a graduate programme, and BIPSU_COURSES is the undergraduate
-              catalogue the student registration form is built from — so this
-              offers it and accepts anything.
-            {% endcomment %}
             <datalist id="bipsuCourses">
               {% for school, courses in bipsu_courses.items %}{% for c in courses %}
               <option value="{{ c }}"></option>

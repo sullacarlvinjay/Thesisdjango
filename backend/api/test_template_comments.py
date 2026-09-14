@@ -1,14 +1,3 @@
-"""No template comment ever reaches the page.
-
-Django's ``{# ... #}`` is a single-line comment. When the opener and the closer
-land on different lines the lexer never matches it, and the prose is printed
-into the page — which is how a paragraph explaining the archive table's markup
-came to be rendered to the office above the table it described. Multi-line
-comments have to be ``{% comment %} ... {% endcomment %}``.
-
-Nothing about that is visible in a view test that checks for the values it
-expects to find, so this checks the templates themselves.
-"""
 import os
 
 from django.conf import settings
@@ -40,7 +29,6 @@ class TemplateCommentsAreClosedOnTheirOwnLineTest(TestCase):
             'spans more than one line:\n  ' + '\n  '.join(offenders))
 
     def test_the_archive_table_renders_no_prose_from_its_own_markup(self):
-        """The page that showed it, checked end to end rather than by eye."""
         from api.models import Scholarship, SystemSettings, User
         from django.test import Client
 
@@ -60,9 +48,6 @@ class TemplateCommentsAreClosedOnTheirOwnLineTest(TestCase):
             html = c.get(url, params).content.decode()
             self.assertNotIn('{#', html, f'{url} printed a comment opener')
             self.assertNotIn('#}', html, f'{url} printed a comment closer')
-            # Phrases that can only have come out of a template comment. Kept
-            # narrow on purpose: "the browser" reads like commentary but is also
-            # the document viewer's own message to the reader.
             for giveaway in ('hand-written', 'api/scholar_columns.py',
                              'row markup', 'a form inside a form',
                              'My Profile offers'):

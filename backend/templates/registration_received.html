@@ -8,9 +8,10 @@
   <meta http-equiv="refresh" content="15" />
   {% endif %}
   <title>{% if rejected %}Registration Not Accepted{% else %}Registration Received{% endif %} — BiPSU SRMS</title>
+  {% include '_favicon.html' %}
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=52" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {

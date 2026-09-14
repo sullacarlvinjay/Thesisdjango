@@ -1,15 +1,3 @@
-"""The student record split across detail rows, and the term on every submission.
-
-StudentProfile had grown to forty columns covering six unrelated subjects. They
-moved onto :class:`~api.models.StudentDetail` rows keyed back to the profile,
-and the profile proxies them so nothing that reads a student had to move too —
-these tests are what says that stayed true.
-
-The second half covers the other half of the change: a submission used to say
-only when it arrived, and the office had to infer the semester it belonged to
-from that date. Registration, applications, renewals, link requests and TES
-applications now carry the term as a column.
-"""
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
@@ -35,8 +23,6 @@ class StudentFactoryMixin:
 
 
 class MovedColumnsStillReadOffTheProfileTest(StudentFactoryMixin, TestCase):
-    """The whole point of the split: no caller had to learn where a field went."""
-
     def test_create_routes_a_moved_column_to_its_detail_row(self):
         profile = self.make_student(course='BSCS', year_level=3, gwa=1.25,
                                     shs_gpa=91.0, father_last_name='Lim')
@@ -65,7 +51,6 @@ class MovedColumnsStillReadOffTheProfileTest(StudentFactoryMixin, TestCase):
         self.assertEqual(profile.tes_eligibility.citizenship, 'Filipino')
 
     def test_update_fields_naming_a_moved_column_still_saves_it(self):
-        """Callers were passing update_fields=['gwa'] before the split and still are."""
         profile = self.make_student(gwa=2.0)
         profile.gwa = 1.4
         profile.save(update_fields=['gwa'])
@@ -117,7 +102,6 @@ class MovedColumnsStillReadOffTheProfileTest(StudentFactoryMixin, TestCase):
         self.assertEqual(profile.father_name, 'Juan R. Lim')
 
     def test_a_profile_with_no_row_yet_reads_the_default_not_an_error(self):
-        """A detail row is made on demand, so a read before one exists still answers."""
         profile = self.make_student()
         FamilyBackground.objects.filter(student=profile).delete()
         profile.refresh_from_db()
@@ -126,8 +110,6 @@ class MovedColumnsStillReadOffTheProfileTest(StudentFactoryMixin, TestCase):
 
 
 class EnrollmentDataTest(StudentFactoryMixin, TestCase):
-    """The registrar's own columns, which had no home on the profile before."""
-
     def test_the_enrollment_columns_round_trip(self):
         profile = self.make_student(
             level='Undergraduate', department='Computer Science Department',
@@ -155,8 +137,6 @@ class EnrollmentDataTest(StudentFactoryMixin, TestCase):
 
 
 class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
-    """Every record a person sends says which semester it belongs to."""
-
     def setUp(self):
         SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
         self.profile = self.make_student()
@@ -218,7 +198,6 @@ class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
         self.assertEqual(req.semester, '1st Semester')
 
     def test_an_award_is_stamped_the_same_way_it_always_was(self):
-        """Application had these columns first; it reads them off TermStamped now."""
         scholarship = Scholarship.objects.create(
             name='Academic Scholarship', type='Academic', category='application',
             description='x', eligibility='x', requirements=[])
@@ -231,16 +210,6 @@ class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
 
 
 class StaffRegistrationPicksASchoolTest(TestCase):
-    """Where an employee says they work, at signup.
-
-    It was free text, then a dropdown, then a typed field over a <datalist> of
-    the same list — and it is plain free text again here: somebody signing up
-    knows where they work, and nothing on this page offers them a list. My
-    Profile still suggests the canonical names for correcting it later. The
-    label reads **Office / College / Unit**, because non-teaching personnel are
-    assigned to one and "School" asked them the wrong question.
-    """
-
     def setUp(self):
         self.c = Client()
 
@@ -272,12 +241,6 @@ class StaffRegistrationPicksASchoolTest(TestCase):
         self.assertEqual(staff.department, 'Civil Engineering Department')
 
     def test_registering_does_not_pre_create_an_application(self):
-        """Registration used to open a Draft for the apply page to continue from.
-
-        The Draft status is gone, and with it the half-finished row: an
-        application is created when the staff member actually applies. Their
-        school is on the StaffProfile, which the apply form reads.
-        """
         self._register()
         self.assertFalse(
             AffirmativeStaffApplication.objects.filter(email='rosa@bipsu.edu.ph').exists(),
@@ -289,21 +252,12 @@ class StaffRegistrationPicksASchoolTest(TestCase):
         self.assertContains(r, 'name="staff_school" value="School of Engineering"')
 
     def test_the_students_own_school_field_is_not_what_staff_posts(self):
-        """Both blocks live in one form, and request.POST keeps only the last value."""
         self._register(school='School of Nursing and Health Sciences')
         staff = StaffProfile.objects.get(user__email='rosa@bipsu.edu.ph')
         self.assertEqual(staff.school, 'School of Engineering')
 
 
 class TheRestApiKeepsItsShapeTest(StudentFactoryMixin, TestCase):
-    """The JSON surface predates the split and cannot be allowed to notice it.
-
-    Both of these broke when the columns moved and nothing caught it: the
-    profile endpoint returns `fields = '__all__'`, which stopped seeing forty of
-    them, and the analytics endpoint filtered and grouped on `gwa` and `course`
-    off the profile table, where they no longer are.
-    """
-
     def setUp(self):
         from rest_framework.authtoken.models import Token
         self.profile = self.make_student(course='BSCS', year_level=3, gwa=1.25,
@@ -361,19 +315,6 @@ class TheRestApiKeepsItsShapeTest(StudentFactoryMixin, TestCase):
 
 
 class TheCancelButtonStaysOnThisSiteTest(TestCase):
-    """``?next=`` is rendered straight into the Cancel button's href.
-
-    The office student form takes its Cancel destination off the query string so
-    a link from the archives comes back to the archives. Unvalidated, that is a
-    destination an attacker picks: a crafted link handed to a signed-in officer
-    puts an off-site button inside the office's own page, wearing the office's
-    own styling. Nothing in the templates or the tests ever passed the
-    parameter, which is why it went unnoticed.
-
-    Checked the way Django checks its own login redirect — same host, and not a
-    scheme that could leave the site.
-    """
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')

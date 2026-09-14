@@ -1,20 +1,3 @@
-"""A column the office added is filled from the uploaded sheet, not retyped.
-
-Custom columns could only ever be typed — one scholar at a time, on the archive
-page. For the programmes that have a portal that is merely tedious. For the ones
-that do not — DOST, CHED, GSIS, CoScho, TDP, most of the catalogue — it was
-worse than that: those arrive *entirely* as the agency's spreadsheet, so a
-column the funder's own file already carried had to be retyped row by row, and
-the next import replaced the term's rows and lost every cell of it again.
-
-The sheet fills it now. Matched on the heading, because position is the one
-thing the office's table and a funder's file do not share.
-
-What is deliberately not done is guessing. A heading that does not name an added
-column is ignored, a cell holding the wrong kind of thing is refused rather than
-stored, and the office is told how many were refused — a half-filled column that
-nobody mentioned is the failure this whole feature could most easily become.
-"""
 import datetime
 from io import BytesIO
 
@@ -25,14 +8,12 @@ from django.test import Client, TestCase
 
 from api.models import ImportedScholar, Scholarship, SystemSettings, User
 
-# The DOST contract, from COLUMN_HINTS. Anything after it is the funder's own.
 CONTRACT = ['No.', 'Award Number', 'Last Name', 'First Name', 'Middle Name',
             'Sex', 'Brgy./St.', 'Municipality', 'Province', 'Congress District',
             'Course', 'Yr.', 'Scholarship Program']
 
 
 def sheet(extra_headings=(), extra_values=()):
-    """One upload: a single scholar, plus whatever columns the funder added."""
     wb = Workbook()
     ws = wb.active
     ws.append(CONTRACT + list(extra_headings))
@@ -73,16 +54,12 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
     def scholar(self):
         return ImportedScholar.objects.get(last_name='Santos')
 
-    # ── the point of the whole thing ────────────────────────────────────────
-
     def test_a_heading_that_names_an_added_column_fills_it(self):
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         self.upload(['Batch'], ['2026-A'])
         self.assertEqual(self.scholar().extra_data, {'extra_batch': '2026-A'})
 
     def test_the_match_ignores_case_and_surrounding_space(self):
-        """The office names the column; the funder types the heading. Neither
-        should have to match the other keystroke for keystroke."""
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         self.upload(['  BATCH  '], ['2026-A'])
         self.assertEqual(self.scholar().extra_data, {'extra_batch': '2026-A'})
@@ -95,14 +72,11 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
                          {'extra_batch': '2026-A', 'extra_adviser': 'Dr Cruz'})
 
     def test_the_order_in_the_file_need_not_match_the_order_on_the_table(self):
-        """Matched on the heading, so a funder's file lays out as it likes."""
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'},
                          {'key': 'extra_adviser', 'label': 'Adviser', 'type': 'text'})
         self.upload(['Adviser', 'Batch'], ['Dr Cruz', '2026-A'])
         self.assertEqual(self.scholar().extra_data,
                          {'extra_batch': '2026-A', 'extra_adviser': 'Dr Cruz'})
-
-    # ── what it refuses to guess ────────────────────────────────────────────
 
     def test_a_heading_naming_no_added_column_is_ignored(self):
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
@@ -110,8 +84,6 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
         self.assertEqual(self.scholar().extra_data, {'extra_batch': '2026-A'})
 
     def test_a_near_miss_is_not_treated_as_a_match(self):
-        """'Batch No.' is a different column from 'Batch'. Filling one from the
-        other would be the import inventing a mapping nobody asked for."""
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         self.upload(['Batch No.'], ['2026-A'])
         self.assertEqual(self.scholar().extra_data, {})
@@ -121,15 +93,11 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
         self.assertEqual(self.scholar().extra_data, {})
 
     def test_a_contract_column_is_never_read_twice(self):
-        """A heading matching an added column, sitting where the import contract
-        already reads something else, must not have its value taken for both."""
         self.add_columns({'key': 'extra_sex', 'label': 'Sex', 'type': 'text'})
         self.upload()
         scholar = self.scholar()
         self.assertEqual(scholar.gender, 'F')
         self.assertEqual(scholar.extra_data, {})
-
-    # ── the declared kind still holds ───────────────────────────────────────
 
     def test_a_number_column_takes_a_number(self):
         self.add_columns({'key': 'extra_stipend', 'label': 'Stipend',
@@ -145,9 +113,6 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
         self.assertIn('columns_bad=1', response['Location'])
 
     def test_a_date_column_takes_a_real_excel_date(self):
-        """Excel stores a date as a datetime, not as text. Left untranslated,
-        clean_value refuses it — so a Date column would have rejected every
-        properly formatted date in the file and kept only the typed ones."""
         self.add_columns({'key': 'extra_awarded', 'label': 'Awarded',
                           'type': 'date'})
         self.upload(['Awarded'], [datetime.datetime(2026, 6, 7)])
@@ -167,18 +132,12 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
         self.assertIn('columns_bad=1', response['Location'])
 
     def test_a_blank_cell_is_left_blank_rather_than_refused(self):
-        """A column the office added is not one every scholar has an answer for,
-        so an empty cell is an answer and not a fault to report."""
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         response = self.upload(['Batch'], [None])
         self.assertEqual(self.scholar().extra_data, {})
         self.assertNotIn('columns_bad', response['Location'])
 
-    # ── it reaches the screen ───────────────────────────────────────────────
-
     def test_the_value_shows_on_the_archive_table(self):
-        """Imported and then read back through the page, so the round trip is
-        the one the office actually sees rather than a row in the database."""
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         self.upload(['Batch'], ['2026-A'])
         self.programme.table_columns = ['last_name']

@@ -1,9 +1,3 @@
-"""Where a person's middle name comes from, and that it reaches the exports.
-
-The column existed on StudentProfile but no form ever wrote to it, so every
-masterlist came out with MIDDLE NAME and M.I. blank unless the student had been
-imported from an Excel list.
-"""
 from django.test import TestCase, Client
 
 from api.models import StaffProfile, StudentProfile, User
@@ -28,10 +22,6 @@ class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
         self.assertEqual(profile.full_name, 'Dela Cruz Jr., Juan R.')
 
     def test_no_middle_name_leaves_the_initial_blank_not_a_stray_period(self):
-        """Not through the form, which asks for one — through the office side,
-        which does not. Half the records here arrive from an Excel import whose
-        MIDDLE NAME column is blank, and a name that renders 'Dela Cruz, Juan .'
-        on a masterlist is the office's problem whatever wrote the row."""
         user = User.objects.create_user(
             username='nomiddle@bipsu.edu.ph', email='nomiddle@bipsu.edu.ph',
             password='pw', first_name='Juan', last_name='Dela Cruz', role='student')
@@ -41,8 +31,6 @@ class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
         self.assertEqual(profile.full_name, 'Dela Cruz, Juan')
 
     def test_the_form_will_not_send_without_one(self):
-        """Which is why the office had a MIDDLE NAME column full of blanks: the
-        only form that ever wrote to it did not insist."""
         r = self._register(middle_name='')
         self.assertContains(r, 'Middle Name is required')
         self.assertFalse(StudentProfile.objects.filter(student_id='2022-00999').exists())
@@ -64,7 +52,6 @@ class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
             self.assertIn(f'name="{field}"', html)
 
     def test_a_rejected_staff_signup_comes_back_with_them_still_filled_in(self):
-        # Mismatched passwords: the form re-renders and must not lose the typing.
         r = self.c.post('/register/', a_staff_member(
             email='staff@bipsu.edu.ph', confirm_password='different',
             school_id='32-1-213313', department='School of Engineering',
@@ -75,8 +62,6 @@ class RegistrationCollectsTheMiddleNameTest(RegistrationFormMixin, TestCase):
 
 
 class RegistrationSchoolTest(RegistrationFormMixin, TestCase):
-    """The signup form pairs School with Course, so neither can be typed wrong."""
-
     def test_the_school_picked_at_signup_is_saved(self):
         self._register()
         profile = StudentProfile.objects.get(student_id='2022-00999')
@@ -84,18 +69,11 @@ class RegistrationSchoolTest(RegistrationFormMixin, TestCase):
         self.assertEqual(profile.course, 'BSCS')
 
     def test_the_form_will_not_send_without_a_school(self):
-        """It used to be recovered from the course when nobody picked one. The
-        recovery is still there — see school_for_course, which the analytics
-        and the archive both lean on for records that predate the dropdown —
-        but a registration no longer relies on it."""
         r = self._register(school='')
         self.assertContains(r, 'School is required')
         self.assertFalse(StudentProfile.objects.filter(student_id='2022-00999').exists())
 
     def test_an_unrecognised_course_leaves_the_school_blank_rather_than_guessing(self):
-        """The recovery itself, where it still runs: a course typed free-hand
-        years ago matches nothing on the list, and a wrong school on a
-        masterlist is worse than an empty column."""
         from api.constants import school_for_course
         self.assertEqual(school_for_course('BSCS'),
                          'School of Technologies and Computer Studies')
@@ -129,10 +107,6 @@ class StudentProfilePageMiddleNameTest(TestCase):
         self.assertEqual(self.profile.middle_initial, 'R.')
 
     def test_the_profile_does_not_show_the_derived_initial(self):
-        """It was a read-only box under the Middle Name it is derived from: not
-        editable, and saying nothing the field above it does not. The initial
-        itself is unchanged — the masterlist columns are where it is what the
-        column actually asks for."""
         self.c.post('/student/profile/', {'middle_name': 'Reyes'})
         html = self.c.get('/student/profile/').content.decode()
         self.assertNotIn('Middle Initial', html)

@@ -1,13 +1,3 @@
-{% comment %}
-  The Faculty and Staff Scholars tab of the Ranking page.
-
-  Structure only — every class here is defined in srms.css alongside the TES
-  tab's, which this deliberately mirrors: the office reads both, and two
-  recommenders that look like two different products are two things to learn.
-
-  The rules, the wording of every verdict and the field each one reads are in
-  api/staff_ranking.py. Nothing here decides anything.
-{% endcomment %}
 <div class="rec-summary">
   <div class="card p-4">
     <p class="rec-summary__label">Qualified</p>
@@ -36,7 +26,6 @@
     <div class="rec-actions">
       <input id="staffSearch" class="rec-search" placeholder="Search name or employee number…"
              oninput="filterTable('staffSearch','staffTable','data-name')" />
-      <!-- What is endorsed through PASUC-8, with the Why? panel as a second sheet. -->
       <a class="btn btn-outline" href="/vpsea/ranking/download/?type=Staff">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Download list

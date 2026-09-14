@@ -1,14 +1,3 @@
-"""Declaring a scholarship you already hold, on both halves of the form.
-
-Two changes, and one reason behind both: a declaration has to land in the ledger
-that programme actually keeps.
-
-A student's award is an ``Application``, which hangs off a StudentProfile. The
-BiPSU Staff Scholarship's is an ``AffirmativeStaffApplication``, which does not.
-So 'Staff' in the student dropdown was a claim the office could approve into the
-wrong ledger or not at all — it is off that list now, and asked on the staff half
-of the form instead, where approving it writes the record that programme keeps.
-"""
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
@@ -27,27 +16,22 @@ def a_pdf(name='award.pdf'):
 
 
 def register(client, **overrides):
-    """Post a valid staff registration and return the response."""
     return client.post('/register/', a_staff_member(**overrides))
 
 
 class StudentsCannotDeclareTheStaffScholarshipTest(TestCase):
-    """It is an employee's award, recorded where employees' awards are kept."""
-
     def test_the_staff_scholarship_is_not_on_the_student_dropdown(self):
         offered = [t for t, _ in DECLARABLE_SCHOLARSHIP_TYPES]
         self.assertNotIn('Staff', offered)
         self.assertNotIn('Affirmative', offered)
 
     def test_the_programmes_a_student_can_actually_hold_are_all_still_there(self):
-        """Narrowing the list must not quietly drop a programme students hold."""
         offered = [t for t, _ in DECLARABLE_SCHOLARSHIP_TYPES]
         for stype in ('Academic', 'TDP', 'SUC-TDP', 'DOST', 'JLSS',
                       'CHED', 'CoScho', 'Sports', 'GSIS'):
             self.assertIn(stype, offered, stype)
 
     def test_the_canonical_type_list_is_left_alone(self):
-        """Scholarship.type and the archives still know about Staff."""
         self.assertIn('Staff', [t for t, _ in SCHOLARSHIP_TYPE_CHOICES])
 
     def test_the_registration_page_does_not_offer_it(self):
@@ -56,7 +40,6 @@ class StudentsCannotDeclareTheStaffScholarshipTest(TestCase):
         self.assertNotIn('value="Staff"', html)
 
     def test_a_posted_staff_declaration_is_refused_rather_than_stored(self):
-        """The dropdown is not the control; anything can be posted."""
         SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
         r = Client().post('/register/', a_declared_scholar(
             first_name='Ana', last_name='Lim',
@@ -98,14 +81,12 @@ class StaffDeclareAtRegistrationTest(TestCase):
             user__email='ernesto@bipsu.edu.ph').exists())
 
     def test_declaring_without_proof_is_refused(self):
-        """The proof is the whole evidence for an award the office did not record."""
         r = register(Client(), has_staff_scholarship='on')
         self.assertEqual(r.status_code, 200)
         self.assertFalse(StaffScholarshipDeclaration.objects.exists())
         self.assertFalse(User.objects.filter(email='ernesto@bipsu.edu.ph').exists())
 
     def test_a_student_registration_is_untouched_by_the_staff_field(self):
-        """The two halves post from one form; neither may read the other's."""
         Client().post('/register/', a_student(
             first_name='Ana', last_name='Lim',
             email='ana@bipsu.edu.ph', student_id='2022-00111',
@@ -146,14 +127,12 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
         self.assertEqual(app.full_name, 'Ernesto Dela Pena')
 
     def test_the_award_is_stamped_with_the_active_term(self):
-        """A Staff scholar has to land in a semester like every other award."""
         self._decide('approve')
         app = AffirmativeStaffApplication.objects.get()
         self.assertEqual(app.term_label, '26-1')
         self.assertEqual(app.semester, '1st Semester')
 
     def test_the_award_carries_the_details_off_the_staff_profile(self):
-        """Asked once at registration, not a second time by the office."""
         self._decide('approve')
         app = AffirmativeStaffApplication.objects.get()
         self.assertEqual(app.staff_employee_id, 'EMP-0042')
@@ -178,14 +157,12 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
         self.assertEqual(decl.remarks, 'We have no record of that award.')
 
     def test_deciding_twice_does_not_leave_the_scholar_counted_twice(self):
-        """A correction re-approves; it must reuse the term's row."""
         self._decide('approve')
         StaffScholarshipDeclaration.objects.update(status='Pending')
         self._decide('approve', 'Corrected.')
         self.assertEqual(AffirmativeStaffApplication.objects.count(), 1)
 
     def test_an_approved_holder_is_not_asked_to_apply_again(self):
-        """nsu_staff_apply blocks on an Approved Staff application."""
         self._decide('approve')
         staff = Client()
         self.assertTrue(staff.login(email='ernesto@bipsu.edu.ph', password='pw-for-tests'))

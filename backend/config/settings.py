@@ -1,16 +1,3 @@
-"""
-Django settings for the SRMS scholarship system.
-
-Everything that differs between a laptop and the deployed site is read from the
-environment, so this file is safe to commit and the same code runs in both
-places. Copy .env.example to .env for local work; on Render the same keys are
-set as environment variables in the dashboard.
-
-The defaults are the *production* ones. A missing variable degrades toward the
-safe choice (DEBUG off, HTTPS enforced) rather than the convenient one, so a
-forgotten setting can never quietly ship an insecure site.
-"""
-
 import os
 from pathlib import Path
 
@@ -19,8 +6,6 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Local development reads .env; on Render the variables are already in the
-# environment and this call finds nothing, which is fine.
 load_dotenv(BASE_DIR / '.env')
 
 
@@ -32,15 +17,11 @@ def _env_list(name, default=''):
     return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
 
 
-# ── Core ──────────────────────────────────────────────────────────────────────
-
 DEBUG = _env_bool('DEBUG', False)
 
 SECRET_KEY = os.environ.get('SECRET_KEY', '')
 if not SECRET_KEY:
     if DEBUG:
-        # Development only. Sessions reset whenever this process restarts, which
-        # is the correct trade for never having a real key sitting in the repo.
         SECRET_KEY = 'django-insecure-local-development-only-do-not-deploy'
     else:
         raise ImproperlyConfigured(
@@ -49,32 +30,19 @@ if not SECRET_KEY:
             ' print(get_random_secret_key())"'
         )
 
-# Render injects RENDER_EXTERNAL_HOSTNAME with the service's own domain, so the
-# site works on first deploy before a custom domain is pointed at it.
 ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
 _render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-# Appended rather than assumed: naming the host in ALLOWED_HOSTS too is the
-# normal thing to do once a custom domain exists, and that should not produce
-# a duplicate entry.
 if _render_host and _render_host not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_render_host)
 
-# Django 4+ requires the scheme here, unlike ALLOWED_HOSTS.
 CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS')
 if _render_host:
     _render_origin = f'https://{_render_host}'
     if _render_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(_render_origin)
 
-# What a failed CSRF check shows. Django's own answer is "Forbidden (403). CSRF
-# verification failed. Request aborted. More information is available with
-# DEBUG=True" — an accusation, plus advice only a developer can act on. In
-# practice the cause is a form left open past the session's life or a browser
-# refusing cookies, so api/error_views.py says that instead.
 CSRF_FAILURE_VIEW = 'api.error_views.csrf_failure'
 
-
-# ── Applications ──────────────────────────────────────────────────────────────
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -92,24 +60,17 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # Serves the collectstatic output in production. Must sit directly after
-    # SecurityMiddleware and before everything else.
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # After AuthenticationMiddleware: it reads request.user to decide whether a
-    # just-registered visitor still needs letting in.
     'api.middleware.ReleaseVerifiedAccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# The document viewer frames uploaded files (proofs, certificates, appointment
-# papers) from our own /media/. Django's default of DENY blocks that even for
-# same-origin frames; SAMEORIGIN still keeps other sites from framing us.
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 ROOT_URLCONF = 'config.urls'
@@ -133,46 +94,11 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# ── Database ──────────────────────────────────────────────────────────────────
-# Supabase offers two hosts, and only one of them works from Render.
-#
-#   db.<ref>.supabase.co          the "direct connection". Resolves to an AAAA
-#                                 record only — no IPv4. Render's free tier has
-#                                 no IPv6 egress, so this host cannot be reached
-#                                 at all; it fails at connect time, which reads
-#                                 like a credentials problem but is not one.
-#
-#   aws-0-<region>.pooler.supabase.com    the pooler (Supavisor). IPv4. Use this.
-#
-# The pooler answers on two ports and the choice matters for Django:
-#
-#   5432  session mode — a connection behaves like a normal Postgres session.
-#         Prepared statements and conn_max_age below both work. Use this.
-#   6543  transaction mode — a connection is handed back after every statement.
-#         More efficient, but psycopg3's prepared statements collide on it
-#         ("prepared statement already exists") and holding connections open
-#         via conn_max_age just occupies pooler slots. Only worth it with
-#         conn_max_age=0 and prepared statements disabled.
-#
-# Falls back to SQLite so a fresh clone runs without any database set up.
-
-# Two ways to say the same thing. DATABASE_URL is what Render and Supabase both
-# hand you, so it is tried first — but a URL has to carry the password through
-# its userinfo field, and a password containing @ # ? / : % (Supabase generates
-# some of these) has to be percent-encoded or the string stops being a valid URL
-# at all. That failure is opaque, so PGHOST/PGUSER/... is offered as a way to
-# supply the same details with no quoting rules to get wrong.
-
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 PGHOST = os.environ.get('PGHOST', '')
 
 
 def _database_from_url(url):
-    # Imported here rather than at the top of the file so the SQLite fallback
-    # below is true to its word: a fresh clone with no DATABASE_URL set starts
-    # on an interpreter that has never heard of dj-database-url. As a module
-    # import it did the opposite — the one path that needs no database setup
-    # was the one that died at startup, on a name nothing on it ever uses.
     try:
         import dj_database_url
     except ModuleNotFoundError:
@@ -188,10 +114,6 @@ def _database_from_url(url):
             url, conn_max_age=600, conn_health_checks=True, ssl_require=not DEBUG,
         )
     except Exception as exc:
-        # dj_database_url raises ParseError without saying which part offended,
-        # which turns a five-second fix into a whole deploy cycle. Only these
-        # characters actually break the parse; '@', ':' and '%' in a password
-        # are fine, so naming them would send people chasing the wrong thing.
         hint = ''
         if '[' in url or ']' in url:
             hint = ("\n  It still contains '[' or ']'. Those are the dashboard's "
@@ -237,8 +159,6 @@ else:
     }
 
 
-# ── Authentication ────────────────────────────────────────────────────────────
-
 AUTH_USER_MODEL = 'api.User'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -249,29 +169,16 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# ── Internationalization ──────────────────────────────────────────────────────
-
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = os.environ.get('TIME_ZONE', 'UTC')
 USE_I18N = True
 USE_TZ = True
 
 
-# ── Static files ──────────────────────────────────────────────────────────────
-
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-# collectstatic writes here at build time; WhiteNoise serves it at runtime.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-
-# ── Uploaded files ────────────────────────────────────────────────────────────
-# Every upload is a student document, so none of it is served by a plain file
-# handler — see api.media_views, wired at /media/ in config.urls.
-#
-# Render's free tier has no persistent disk: anything written to the container
-# is gone on the next deploy. Setting USE_SUPABASE_STORAGE moves uploads to
-# Supabase Storage, which speaks the S3 API, so they outlive the container.
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -288,9 +195,6 @@ if USE_SUPABASE_STORAGE:
             'USE_SUPABASE_STORAGE is on but these are unset: ' + ', '.join(_missing)
         )
     _media_backend = {
-        # Not storages.backends.s3.S3Storage directly: that one hands templates
-        # the bucket's own URL, which never passes through api.media_views and
-        # so answers nobody's question about who is asking. See api/storage.py.
         'BACKEND': 'api.storage.ProtectedS3Storage',
         'OPTIONS': {
             'endpoint_url': os.environ['SUPABASE_S3_ENDPOINT'],
@@ -298,8 +202,6 @@ if USE_SUPABASE_STORAGE:
             'access_key': os.environ['SUPABASE_S3_ACCESS_KEY_ID'],
             'secret_key': os.environ['SUPABASE_S3_SECRET_ACCESS_KEY'],
             'bucket_name': os.environ['SUPABASE_STORAGE_BUCKET'],
-            # The bucket stays private. Files reach the browser only through
-            # api.media_views, which checks who is asking first.
             'default_acl': None,
             'querystring_auth': False,
             'file_overwrite': False,
@@ -317,73 +219,37 @@ STORAGES = {
     },
 }
 
-# Uploads above this size stream to a temp file instead of being held in memory.
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024      # 5 MB
-# Ceiling on a whole non-file POST body, so a form cannot exhaust memory.
-DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024     # 15 MB
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000               # masterlist forms are wide
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
 
-# Largest single upload accepted, enforced in api.validators.
 MAX_UPLOAD_SIZE_MB = int(os.environ.get('MAX_UPLOAD_SIZE_MB', '10'))
 
-
-# ── Security ──────────────────────────────────────────────────────────────────
-# Only applied off DEBUG, so local http://127.0.0.1 keeps working.
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', True)
-    # Render terminates TLS at its proxy; without this Django believes every
-    # request arrived over plain http and the SSL redirect loops forever.
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-    # Offices open student documents from links inside the app only.
     SESSION_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SAMESITE = 'Lax'
 
-    # Start at one hour. Raise to 31536000 with preload only once you are sure
-    # the domain will never need to serve plain http again — it is not easily
-    # undone, because browsers cache the instruction.
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', False)
     SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', False)
 
 
-# ── Email ─────────────────────────────────────────────────────────────────────
-# The office's review screens tell applicants what was decided, by email as well
-# as in the portal (see api/notify.py). Nothing here is required to run the
-# site: with no host configured the messages are printed to the console instead
-# of sent, so development and the test suite never touch a mail server.
-
-# Two routes out, and the reason there are two is the deployment. Render's free
-# plan blocks outbound SMTP — ports 25, 465 and 587, since September 2025 — so
-# on Render the mail has to leave over HTTPS instead. SMTP is kept because it is
-# the right thing on a laptop, on any paid instance, and anywhere the university
-# runs this itself with its own mail server.
-#
-# BREVO_API_KEY wins when both are set: it is the one that works where this is
-# actually deployed, and a half-configured SMTP left over from before should not
-# quietly take precedence over the route someone deliberately turned on.
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '').strip()
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '').strip()
 
-# The address the sending account is allowed to send as, whichever route is
-# used. Read outside the branches because DEFAULT_FROM_EMAIL is derived from it
-# below and Brevo needs it just as much as SMTP does — it is the address you
-# verify there, and Brevo refuses anything else.
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 
-# Whether mail actually leaves this machine. The console backend below is a
-# development convenience that looks exactly like success to every caller, so
-# the office had no way to tell 'the applicant was emailed' from 'the message
-# was printed to a log nobody reads'. The screens that send mail show a warning
-# when this is False rather than letting it fail silently.
 EMAIL_ENABLED = bool(BREVO_API_KEY or EMAIL_HOST)
 
 if BREVO_API_KEY:
@@ -398,43 +264,21 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     EMAIL_HOST_USER = ''
 
-# Seconds to wait on whichever route is in use — the SMTP conversation, or the
-# HTTPS call to Brevo. A review must not hang because mail is slow; api.notify
-# gives up and logs rather than blocking the office.
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 10))
 
-# Who the message comes from. Derived from the account being logged into unless
-# something is set explicitly, because a From address the sending account is not
-# allowed to use is not honoured — Gmail rewrites it to the authenticated
-# account and delivers under that instead. Setting DEFAULT_FROM_EMAIL to
-# no-reply@bipsu.edu.ph while signing in as a Gmail account therefore does not
-# do what it looks like it does: recipients see the Gmail address, and the
-# configuration says otherwise.
-#
-# Deriving it means the two cannot disagree. Set DEFAULT_FROM_EMAIL only when the
-# address really is one that account may send as — an institutional mailbox, or
-# an alias verified under Gmail's 'Send mail as'.
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', '').strip() or (
     f'BiPSU SRMS <{EMAIL_HOST_USER}>' if EMAIL_HOST_USER
     else 'BiPSU SRMS <no-reply@bipsu.edu.ph>'
 )
 
-# Used in the links inside those emails. Without it they carry no link at all
-# rather than pointing at a hostname that only resolves on the office's laptop.
 SITE_URL = os.environ.get('SITE_URL', '').strip().rstrip('/')
 
-
-# ── CORS ──────────────────────────────────────────────────────────────────────
-# The UI is served by Django templates; these origins only matter if the
-# separate Vite frontend is revived.
 
 CORS_ALLOWED_ORIGINS = _env_list(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080',
 )
 
-
-# ── REST framework ────────────────────────────────────────────────────────────
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -445,10 +289,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-
-# ── Logging ───────────────────────────────────────────────────────────────────
-# With DEBUG off Django sends 500s to the 'django' logger and nowhere else, so
-# without this block production errors vanish silently. Render captures stdout.
 
 LOGGING = {
     'version': 1,

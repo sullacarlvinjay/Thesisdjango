@@ -1,10 +1,3 @@
-"""The GWA an applicant declares has to survive the application.
-
-It used to be written only into Application.form_data, leaving StudentProfile.gwa
-on its 0.0 default. The eligibility panel then showed a live classification next
-to a stale 'GWA 0.0' and two rule badges that said Pass no matter what — because
-0.0 clears every ceiling.
-"""
 from django.test import Client, TestCase
 
 from api.constants import academic_classification
@@ -12,8 +5,6 @@ from api.models import Application, Scholarship, StudentProfile, User
 
 
 class AcademicClassificationTest(TestCase):
-    """One rule, used by the view and mirrored by the page."""
-
     def test_the_ceilings_match_what_the_page_prints(self):
         self.assertEqual(academic_classification(1.00), 'University Scholar')
         self.assertEqual(academic_classification(1.29), 'University Scholar')
@@ -22,8 +13,6 @@ class AcademicClassificationTest(TestCase):
         self.assertEqual(academic_classification(1.51), 'Not Eligible')
 
     def test_an_empty_gwa_is_not_a_perfect_one(self):
-        # 0.0 clears every ceiling numerically, which used to crown a student
-        # who had entered nothing at all University Scholar.
         self.assertEqual(academic_classification(0), '')
         self.assertEqual(academic_classification(0.0), '')
         self.assertEqual(academic_classification(None), '')
@@ -77,8 +66,6 @@ class DeclaredGWAReachesTheProfileTest(TestCase):
 
 
 class DraftingIsGoneTest(TestCase):
-    """Saving a draft is replaced by the browser keeping what was typed."""
-
     def setUp(self):
         self.user = User.objects.create_user(
             username='ana@bipsu.edu.ph', email='ana@bipsu.edu.ph', password='pw',
@@ -102,24 +89,15 @@ class DraftingIsGoneTest(TestCase):
         self.assertIn('form-cache.js', html)
 
     def test_a_posted_draft_action_is_submitted_anyway_not_parked(self):
-        # The Draft status is gone, but a stale tab can still post the button
-        # that used to save one — it must land as a real submission rather than
-        # a half-finished row the office has to chase.
         self.c.post('/student/apply/academic/',
                     {'action': 'draft', 'gwa': '1.4', 'semester': '1st Semester'})
         app = Application.objects.get(student=self.profile)
         self.assertEqual(app.status, 'Pending Validation')
 
     def test_the_blocked_page_does_not_ship_a_broken_script(self):
-        # Approved is what blocks the page now: a pending application renders
-        # the form again so the student can correct it. Approved has no GWA
-        # ceilings in its context, and rendering the script anyway produced
-        # `const UNIVERSITY_MAX = ;`.
         Application.objects.create(
             student=self.profile, scholarship=Scholarship.objects.first(),
             status='Approved', form_data={})
         html = self.c.get('/student/apply/academic/').content.decode()
-        # The GWA ceilings are not in a blocked page's context; rendering the
-        # script anyway produced `const UNIVERSITY_MAX = ;`.
         self.assertNotIn('MAX = ;', html)
         self.assertNotIn('UNIVERSITY_MAX', html)

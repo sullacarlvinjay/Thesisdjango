@@ -3,9 +3,6 @@ import re
 from django.db import migrations
 
 
-# Staff registrations used to dump these four values into a single free-text
-# ActivityLog line, which nothing could read back. Recover them into the real
-# User columns added in 0024.
 LOG_PATTERN = re.compile(
     r'Employee ID:\s*(?P<employee_id>.*?)\s*\|\s*'
     r'Department:\s*(?P<department>.*?)\s*\|\s*'
@@ -15,11 +12,6 @@ LOG_PATTERN = re.compile(
 
 
 def _clean(value):
-    """The old format wrote an em dash for missing values; treat those as blank.
-
-    The dash also survives in mojibake form in some rows, so anything without a
-    letter or digit counts as empty rather than trying to match it literally.
-    """
     value = (value or '').strip()
     return value if any(ch.isalnum() for ch in value) else ''
 
@@ -44,7 +36,6 @@ def backfill(apps, schema_editor):
         updated = []
         for field, value in match.groupdict().items():
             value = _clean(value)
-            # Never clobber a value the staff member has since typed in.
             if value and not getattr(user, field, ''):
                 setattr(user, field, value[:User._meta.get_field(field).max_length])
                 updated.append(field)

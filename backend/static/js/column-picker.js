@@ -1,28 +1,8 @@
-// Add and remove the custom columns on the scholarship form, and say what each
-// one holds.
-//
-// The ticked catalogue columns need no script — they are plain checkboxes that
-// post their own values. Only the office's own columns are repeatable, and a
-// row of them is three fields: the name, which is what the table heading reads
-// and what the server derives the storage key from (see
-// api/scholar_columns.custom_key, so renaming a column back to what it was
-// finds the values already typed); the kind of data it holds; and, for a choice
-// list, the options.
-//
-// The three post as parallel lists read by position, so every row has to post
-// all three even when one is not being used. The options box is therefore
-// hidden rather than removed when the kind is not a choice list — a removed
-// field posts nothing and would slide every kind after it onto the wrong
-// column.
 (function () {
   var list = document.getElementById('customColumns');
   var addButton = document.getElementById('addCustomColumn');
   if (!list || !addButton) return;
 
-  // The kinds come from the server rather than being listed again here: they
-  // are the same list the <select>s rendered above were built from, and a
-  // second copy in this file is one that can disagree with the one the server
-  // validates against.
   var types = (list.dataset.customTypes || '').split('|').filter(Boolean)
     .map(function (pair) {
       var at = pair.indexOf(':');
@@ -84,16 +64,11 @@
     made.input.focus();
   });
 
-  // Delegated, so it covers the rows rendered by the server as well as the ones
-  // added above. An empty row is dropped server-side either way, but removing
-  // it here is what tells the office the column is gone.
   list.addEventListener('click', function (event) {
     var button = event.target.closest('.col-picker__remove');
     if (button) button.closest('.col-picker__row').remove();
   });
 
-  // Choosing a choice list is what asks for the options, so the box appears the
-  // moment it is chosen rather than sitting empty beside every other kind.
   list.addEventListener('change', function (event) {
     if (event.target.name !== 'extra_types') return;
     var row = event.target.closest('.col-picker__row');
@@ -103,14 +78,6 @@
   });
 })();
 
-
-// Reordering the archive table's columns.
-//
-// The order the boxes post in is the order the table reads, so moving a row
-// here is the whole edit — there is no separate "position" field to keep in
-// step with it. The numbers are recomputed after every change rather than
-// stored, because a stored number is one more thing that can disagree with the
-// list it describes.
 (function () {
   var list = document.getElementById('columnPicker');
   if (!list) return;
@@ -143,9 +110,6 @@
   });
 
   list.addEventListener('change', function (event) {
-    // A column just ticked belongs at the end of the table rather than wherever
-    // it happened to sit in the unused block — joining the middle would quietly
-    // renumber every column after it.
     var box = event.target;
     if (box.type !== 'checkbox') return;
     if (box.checked) {

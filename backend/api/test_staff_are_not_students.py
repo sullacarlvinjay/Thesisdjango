@@ -1,19 +1,3 @@
-"""A BiPSU employee is not a student of this system.
-
-The Staff Scholarship is applied for on the staff portal and recorded as an
-``AffirmativeStaffApplication``. That row *is* the award: the Staff archive tab,
-the masterlist's BiPSU STAFF block and the reports all read it directly.
-
-Approving one used to also build a Django account with ``role='student'``, a
-``StudentProfile`` numbered ``AFF-<id>`` when the employee had no student
-number, and an ``Application`` nothing reads. Every screen that walks
-``StudentProfile`` then listed the employee as a student — My Students, the No
-Scholarship archive tab, and the TES recommendation the SDSO sends onward to
-UniFAST, where a BiPSU employee was sitting on a subsidy list for students.
-
-The second half of the same fault: the TES list ranked *every* profile, with no
-filter at all, so a registrant the office had rejected was on it too.
-"""
 from django.test import Client, TestCase
 
 from api.models import (
@@ -61,36 +45,27 @@ class ApprovingAStaffScholarshipMakesNoStudentTest(TestCase):
             student_id__startswith='AFF-').exists())
 
     def test_no_student_account_is_invented_either(self):
-        """It carried a password derived from the employee's own number."""
         self.approve()
         self.assertFalse(User.objects.filter(email='norma@bipsu.edu.ph').exists())
 
     def test_no_second_award_row_is_written(self):
-        """The staff application is the award. An Application beside it would be
-        the same scholar recorded twice, in a table the Staff tab never reads."""
         self.approve()
         self.assertEqual(Application.objects.count(), 0)
 
     def test_the_employee_does_not_appear_on_the_tes_recommendation(self):
-        """The list that leaves the building."""
         self.approve()
         data = _tes_ranking_data()
         listed = [e.student_name for e in data['rows']]
         self.assertEqual(listed, [], f'a staff scholar reached the TES list: {listed}')
-        # Nor the screened population behind it: a staff scholar held back as an
-        # incomplete student record would still be one student too many here.
         self.assertEqual(data['total'] + data['excluded'], 0)
 
     def test_the_scholar_still_reaches_the_staff_archive(self):
-        """Removing the account must not cost the office the award itself."""
         self.approve()
         html = self.c.get('/vpsea/archives/', {'type': 'Staff'}).content.decode()
         self.assertIn('Norma Duallo', html)
 
 
 class TheTesListCoversVerifiedStudentsOnlyTest(TestCase):
-    """A person who cannot sign in cannot be put forward for a subsidy."""
-
     def setUp(self):
         SystemSettings.objects.update_or_create(
             pk=1, defaults={'academic_year': '26-1',
@@ -107,13 +82,6 @@ class TheTesListCoversVerifiedStudentsOnlyTest(TestCase):
             user=user, student_id=student_id, course='BSCS', year_level=2)
 
     def screened(self):
-        """How many students reached the TES screen at all.
-
-        Ranked plus held back: these students carry nothing but a course and a
-        year level, so none of them can be *ranked*. What is under test is
-        which accounts the page will even consider, which is the count before
-        the screen rather than the list after it.
-        """
         data = _tes_ranking_data()
         return data['total'] + data['excluded']
 
@@ -130,8 +98,6 @@ class TheTesListCoversVerifiedStudentsOnlyTest(TestCase):
         self.assertEqual(self.screened(), 0)
 
     def test_the_counts_follow_the_same_list(self):
-        """A total that counted people the table does not show would be the
-        office's own cross-check disagreeing with the page under it."""
         self.student('Lim', '2026-0001', 'approved')
         self.student('Cruz', '2026-0002', 'pending')
         data = _tes_ranking_data()
@@ -140,15 +106,6 @@ class TheTesListCoversVerifiedStudentsOnlyTest(TestCase):
 
 
 class PruningWhatTheOldBranchLeftBehindTest(TestCase):
-    """`manage.py prune_staff_student_profiles`, which clears up the records the
-    approval branch made before it was removed.
-
-    Deployments that ran the old code still carry them, and Render's free plan
-    has no shell — so the command has to be safe to run against a production
-    database from a laptop, which means it has to be exactly as careful as these
-    tests demand.
-    """
-
     def setUp(self):
         SystemSettings.objects.update_or_create(
             pk=1, defaults={'academic_year': '26-1',
@@ -157,7 +114,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
             name='Staff Scholarship', type='Staff', category='application',
             description='x', eligibility='x', requirements=[])
 
-        # What the old branch produced: the award, plus a student identity.
         self.award = AffirmativeStaffApplication.objects.create(
             full_name='Norma Duallo', email='norma@bipsu.edu.ph',
             qualified_for='Staff', status='Approved', is_nsu_staff=True)
@@ -168,7 +124,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         self.phantom = StudentProfile.objects.create(
             user=phantom, student_id=f'AFF-{self.award.id}', course='MAEd')
 
-        # A real student, who must survive untouched.
         real = User.objects.create_user(
             username='ana@bipsu.edu.ph', email='ana@bipsu.edu.ph',
             password='pw', first_name='Ana', last_name='Lim', role='student')
@@ -183,7 +138,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         return out.getvalue()
 
     def test_a_plain_run_writes_nothing(self):
-        """The default is a report. Somebody has to read the list first."""
         output = self.run_command()
         self.assertIn('Dry run', output)
         self.assertIn(f'AFF-{self.award.id}', output)
@@ -195,8 +149,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         self.assertFalse(User.objects.filter(email='norma@bipsu.edu.ph').exists())
 
     def test_the_staff_award_itself_survives(self):
-        """The whole point: the employee keeps the scholarship. Only the student
-        identity nobody asked for goes."""
         self.run_command('--delete')
         self.award.refresh_from_db()
         self.assertEqual(self.award.status, 'Approved')
@@ -209,10 +161,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         self.assertTrue(User.objects.filter(email='ana@bipsu.edu.ph').exists())
 
     def test_a_dependents_claim_is_reported_not_removed(self):
-        """A staff member's dependent may be a genuine BiPSU student, and their
-        address owns a Staff application just as an employee's does. What tells
-        them apart is who filed it: is_nsu_staff means the employee applied for
-        themselves, and an employee is not a student under any reading."""
         user = User.objects.create_user(
             username='kid@bipsu.edu.ph', email='kid@bipsu.edu.ph', password='pw',
             first_name='Kid', last_name='Duallo', role='student')
@@ -229,8 +177,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         self.assertTrue(StudentProfile.objects.filter(pk=dependent.pk).exists())
 
     def test_it_says_so_when_the_account_has_actually_been_used(self):
-        """A person signing in with it changes the decision, so it is on screen
-        rather than left for the operator to find out afterwards."""
         from django.utils import timezone
         self.phantom.user.last_login = timezone.now()
         self.phantom.user.save(update_fields=['last_login'])
@@ -241,9 +187,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         self.assertIn('Nothing to remove', self.run_command('--delete'))
 
     def test_an_affirmative_scholars_aff_number_is_never_swept_up(self):
-        """Approving an Affirmative application still mints an 'AFF-<id>'
-        student number, and that scholar is a real student. An earlier draft of
-        this command pruned on the prefix alone and would have deleted them."""
         user = User.objects.create_user(
             username='aff@bipsu.edu.ph', email='aff@bipsu.edu.ph', password='pw',
             first_name='Rosa', last_name='Mendoza', role='student')
@@ -259,15 +202,6 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
 
 
 class AnAffirmativeScholarStillGetsTheirStudentRecordTest(TestCase):
-    """The other programme on the same queue, and the line between them.
-
-    Affirmative Action is a *student* programme — the four target groups are
-    read off a student's own record and AffirmativeRecommendation hangs off
-    StudentProfile — so approving one still builds the student account the rest
-    of the system reads them through. BiPSU Staff is the one whose scholars are
-    employees, and it is the only one excluded.
-    """
-
     def setUp(self):
         SystemSettings.objects.update_or_create(
             pk=1, defaults={'academic_year': '26-1',
@@ -297,9 +231,6 @@ class AnAffirmativeScholarStillGetsTheirStudentRecordTest(TestCase):
             StudentProfile.objects.filter(user__email='affirmative@bipsu.edu.ph').exists())
 
     def test_a_staff_approval_beside_it_does_not(self):
-        """The two run through the same branch, and only one of them is a
-        student. This is the whole of the distinction, asserted side by side so
-        neither can be changed without the other being considered."""
         self.approve('Staff')
         self.assertFalse(
             StudentProfile.objects.filter(user__email='staff@bipsu.edu.ph').exists())

@@ -1,16 +1,3 @@
-"""The mail panel on Account Verification.
-
-It exists because of how the deployment fails. Render's free plan has no shell
-to run `manage.py check_email` in, and the sends that go wrong are the ones
-nobody is watching — a confirmation link goes out while a student is
-registering, and `notify.send_email` swallows the failure on purpose so that a
-mail server cannot take a review screen down with it. The office was left with a
-site that looked like it was emailing people and was not.
-
-So the properties worth holding here are the ones that stop it lying again: it
-must name the route actually in use, it must never report a refusal as a send,
-and it must never print a secret onto a screen somebody may be presenting from.
-"""
 from unittest import mock
 
 from django.test import Client, TestCase, override_settings
@@ -39,8 +26,6 @@ class MailPanelTest(TestCase):
     def context(self):
         return self.c.get('/vpsea/accounts/').context['mail']
 
-    # ── Which route is live ─────────────────────────────────────────────────
-
     @override_settings(EMAIL_BACKEND=BREVO, EMAIL_ENABLED=True, BREVO_API_KEY='k')
     def test_the_brevo_route_is_named_as_itself(self):
         mail = self.context()
@@ -51,7 +36,6 @@ class MailPanelTest(TestCase):
     @override_settings(EMAIL_BACKEND=SMTP, EMAIL_ENABLED=True,
                        EMAIL_HOST='smtp.gmail.com', EMAIL_PORT=587)
     def test_the_smtp_route_says_render_blocks_it(self):
-        """The whole bug in one sentence, on the screen where it is felt."""
         mail = self.context()
         self.assertEqual(mail['route'], 'SMTP')
         self.assertIn('smtp.gmail.com', mail['route_detail'])
@@ -64,8 +48,6 @@ class MailPanelTest(TestCase):
         self.assertFalse(mail['enabled'])
         self.assertIn('delivered to', mail['route_detail'])
         self.assertIn('Not configured', self.html())
-
-    # ── What it must never show ─────────────────────────────────────────────
 
     @override_settings(EMAIL_BACKEND=BREVO, EMAIL_ENABLED=True,
                        BREVO_API_KEY='super-secret-key')
@@ -84,17 +66,13 @@ class MailPanelTest(TestCase):
     @override_settings(EMAIL_BACKEND=BREVO, EMAIL_ENABLED=True,
                        DEFAULT_FROM_EMAIL='BiPSU SRMS <sdso@bipsu.edu.ph>')
     def test_the_sender_is_shown_because_it_is_what_is_usually_wrong(self):
-        """Brevo refuses any sender but the verified one. Not a secret."""
         self.assertIn('sdso@bipsu.edu.ph', self.html())
-
-    # ── The last attempt ────────────────────────────────────────────────────
 
     def test_before_anything_is_sent_it_says_so(self):
         self.assertIsNone(self.context()['last_at'])
         self.assertIn('Nothing has been sent from this deployment yet', self.html())
 
     def test_a_failure_is_recorded_with_the_providers_own_words(self):
-        """'sender not valid' is the diagnosis; a status code is not."""
         from api import notify
         with mock.patch('api.notify.send_mail',
                         side_effect=Exception('Brevo refused the message (400). '
@@ -116,14 +94,11 @@ class MailPanelTest(TestCase):
         self.assertIn('It left this server', self.html())
 
     def test_recording_never_turns_a_mail_failure_into_a_page_failure(self):
-        """It runs on the failure path of something that must not raise."""
         from api import notify
         with mock.patch('api.notify.send_mail', side_effect=Exception('down')), \
              mock.patch('api.models.SystemSettings.objects.update_or_create',
                         side_effect=Exception('database is down too')):
             self.assertFalse(notify.send_email('ana@bipsu.edu.ph', 'Subject', 'Body'))
-
-    # ── The test send ───────────────────────────────────────────────────────
 
     def test_sending_a_test_reports_that_it_went(self):
         with mock.patch('api.notify.send_mail', return_value=1) as send:
@@ -135,7 +110,6 @@ class MailPanelTest(TestCase):
                       self.c.get(r['Location']).content.decode())
 
     def test_a_refused_test_is_not_reported_as_sent(self):
-        """The property the whole panel exists for."""
         with mock.patch('api.notify.send_mail',
                         side_effect=Exception('{"message":"Key not found"}')):
             r = self.c.post('/vpsea/accounts/',
@@ -153,7 +127,6 @@ class MailPanelTest(TestCase):
         self.assertIn('error=', r['Location'])
 
     def test_the_test_send_does_not_decide_anybody_s_account(self):
-        """It posts to the same URL as approve/reject; it must not fall through."""
         student = User.objects.create_user(
             username='ana@bipsu.edu.ph', email='ana@bipsu.edu.ph', password='pw',
             role='student', verification_status='pending')

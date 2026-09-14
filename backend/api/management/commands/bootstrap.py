@@ -1,21 +1,3 @@
-"""Prepare a freshly migrated database for real use.
-
-Distinct from ``seed``, which invents students and applications to look at on a
-laptop. This creates only what an empty deployment cannot work without: the
-system settings row, the scholarship catalogue, and the office account that
-lets anyone sign in at all.
-
-Safe to run on every deploy, which is why build.sh calls it: everything is
-get_or_create, and an existing account is left exactly as it is. In particular
-a password already in use is never overwritten — an operator who changed it in
-the admin would otherwise find it silently reverted on the next deploy.
-
-Passwords come from the environment because Render's free plan has no shell,
-so ``createsuperuser`` cannot be run interactively. No password is ever
-hard-coded here; an office whose password variable is unset is skipped and
-reported, rather than created with something guessable.
-"""
-
 import os
 
 from django.contrib.auth import get_user_model
@@ -26,7 +8,6 @@ from ...catalogue import ensure_scholarships
 
 User = get_user_model()
 
-# email variable, password variable, defaults for a newly created account.
 OFFICES = [
     ('SDSO_EMAIL', 'SDSO_PASSWORD', {
         'default_email': 'sdso@bipsu.edu.ph',
@@ -34,8 +15,6 @@ OFFICES = [
         'first_name': 'SDSO',
         'last_name': 'Office',
         'role': 'vpsea',
-        # The SDSO runs the system, so this is the account that also reaches
-        # /admin/ when something needs fixing directly.
         'is_staff': True,
         'is_superuser': True,
     }),
@@ -62,9 +41,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f'  scholarships: added {len(added)} - ' + ', '.join(added)))
         if updated:
-            # Worth printing rather than counting: this is what corrects a
-            # programme filed under the wrong office, and the deploy log is the
-            # only place anyone would see it happen.
             self.stdout.write(self.style.SUCCESS(
                 f'  scholarships: corrected {len(updated)} - ' + '; '.join(updated)))
         if not added and not updated:
@@ -78,8 +54,6 @@ class Command(BaseCommand):
 
             existing = User.objects.filter(email__iexact=email).first()
             if existing:
-                # Deliberately not touching the password: it may have been
-                # changed since, and a deploy is not a password reset.
                 self.stdout.write(f'  {label}: {email} already exists, left alone')
                 continue
 

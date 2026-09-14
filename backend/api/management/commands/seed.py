@@ -19,10 +19,8 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         self.stdout.write('Seeding database...')
 
-        # System settings
         SystemSettings.objects.get_or_create(pk=1)
 
-        # Super admin
         super_user, _ = User.objects.get_or_create(
             email='it@bipsu.edu.ph',
             defaults={'username': 'it@bipsu.edu.ph', 'first_name': 'IT', 'last_name': 'Admin', 'role': 'super', 'is_staff': True, 'is_superuser': True}
@@ -31,7 +29,6 @@ class Command(BaseCommand):
         super_user.save()
         Token.objects.get_or_create(user=super_user)
 
-        # VPSEA admin
         vpsea_user, _ = User.objects.get_or_create(
             email='vpsea@bipsu.edu.ph',
             defaults={'username': 'vpsea@bipsu.edu.ph', 'first_name': 'Rosario', 'last_name': 'Bayhon', 'role': 'vpsea'}
@@ -40,7 +37,6 @@ class Command(BaseCommand):
         vpsea_user.save()
         Token.objects.get_or_create(user=vpsea_user)
 
-        # Student user
         student_user, _ = User.objects.get_or_create(
             email='juan.delacruz@bipsu.edu.ph',
             defaults={'username': 'juan.delacruz@bipsu.edu.ph', 'first_name': 'Juan', 'last_name': 'Dela Cruz', 'role': 'student'}
@@ -66,13 +62,8 @@ class Command(BaseCommand):
             }
         )
 
-        # Scholarships
-        # The catalogue itself lives in api.catalogue, shared with the
-        # bootstrap command so a laptop and a deployment cannot end up
-        # offering different programmes.
         ensure_scholarships()
 
-        # Applications
         academic = Scholarship.objects.get(type='Academic')
         tdp = Scholarship.objects.get(type='TDP')
         apps_data = [
@@ -85,7 +76,6 @@ class Command(BaseCommand):
             if not Application.objects.filter(student=profile, scholarship=a['scholarship'], submitted_at=a['submitted_at']).exists():
                 Application.objects.create(student=profile, **a)
 
-        # Notifications
         notifs = [
             {'type': 'success', 'title': 'Application Approved', 'body': 'Your Academic Scholarship application has been approved as University Scholar.'},
             {'type': 'warning', 'title': 'Document Required', 'body': 'Please re-upload your Certificate of Indigency for TDP review.'},
@@ -95,7 +85,6 @@ class Command(BaseCommand):
         for n in notifs:
             Notification.objects.get_or_create(student=profile, title=n['title'], defaults=n)
 
-        # Announcements
         ann_data = [
             {'title': 'Academic Scholarship A.Y. 2025-2026 Now Open', 'body': 'Applications for the next academic year are now being accepted until June 15.'},
             {'title': 'TDP Liquidation Deadline Extended', 'body': 'UniFAST has extended the liquidation deadline to May 31, 2025.'},
@@ -104,7 +93,6 @@ class Command(BaseCommand):
         for a in ann_data:
             Announcement.objects.get_or_create(title=a['title'], defaults={**a, 'published_by': super_user})
 
-        # Activity logs
         logs_data = [
             (vpsea_user, 'Approved application APP-2025-0021'),
             (vpsea_user, 'Imported ched_merit_2024.csv'),
@@ -113,9 +101,7 @@ class Command(BaseCommand):
         for user, action in logs_data:
             ActivityLog.objects.get_or_create(user=user, action=action)
 
-        # ── Archive test users (one per scholarship type) ──
         archive_students = [
-            # (email, first, last, student_id, course, year, gwa, gender, municipality, province, income, extra_profile)
             ('maria.santos@bipsu.edu.ph', 'Maria', 'Santos', '2022-00101', 'BS Education', 2, 1.25, 'Female', 'Caibiran', 'Biliran', 150000, {}),
             ('jose.reyes@bipsu.edu.ph', 'Jose', 'Reyes', '2022-00102', 'BS Agriculture', 3, 1.75, 'Male', 'Almeria', 'Biliran', 90000, {'family_income': 90000}),
             ('ana.garcia@bipsu.edu.ph', 'Ana', 'Garcia', '2022-00103', 'BS Biology', 2, 1.40, 'Female', 'Naval', 'Biliran', 200000, {}),
@@ -147,7 +133,6 @@ class Command(BaseCommand):
                     submitted_at=datetime.date(2025, 1, 10),
                 )
 
-        # ── Affirmative & Staff archive test applicants ──
         aff_test = [
             {
                 'full_name': 'Nena Villanueva', 'email': 'nena.villanueva@test.com',

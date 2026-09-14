@@ -1,8 +1,3 @@
-"""Drop the columns 0058 copied onto the staff detail rows.
-
-Reversible only as far as the schema goes: reversing recreates empty columns,
-and 0058's reverse copies the values back into them.
-"""
 from django.db import migrations
 
 

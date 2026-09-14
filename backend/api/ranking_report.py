@@ -1,31 +1,3 @@
-"""The Student Ranking page's recommendations, as a workbook to take away.
-
-The three tabs are lists the office has to *act* on somewhere else: an
-Affirmative Action shortlist goes to the Board of Regents, a TES recommendation
-goes onward to UniFAST, and the Faculty and Staff list is endorsed through
-PASUC-8. Up to now the only way off the screen was to retype it.
-
-Two rules shaped what is written here.
-
-**The file says the same thing the page says.** The rows come from the same
-``_..._ranking_data`` functions the page renders, in the same order, with the
-same ranks — so a list filed from this file and a list read off the screen
-cannot disagree. Nothing is re-evaluated on the way out. That includes the
-order: the Affirmative sheet is ordered by target group like the page, not by
-score, because this file is the thing that reaches the Board of Regents.
-
-**A verdict travels with its reason.** These pages exist to be able to say *why*
-a student is on the list or off it, and a spreadsheet that carried only "Not
-Recommended" would strip out the half that matters. TES and Staff therefore get
-a second sheet with one row per rule — its verdict, the reading behind it, and
-the field it was read from — which is the "Why?" panel on the page, flattened.
-The Affirmative tab needs no such sheet: its three rules *are* three columns.
-
-A For Verification row is in the list with its rank left blank rather than held
-into a sheet of its own. It is not a verdict, and the office still has to chase
-it; leaving it on the same sheet means one list to sort and filter, and an empty
-rank cell beside "For Verification" cannot be misread as a position.
-"""
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -38,17 +10,12 @@ TITLES = {
     'Staff': 'Faculty and Staff Scholars',
 }
 
-# What the saved file is called. Not derived from TITLES: "TES Recommendation"
-# would have produced BiPSU_TES_Recommendation_recommendation_<date>.xlsx.
 SLUGS = {
     'Affirmative': 'Affirmative_Action',
     'TES': 'TES',
     'Staff': 'Faculty_and_Staff',
 }
 
-# Written out rather than read off the first evaluation: a column order that
-# depends on whoever happens to sort first is a column order that moves when the
-# list is empty. The keys match RuleResult.key in the two ranking modules.
 RULE_COLUMNS = {
     'TES': [
         ('citizenship', 'Citizenship'),
@@ -72,7 +39,6 @@ SUB = Font(name='Arial', size=10)
 
 
 def _sheet(wb, name, title, subtitles, headers, first=False):
-    """A titled sheet with a frozen header row, ready for its rows."""
     ws = wb.active if first else wb.create_sheet()
     ws.title = name[:31]
 
@@ -103,7 +69,6 @@ def _write(ws, head, rows):
 
 
 def _verdict(evaluation, key):
-    """One rule's verdict, or a dash where the rule did not run for this row."""
     rule = evaluation.rule(key)
     return rule.verdict if rule else '—'
 
@@ -118,8 +83,6 @@ def _reason_rows(evaluations, name_of, id_of):
             ])
     return rows
 
-
-# ── the three tabs ──────────────────────────────────────────────────────────
 
 def _affirmative(wb, data, passing_threshold, stamp):
     ws, head = _sheet(
@@ -165,8 +128,6 @@ def _affirmative(wb, data, passing_threshold, stamp):
             'Yes' if row['not_tes'] else 'No',
             groups.summary,
             groups.count,
-            # Named, not counted. This column exists so the office can go and
-            # ask, and a number cannot be acted on.
             ', '.join(groups.unknown) if groups.unknown else 'None',
             rec.fit_score if row['eligible'] else '',
             status,
@@ -182,9 +143,6 @@ def _tes(wb, data, stamp):
             f'{data["counts"]["eligible"]} eligible · '
             f'{data["counts"]["not_eligible"]} not eligible · '
             f'{data["total"]} students ranked',
-            # The held-back students are a count here for the same reason they
-            # are one on the page: TES is decided on complete records only, and
-            # nothing names who was left out or what they lacked.
             f'{data["counts"]["excluded"]} student(s) not shown — record still '
             'has an unanswered question, so no rule was run against it.',
             'UniFAST awards TES. This is what the SDSO would recommend; producing '
@@ -265,11 +223,6 @@ def _staff(wb, data, stamp):
 
 
 def build(tab, data, passing_threshold=None, generated=None):
-    """One tab's recommendation list as ``(buffer, filename)``.
-
-    ``data`` is what the matching ``_..._ranking_data`` returned, so the file is
-    written from the rows the page was showing rather than from a second query.
-    """
     from django.utils import timezone
 
     when = generated or timezone.localtime()

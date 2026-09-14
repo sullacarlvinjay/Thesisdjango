@@ -1,15 +1,3 @@
-"""The archives tab for students the system has not served.
-
-Every other archives tab answers "who holds scholarship X this term", so a
-student holding nothing appears on none of them. This tab answers the office's
-other question, and splits it by what the office would actually have to do:
-invite someone who never applied, clear the queue for someone waiting, follow up
-a rejection, nudge a draft that was never submitted.
-
-It asks that only of students the office has verified. An account still in the
-registration queue, or turned away from it, cannot sign in to apply at all, so
-it is a decision owed on the accounts screen rather than a student to invite.
-"""
 from django.test import Client, TestCase
 
 from api.models import (
@@ -53,8 +41,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(r.status_code, 200)
         return r
 
-    # ── who appears ─────────────────────────────────────────────────────────
-
     def test_the_tab_is_offered_alongside_the_programmes(self):
         r = self.c.get('/vpsea/archives/?type=Academic')
         self.assertIn(TAB, r.context['archive_types'])
@@ -68,7 +54,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual([r['profile'].student_id for r in rows], ['2024-0002'])
 
     def test_an_award_in_another_term_does_not_count_for_this_one(self):
-        """A scholar who was not renewed this semester is exactly who this is for."""
         lapsed = self._student('Cruz', '2024-0003')
         self._app(lapsed, 'Approved', term='25-2')
 
@@ -76,9 +61,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual([r['profile'].student_id for r in rows], ['2024-0003'])
 
     def test_an_account_the_office_rejected_is_not_listed(self):
-        """Rejected at registration is not "unserved". That person was turned
-        away at the door and cannot sign in to apply at all, so listing them
-        here as a student to follow up misreads what the office decided."""
         turned_away = self._student('Ilagan', '2024-0080')
         turned_away.user.decide_verification('rejected', 'Not on our enrolment list.', None)
         self._student('Jimenez', '2024-0081')
@@ -88,10 +70,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(ctx['total'], 1)
 
     def test_an_account_still_waiting_on_review_is_not_listed(self):
-        """Pending is not "unserved" either. Nobody can sign in until the office
-        decides, so a queued registrant has no way to apply, and this tab would
-        be telling the office to invite someone it has not admitted yet. What
-        that account is owed is a decision on the accounts screen."""
         waiting = self._student('Kalaw', '2024-0082')
         waiting.user.verification_status = 'pending'
         waiting.user.save(update_fields=['verification_status'])
@@ -102,8 +80,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(ctx['total'], 1)
 
     def test_the_account_appears_once_the_office_approves_it(self):
-        """The exclusion is about the queue, not the person — approving the
-        account is what turns them into a student the office can invite."""
         waiting = self._student('Kalaw', '2024-0084')
         waiting.user.verification_status = 'pending'
         waiting.user.save(update_fields=['verification_status'])
@@ -114,9 +90,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual([r['profile'].student_id for r in rows], ['2024-0084'])
 
     def test_an_unconfirmed_address_does_not_hide_a_verified_student(self):
-        """Never opening the confirmation link says nothing about whether the
-        office can serve them — they can sign in and apply. It only means email
-        will not reach them, which is the accounts screen's warning to give."""
         student = self._student('Marquez', '2024-0085')
         student.user.email_verified = False
         student.user.save(update_fields=['email_verified'])
@@ -124,10 +97,8 @@ class UnawardedStudentsTest(TestCase):
         rows = self._rows().context['rows']
         self.assertEqual([r['profile'].student_id for r in rows], ['2024-0085'])
 
-    # ── why they appear ─────────────────────────────────────────────────────
-
     def test_each_row_says_what_the_office_would_have_to_do(self):
-        self._student('Abad', '2024-0010')          # never applied
+        self._student('Abad', '2024-0010')
         pending = self._student('Bello', '2024-0011')
         revising = self._student('Cruz', '2024-0012')
         rejected = self._student('Dizon', '2024-0013')
@@ -140,14 +111,11 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(states, {
             '2024-0010': 'never',
             '2024-0011': 'pending',
-            # Sent back for a correction is still waiting on the student, which
-            # from this tab's point of view is the same as pending.
             '2024-0012': 'pending',
             '2024-0013': 'rejected',
         })
         self.assertEqual(ctx['total'], 4)
 
-        # Unused rows are dropped, so the student's own name reaches the page.
         self.assertContains(self._rows(), 'Abad')
 
     def test_the_most_recent_application_is_the_one_reported(self):
@@ -166,8 +134,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(by_id['2024-0030']['classification'], 'University Scholar')
         self.assertEqual(by_id['2024-0031']['classification'], 'Not Eligible')
 
-    # ── boundaries ──────────────────────────────────────────────────────────
-
     def test_the_tab_is_closed_to_other_offices(self):
         User.objects.create_user(
             username='staff@bipsu.edu.ph', email='staff@bipsu.edu.ph',
@@ -178,11 +144,7 @@ class UnawardedStudentsTest(TestCase):
         r = other.get(f'/vpsea/archives/?type={TAB}')
         self.assertNotEqual(r.status_code, 200)
 
-    # ── editing ─────────────────────────────────────────────────────────────
-
     def test_the_office_can_correct_a_students_details_from_this_tab(self):
-        """The point of the tab: these students have accounts, and the office
-        fixes their typos here rather than hunting for them elsewhere."""
         student = self._student('Delacruz', '2024-0050')
         r = self.c.post(f'/vpsea/archives/student/{student.pk}/edit/', {
             'first_name': 'Maria', 'last_name': 'Dela Cruz',
@@ -228,11 +190,7 @@ class UnawardedStudentsTest(TestCase):
         student.user.refresh_from_db()
         self.assertNotEqual(student.user.first_name, 'Hacked')
 
-    # ── deleting ────────────────────────────────────────────────────────────
-
     def test_the_office_can_delete_a_student_from_this_tab(self):
-        """Editing was the only action here, so a duplicate or a mistyped
-        registration could be corrected but never removed."""
         student = self._student('Ghost', '2024-0100')
         keep = self._student('Stays', '2024-0101')
         user_pk = student.user.pk
@@ -253,8 +211,6 @@ class UnawardedStudentsTest(TestCase):
         self.assertEqual(Application.objects.count(), 0)
 
     def test_a_get_deletes_nobody(self):
-        """A link that deletes on GET is one crawler, or one mistyped URL, away
-        from taking a student out."""
         student = self._student('Safe', '2024-0103')
         r = self.c.get(f'/vpsea/archives/student/{student.pk}/delete/')
         self.assertEqual(r.status_code, 302)
@@ -282,10 +238,7 @@ class UnawardedStudentsTest(TestCase):
         student = self._student('Listed', '2024-0106')
         r = self._rows()
         self.assertContains(r, f'/vpsea/archives/student/{student.pk}/delete/')
-        # Asked through the portal's own confirm dialog, not window.confirm.
         self.assertContains(r, 'data-confirm-tone="danger"')
-
-    # ── the empty state ─────────────────────────────────────────────────────
 
     def test_the_page_holds_up_when_nobody_is_unawarded(self):
         awarded = self._student('Solo', '2024-0040')
@@ -297,12 +250,6 @@ class UnawardedStudentsTest(TestCase):
 
 
 class StudentsScreenNoScholarshipTabTest(TestCase):
-    """The students screen asks the same question on its own tab.
-
-    Hiding a rejected registrant from the archives is no use if the office
-    finds them again one page over, so the two listings agree on who counts.
-    """
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
         Scholarship.objects.create(

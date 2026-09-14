@@ -1,17 +1,5 @@
-"""Copy every staff record and staff application onto their detail rows.
-
-Runs between 0057, which builds the tables, and 0059, which drops the columns
-read here. A row is written for every record and every group, even an empty one,
-for the reason 0050 gives for the student side: a profile reads a missing row as
-"the default a fresh one would hold", which is right, but leaving some records
-short of a row would mean the admin inlines and any query against a detail table
-saw a different population than the parent table does. ``ensure_details`` on
-:class:`~api.models.DetailRows` does the same for every record created after
-this.
-"""
 from django.db import migrations
 
-# parent model -> related name -> (detail model, the columns to carry across)
 DETAIL_GROUPS = {
     'StaffProfile': {
         'employment': ('StaffEmployment', [
@@ -41,7 +29,6 @@ DETAIL_GROUPS = {
     },
 }
 
-# The column on each detail table that points back at its parent.
 DETAIL_LINK = {
     'StaffProfile': 'staff',
     'AffirmativeStaffApplication': 'application',
@@ -65,7 +52,6 @@ def move_forward(apps, schema_editor):
 
 
 def move_backward(apps, schema_editor):
-    """Copy the detail rows back onto their parent, for a reversal of 0059."""
     for parent_name, groups in DETAIL_GROUPS.items():
         Parent = apps.get_model('api', parent_name)
         link = DETAIL_LINK[parent_name]

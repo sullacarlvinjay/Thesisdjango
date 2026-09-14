@@ -1,13 +1,3 @@
-"""Build the detail tables the staff record and its applications split onto.
-
-Three migrations do the split, in the only order that keeps the data: this one
-adds the tables, 0058 copies the columns into them, and 0059 drops the columns
-that have been copied. A single migration would drop the source columns in the
-same transaction that created their replacements.
-
-The same shape 0049-0051 used for the student record, for the same reason.
-"""
-
 import api.validators
 import django.core.validators
 import django.db.models.deletion
@@ -21,12 +11,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Three columns were declared without blank=True or a default, so a
-        # reversal has no value to give the rows already in the table and fails
-        # on the NOT NULL constraint. They are softened here, before 0058 copies
-        # them across, rather than beside the drops in 0059: reversing replays
-        # 0059, then 0058, then this, so the tightening has to be the last step
-        # back or it meets a column 0058's reverse has not filled yet.
         migrations.AlterField(
             model_name='affirmativestaffapplication',
             name='contact_number',

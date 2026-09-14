@@ -1,22 +1,3 @@
-"""A partner uploading a whole term of its own list at once.
-
-The office has had Upload Excel on Scholarship Archives since the beginning. A
-funder adding three hundred scholars one dialog at a time was the same work done
-three hundred times, so the button is on the partner's Scholars page too — and
-the two read a spreadsheet through the same function, so a column can never mean
-one thing to the office and another to the funder who sent the file.
-
-What differs is what an import is allowed to replace, and that is the whole of
-what these tests are about. The office's import clears the term outright. A
-partner's clears **only the rows that are its own**: a scholar the office has
-already matched to a BiPSU student account survives a sheet that does not
-mention them, because that match was a decision somebody made after checking,
-and a spreadsheet arriving afterwards must not be able to quietly undo it.
-
-The two lines a partner cannot cross elsewhere hold here as well — its own
-programmes only, and never an award row — and for the same reason: they are
-part of *finding* what to delete rather than a check remembered afterwards.
-"""
 from io import BytesIO
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -28,16 +9,11 @@ from api.models import (
     StudentProfile, SystemSettings, User,
 )
 
-# The DOST sheet, as COLUMN_MAPS reads it: a row number, then the award number,
-# then the name. Everything past Province is left off on purpose — a funder's
-# own export is never exactly the office's template, and a short row is the
-# ordinary case rather than the broken one.
 HEADER = ['No.', 'Award Number', 'Last Name', 'First Name', 'Middle Name',
           'Sex', 'Brgy./St.', 'Municipality', 'Province']
 
 
 def sheet(rows):
-    """One .xlsx upload carrying these scholars."""
     wb = Workbook()
     ws = wb.active
     ws.append(HEADER)
@@ -52,8 +28,6 @@ def sheet(rows):
 
 
 class PartnerImportFixtures:
-    """One partner that funds DOST, and a CHED list it was never given."""
-
     URL = '/partner/archives/import/'
 
     def setUp(self):
@@ -99,7 +73,6 @@ class ImportingATermTest(PartnerImportFixtures, TestCase):
         self.assertEqual(self.names(term='26-1'), [])
 
     def test_the_office_can_tell_who_sent_the_file(self):
-        """The archive's own column says so, without a column being added."""
         self.upload([('AW-1', 'Santos', 'Maria')])
         row = ImportedScholar.objects.get(last_name='Santos')
         self.assertIn('DOST Region VIII', row.imported_from)
@@ -147,12 +120,6 @@ class WhatAnImportReplacesTest(PartnerImportFixtures, TestCase):
         self.assertEqual(self.names(), ['Santos'])
 
     def test_a_claimed_row_survives_a_sheet_that_forgot_it(self):
-        """The office matched this scholar to a student. A file cannot unmatch.
-
-        The one case this whole endpoint is careful about: the office's import
-        clears the term outright, and doing that here would delete a row the
-        partner is not allowed to so much as edit.
-        """
         self._imported('Matched', claimed_by=self._student())
         self.upload([('AW-1', 'Santos', 'Maria')])
         self.assertEqual(self.names(), ['Matched', 'Santos'])
@@ -192,12 +159,6 @@ class WhatAPartnerMayNotImportTest(PartnerImportFixtures, TestCase):
         self.assertEqual(ImportedScholar.objects.count(), 0)
 
     def test_a_file_that_is_not_a_workbook_destroys_nothing(self):
-        """The parse happens before the delete, which is the point.
-
-        The office's import had this bug once — the term was cleared, then the
-        sheet was read, so a file openpyxl choked on emptied the archive and put
-        nothing back.
-        """
         ImportedScholar.objects.create(
             scholarship_type='DOST', term_label='26-1', last_name='Existing',
             first_name='Maria')
@@ -221,17 +182,6 @@ class WhatAPartnerMayNotImportTest(PartnerImportFixtures, TestCase):
 
 
 class TheOfficeSideOfTheSharedParserTest(TestCase):
-    """The SDSO's own Upload Excel, which reads the sheet through the same code.
-
-    It had no test of its own. Adding the partner's import moved the loop that
-    reads a workbook into `_scholars_from_sheet`, and a shared function wants
-    its other caller held down too — otherwise the next change to the column
-    contract is made against one of the two pages and discovered on the other.
-
-    The office's import is the one that clears a term outright, claimed rows
-    included; that is its prerogative and this says so.
-    """
-
     URL = '/vpsea/archives/import/'
 
     def setUp(self):
@@ -254,8 +204,6 @@ class TheOfficeSideOfTheSharedParserTest(TestCase):
                                               term_label='26-1')
         self.assertEqual(sorted(rows.values_list('last_name', flat=True)),
                          ['Cruz', 'Santos'])
-        # The column past the row number, which is where a DOST sheet differs
-        # from a CoScho one — the half of the contract worth holding down.
         self.assertEqual(rows.get(last_name='Santos').award_number, 'AW-1')
         self.assertEqual(
             ScholarListImport.objects.get(scholarship_type='DOST',

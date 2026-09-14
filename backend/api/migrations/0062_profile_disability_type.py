@@ -1,29 +1,7 @@
-"""Ask which disability instead of whether there is one, and carry the answer over.
-
-``is_pwd`` was a checkbox on the socio-economic row. The same student was also
-asked, on the TES form, to name their disability from CHED's own list — so the
-system held two answers to one question and nothing kept them in step. The
-question is now asked once, in the shape CHED asks it, and ``is_pwd`` is read
-back off it (see ``StudentProfile.is_pwd``).
-
-What a ticked box carried across:
-
-* the disability already named on that student's TES application, when there is
-  one — that is the better record of the two, and the only one that says which;
-* otherwise 'Unspecified Disability'. It records the declaration without
-  inventing a condition to go with it, and reads as PWD everywhere is_pwd is
-  read. The profile form shows it under 'Other', where the student can replace
-  it with the real one.
-
-An unticked box carries nothing: blank already means 'no disability recorded',
-which is what False meant.
-"""
 from django.db import migrations, models
 
 UNSPECIFIED = 'Unspecified Disability'
 
-# What a TESApplication.disability_type holds when the applicant declined the
-# question. Copying one of these across would turn 'no' into a condition.
 DECLINED = {'', 'n/a', 'na', 'n.a.', 'none', 'no', 'not applicable', 'wala', '-', '--', 'nil'}
 
 
@@ -48,7 +26,6 @@ def carry_pwd_onto_the_disability(apps, schema_editor):
         row.disability_type = named.get(row.student_id, UNSPECIFIED)
     Personal.objects.bulk_update(rows, ['disability_type'])
 
-    # A student whose personal row was never written still has to keep the flag.
     missing = pwd_students - {row.student_id for row in rows}
     Personal.objects.bulk_create([
         Personal(student_id=student_id,

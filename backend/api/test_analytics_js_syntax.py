@@ -1,14 +1,3 @@
-"""The analytics page's inline script has to parse, in every filter state.
-
-Every chart on the page is built by one <script> block. A JavaScript error
-anywhere in it stops the rest of the block dead, so a single bad line does not
-cost one chart — it costs every chart below it, and the page comes up with
-empty cards and nothing in the console to explain them to whoever is looking.
-
-The block is assembled by the template out of office-entered programme names
-and per-filter conditionals, so it is generated code, and generated code is
-worth parsing before a browser has to.
-"""
 import json
 import os
 import re
@@ -26,7 +15,6 @@ from api.models import (
 
 NODE = shutil.which('node')
 
-# The chart block is the one that pulls in Chart.js.
 SCRIPTS = re.compile(r'<script>(.*?)</script>', re.S)
 
 
@@ -39,7 +27,6 @@ class AnalyticsScriptParsesTest(TestCase):
             Scholarship.objects.create(
                 name=f'{stype} Scholarship', type=stype, category='application',
                 description='x', eligibility='x', requirements=[])
-        # A programme named by the office, with the punctuation an office uses.
         Scholarship.objects.create(
             name="Governor's Award", type="Governor's Award",
             category='application', description='x', eligibility='x',
@@ -67,14 +54,10 @@ class AnalyticsScriptParsesTest(TestCase):
                   or 'chart-png-btn' in b]
         self.assertTrue(blocks, f'no chart script rendered for {params}')
         source = '\n'.join(blocks)
-        # Written out rather than piped: `node --check` takes a filename,
-        # and given none it sits waiting on a stdin it never reads.
         handle, path = tempfile.mkstemp(suffix='.js')
         try:
             with os.fdopen(handle, 'w', encoding='utf-8') as fh:
                 fh.write(source)
-            # --check parses without running: nothing here needs a DOM, and
-            # a ReferenceError for `document` would say nothing about syntax.
             proc = subprocess.run([NODE, '--check', path],
                                   capture_output=True, text=True, timeout=60)
         finally:
@@ -102,7 +85,6 @@ class AnalyticsScriptParsesTest(TestCase):
                 self.assertParses(stype=stype)
 
     def test_a_programme_name_with_an_apostrophe_survives_the_round_trip(self):
-        """The office types these names, and JS strings are quoted with '."""
         self.award(1, "Governor's Award")
         html = self.c.get('/vpsea/analytics/').content.decode()
         self.assertIn('programChart', html)
@@ -111,20 +93,7 @@ class AnalyticsScriptParsesTest(TestCase):
 
 @unittest.skipIf(NODE is None, 'node is not installed')
 class LegendLabelsFitTest(AnalyticsScriptParsesTest):
-    """Legend labels are shortened before Chart.js draws them.
-
-    A right-hand legend is painted inside the canvas, so a label wider than the
-    space beside the pie is clipped where the canvas ends — the office reported
-    "Bachelor of Science in Business Administ" with the rest of the word gone.
-
-    Cutting on width alone does not fix it: every BiPSU degree opens with
-    "Bachelor of Science in", so a dozen courses cut to a dozen identical
-    labels. The prefix is dropped first, and these run the page's own function
-    in node to prove the labels it produces still tell the courses apart.
-    """
-
     def run_legend(self, labels):
-        """`legendText` from the rendered page, applied to each label."""
         html = self.c.get('/vpsea/analytics/').content.decode()
         block = next(b for b in SCRIPTS.findall(html) if 'legendText' in b)
         start = block.index('const DEGREE_PREFIX')
@@ -137,9 +106,6 @@ class LegendLabelsFitTest(AnalyticsScriptParsesTest):
         try:
             with os.fdopen(handle, 'w', encoding='utf-8') as fh:
                 fh.write(source)
-            # Decoded as UTF-8 rather than the console codepage: the one
-            # character this asserts on is an ellipsis, and cp1252 turns it
-            # into something that is not the character the page writes.
             proc = subprocess.run([NODE, path], capture_output=True, text=True,
                                   encoding='utf-8', timeout=60)
         finally:
@@ -147,7 +113,6 @@ class LegendLabelsFitTest(AnalyticsScriptParsesTest):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         return json.loads(proc.stdout)
 
-    # The labels from the office's own screenshot of the clipped legend.
     REPORTED = [
         'Bachelor of Science in Business Administration',
         'Bachelor of Science in Hospitality Management',
@@ -164,16 +129,12 @@ class LegendLabelsFitTest(AnalyticsScriptParsesTest):
     ]
 
     def test_every_reported_label_fits_without_being_cut(self):
-        """None of the twelve needs an ellipsis once the degree prefix is
-        gone — which is the whole of the reported bug."""
         for label, short in zip(self.REPORTED, self.run_legend(self.REPORTED)):
             with self.subTest(label=label):
                 self.assertNotIn('…', short)
                 self.assertLessEqual(len(short), 26)
 
     def test_the_labels_still_tell_the_courses_apart(self):
-        """The failure mode of a plain width cut: twelve rows reading
-        'Bachelor of Science in Busi…', 'Bachelor of Science in Hosp…'."""
         shortened = self.run_legend(self.REPORTED)
         self.assertEqual(len(set(shortened)), len(self.REPORTED))
         for short in shortened:
@@ -181,13 +142,10 @@ class LegendLabelsFitTest(AnalyticsScriptParsesTest):
                 self.assertNotIn('Bachelor', short)
 
     def test_a_course_stored_as_an_acronym_is_left_alone(self):
-        """Profiles hold 'BSCS'; only the imported sheets spell degrees out.
-        Shortening must not touch what is already short."""
         acronyms = ['BSCS', 'BSEd - Mathematics', 'BSIT - Culinary Technology']
         self.assertEqual(self.run_legend(acronyms), acronyms)
 
     def test_a_name_too_long_even_when_shortened_is_cut_with_an_ellipsis(self):
-        """The cap still exists — it is just no longer what does the work."""
         long_name = 'Bachelor of Science in Hotel and Restaurant Management Technology'
         short = self.run_legend([long_name])[0]
         self.assertTrue(short.endswith('…'))

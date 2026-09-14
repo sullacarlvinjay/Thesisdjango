@@ -6,7 +6,6 @@
 {% block page_subtitle %}Approved scholars by programme and term — {{ active_tab_label }}{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="archives" %}{% endblock %}
 {% block content %}
-<!-- Type Tabs -->
 <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
   <div class="tab-picker">
     <button type="button" data-dl-menu="archiveTabMenu" class="btn btn-primary tab-picker__button" aria-haspopup="true">
@@ -55,7 +54,6 @@
 {% if request.GET.columns_bad %}
 <div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">{{ request.GET.columns_bad }} value{{ request.GET.columns_bad|pluralize }} did not match the kind of data its column holds and {{ request.GET.columns_bad|pluralize:"was,were" }} not saved. Those cells still show what they held before.</div>
 {% endif %}
-<!-- Add Scholar Modal -->
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:38rem;">
     <div class="modal-sheet-head">
@@ -224,7 +222,6 @@
     </div>
   </div>
 </div>
-<!-- Upload Excel Modal -->
 <div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card modal-sheet" style="max-width:30rem;">
     <div class="modal-sheet-head">
@@ -267,7 +264,6 @@
     </div>
   </div>
 </div>
-<!-- New Semester Modal -->
 <div id="newSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
     <h3 class="font-semibold mb-4">Start New Semester</h3>
@@ -286,7 +282,6 @@
     </form>
   </div>
 </div>
-<!-- Undo Semester Modal -->
 <div id="undoSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
     <h3 class="font-semibold mb-2">Undo to Previous Semester</h3>
@@ -389,9 +384,6 @@
 <script src="{% static 'js/table-filter.js' %}?v=2"></script>
 <script src="{% static 'js/dl-menu.js' %}?v=1"></script>
 <script>
-  // Course options follow the chosen school, using the same BiPSU mapping the
-  // student form uses. Course was a free-text box until now, which is how a
-  // record ended up reading "Batchelor of Science in Computer Science ".
   var ARCH_COURSES = {{ bipsu_courses_json|safe }};
   function archFillCourses(schoolSelId, courseSelId, wanted) {
     var school = document.getElementById(schoolSelId).value;
@@ -403,8 +395,6 @@
       if (c === wanted) opt.selected = true;
       sel.appendChild(opt);
     });
-    // A course typed in before these were dropdowns may match no school. Keep
-    // it selectable rather than silently blanking the field on save.
     if (wanted && sel.value !== wanted) {
       var keep = document.createElement('option');
       keep.value = wanted;
@@ -473,7 +463,6 @@ function openEdit(pk, first, last, sid, gender, course, year, barangay, municipa
   if (document.getElementById('editContact')) document.getElementById('editContact').value = contact || '';
   if (document.getElementById('editAward')) document.getElementById('editAward').value = award;
   if (document.getElementById('editCongress')) document.getElementById('editCongress').value = congress;
-  // Clear password fields every time the modal opens
   document.getElementById('editPassword').value = '';
   document.getElementById('editPasswordConfirm').value = '';
   document.getElementById('editPasswordError').style.display = 'none';
@@ -497,7 +486,6 @@ function openDelete(pk, name) {
   document.getElementById('deleteModal').style.display = 'flex';
 }
 </script>
-<!-- Edit Modal -->
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:32rem;">
     <div class="modal-sheet-head">
@@ -667,7 +655,6 @@ function openDelete(pk, name) {
     </div>
   </div>
 </div>
-<!-- Delete Confirm Modal -->
 <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:24rem;">
     <h3 class="font-semibold mb-2">Delete Scholar</h3>

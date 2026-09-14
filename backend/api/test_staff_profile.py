@@ -1,9 +1,3 @@
-"""The BiPSU Staff 'My Profile' page reads and writes the staff member's own record.
-
-Employment details used to be written into whichever AffirmativeStaffApplication
-was found by email address. They live on StaffProfile now; the application is
-the snapshot the office reviewed and this page must not touch it.
-"""
 from datetime import date
 
 from django.test import TestCase, Client
@@ -89,7 +83,6 @@ class StaffProfileEmploymentFieldsTest(TestCase):
         expected = date.today().year - 2016 - ((date.today().month, date.today().day) < (6, 1))
         self.assertEqual(staff.years_of_service, expected)
         html = self.c.get('/nsu-staff/profile/').content.decode()
-        # The typed count is no longer asked for once the hiring date is known.
         self.assertNotIn('name="years_of_service"', html)
 
     def test_fields_can_be_cleared_again(self):
@@ -111,7 +104,6 @@ class StaffProfileEmploymentFieldsTest(TestCase):
         staff = self._profile()
         self.assertIsNone(staff.declared_years_of_service)
         self.assertIsNone(staff.date_of_regularization)
-        # The valid fields in the same submission still went through.
         self.assertEqual(staff.employment_status, 'Regular')
 
     def test_an_employee_id_already_on_another_record_is_refused(self):
@@ -126,8 +118,6 @@ class StaffProfileEmploymentFieldsTest(TestCase):
 
 
 class StaffProfileVisibilityTest(TestCase):
-    """The employment section belongs to the employee, not to an application."""
-
     def setUp(self):
         self.user = User.objects.create_user(
             username='staff2@bipsu.edu.ph', email='staff2@bipsu.edu.ph', password='pw',
@@ -148,7 +138,6 @@ class StaffProfileVisibilityTest(TestCase):
         r = self.c.get('/nsu-staff/profile/')
         self.assertContains(r, 'name="employment_status"')
         self.assertContains(r, 'name="employee_id"')
-        # The apply CTA still shows — there is genuinely no application yet.
         self.assertContains(r, 'have not applied for the')
         self.assertContains(r, 'href="/nsu-staff/apply/"')
 

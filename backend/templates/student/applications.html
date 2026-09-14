@@ -47,7 +47,6 @@
     </table>
   </div>
 </div>
-<!-- ── Overlay Modal ─────────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -57,7 +56,6 @@
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
-<!-- ── Hidden detail templates (one per application) ─────────────────────── -->
 <div style="display:none;">
   {% for a in applications %}
   <div id="app-{{ a.id }}">

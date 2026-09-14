@@ -43,8 +43,6 @@
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">REN-{{ r.id|stringformat:"07d" }}</td>
           <td style="padding:0.6rem 0.75rem;font-weight:500;">{{ r.student.user.get_full_name }}</td>
           <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ r.student.student_id }}</td>
-          <!-- Which award this renews. A scholar on two programmes files two
-               renewals, and without this the office reads two identical rows. -->
           <td style="padding:0.6rem 0.75rem;"><span class="badge badge-muted">{{ r.get_scholarship_type_display }}</span></td>
           <td style="padding:0.6rem 0.75rem;">
             {% if r.certificate_of_grades %}<a href="{{ r.certificate_of_grades.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Grades" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:#6b7a99;">—</span>{% endif %}
@@ -68,7 +66,6 @@
     </table>
   </div>
 </div>
-<!-- Review Modal -->
 <div id="renModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
   <div class="card" style="width:100%;max-width:32rem;padding:1.5rem;margin:1rem;">
     <div class="flex items-center justify-between mb-4">

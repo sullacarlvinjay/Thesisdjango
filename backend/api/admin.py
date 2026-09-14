@@ -16,9 +16,6 @@ from .models import (
 class UserAdmin(BaseUserAdmin):
     fieldsets = BaseUserAdmin.fieldsets + (('Role', {'fields': ('role',)}),)
 
-# The detail rows edit alongside the record they belong to rather than as
-# separate entries in the sidebar — they are one student's record, not seven
-# records, and one employee's record, not three.
 STUDENT_DETAIL_MODELS = (
     EnrollmentData, PersonalInformation, AffirmativeEligibility,
     SocioEconomicProfile, TESEligibility, EducationalBackground, FamilyBackground,
@@ -35,13 +32,6 @@ STAFF_APPLICATION_DETAIL_MODELS = (
 
 
 def detail_inlines(models):
-    """A StackedInline per detail model, built rather than written out.
-
-    ``can_delete=False`` because a detail row is part of its parent record: a
-    missing one reads as the defaults a fresh one would hold, so deleting it
-    from the admin looks like clearing a group and is really removing the row
-    every other screen expects to be there.
-    """
     return [
         type(f'{model.__name__}Inline', (admin.StackedInline,),
              {'model': model, 'can_delete': False, 'extra': 0})

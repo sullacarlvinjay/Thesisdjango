@@ -1,10 +1,3 @@
-"""A partner's own column layout, and the wall between it and the office's.
-
-Both offices lay the same programme out the way they report it, and those are
-not the same list. A partner's edit therefore goes to its own override row —
-writing it onto ``Scholarship`` would rearrange the SDSO's archive from outside
-the university, which is the failure this whole model exists to prevent.
-"""
 from django.test import Client, TestCase
 
 from api import scholar_columns
@@ -38,8 +31,6 @@ class PartnerColumnFixtures:
 
 class OverrideResolutionTest(PartnerColumnFixtures, TestCase):
     def test_no_override_means_the_offices_own_table(self):
-        """A partner that has never rearranged anything sees what everyone
-        else sees, not an empty table."""
         keys = [c['key'] for c in scholar_columns.resolve(
             self.dost, 'DOST', override=None)]
         self.assertEqual(keys, ['last_name', 'first_name', 'course'])
@@ -72,7 +63,6 @@ class PartnerSetsItsOwnLayoutTest(PartnerColumnFixtures, TestCase):
     PAGE = '/partner/columns/'
 
     def test_saving_a_layout_writes_only_the_partners_own_row(self):
-        """The assertion that matters: the SDSO's table is untouched."""
         before = list(self.dost.table_columns)
         r = self.c.post(self.PAGE, {
             'type': 'DOST', 'table_columns': ['course', 'last_name']})
@@ -102,8 +92,6 @@ class PartnerSetsItsOwnLayoutTest(PartnerColumnFixtures, TestCase):
         self.assertEqual(headings, ['Course', 'Last Name'])
 
     def test_resetting_removes_the_row_rather_than_storing_an_empty_one(self):
-        """No row means "follow the office"; an empty list would mean "show
-        nothing", and those are different answers."""
         self.c.post(self.PAGE, {'type': 'DOST', 'table_columns': ['course']})
         self.c.post(self.PAGE, {'type': 'DOST', 'action': 'reset',
                                 'table_columns': ['course']})
@@ -154,7 +142,6 @@ class PartnerSetsItsOwnLayoutTest(PartnerColumnFixtures, TestCase):
         self.assertFalse(PartnerTableColumns.objects.exists())
 
     def test_the_office_still_sees_its_own_table_after_a_partner_rearranges(self):
-        """End to end, through the SDSO's own archive page."""
         self.c.post(self.PAGE, {'type': 'DOST', 'table_columns': ['course', 'last_name']})
 
         User.objects.create_user(
@@ -167,8 +154,6 @@ class PartnerSetsItsOwnLayoutTest(PartnerColumnFixtures, TestCase):
 
 
 class PickerShowsTheTableOrderTest(TestCase):
-    """The picker answers "what does this table look like", numbered."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
         User.objects.create_user(
@@ -189,7 +174,6 @@ class PickerShowsTheTableOrderTest(TestCase):
         self.assertFalse(any(c['chosen'] for c in catalogue[2:]))
 
     def test_an_unconfigured_programme_shows_its_default_table_already_ticked(self):
-        """Sixteen empty boxes misrepresented a table that does print columns."""
         blank = Scholarship.objects.create(
             name='Blank', type='Blank', category='application',
             description='x', eligibility='x', requirements=[])

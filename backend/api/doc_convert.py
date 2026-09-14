@@ -1,22 +1,3 @@
-"""Turn the office's own .docx / .xlsx into a PDF, for previewing on screen.
-
-The Reports tabs are meant to show the actual document each office files — the
-Word masterlist and the CHED Annex 2 workbook — rather than a redrawing of it,
-so the very bytes the download produces are what get converted here.
-
-LibreOffice does the conversion. It reads both formats, runs headless, and
-behaves the same on a Windows desktop and on a Linux host. Word and Excel
-automation was tried and rejected: Excel refuses COM calls under a Click-to-Run
-install, and a failed run strands an invisible WINWORD.EXE holding the office
-template locked — not something a page view should be able to do.
-
-Converting costs a second or two, so a result is cached under a digest of the
-source bytes: the same masterlist previews instantly until a record changes.
-
-When LibreOffice is not installed the callers fall back to ``report_pdf``,
-which lays the same rows out itself, and the page says so. The download is the
-real document either way.
-"""
 import hashlib
 import os
 import shutil
@@ -26,8 +7,6 @@ import tempfile
 
 TIMEOUT_SECONDS = 90
 
-# Looked at in order. The environment variable comes first so a host can point
-# at an install none of the well-known paths cover.
 ENV_VAR = 'SOFFICE_PATH'
 WINDOWS_PATHS = [
     r'C:\Program Files\LibreOffice\program\soffice.exe',
@@ -38,15 +17,14 @@ POSIX_NAMES = ['soffice', 'libreoffice']
 
 
 class ConversionUnavailable(RuntimeError):
-    """No LibreOffice on this machine — the caller should fall back."""
+    pass
 
 
 class ConversionFailed(RuntimeError):
-    """LibreOffice is installed but did not produce a PDF."""
+    pass
 
 
 def soffice_path():
-    """The LibreOffice executable, or None if this machine has none."""
     override = os.environ.get(ENV_VAR)
     if override and os.path.exists(override):
         return override
@@ -70,12 +48,8 @@ def available():
 def _cache_dir():
     from django.conf import settings
 
-    # Deliberately outside MEDIA_ROOT: in DEBUG that directory is served, and a
-    # scholars masterlist is not something to leave behind a guessable URL.
     path = os.path.join(str(settings.BASE_DIR), '.report_cache')
     os.makedirs(path, exist_ok=True)
-    # The project has no .gitignore, so the cache ignores itself rather than
-    # having converted reports turn up in someone's next commit.
     marker = os.path.join(path, '.gitignore')
     if not os.path.exists(marker):
         with open(marker, 'w', encoding='utf-8') as handle:
@@ -84,12 +58,6 @@ def _cache_dir():
 
 
 def to_pdf(data, suffix):
-    """Convert document bytes to PDF bytes.
-
-    ``suffix`` is the source extension ('.docx', '.xlsx'). Raises
-    ConversionUnavailable when LibreOffice is missing, ConversionFailed when it
-    is present but the conversion did not come out.
-    """
     executable = soffice_path()
     if executable is None:
         raise ConversionUnavailable(
@@ -107,8 +75,6 @@ def to_pdf(data, suffix):
         with open(source, 'wb') as handle:
             handle.write(data)
 
-        # Its own profile directory, so a copy of LibreOffice the user already
-        # has open cannot make this call return without converting anything.
         profile = os.path.join(work, 'profile')
         command = [
             executable,
@@ -136,8 +102,6 @@ def to_pdf(data, suffix):
         with open(produced, 'rb') as handle:
             pdf = handle.read()
 
-    # Written beside the cache and moved into place, so a reader never opens a
-    # half-written file.
     partial = f'{cached}.{os.getpid()}.part'
     with open(partial, 'wb') as handle:
         handle.write(pdf)

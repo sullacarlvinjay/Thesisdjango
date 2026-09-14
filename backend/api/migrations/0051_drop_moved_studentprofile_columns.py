@@ -1,8 +1,3 @@
-"""Drop the StudentProfile columns 0050 copied onto the detail rows.
-
-Reversible only as far as the schema goes: reversing recreates empty columns,
-and 0050's reverse copies the values back into them.
-"""
 import api.validators
 import django.core.validators
 from django.db import migrations, models
@@ -15,10 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # `course` was the one column declared without blank=True or a default,
-        # so re-adding it on a reversal had no value to give the rows already in
-        # the table and failed on the NOT NULL constraint. Softened first, the
-        # drop reverses into an empty column that 0050's reverse then fills.
         migrations.AlterField(
             model_name='studentprofile',
             name='course',

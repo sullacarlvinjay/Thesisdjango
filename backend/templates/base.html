@@ -4,18 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{% block title %}BiPSU SRMS{% endblock %}</title>
+  {% include '_favicon.html' %}
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
-          // The BiPSU face: a plain sans-serif, resolved from --font-sans in
-          // srms.css so the typeface is set in exactly one place.
           fontFamily: { sans: ['var(--font-sans)'] },
           colors: {
-            // Pointed at the design tokens in srms.css so Tailwind utilities
-            // follow whichever portal identity the page is wearing.
             primary: { DEFAULT: 'var(--brand)', soft: 'var(--brand-soft)', foreground: 'var(--on-brand)' },
             accent:  { DEFAULT: 'var(--accent)', foreground: 'var(--on-accent)' },
             success: { DEFAULT: '#2f9e44', foreground: '#ffffff' },
@@ -38,7 +35,7 @@
     }
   </script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=52" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
   
   <script src="{% static 'js/skeleton.js' %}?v=2"></script>
   {% block extra_head %}{% endblock %}
@@ -81,11 +78,6 @@
   </div>
 </div>
 <div class="flex min-h-screen w-full">
-  <!-- Sidebar. Sticky and exactly one screen tall, so it stays put while the
-       page scrolls and Sign out never slides off the bottom of a long page.
-       self-start is what makes sticky work here: without it the flex row
-       stretches the aside to the full page height and it has nowhere to stick.
-       A nav too long for the screen scrolls inside itself. -->
   <aside id="appSidebar"
          class="app-sidebar fixed lg:sticky top-0 bottom-0 lg:bottom-auto left-0 z-50 lg:z-auto
                 w-64 shrink-0 flex flex-col self-start h-screen
@@ -109,9 +101,7 @@
       </a>
     </div>
   </aside>
-  <!-- Main content -->
   <div class="flex flex-1 flex-col min-w-0">
-    <!-- Header -->
     <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 lg:gap-4 px-4 lg:px-8" style="background:color-mix(in srgb, var(--surface) 85%, transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);">
       <button type="button" id="sidebarToggle" class="lg:hidden p-2 -ml-2 rounded-lg shrink-0 sidebar-toggle"
               aria-label="Open menu" aria-controls="appSidebar" aria-expanded="false">
@@ -187,21 +177,14 @@
     document.getElementById('icon-moon').classList.toggle('hidden', isDark);
     document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
   }
-  // Sync icon on load
   (function() {
     const isDark = document.documentElement.classList.contains('dark');
     document.getElementById('icon-moon').classList.toggle('hidden', isDark);
     document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
   })();
 </script>
-<!-- The drawer's backdrop. Only ever visible below lg, where .app-sidebar
-     leaves the flow and slides in over the page. -->
 <div id="sidebarBackdrop" class="sidebar-backdrop lg:hidden" hidden></div>
 <script src="{% static 'js/mobile-nav.js' %}?v=1"></script>
-<!-- ── Confirm dialog ────────────────────────────────────────────
-     Anything marked data-confirm asks here instead of through window.confirm(),
-     which the browser labels with the host name and will not style. Driven by
-     static/js/confirm-dialog.js. -->
 <div id="confirmDialog" class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
   <div class="confirm-backdrop"></div>
   <div class="confirm-panel">
@@ -214,10 +197,6 @@
   </div>
 </div>
 <script src="{% static 'js/confirm-dialog.js' %}?v=1"></script>
-<!-- ── Document viewer ──────────────────────────────────────────────────────
-     Any link marked with data-doc opens here instead of a new tab. The href is
-     kept so middle-click still works and the link degrades to a plain download
-     if JavaScript is unavailable. -->
 <div id="docViewer" class="doc-viewer" role="dialog" aria-modal="true" aria-labelledby="docViewerTitle" hidden>
   <div class="doc-viewer-backdrop" data-doc-close></div>
   <div class="doc-viewer-panel">
@@ -282,16 +261,14 @@
   };
   window.closeDoc = function () {
     viewer.hidden = true;
-    body.innerHTML = '';               // stop any PDF/video still loading
+    body.innerHTML = '';
     document.body.style.overflow = '';
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   };
-  // Delegated so links rendered later by page scripts work too.
   document.addEventListener('click', function (e) {
     if (e.target.closest('[data-doc-close]')) { e.preventDefault(); window.closeDoc(); return; }
     var link = e.target.closest('a[data-doc]');
     if (!link) return;
-    // Let people deliberately break out to a real tab.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
     window.openDoc(link.getAttribute('href'), link.getAttribute('data-doc') || link.textContent.trim());

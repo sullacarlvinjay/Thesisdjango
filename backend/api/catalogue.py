@@ -1,60 +1,3 @@
-"""The scholarship programmes BiPSU actually runs.
-
-Kept apart from any one command because two of them need it and they must not
-drift: ``seed`` builds a demo database on a laptop, ``bootstrap`` prepares a
-real deployment. A programme missing from one and present in the other shows up
-as a scholarship students can see in testing and not in production -- which is
-exactly what happened before this list was taken from the real catalogue.
-
-``group`` is the field to be careful with. It decides which office reviews the
-programme and which report a scholar appears in, and it defaults to
-``internal``, so a row that simply omits it is quietly filed as a BiPSU-funded
-programme. Most of these are not: TDP, DOST, CHED, CoScho, GSIS and TES are all
-externally funded.
-"""
-
-# Generated from the working catalogue rather than written by hand. ``type`` is
-# the key the approval routes look a programme up by, so it is what
-# ensure_scholarships() matches on; a missing type does not raise, it just
-# produces no award, and the scholar never reaches the masterlist.
-# ── Benefit figures below are quoted from the UniFAST 2026 guidelines
-#    (Board Resolution No. 2026-012, 08 July 2026, effective 1st Semester
-#    AY 2026-2027) for TES, TDP and FHE. They are the amounts a student reads
-#    on the landing page, so they are revisited whenever the Board revises a
-#    rate — both decks say the amounts "may be increased as determined and
-#    approved by the UniFAST Board".
-#
-#    BiPSU is a state university, so the SUC rate is the one quoted. The
-#    private-HEI rate in the same section (₱13,500 a semester) is deliberately
-#    left out: no BiPSU student is paid on it, and printing both invites a
-#    grantee to expect the larger one.
-#
-# ── Academic, Sports, Staff, DOST, JLSS, CHED and CoScho are taken from
-#    BiPSU's own "Scholarship Flow" charter (supplied 2026-09-12), which sets
-#    out the citizens-charter checklists for the internal programmes and
-#    reproduces the external agencies' own published terms.
-#
-#    Two figures in it are load-bearing and come from named instruments:
-#    Sports is Board Resolution No. 14, s. 2023 (₱5,000-₱10,000 a semester),
-#    and CHED Merit is the CMSP's ₱80,000 Full / ₱40,000 Half annual package.
-#    CoScho's ₱195,000 splits ₱80,000 in regular allowances (stipend + books,
-#    both per semester) against ₱115,000 in one-off allowances (thesis/OJT,
-#    one conference, a laptop).
-#
-#    The charter also carries TES and TDP sections, and they are NOT the
-#    source for those two entries -- it predates the 2026 guidelines above and
-#    quotes the older rates (TES by academic year, plus a PHEI rate; no SARDO
-#    and no solo-parent/IP top-up). Where the two disagree the deck wins.
-#
-#    Two gaps the decks left are filled from the charter, on Juniel's word
-#    (2026-09-12) and only because neither contradicts a figure the decks
-#    stated: TES `requirements`, which was empty and rendered a blank card,
-#    and TDP's ₱400,000 household income ceiling. Nothing else in those two
-#    entries is the charter's to touch.
-#
-#    Still unsourced: GSIS and SUC-TDP, which the charter does not mention,
-#    and the benefit lists for DOST, JLSS and Staff, which it describes
-#    without ever pricing. Those remain the office's to confirm.
 SCHOLARSHIPS = [   {   'name': 'Academic Scholarship',
         'type': 'Academic',
         'category': 'application',
@@ -317,31 +260,6 @@ SCHOLARSHIPS = [   {   'name': 'Academic Scholarship',
                       'trophies won, and pictures — rather than on a coach’s '
                       'endorsement alone.',
         'is_active': True},
-    # ── Affirmative Action ──────────────────────────────────────────────────
-    #    Taken from the PASUC-8 proposal "Affirmative Action Program for State
-    #    Colleges and Universities in Region 8 (SUCs-8) To Provide Access to
-    #    Quality Education for Underprivileged / Marginalized Students" —
-    #    proponents CHED R8, PASUC 8, DSWD 8 and DepEd 8 — which commenced 1st
-    #    Semester SY 2021-2022. Criteria are its section 2, benefits its
-    #    section 4, the mentor and the retention waiver its section 7.
-    #
-    #    The ₱2,500 living allowance is that document's own figure. It dates
-    #    from 2021, so it carries the same caveat as the UniFAST rates above:
-    #    it is the office's to confirm against any later Board revision.
-    #
-    #    Two things this entry had backwards, written down because a later
-    #    reader would otherwise put them back:
-    #
-    #    * **The four groups are who the programme is for, not a document
-    #      gate.** It read 'IP member or PWD', asking for an IP certificate or
-    #      a PWD ID — which turned away the other half of the mandate, students
-    #      from public schools and from depressed areas, over a document the
-    #      criteria never mention. What is actually required is the two
-    #      certifications in 2a and 2b.
-    #    * **Tuition is not what this programme pays.** Benefit 4b is precisely
-    #      what UniFAST does *not* cover — RLE, OJT, internship, the rest.
-    #      Listing tuition credited this programme with what free higher
-    #      education already gives every qualified SUC student.
     {   'name': 'Affirmative Action',
         'type': 'Affirmative',
         'category': 'recommendation',
@@ -631,17 +549,6 @@ SCHOLARSHIPS = [   {   'name': 'Academic Scholarship',
 
 
 def ensure_scholarships():
-    """Make the database agree with the catalogue above. Returns (added, updated).
-
-    Matched on ``type``, not name: the name is the part most likely to be
-    reworded, while the type is what the code looks programmes up by.
-
-    Existing rows are brought back into line rather than left alone. This list
-    is the definition of the programmes, so wording is changed here and shipped;
-    the alternative -- creating only what is missing -- is how a deployment ends
-    up with programmes filed under the wrong office and no way to correct them
-    without a shell.
-    """
     from .models import Scholarship
 
     added, updated = [], []

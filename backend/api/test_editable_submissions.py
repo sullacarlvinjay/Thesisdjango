@@ -1,14 +1,3 @@
-"""A student correcting a submission the office has not decided on.
-
-This replaced the Draft status. A draft was invisible to the office and
-unchaseable for the applicant; a submission is real the moment it is sent and
-stays open to correction until a decision lands on it — including while the
-office is asking for one, which is what 'Needs Revision' means.
-
-Approved and Rejected are final. A student can no more edit those than a
-reviewer can overwrite them; see api/test_decision_is_final.py for the other
-half of that line.
-"""
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
@@ -32,11 +21,6 @@ class StudentMixin:
         self.user = User.objects.create_user(
             username='ana@bipsu.edu.ph', email='ana@bipsu.edu.ph', password='pw',
             first_name='Ana', last_name='Lim', role='student')
-        # Sex and the mother's name are on here because the TES form refuses a
-        # profile without them — CHED marks those columns Required and the form
-        # reads them rather than asking. These tests are about whether a
-        # submission can be corrected, not about that gate; see
-        # api/test_tes_form_fields.py for the gate itself.
         self.profile = StudentProfile.objects.create(
             user=self.user, student_id='2022-00111', course='BSCS', year_level=3,
             gwa=1.25, gender='Female',
@@ -80,7 +64,6 @@ class EditAnApplicationTest(StudentMixin, TestCase):
         self.assertNotIn('You cannot apply to another scholarship', html)
 
     def test_a_needs_revision_application_can_be_corrected_and_goes_back_in_the_queue(self):
-        """The whole point: the office said the document was wrong."""
         self.apply()
         app = Application.objects.get(student=self.profile)
         app.status = 'Needs Revision'
@@ -129,9 +112,6 @@ class EditARenewalTest(StudentMixin, TestCase):
 
     def setUp(self):
         super().setUp()
-        # A renewal continues an award, and the form is built from the ones the
-        # student holds — one on nothing is told there is nothing to renew.
-        # These tests are about correcting a submission, so they need a scholar.
         Application.objects.create(
             student=self.profile, scholarship=self.scholarship, status='Approved',
             school_year='2026-2027', semester='1st Semester')

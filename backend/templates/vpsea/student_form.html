@@ -14,9 +14,7 @@
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
   <div class="grid {% if action == 'Edit' %}xl:grid-cols-4 lg:grid-cols-3{% else %}lg:grid-cols-3{% endif %} gap-6">
-    <!-- LEFT: main sections -->
     <div class="{% if action == 'Edit' %}xl:col-span-3 lg:col-span-2{% else %}lg:col-span-2{% endif %} space-y-6">
-      <!-- Account Credentials -->
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Account Credentials</h3>
         <div class="grid sm:grid-cols-2 gap-4">
@@ -46,7 +44,6 @@
           </div>
         </div>
       </div>
-      <!-- Personal Information -->
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
         <div class="grid sm:grid-cols-2 gap-4">
@@ -105,7 +102,6 @@
           </div>
         </div>
       </div>
-      <!-- Enrollment Data -->
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Enrollment Data</h3>
         <div class="grid sm:grid-cols-2 gap-4">
@@ -174,7 +170,6 @@
           </div>
         </div>
       </div>
-      <!-- Educational Background -->
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Educational Background</h3>
         <div class="grid sm:grid-cols-2 gap-4">
@@ -192,7 +187,6 @@
           </div>
         </div>
       </div>
-      <!-- Family Background -->
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
         <div class="grid sm:grid-cols-2 gap-4">
@@ -214,7 +208,6 @@
           </div>
         </div>
       </div>
-      <!-- Academic Information — only meaningful alongside an application -->
       {% if show_application_fields %}
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Academic Information</h3>
@@ -235,7 +228,6 @@
         </div>
       </div>
       {% endif %}
-      <!-- Document Upload — an application's requirements, not a student's -->
       {% if show_application_fields %}
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#3b5bdb;">Document Upload</h3>
@@ -266,10 +258,8 @@
       </div>
       {% endif %}
     </div>
-    <!-- RIGHT: Validation sidebar + (Edit only) read-only profile info -->
     <div class="space-y-6">
       {% if action == 'Edit' %}
-      <!-- Read-only Personal Info panel — student-entered data the SDSO can see but only the student edits -->
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#6b7a99;">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h3>
         <p class="text-xs mb-4" style="color:#6b7a99;">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
@@ -320,9 +310,6 @@
         </div>
       </div>
       {% endif %}
-      <!-- Auto-Validation card. The Save and Cancel buttons live in here, so
-           only the validation content is conditional: GWA eligibility means
-           nothing for a student who is not applying for anything. -->
       <div class="card p-6 sticky top-24">
         {% if show_application_fields %}
         <div class="flex items-center gap-2 mb-3">
@@ -364,11 +351,9 @@
       sel.appendChild(opt);
     });
   }
-  // Init on load
   document.addEventListener('DOMContentLoaded', function() {
     var schoolSel = document.getElementById('schoolSelect');
     if (schoolSel && schoolSel.value) updateCourseDropdown();
-    // If no school selected but course exists, find the school
     if (schoolSel && !schoolSel.value && currentCourse) {
       for (var school in BIPSU_COURSES) {
         if (BIPSU_COURSES[school].indexOf(currentCourse) !== -1) {
@@ -391,7 +376,6 @@
   }
   if (bdField && bdField.value) ageField.value = calcAge(bdField.value);
   if (bdField) bdField.addEventListener('change', () => { ageField.value = calcAge(bdField.value); });
-  // Init validation on load if GWA already set
   const gwaInput = document.getElementById('gwaInput');
   if (gwaInput && gwaInput.value) validateGWA(gwaInput.value);
   function validateGWA(val) {

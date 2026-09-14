@@ -1,37 +1,6 @@
-/* ==========================================================================
-   BiPSU SRMS — Main Stylesheet
-
-   One design system. Radius, spacing, shadows, typography and component
-   structure are shared by every page, and so is the colour: the university's
-   blue and yellow. That happens through the custom properties below, so a
-   component is written once and themed by where it is rendered.
-
-       data-portal="student"  Landing page + student portal — blue + yellow
-       data-portal="vpsea"    VPSEA / SDSO — the same blue + yellow
-       data-portal="staff"    BiPSU Staff portal — the same blue + yellow
-
-   Every portal is BiPSU's and wears the university's colour. The attribute
-   stays because it is what lets one of them differ without a template knowing;
-   base.html sets it from the signed-in role, so pages inherit the right
-   identity without any per-template styling.
-
-   Dark mode is authored, not inverted: only the surface and text tokens move,
-   so the blue and the yellow stay themselves in either mode.
-   ========================================================================== */
-
-
-/* --------------------------------------------------------------------------
-   0. Design tokens
-   -------------------------------------------------------------------------- */
-
 :root {
-  /* Type. BiPSU's face is a plain sans-serif; every rule below and the Tailwind
-     config in base.html read this one token, so the typeface changes in exactly
-     one place. Nothing is fetched over the network — a demo on a bad connection
-     renders in the right face rather than falling back mid-presentation. */
   --font-sans: 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
 
-  /* Structure — identical across all identities. */
   --radius-sm: 0.4rem;
   --radius:    0.5rem;
   --radius-lg: 0.75rem;
@@ -43,7 +12,6 @@
 
   --speed: 0.15s;
 
-  /* Surfaces and text — light mode. */
   --bg:            #f6f8fc;
   --surface:       #ffffff;
   --surface-2:     #f1f3f9;
@@ -54,22 +22,16 @@
   --text-muted:    #6b7a99;
   --text-soft:     #374151;
 
-  /* Brand — the student / landing identity is the default. */
   --brand:        #0000ff;
   --brand-strong: #0000c4;
   --brand-soft:   #e8e8ff;
   --on-brand:     #ffffff;
   --accent:       #fde607;
   --accent-pure:  #fde607;
-  --accent-strong:#e2ce00;   /* the accent pressed or hovered — darker, not paler */
+  --accent-strong:#e2ce00;
   --on-accent:    #0000ff;
   --ring:         rgba(0, 0, 255, 0.22);
 
-  /* The sidebar. One panel in every portal, in the landing hero's blue — the
-     same #0000ff the photo washes are built from, so the navigation and the
-     hero read as the same surface. Written as literal blues rather than
-     var(--brand) on purpose: UniFAST's brand is orange, and its sidebar must
-     still be this blue. */
   --sidebar-bg:      #0000ff;
   --sidebar-bg-2:    #0000c4;
   --sidebar-border:  rgba(255, 255, 255, 0.20);
@@ -79,24 +41,9 @@
   --sidebar-hover:   #fde607;
   --sidebar-hover-bg:rgba(253, 230, 7, 0.16);
   --on-sidebar-hover:#0000ff;
-  /* The photo washes. Kept here so the pages that use them stay in step and
-     the strength can be tuned in one place.
-
-     A deep indigo rather than the brand's own #0000ff. Pure blue at 84% over a
-     photograph is the most saturated thing a screen can show — it flattened the
-     campus behind it into one electric field of colour and left the yellow call
-     to action fighting it. Same hue family, much less shouting, and the picture
-     underneath is legible as a picture again. The brand blue is untouched
-     everywhere it is the interface rather than a wash over a photograph.
-
-     The soft end is not as light as it could be, though. White body text sits
-     over the middle of these photographs and the campus buildings are pale
-     concrete — at 0.56 the subtitle was fighting the wall behind it. 0.66 still
-     shows the picture and keeps the text on a ground it can be read against. */
   --wash-strong: rgba(26, 33, 104, 0.84);
   --wash-soft:   rgba(38, 49, 134, 0.66);
 
-  /* Status colours — shared, so a warning reads the same in every office. */
   --ok:        #2f9e44;
   --ok-bg:     #f0fdf4;
   --ok-border: #bbf7d0;
@@ -111,17 +58,6 @@
   --danger-border: #fecaca;
 }
 
-/* VPSEA / SDSO and the BiPSU Staff portal both wear the university's own blue
-   and yellow — no per-office identity beyond the seal in the sidebar. They
-   declare nothing here and inherit :root, which is the whole point: the SDSO's
-   indigo and the staff portal's green were the two colours that made the three
-   portals look like three different products. Nothing overrides them now. */
-
-
-/* --------------------------------------------------------------------------
-   1. Base / Reset
-   -------------------------------------------------------------------------- */
-
 body {
   font-family: var(--font-sans);
   background: var(--bg);
@@ -129,13 +65,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Form controls do not inherit the page font in any browser, so they are told
-   explicitly. Without this a select and the paragraph above it disagree. */
 input, select, textarea, button { font-family: var(--font-sans); }
 
 h1, h2, h3, h4 { letter-spacing: -0.02em; }
 
-/* Anything focused by keyboard gets a visible ring in the portal's own colour. */
 a:focus-visible,
 button:focus-visible,
 [tabindex]:focus-visible {
@@ -144,19 +77,6 @@ button:focus-visible,
   border-radius: var(--radius-sm);
 }
 
-
-/* --------------------------------------------------------------------------
-   2. Layout — Sidebar
-   -------------------------------------------------------------------------- */
-
-/* One blue panel behind every portal's navigation, highlighting in the same
-   university yellow — the offices are told apart by the seal at the top and by
-   what their pages do, not by the colour of the furniture.
-
-   The whole thing is painted from the --sidebar-* tokens, which is why no
-   template carries a style attribute on the aside any more: the sidebar is dark
-   in both light and dark mode, so a rule keyed on .dark would have had to undo
-   the light one rather than adjust it. */
 .app-sidebar {
   background: linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-2));
   border-right: 1px solid var(--sidebar-border);
@@ -166,8 +86,6 @@ button:focus-visible,
 .sidebar-head { border-bottom: 1px solid var(--sidebar-border); }
 .sidebar-foot { border-top: 1px solid var(--sidebar-border); }
 
-/* The logo keeps a light tile behind it: the seals are drawn for white paper
-   and lose their outlines against a dark panel. */
 .sidebar-logo { background: rgba(255, 255, 255, 0.94); padding: 2px; }
 
 .sidebar-brand     { color: var(--sidebar-brand); }
@@ -187,21 +105,14 @@ button:focus-visible,
   background: var(--sidebar-hover-bg);
   color: var(--sidebar-hover);
 }
-/* The page you are on wears the hover colour outright, so hover and active read
-   as one idea rather than two competing highlights. */
 .sidebar-link.active {
   background: var(--sidebar-hover);
   color: var(--on-sidebar-hover);
   font-weight: 600;
-  /* A dark notch, not a white one: the row is now a solid yellow or orange
-     pill, and white on either of those is barely a line at all. */
   box-shadow: inset 3px 0 0 rgba(0, 0, 0, 0.35);
 }
 .sidebar-link.active:hover { background: var(--sidebar-hover); color: var(--on-sidebar-hover); }
 
-/* The pending-count pills the VPSEA nav carries. Inside the panel they answer
-   to it rather than to the page's status palette — badge-warning's pale amber
-   is invisible on the yellow active row and barely there on the blue. */
 .app-sidebar .badge {
   background: rgba(255, 255, 255, 0.18);
   color: var(--sidebar-brand);
@@ -213,12 +124,8 @@ button:focus-visible,
   border-color: rgba(0, 0, 0, 0.22);
 }
 
-/* On a dark panel the browser's default focus ring is invisible. */
 .app-sidebar a:focus-visible { outline-color: var(--sidebar-hover); }
 
-/* The nav scrolls on its own when a portal has more links than fit the screen.
-   A full-width scrollbar next to the page's own reads as a second page, so keep
-   it thin and let it appear only while scrolling. */
 .sidebar-nav { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .sidebar-nav:hover { scrollbar-color: var(--sidebar-border) transparent; }
 .sidebar-nav::-webkit-scrollbar { width: 6px; }
@@ -226,24 +133,12 @@ button:focus-visible,
 .sidebar-nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
 .sidebar-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); }
 
-
-/* --------------------------------------------------------------------------
-   3. Card
-   -------------------------------------------------------------------------- */
-
 .card {
   background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
-
-/* A card that leads a page — the portal's colour along its top edge. */
-
-
-/* --------------------------------------------------------------------------
-   4. Badges
-   -------------------------------------------------------------------------- */
 
 .badge {
   display: inline-flex;
@@ -261,10 +156,6 @@ button:focus-visible,
 .badge-destructive { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
 .badge-muted       { background: var(--surface-2); color: var(--text-muted); border-color: var(--border); }
 .badge-brand       { background: var(--brand-soft); color: var(--brand); border-color: var(--brand); }
-
-/* --------------------------------------------------------------------------
-   5. Buttons
-   -------------------------------------------------------------------------- */
 
 .btn {
   display: inline-flex;
@@ -284,24 +175,9 @@ button:focus-visible,
 .btn-outline        { background: var(--surface); color: var(--text-soft); border: 1px solid var(--border); }
 .btn-outline:hover  { background: var(--surface-2); border-color: var(--border-strong); }
 
-/* The call-to-action of the landing page and the student portal. */
 .btn-accent        { background: var(--accent); color: var(--on-accent); border: none; font-weight: 600; }
 .btn-accent:hover  { background: var(--accent-strong); }
 
-
-/* --------------------------------------------------------------------------
-   6. Form elements
-   -------------------------------------------------------------------------- */
-
-/* Qualified with `body` on purpose, and it matters.
-   Tailwind is loaded from the CDN, which injects its stylesheet into <head> at
-   runtime — after this file — and Tailwind's preflight resets form controls to
-   `padding: 0`. A bare `input, select, textarea` selector ties with preflight on
-   specificity and loses on source order, which is why every control in this app
-   had to carry px-3 py-2 by hand to look like anything. One extra element in the
-   selector settles it: (0,0,2) beats preflight's (0,0,1), and still loses to a
-   utility class like .px-4, so a template that deliberately sizes a control its
-   own way keeps the last word. */
 body input, body select, body textarea {
   width: 100%;
   border-radius: var(--radius);
@@ -325,24 +201,9 @@ body input[readonly], body textarea[readonly] { background: var(--surface-2); co
 
 label { font-size: 0.75rem; font-weight: 500; color: var(--text-soft); }
 
-
-/* --- Dropdowns ----------------------------------------------------------
-   The native arrow is a different shape, weight and colour in every browser,
-   and on Windows it comes with a grey well that ignores the theme entirely.
-   So the control is stripped and given the chevron the rest of the interface
-   uses, drawn as a background image because a pseudo-element cannot be placed
-   on a <select>. currentColor is not available inside a data URI, hence the
-   literal stroke — one for each mode.
-
-   The options list itself is drawn by the operating system and cannot be
-   styled; colour-scheme is the one lever there, and it is what stops a dark
-   page from dropping open a white list. */
 select:not([multiple]) {
   appearance: none;
   -webkit-appearance: none;
-  /* One notch more specific than the rule above, because the chevron is drawn
-     inside the control's own box: if a template's own px-* class won here the
-     text would run underneath it. */
   padding-right: 2.25rem;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7a99' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -351,20 +212,12 @@ select:not([multiple]) {
   cursor: pointer;
 }
 body select:hover:not(:disabled) { border-color: var(--border-strong); }
-/* Focus darkens the chevron rather than brand-colouring it: a data URI cannot
-   read currentColor, so a brand-coloured arrow would be hard-coded to one
-   portal's blue and land wrong in the orange one. The border and ring already
-   carry the portal's colour here. */
 body select:focus {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231e2a3a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 body select:disabled { background-color: var(--surface-2); color: var(--text-muted); cursor: not-allowed; opacity: 1; }
-/* A select with nothing chosen yet reads as a prompt, not as an answer. */
 body select:has(option[value='']:checked) { color: var(--text-muted); }
 
-/* A filter sitting in a toolbar rather than a form column: sized to its own
-   content and a notch smaller, but wearing the same well and chevron. It has to
-   out-specify the padding-right above, or the label would run under the arrow. */
 body select.select-inline {
   width: auto;
   padding: 0.3rem 1.9rem 0.3rem 0.6rem;
@@ -381,14 +234,6 @@ body select.select-inline {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e6ebf5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
-
-/* --- File pickers --------------------------------------------------------
-   Left alone, this is a small grey OS button with a bare "No file chosen"
-   beside it — the least finished-looking control on any of the upload pages,
-   and the pages that matter most are all uploads. The field becomes a dashed
-   drop-zone-shaped well and the browser's own button becomes a real button
-   through ::file-selector-button, which is the only part of the control that
-   can be styled without replacing it in JavaScript. */
 body input[type='file'] {
   padding: 0.45rem 0.75rem 0.45rem 0.45rem;
   border: 1px dashed var(--border-strong);
@@ -419,11 +264,6 @@ body input[type='file']::file-selector-button {
 }
 body input[type='file']::file-selector-button:hover { background: var(--brand-strong); }
 
-
-/* --------------------------------------------------------------------------
-   7. Tables
-   -------------------------------------------------------------------------- */
-
 table { width: 100%; border-collapse: collapse; }
 
 th {
@@ -446,13 +286,7 @@ td {
 tr:last-child td { border-bottom: none; }
 tr:hover td      { background: var(--surface-sunken); }
 
-/* Wide tables scroll inside their own card rather than pushing the page sideways. */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
-
-/* --------------------------------------------------------------------------
-   8. Modal overlay
-   -------------------------------------------------------------------------- */
 
 .modal-overlay {
   display: none;
@@ -476,6 +310,7 @@ tr:hover td      { background: var(--surface-sunken); }
   max-width: 640px;
   margin: auto;
   box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
 .modal-header {
@@ -491,11 +326,6 @@ tr:hover td      { background: var(--surface-sunken); }
   max-height: 70vh;
   overflow-y: auto;
 }
-
-
-/* --------------------------------------------------------------------------
-   9. Detail view — section titles & grid (used in application modals)
-   -------------------------------------------------------------------------- */
 
 .section-title {
   font-size: 0.7rem;
@@ -531,11 +361,6 @@ tr:hover td      { background: var(--surface-sunken); }
   word-break: break-word;
 }
 
-
-/* --------------------------------------------------------------------------
-   10. Tab UI  (student/recommendations.html)
-   -------------------------------------------------------------------------- */
-
 .tabs-bar {
   display: inline-flex;
   background: var(--surface-2);
@@ -568,19 +393,6 @@ tr:hover td      { background: var(--surface-sunken); }
   gap: 1rem;
 }
 
-
-/* --------------------------------------------------------------------------
-   11. Hero / banner — landing page and portal page headers
-   -------------------------------------------------------------------------- */
-
-/* A photograph under a wash of brand blue. The wash is a background LAYER of
-   the hero itself, not an absolutely-positioned ::before: a pseudo-element sits
-   in its own stacking context, which is what made the hero look as though the
-   next section were cutting into it. As a layer it can never escape the hero's
-   own box, and the hero is free to grow with its content.
-
-   No fixed height anywhere — min-height sets a floor, padding sets the rhythm,
-   and the box grows if the content needs more room. */
 .hero {
   position: relative;
   background-color: var(--brand);
@@ -609,13 +421,6 @@ tr:hover td      { background: var(--surface-sunken); }
 }
 .hero .hero-sub { color: rgba(255, 255, 255, 0.86); }
 
-/* The scholarship listing sits on the same photograph, dimmed further so the
-   cards stay the brightest thing on the page. */
-/* The scholarship listing, on the student photograph. Scroll-attached, not
-   fixed: a fixed background is painted against the viewport rather than the
-   section, which made the photo appear to slide underneath the hero and read
-   as the hero being cut off. Scrolling with the page keeps each section's
-   picture inside that section. */
 .section-photo {
   position: relative;
   background-color: var(--brand);
@@ -629,8 +434,6 @@ tr:hover td      { background: var(--surface-sunken); }
 .section-photo h2 { color: #fff; }
 .section-photo .section-sub { color: rgba(255, 255, 255, 0.82); }
 
-/* Every row inside shares one centred measure, so the cards cannot drift to
-   one side on a wide screen. */
 .section-photo > div,
 .hero > .hero-inner {
   max-width: 72rem;
@@ -639,52 +442,26 @@ tr:hover td      { background: var(--surface-sunken); }
   width: 100%;
 }
 
-
-/* --------------------------------------------------------------------------
-   11b. Sign-in and registration pages
-
-   One page shell shared by login, registration and the registration-received
-   screen, so the three cannot drift apart. The photograph is the page
-   background; the card floats on it, opaque enough to read against any part of
-   the image. The page scrolls naturally — the registration form is taller than
-   a phone screen and must never be trapped in a fixed-height box.
-   -------------------------------------------------------------------------- */
-
 .auth-page {
   min-height: 100vh;
-  min-height: 100dvh;          /* mobile browser chrome eats vh */
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2.5rem 1rem;
-  /* The ground under the photograph, not the brand blue. It is what shows
-     before the image loads, and what fills any strip a fixed background cannot
-     reach — pure #0000ff flashing behind a sign-in card is the one place that
-     blue does the identity no favours. Matched to the dark end of the wash. */
   background-color: #1a2168;
-  /* registration-campus.jpg is registration.jpg with the sky cropped off and
-     the file brought down from 6 MB to 0.4 MB. The sky was the top 46% of the
-     frame: `cover` could never crop that much by position alone, because it
-     only overflows the viewport by a fraction of the height. Cutting it in the
-     file is also what let the sign-in page stop shipping a 6 MB photograph. */
   background-image: linear-gradient(135deg, var(--wash-soft), var(--wash-strong)),
                     url('../img/backgrounds/registration-campus.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* Phones scroll it. A fixed background on a touch device either stutters
-     against the scroll or is quietly ignored, and the registration form is
-     taller than a phone screen, so it would be doing that the whole way down. */
   background-attachment: scroll;
 }
 
-/* Tablet and up: the campus stays put and the card scrolls over it. Worth it
-   exactly where there is a pointer and a screen tall enough to notice. */
 @media (min-width: 768px) {
   .auth-page { background-attachment: fixed; }
 }
 
-/* Taller than the viewport is normal here, so start from the top and let it run. */
 .auth-page--tall { align-items: flex-start; }
 
 .auth-shell { width: 100%; max-width: 26rem; margin: auto; }
@@ -697,8 +474,6 @@ tr:hover td      { background: var(--surface-sunken); }
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
 }
 
-/* Opaque, not frosted: a translucent card over a photograph is where contrast
-   goes to die. */
 .auth-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -715,7 +490,6 @@ tr:hover td      { background: var(--surface-sunken); }
 .auth-footnote a { color: var(--accent-pure); font-weight: 600; }
 .auth-footnote a:hover { text-decoration: underline; }
 
-/* The call to action of both pages: yellow on blue, the landing identity. */
 .btn-auth {
   width: 100%;
   background: var(--accent);
@@ -733,9 +507,6 @@ tr:hover td      { background: var(--surface-sunken); }
   .auth-brand { margin-bottom: 1.25rem; }
 }
 
-/* Pick-your-account-type, on the registration form. Two cards side by side,
-   and the one you chose says so by colour: BiPSU blue for a student, green for
-   an employee, because the two portals are different places to end up. */
 .type-card {
   border: 2px solid var(--border);
   border-radius: var(--radius-lg);
@@ -747,14 +518,86 @@ tr:hover td      { background: var(--surface-sunken); }
 .type-card.selected-student { border-color: var(--brand); background: var(--brand-soft); }
 .type-card.selected-staff   { border-color: #2f9e44; background: var(--ok-bg); }
 
-/* The waiting room's pulse. The page reloads itself while the SDSO decides, and
-   a dot that breathes is what says so without a spinner claiming work is
-   happening in this browser. */
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .waiting-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
 
-/* At night the photograph is the brightest thing on screen, so it gets a
-   heavier wash and the card drops to near-black. */
+.terms-eyebrow {
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.terms-lead {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  margin-bottom: 0.875rem;
+}
+
+.terms-open { width: 100%; margin-bottom: 0.875rem; }
+
+.terms-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  cursor: pointer;
+}
+
+body .terms-consent input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  padding: 0;
+}
+
+.terms-consent__text {
+  color: var(--text-soft);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.terms-meta {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  margin-top: 0.625rem;
+}
+
+.modal-sheet-head .terms-meta { margin-top: 0.125rem; }
+
+.terms-sheet { max-width: 44rem; }
+
+.terms-section + .terms-section { margin-top: 1.5rem; }
+
+.terms-section h3 {
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.terms-section p {
+  color: var(--text-soft);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.terms-section p + p { margin-top: 0.625rem; }
+
+.terms-foot { display: flex; gap: 0.75rem; }
+.terms-foot .btn { flex: 1 1 0; }
+
+.terms-agree { width: auto; }
+
+.auth-footnote--back { margin-top: 0.5rem; }
+.auth-footnote--back a { color: rgba(255, 255, 255, 0.86); font-weight: 500; }
+
+@media (max-width: 480px) {
+  .terms-foot { flex-direction: column; }
+}
+
 .dark .auth-page {
   background-color: #080b20;
   background-image: linear-gradient(135deg, rgba(12, 16, 58, 0.93), rgba(5, 7, 26, 0.84)),
@@ -766,11 +609,6 @@ tr:hover td      { background: var(--surface-sunken); }
   border-top-color: var(--accent);
   box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.75);
 }
-
-
-/* --------------------------------------------------------------------------
-   12. Document viewer overlay
-   -------------------------------------------------------------------------- */
 
 .doc-viewer {
   position: fixed;
@@ -862,15 +700,6 @@ tr:hover td      { background: var(--surface-sunken); }
   font-size: 0.875rem;
 }
 
-
-/* --------------------------------------------------------------------------
-   12b. Report preview
-
-   The Reports tabs show the office's own document as a page rather than a web
-   table: the same PDF that prints, framed in place. The frame is deliberately
-   tall — an officer scrolls the report, not the page around it.
-   -------------------------------------------------------------------------- */
-
 .report-preview {
   display: flex;
   flex-direction: column;
@@ -909,7 +738,6 @@ tr:hover td      { background: var(--surface-sunken); }
   background: var(--surface-sunken);
 }
 
-/* Shown only when the browser cannot render a PDF inline. */
 .report-preview-fallback {
   padding: 2.5rem 1.5rem;
   text-align: center;
@@ -928,10 +756,6 @@ tr:hover td      { background: var(--surface-sunken); }
 .report-error svg { flex-shrink: 0; }
 .report-error p   { font-size: 0.875rem; font-weight: 500; }
 
-
-/* The report controls sit in the head of the card holding the list they act
-   on — the school year, the download and the preview beside the table they
-   describe, rather than in a panel of their own above it. */
 .report-gen-head {
   display: flex;
   align-items: center;
@@ -955,12 +779,6 @@ tr:hover td      { background: var(--surface-sunken); }
   .report-gen-actions .filter-scheme__select { flex: 1 1 auto; max-width: none; }
 }
 
-
-/* The small brand-coloured line naming a card's subject. Written out in full
-   on every card in the portals — `text-xs font-semibold uppercase
-   tracking-wider` plus an inline colour — which is a style living in a
-   template. New cards use this; the older ones can adopt it as they are
-   touched. */
 .card-eyebrow {
   font-size: 0.75rem;
   font-weight: 600;
@@ -970,9 +788,6 @@ tr:hover td      { background: var(--surface-sunken); }
   margin-bottom: 0.25rem;
 }
 
-/* A form saying what it is acting on, above its own fields — the programme a
-   renewal renews, once the student holds only one and there is nothing to ask.
-   A statement rather than a control, so it is a sunken panel and not a field. */
 .form-subject {
   background: var(--surface-2);
   border-radius: var(--radius-lg);
@@ -981,12 +796,6 @@ tr:hover td      { background: var(--surface-sunken); }
 .form-subject__label { font-size: 0.75rem; color: var(--text-muted); }
 .form-subject__value { font-size: 0.875rem; font-weight: 600; color: var(--text); }
 
-
-/* --------------------------------------------------------------------------
-   13. Responsive
-   -------------------------------------------------------------------------- */
-
-/* Nothing may push the page sideways on a phone. */
 body { overflow-x: hidden; }
 
 @media (max-width: 640px) {
@@ -999,15 +808,6 @@ body { overflow-x: hidden; }
   .doc-viewer-panel { height: 100%; }
   .detail-grid   { grid-template-columns: 1fr 1fr; }
 }
-
-
-/* --------------------------------------------------------------------------
-   14. Dark mode
-
-   Authored rather than inverted. Only surface and text tokens move; each
-   portal keeps its own brand colour so the offices stay recognisable, and the
-   grounds are deep navy or charcoal rather than pure black.
-   -------------------------------------------------------------------------- */
 
 .dark {
   --bg:            #0e1220;
@@ -1036,13 +836,6 @@ body { overflow-x: hidden; }
   --danger:    #ff9a9a;  --danger-bg: #2e1417;  --danger-border: #6b2229;
 }
 
-/* The landing / student identity keeps its navy ground in the dark. */
-/* The landing / student identity in the dark: near-black grounds so the blue
-   and yellow stay the loudest things on the page. --brand lightens because
-   #0000ff as TEXT on a dark surface is unreadable; the pure blue keeps its job
-   on the photo washes, borders and solid fills, where it sits under white. */
-/* The three blue portals share one dark identity — near-black grounds so the
-   blue and yellow stay the loudest things on the page. */
 .dark[data-portal='student'], .dark [data-portal='student'],
 .dark[data-portal='vpsea'],   .dark [data-portal='vpsea'],
 .dark[data-portal='staff'],   .dark [data-portal='staff'] {
@@ -1064,17 +857,11 @@ body { overflow-x: hidden; }
   --accent-strong:#e2ce00;
   --on-accent:    #0000ff;
   --ring:         rgba(140, 140, 255, 0.30);
-  /* A photograph is brighter than everything around it at night. */
   --wash-strong:  rgba(0, 0, 160, 0.94);
   --wash-soft:    rgba(0, 0, 90, 0.72);
 }
 
-/* Chrome that sits outside the token-driven components. */
 .dark body, html.dark body { background: var(--bg); color: var(--text); }
-/* The sidebar is deliberately absent here: it is the same blue panel in both
-   modes, painted from the --sidebar-* tokens in section 2. Only its ground
-   deepens, by exactly as much as the hero's own wash does at night, so the two
-   still read as the same surface. */
 .dark { --sidebar-bg: #0000a0; --sidebar-bg-2: #00005a; }
 .dark header { background: color-mix(in srgb, var(--surface) 88%, transparent) !important;
                border-color: var(--border) !important; }
@@ -1082,16 +869,9 @@ body { overflow-x: hidden; }
 .dark .hero::before        { background: linear-gradient(135deg, rgba(6, 12, 32, 0.95), rgba(10, 17, 40, 0.72)); }
 .dark .section-photo::before { background: linear-gradient(180deg, rgba(6, 12, 32, 0.96), rgba(6, 12, 32, 0.99)); }
 .dark .doc-viewer-body iframe { background: var(--surface-2); }
-/* The report frame holds a printed page, so it keeps its own paper ground in
-   either mode; only the surround follows the theme. */
 .dark .report-preview-frame { background: var(--surface-2); }
 .dark .report-error { background: #2a1414; border-color: #7f1d1d; color: #fca5a5; }
 
-/* Inline-style overrides.
-   The templates carry a great many hard-coded colours in style attributes,
-   which no amount of token work can reach. These rules translate the handful
-   that actually appear, so existing markup follows the theme instead of
-   staying stuck on the old palette. Kept narrow and explicit on purpose. */
 .dark [style*="background:#fff"],
 .dark [style*="background: #fff"],
 .dark [style*="background:white"]             { background: var(--surface) !important; }
@@ -1110,7 +890,6 @@ body { overflow-x: hidden; }
 .dark [style*="border-right:1px solid #e8ecf0"] { border-color: var(--border) !important; }
 .dark [style*="border-bottom:1px solid #f1f3f9"] { border-color: var(--border) !important; }
 
-/* Status tints written inline, so pale washes do not glare in the dark. */
 .dark [style*="background:#f0fdf4"] { background: var(--ok-bg) !important; }
 .dark [style*="background:#fffbeb"] { background: var(--warn-bg) !important; }
 .dark [style*="background:#fef2f2"] { background: var(--danger-bg) !important; }
@@ -1121,28 +900,12 @@ body { overflow-x: hidden; }
 .dark [style*="color:#dc2626"],
 .dark [style*="color:#e03131"]      { color: var(--danger) !important; }
 
-/* The old flagship blue, wherever it was written inline, becomes whatever the
-   portal's own brand colour is — in both modes. */
 [style*="color:#3b5bdb"],
 [style*="color: #3b5bdb"],
 [style*="color:#1971c2"]            { color: var(--brand) !important; }
 [style*="background:#3b5bdb"]       { background: var(--brand) !important; color: var(--on-brand) !important; }
 [style*="border-color:#3b5bdb"]     { border-color: var(--brand) !important; }
 
-
-/* --------------------------------------------------------------------------
-   15. Landing page  (templates/landing.html)
-
-   The public scholarship listing. Only its own furniture lives here — cards,
-   badges and buttons come from the sections above. Written against the tokens,
-   so the page follows dark mode without a single colour in the template.
-
-   Everything is scoped under .page-landing (set on <html> by the template)
-   wherever it retunes a shared component, so no other page is touched.
-   -------------------------------------------------------------------------- */
-
-/* The navbar: a 4rem row over a 1px hairline. --nav-h is that total, and both
-   the height of the hero and the scroll-snap offset are measured from it. */
 :root { --nav-h: calc(4rem + 1px); }
 
 .landing-nav {
@@ -1152,13 +915,6 @@ body { overflow-x: hidden; }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-/* The bar is full-bleed on purpose. Everything below it lives in a 72rem
-   column, and when the brand and the two links were pinned to that column's
-   edges a wide window left ~160px of empty bar outside each of them and a
-   canyon of nothing in between. Pushed to the window's own edges they read as
-   the two ends of one bar instead of two things adrift in the middle of it.
-   The gutter matches the page's, so the logo still lines up with the content
-   when the window is narrower than the column. */
 .landing-nav-row {
   width: 100%;
   padding-inline: 1.5rem;
@@ -1168,21 +924,9 @@ body { overflow-x: hidden; }
 .landing-nav-logo { height: 2.25rem; width: 2.25rem; object-fit: contain; }
 .landing-nav-name { color: var(--text); }
 .landing-nav-sub  { color: var(--text-muted); }
-/* The brand keeps its own width. The ticker beside it is greedy — flex would
-   otherwise take the space out of the one thing on this bar that has to stay
-   legible, and the university's name wrapped onto three lines. */
 .landing-nav-brand { flex: 0 0 auto; }
 .landing-nav-name, .landing-nav-sub { white-space: nowrap; }
 
-/* --- The two links to the two lists ------------------------------------
-   Not a menu and not a marquee: two labels, and clicking one takes the reader
-   down to the list it names. Plain anchors, because the browser already does
-   this well — .page-landing carries scroll-padding-top, so the heading
-   lands *below* this navbar instead of behind it.
-
-   They sit to the right of the brand and stay on one line; below 640px the
-   labels drop to just Internal / External, which is the whole meaning of them
-   and half the width. */
 .landing-jump {
   display: flex;
   align-items: center;
@@ -1209,8 +953,6 @@ body { overflow-x: hidden; }
   border-color: var(--brand);
   color: var(--brand);
 }
-/* The same two colours the card strips use, so a link and the list it opens
-   read as the same thing. */
 .landing-jump-dot {
   height: 0.5rem;
   width: 0.5rem;
@@ -1219,21 +961,10 @@ body { overflow-x: hidden; }
 }
 .landing-jump-dot-internal { background: var(--accent); }
 .landing-jump-dot-external { background: var(--brand); }
-/* The word carries its own gap, so hiding it on a phone takes the gap with it
-   — a non-breaking space in the markup would have left one behind, and would
-   have put a character nobody can see into the link's accessible name. */
 .landing-jump-label { margin-left: 0.28em; }
 
-/* Each list is its own scroll-snap point, so a jump to one lands on it. The
-   wrapper below is a snap point too, and with `mandatory` snapping a jump into
-   the middle of it would be dragged straight back out. */
 .page-landing .landing-section { scroll-snap-align: start; }
 
-/* The facade fills the first screen: the navbar plus the hero add up to exactly
-   one viewport, so none of the listing below peeks in before the first scroll.
-   min-height is only a floor — if the text wraps onto more lines the box grows
-   instead of clipping. dvh keeps that honest on mobile, where the address bar
-   eats into vh. */
 .hero-landing {
   min-height: calc(100vh - var(--nav-h));
   min-height: calc(100dvh - var(--nav-h));
@@ -1247,8 +978,6 @@ body { overflow-x: hidden; }
 }
 .hero-title { letter-spacing: -0.03em; }
 
-/* The second call to action stands on the photograph rather than on a surface,
-   so it is glass rather than a fill and the picture still reads through it. */
 .btn-on-photo {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
@@ -1256,53 +985,25 @@ body { overflow-x: hidden; }
 }
 .btn-on-photo:hover { background: rgba(255, 255, 255, 0.22); }
 
-/* One scroll gesture off the hero lands on the listing instead of stopping
-   halfway. The listing is taller than the viewport, so once you are inside it
-   scrolling is free again; the footer carries a snap point of its own so the
-   bottom of the page stays reachable. scroll-padding-top is the sticky navbar,
-   which would otherwise cover the heading it snaps to. */
 .page-landing {
   scroll-snap-type: y mandatory;
   scroll-padding-top: var(--nav-h);
 }
 
-/* There is still deliberately no `scroll-behavior: smooth` here. Chrome
-   cancels a smooth scroll outright inside a `mandatory` snap container — the
-   snap re-targets mid-animation and the page simply never moves — so as a
-   declaration it did nothing but make the navbar's two links look broken.
-
-   The animation the links do have is static/js/landing.js's, and this is the
-   class it borrows: snapping is off for the length of one jump and on again
-   the moment the page settles. Nothing else sets it, and a page with the
-   script switched off never sees it — those links jump, which is what they
-   did before either of these existed. */
 .page-landing.is-jumping { scroll-snap-type: none; }
 
 .page-landing .hero-landing,
 .page-landing .section-photo { scroll-snap-align: start; }
 .page-landing .site-footer   { scroll-snap-align: end; }
 
-/* A card lifts towards the reader, and its edge picks up the accent. */
 .page-landing .card {
   overflow: hidden;
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
 }
-/* The grid already stretches every card in a row to the tallest one's height,
-   but that only moved the card's bottom edge — the foot stayed wherever the
-   text above it happened to end, so "View Details" sat at a different height
-   in every card and the eye had nothing level to read across. Column layout
-   all the way down, and the foot claims the slack: the rule and the two labels
-   land on the same line in all three cards however long the descriptions and
-   eligibility lists run. */
 .page-landing .card { display: flex; flex-direction: column; }
-/* The strip is 5px and must stay 5px: a flex item shrinks by default, and the
-   modal's copy of it has carried the same guard since it went into a column. */
 .page-landing .card-strip { flex: 0 0 auto; }
 .page-landing .card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
 .page-landing .card-foot { margin-top: auto; }
-/* `auto` gives the tallest card in a row no slack to spend, so the clearance
-   above the rule has to come from the block before it. The description already
-   carries one (mb-4); the eligibility list, when there is one, needs its own. */
 .page-landing .card-reqs { margin-bottom: 1rem; }
 .page-landing .card:hover {
   box-shadow: 0 14px 40px -12px rgba(0, 0, 255, 0.40);
@@ -1310,18 +1011,15 @@ body { overflow-x: hidden; }
   border-color: var(--accent);
 }
 
-/* The coloured edge that tells the three groups apart at a glance. */
 .card-strip { height: 5px; }
 .card-strip-internal      { background: linear-gradient(90deg, #fde607, #e2ce00); }
 .card-strip-external      { background: linear-gradient(90deg, #0000ff, #4d4dff); }
 .card-strip-institutional { background: linear-gradient(90deg, #2f9e44, #51cf66); }
-/* Rounded to match the modal it sits on top of. */
-.modal .card-strip { height: 6px; border-radius: var(--radius-xl) var(--radius-xl) 0 0; flex: 0 0 auto; }
+.modal .card-strip { height: 6px; flex: 0 0 auto; }
 
 .card-logo  { height: 2.5rem; width: 2.5rem; object-fit: contain; flex-shrink: 0; }
 .modal-logo { height: 3rem;   width: 3rem;   object-fit: contain; flex-shrink: 0; }
 
-/* The landing page's own badge: the accent itself, not a pale tint of it. */
 .badge-accent {
   background: var(--accent);
   color: var(--on-accent);
@@ -1332,10 +1030,6 @@ body { overflow-x: hidden; }
 .badge-strong { font-weight: 600; }
 
 .card-title { color: var(--text); }
-/* Justified, at the reader's request. hyphens go with it and are not
-   decoration: a three-column grid puts this text in a 17rem column, and
-   justifying a column that narrow without hyphenation opens rivers of white
-   space between the words. */
 .card-desc  { color: var(--text-muted); text-align: justify; hyphens: auto; }
 .card-reqs  { color: var(--text-muted); }
 .card-foot  { border-top: 1px solid var(--border); }
@@ -1350,8 +1044,6 @@ body { overflow-x: hidden; }
   border-top: 1px solid var(--border);
 }
 
-/* The scholarship detail dialog. Narrower than the portal modals, and it scrolls
-   inside itself rather than growing past the screen. */
 .page-landing .modal-overlay { align-items: center; padding: 1rem; }
 .page-landing .modal {
   max-width: 540px;
@@ -1378,40 +1070,19 @@ body { overflow-x: hidden; }
 
 @media (max-width: 640px) {
   .hero-landing { padding: 3rem 1rem; }
-  /* A phone has no room for the word "Scholarships" twice. The half that
-     carries the meaning stays. */
   .landing-jump-link { padding: 0.35rem 0.6rem; font-size: 0.75rem; }
   .landing-jump-label { display: none; }
-  /* The bar's own gutter shrinks with the page. */
   .landing-nav-row { padding-inline: 1rem; }
 }
-/* A short landscape window has no room for a screen-high hero, and snapping
-   there would fight the reader rather than help. */
 @media (max-height: 560px) {
   .hero-landing { min-height: 0; }
   .page-landing { scroll-snap-type: none; }
 }
 
-
-/* --------------------------------------------------------------------------
-   16. Skeleton loading screen
-
-   A stand-in shaped like the page, painted from the very first frame and taken
-   down by static/js/skeleton.js once the real thing is ready.
-
-   Everything here is plain CSS on purpose. The screen has to be correct BEFORE
-   the Tailwind CDN has run — that is the moment it exists to cover — so it
-   cannot lean on a single utility class.
-
-   It stays hidden unless <html> carries .is-loading, which the script adds
-   before the first paint. A browser with JavaScript turned off therefore never
-   sees the placeholder and can never be trapped behind it.
-   -------------------------------------------------------------------------- */
-
 .page-skeleton {
   position: fixed;
   inset: 0;
-  z-index: 100;              /* over the sticky navbar (40) and the modals (50) */
+  z-index: 100;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -1422,12 +1093,10 @@ body { overflow-x: hidden; }
 .is-loading .page-skeleton {
   opacity: 1;
   visibility: visible;
-  transition: none;          /* it is there from the start; only leaving fades */
+  transition: none;
 }
-/* Nothing scrolls underneath the placeholder while it is up. */
 .is-loading { overflow: hidden; }
 
-/* The block every placeholder is built from, with the light sweeping across. */
 .skeleton {
   position: relative;
   overflow: hidden;
@@ -1445,7 +1114,6 @@ body { overflow-x: hidden; }
 .dark .skeleton::after {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
 }
-/* On the photograph the blocks are light on blue rather than grey on white. */
 .skeleton-on-photo { background: rgba(255, 255, 255, 0.18); }
 .skeleton-on-photo::after {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
@@ -1453,13 +1121,9 @@ body { overflow-x: hidden; }
 
 @keyframes skeleton-sweep { to { transform: translateX(100%); } }
 
-/* A sweep across the whole screen is the kind of movement this setting asks to
-   be spared, so the blocks simply sit still. */
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }
 }
-
-/* --- The shape of the landing page -------------------------------------- */
 
 .skeleton-nav {
   flex-shrink: 0;
@@ -1483,8 +1147,6 @@ body { overflow-x: hidden; }
 .skeleton-brand-name { height: 0.85rem; width: 6.5rem; }
 .skeleton-brand-sub  { height: 0.7rem;  width: 5rem; }
 
-/* The hero's own wash, minus the photograph — a gradient paints instantly,
-   which is the whole point of the screen. */
 .skeleton-hero {
   flex: 1;
   display: flex;
@@ -1503,16 +1165,10 @@ body { overflow-x: hidden; }
 .skeleton-actions   { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
 .skeleton-btn       { height: 2.5rem; width: 7rem; }
 
-
-/* ── Confirm dialog ───────────────────────────────────────────────────────────
-   Replaces the browser's window.confirm(), which Chrome prefixes with
-   "127.0.0.1:8000 says…" and which cannot be styled or read by the page's dark
-   mode. Same shape as .doc-viewer above so the two feel like one system. */
-
 .confirm-dialog {
   position: fixed;
   inset: 0;
-  z-index: 90;                       /* above .doc-viewer, which is 80 */
+  z-index: 90;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1549,7 +1205,7 @@ body { overflow-x: hidden; }
   line-height: 1.5;
   color: var(--text-muted);
   margin: 0;
-  white-space: pre-line;             /* the caller may send a second sentence */
+  white-space: pre-line;
 }
 
 .confirm-actions {
@@ -1573,9 +1229,6 @@ body { overflow-x: hidden; }
 .dark .confirm-backdrop { background: rgba(0, 0, 0, 0.66); }
 .dark .confirm-dialog[data-tone="danger"] .confirm-go { color: #1a1a1a; }
 
-
-/* ── Add Scholar: portal account choice ─────────────────────────────────────── */
-
 .account-choice {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1591,9 +1244,6 @@ body { overflow-x: hidden; }
   cursor: pointer;
   color: var(--text);
 }
-/* The form reset above sizes every input like a text box, which stretches a
-   radio across the row and pushes its label to the far edge. Scoped here rather
-   than fixed globally so no existing screen shifts. */
 .account-choice-option input[type='radio'] {
   width: auto;
   flex: none;
@@ -1602,19 +1252,12 @@ body { overflow-x: hidden; }
   accent-color: var(--brand);
 }
 
-
-/* ── Sidebar drawer (below lg) ────────────────────────────────────────────────
-   Above 1024px the sidebar is part of the page and none of this applies. Below
-   it the aside is off-canvas and static/js/mobile-nav.js slides it in. The
-   transform itself is a Tailwind utility on the element, so only the pieces
-   Tailwind has no name for live here. */
-
 .app-sidebar.is-open { transform: translateX(0); }
 
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 40;                       /* under the drawer (50), over the header (30) */
+  z-index: 40;
   background: rgba(15, 17, 23, 0.55);
   backdrop-filter: blur(2px);
 }
@@ -1629,28 +1272,15 @@ body { overflow-x: hidden; }
 .sidebar-toggle:hover { background: var(--surface-2); }
 
 @media (min-width: 1024px) {
-  /* Belt and braces: lg:hidden already takes these off, but the drawer must
-     never strand a desktop reader behind a backdrop if a class is dropped. */
   .sidebar-backdrop, .sidebar-toggle { display: none; }
 }
 
 .dark .sidebar-backdrop { background: rgba(0, 0, 0, 0.66); }
 
-
-/* ── App-shell skeleton ───────────────────────────────────────────────────────
-   The placeholder every page behind base.html shows while the Tailwind CDN is
-   still fetching. It traces the furniture those pages share — sidebar, header,
-   a couple of cards — rather than any one page's real content, which would go
-   stale the moment that page changed. The .page-skeleton, .skeleton and sweep
-   rules it builds on are in the landing-page section above. */
-
-/* flex:1 rather than height:100% — .page-skeleton is a column flex
-   container, so a percentage height on this child has nothing to resolve
-   against and the sidebar stops partway down the screen. */
 .skeleton-app { display: flex; width: 100%; flex: 1; min-height: 0; }
 
 .skeleton-app-side {
-  display: none;                     /* the sidebar is lg-only, so this is too */
+  display: none;
   width: 16rem;
   flex-shrink: 0;
   flex-direction: column;
@@ -1665,15 +1295,13 @@ body { overflow-x: hidden; }
 .skeleton-app-nav   { display: flex; flex-direction: column; gap: 0.4rem; }
 .skeleton-app-navitem { height: 2.25rem; border-radius: var(--radius); }
 
-/* On the sidebar's own dark ground the standard block disappears, so the
-   placeholder blocks inside it are lightened instead. */
 .skeleton-app-side .skeleton { background: rgba(255, 255, 255, 0.13); }
 .skeleton-app-side .skeleton::after { opacity: 0.35; }
 
 .skeleton-app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .skeleton-app-head {
-  height: 4rem;                      /* the real header is h-16 */
+  height: 4rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1711,12 +1339,8 @@ body { overflow-x: hidden; }
 }
 .account-choice-note[hidden] { display: none; }
 
-/* The asterisk the rest of the Add Scholar form uses, applied by
-   static/js/account-choice.js only while an account is being created. */
 label.is-required::after { content: ' *'; color: var(--danger); }
 
-/* An imported scholar's row keeps its "Imported" marker and gains the delete
-   the portal rows always had. */
 .imported-cell { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
 .imported-cell form { margin: 0; }
 .imported-delete {
@@ -1727,16 +1351,10 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .imported-delete:hover { background: var(--danger-bg); }
 
-/* SUC exam: a score and the total it was out of, on one line. */
 .suc-score-pair { display: flex; align-items: center; gap: 0.5rem; }
 .suc-score-pair input { flex: 1; min-width: 0; }
 .suc-score-of { color: var(--text-muted); font-size: 0.8125rem; white-space: nowrap; }
 
-/* ── A decision already made ─────────────────────────────────────────────── */
-/* The office decides an application once. Where the review buttons would be,
-   a decided application shows what was decided instead — a form the server
-   would refuse has no business being on screen. Filled in by
-   static/js/decision-lock.js, or rendered server-side where the modal is. */
 .decision-locked {
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -1756,9 +1374,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
 }
 
-/* ── Page alert ──────────────────────────────────────────────────────────── */
-/* What a screen says back when it refuses a posted action: a decision already
-   made, an id that matched nothing. */
 .page-alert {
   margin-bottom: 1rem;
   padding: 0.75rem 1rem;
@@ -1771,29 +1386,16 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--danger);
   border: 1px solid var(--danger-border);
 }
-/* The other half of the pair: a posted action that worked. Every page that
-   needed one was inlining the same three greens. */
 .page-alert-ok {
   background: var(--ok-bg);
   color: var(--ok);
   border: 1px solid var(--ok-border);
 }
-/* The third of the set: nothing was refused and nothing went wrong, but the
-   page is not showing what a reader would assume it is -- the Reports tab
-   built for a term other than the active one. Amber rather than red, because
-   it is a standing note about the state of the page, not a failed action. */
 .page-alert-warn {
   background: var(--warn-bg);
   color: var(--warn);
   border: 1px solid var(--warn-border);
 }
-
-
-/* ── Error pages ─────────────────────────────────────────────────────────────
-   templates/errors/. They wear the auth-page furniture — same seal, same card,
-   same dark ground — so a 403 does not look like a different site than the one
-   the person was just signed into. Only the bits the sign-in pages have no use
-   for live here. */
 
 .error-code {
   font-size: 0.72rem;
@@ -1804,8 +1406,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   margin-bottom: 0.4rem;
 }
 
-/* The list of likely causes. Bulleted rather than prose because people scan
-   this page looking for the line that matches what they just did. */
 .error-reasons {
   background: var(--surface-sunken);
   border: 1px solid var(--border);
@@ -1830,7 +1430,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   line-height: 1.55;
 }
 
-/* Django's own wording for the failure, shown only with DEBUG on. */
 .error-technical {
   margin-top: 1rem;
   padding-top: 0.75rem;
@@ -1840,18 +1439,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
   word-break: break-word;
 }
-
-
-
-/* ── Card toolbar ────────────────────────────────────────────────────────────
-   The row of controls a card carries beside its heading — a search box and the
-   actions that operate on the list below it.
-
-   On a desktop it is one line. On a phone it used to run straight out past the
-   card's right edge: the search box was fixed at 11rem and both buttons carried
-   white-space:nowrap, so the row could not shrink and had nothing to wrap on.
-   Here it becomes a full-width block that wraps, with the search on its own
-   line and the actions sharing the next one. */
 
 .card-toolbar {
   display: flex;
@@ -1863,14 +1450,8 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 
 .card-toolbar-search { width: 11rem; }
 
-/* Wrappers around a button that owns a dropdown: they must not collapse to
-   nothing when the row wraps, and the menu hangs off them. */
 .card-toolbar-menu { position: relative; }
 
-/* The Download Excel menu. It used to carry all of this inline, which meant a
-   hard #fff panel that stayed white in dark mode and a right:0 no media query
-   could talk out of. Open state is a class so the stylesheet keeps the last
-   word on both. */
 .dl-menu {
   display: none;
   position: absolute;
@@ -1886,14 +1467,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .dl-menu.is-open { display: block; }
 
-/* The archive's programme picker. It was a row of one button per programme,
-   `flex flex-wrap`, which is fine at nine and wraps onto a second and third
-   line by thirteen — pushing the table down the card every time the catalogue
-   grows. A menu costs one row of a list per programme instead, and the trigger
-   names the tab you are on.
-
-   Built on .dl-menu so the open/close behaviour is dl-menu.js's and not a
-   second copy of it: only the position and the row layout differ. */
 .tab-picker { position: relative; }
 .tab-picker__button {
   gap: 0.5rem;
@@ -1904,9 +1477,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Left-aligned under its button, where .dl-menu pins itself to the right. The
-   height cap is what keeps a long catalogue inside the viewport rather than
-   running off the bottom of it. */
 .tab-picker__menu {
   right: auto;
   left: 0;
@@ -1923,8 +1493,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-size: 0.7rem;
   color: var(--text-muted);
 }
-/* The tab you are on. A left bar rather than a fill, so the row stays legible
-   in both themes without a second colour pair to keep in step. */
 .tab-picker__item.is-current {
   background: var(--surface-2);
   box-shadow: inset 2px 0 0 var(--brand);
@@ -1932,17 +1500,11 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 
 @media (max-width: 640px) {
-  /* Nothing to anchor to on a phone: the card is the width of the screen, so
-     the menu takes it rather than sitting in a 15rem column beside nothing. */
   .tab-picker { width: 100%; }
   .tab-picker__button { width: 100%; justify-content: space-between; }
   .tab-picker__menu { left: 0; right: 0; min-width: 0; }
 }
 
-/* What goes inside it. The office's own copy of this menu still paints every
-   one of these with a style= attribute and a pair of onmouseover handlers,
-   which is why its rows stay white in dark mode; these are the same rows
-   written in tokens, and the partner portal uses them. */
 .dl-menu__label {
   padding: 0.3rem 0.75rem 0.2rem;
   font-size: 0.7rem;
@@ -1967,13 +1529,10 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   flex-shrink: 0;
   color: var(--text-muted);
 }
-/* The term the table is on now, told apart from the ones behind it. */
 .dl-menu__item-current svg { color: var(--ok); }
 .dl-menu__meta { margin-left: auto; font-size: 0.72rem; color: var(--text-muted); }
 .dl-menu__sep { border-top: 1px solid var(--border); margin: 0.3rem 0; }
 
-/* The term this table is showing, as a control rather than a caption: it sits
-   beside the heading it qualifies, small enough not to compete with it. */
 .term-pill {
   width: auto;
   padding: 0.15rem 0.5rem;
@@ -1985,27 +1544,16 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   border-radius: 6px;
 }
 
-/* A partner's row actions are a button and a form, and a form is a block. */
 .scholar-table .cell-actions form { display: inline; margin: 0; }
-
-/* Secondary text is Tailwind's `text-muted-foreground`, not `text-muted`.
-   base.html registers muted as a *pair* — DEFAULT is --surface-2, a background,
-   and only `foreground` is --text-muted — so `text-muted` paints body copy in
-   the panel colour, which in dark mode is near-black text on a dark card and
-   legible in neither. There is deliberately no .text-muted class of our own
-   here: Tailwind's own would be generated after it and win anyway. */
 
 @media (max-width: 640px) {
   .card-toolbar {
     width: 100%;
   }
-  /* Search takes the first line to itself — it is the control people reach for
-     most and the one that suffers most from being narrow. */
   .card-toolbar-search {
     width: 100%;
     flex: 1 1 100%;
   }
-  /* The actions share the line below, each taking half of it. */
   .card-toolbar > .btn,
   .card-toolbar-menu {
     flex: 1 1 0;
@@ -2014,17 +1562,8 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   .card-toolbar-menu > .btn { width: 100%; }
   .card-toolbar .btn {
     justify-content: center;
-    /* Their labels are two short words; letting them wrap beats letting them
-       push the card open. */
     white-space: normal;
   }
-  /* The menu hangs off its button, and once that button is only half the row
-     wide a 220px menu has nowhere to go but out through the side of the card.
-     Rather than guess a width, hand the positioning to the toolbar itself: the
-     toolbar is exactly as wide as the card's content, so a menu stretched
-     across it can never be wider than the card. Dropping the wrapper out of
-     position:static is what lets the menu see the toolbar as its containing
-     block, and top then measures from below the whole button row. */
   .card-toolbar { position: relative; }
   .card-toolbar-menu { position: static; }
   .card-toolbar-menu .dl-menu {
@@ -2035,50 +1574,20 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   }
 }
 
-
-/* ── Reaching the bottom of the drawer on a phone ────────────────────────────
-   Sign out lives at the foot of the sidebar, and on Android it was unreachable.
-
-   Two things were in the way. The aside is h-screen, which is 100vh, and on a
-   phone browser 100vh means the viewport with the address bar retracted — the
-   tallest it ever gets. With the bar showing, the last ~56px of the drawer is
-   simply below the fold, and that is exactly the row Sign out sits in. Then the
-   system navigation bar (Back, Home, Recents) takes another slice underneath.
-
-   100dvh is the viewport as it actually is at this moment, address bar and all,
-   so the foot lands on screen either way; the safe-area inset keeps it clear of
-   the gesture pill or the three buttons. Both are scoped below lg, where the
-   sidebar is a drawer — above it the aside is part of the page and 100vh is
-   right. The plain 100vh line stays as the fallback for browsers without dvh. */
-
 @media (max-width: 1023.98px) {
-  /* The leading `body` is not decoration. Tailwind comes from a CDN script that
-     injects its sheet after this file, so a single class here would only tie
-     .h-screen and .py-6 and lose the tie-break. One element selector is enough
-     to win it without reaching for !important. */
   body .app-sidebar {
     height: 100vh;
     height: 100dvh;
   }
 
-  /* Same reasoning against Tailwind's p-3. */
   .app-sidebar .sidebar-foot {
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
   }
 
-  /* The header is sticky and the drawer overlays it, so the same inset has to
-     keep the page's own last row off the navigation bar. */
   body .app-main {
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
-
-
-/* ── Analytics chart controls ──────────────────────────────────────────────────
-   The chart-type toggles and the PNG button above each chart. Moved here from a
-   <style> block in templates/_analytics_js.html, and rewritten against the
-   tokens on the way — the hard #f6f8fc and #3b5bdb it carried stayed light in
-   dark mode. */
 
 .chart-toggle-btn {
   padding: 0.18rem 0.55rem;
@@ -2100,58 +1609,25 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   border-color: var(--brand);
 }
 
-/* Belt and braces for a chart that renders but turns out to hold only zeros.
-   A card with nothing in it no longer draws a chart or a button at all — see
-   .chart-empty — so this is what is left for anything that slips past that. */
 .chart-toggle-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-/* What a chart card says instead of drawing a chart, when there is nothing to
-   draw. Chart.js given an empty dataset does not come out blank, it comes out
-   as a labelled empty grid, which reads as a broken chart rather than an empty
-   list — so the card says so in words and draws no canvas.
-
-   var(--text-muted) rather than the #6b7a99 these lines used to carry inline:
-   that grey was picked against a white card and stayed put in dark mode, where
-   it is the one piece of text on the card nobody can read. */
 .chart-empty {
   font-size: 0.875rem;
   color: var(--text-muted);
 }
 
-
-/* ── Modal sheet ─────────────────────────────────────────────────────────────
-   The panel a modal draws, for every modal long enough to scroll.
-
-   What these used to be was a single .card carrying max-height:90vh and
-   overflow-y:auto, which scrolls the whole panel — heading, close button and
-   all. On the review modals that is the worst place to lose the ✕: those are
-   the longest screens in the system, and the further down an application an
-   officer read, the further they had to scroll back to shut it. One of them
-   (the TES review) scrolled the overlay instead, so the ✕ left the screen
-   entirely rather than merely moving.
-
-   The fix is the three-part sheet the .modal/.modal-body pair already used: a
-   head and an optional foot that stay put, and only the middle scrolling. It is
-   a flex column, and min-height:0 on the body is what actually allows that
-   middle to shrink — without it a flex item refuses to go below its content
-   height and the whole sheet grows instead of scrolling. */
-
 .modal-sheet {
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* dvh for the same reason the sidebar uses it: on a phone 90vh is measured
-     against the viewport with the address bar retracted, so the foot of the
-     sheet — where the decision buttons are — sits below the fold. */
   max-height: 90vh;
   max-height: 90dvh;
   min-height: 0;
 }
 
-/* The bar that holds the title and the ✕. Never scrolls. */
 .modal-sheet-head {
   flex: 0 0 auto;
   display: flex;
@@ -2166,19 +1642,12 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;   /* stop the page behind scrolling at the ends */
+  overscroll-behavior: contain;
   padding: 1.5rem;
 }
 
-/* Where a modal ends in an action — approve, reject, save. Pinned for the same
-   reason as the head: an officer who has read to the bottom should not have to
-   scroll again to act, and on a long application the buttons were previously
-   only reachable at the very end of the scroll. */
 .modal-sheet-foot {
   flex: 0 0 auto;
-  /* A safety valve, not a normal state: where a foot carries a remarks box as
-     well as its buttons, a short landscape phone could otherwise leave the body
-     with nothing to read in. */
   max-height: 45%;
   overflow-y: auto;
   padding: 1rem 1.5rem;
@@ -2205,13 +1674,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .modal-sheet-close:hover { background: var(--surface-2); color: var(--text); }
 
-
-/* ── Scrollbars inside a modal ───────────────────────────────────────────────
-   Not hidden: a scrollbar is the only thing telling someone there is more of an
-   application below, and these are exactly the screens where missing that
-   matters. Kept slim and in the page's own colours instead, so it reads as part
-   of the panel rather than a second window inside it. */
-
 .modal-sheet-body,
 .modal-body {
   scrollbar-width: thin;
@@ -2227,18 +1689,11 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .modal-body::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 4px;
-  /* Inset off the panel edge, so the thumb floats in the padding rather than
-     butting against the text. */
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 .modal-sheet-body::-webkit-scrollbar-thumb:hover,
 .modal-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
-
-
-/* ── Archive table column picker ───────────────────────────────────────────
-   On the scholarship form: which columns that programme's archive table shows,
-   and the columns the office adds itself. */
 
 .col-picker {
   border: 1px solid var(--border);
@@ -2259,8 +1714,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-weight: 400;
   color: var(--text);
   cursor: pointer;
-  /* The label is the hit area, so it needs no margin of its own — the grid gap
-     already separates them. */
   margin: 0;
 }
 .col-picker__option input { width: auto; margin: 0; cursor: pointer; }
@@ -2270,10 +1723,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
-/* A custom column is three fields and a button: its name, what it holds, and
-   the options when what it holds is a list of them. Wrapping rather than
-   scrolling, because on a narrow screen the name and the kind belong on two
-   lines rather than in a strip too short to read either. */
 .col-picker__row {
   display: flex;
   flex-wrap: wrap;
@@ -2283,13 +1732,9 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .col-picker__row input { flex: 1 1 10rem; min-width: 0; }
 .col-picker__row select { flex: 0 0 auto; width: auto; }
-/* [hidden] loses to the flex display above unless it is said again here. */
 .col-picker__row [hidden] { display: none; }
 .col-picker__remove,
 .col-picker__add { padding: 0.35rem 0.7rem; font-size: 0.75rem; white-space: nowrap; }
-
-/* ── Archive scholar table ─────────────────────────────────────────────────
-   One table for every programme, built from the columns that programme chose. */
 
 .scholar-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .scholar-table th {
@@ -2321,9 +1766,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--bad, #e03131);
   border: 1px solid var(--bad-border, #fecaca);
 }
-/* The box a custom column's value is typed into. One rule for all of them —
-   a text field, a number, a date and a dropdown — so a column that changes
-   kind does not change width and shunt every column after it sideways. */
 .scholar-table__extra {
   width: 100%;
   min-width: 6rem;
@@ -2344,11 +1786,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   justify-content: flex-end;
   padding: 0.75rem 0;
 }
-
-
-/* ── Scholars-per-academic-year tally ───────────────────────────────
-   The exact counts under the chart. A bar says which year was largest; the
-   office still has to read a number off it to put in a report. */
 
 .year-tally {
   width: 100%;
@@ -2373,11 +1810,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .year-tally th:last-child,
 .year-tally__count { text-align: right; font-variant-numeric: tabular-nums; }
 
-
-/* ── Sortable table headings ───────────────────────────────────────────────
-   Any <table data-sortable>: the heading is the control, and the caret says
-   which way the column is pointing. */
-
 .is-sortable {
   cursor: pointer;
   user-select: none;
@@ -2388,8 +1820,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .is-sortable:hover { color: var(--brand); }
 .is-sortable:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 
-/* A faint caret on every sortable heading, so the column reads as clickable
-   before anyone clicks it; the active one is solid and points the sorted way. */
 .is-sortable::after {
   content: "↕";
   position: absolute;
@@ -2400,11 +1830,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .is-sortable:hover::after { opacity: 0.6; }
 .is-sortable[data-sort="asc"]::after  { content: "↑"; opacity: 1; color: var(--brand); }
 .is-sortable[data-sort="desc"]::after { content: "↓"; opacity: 1; color: var(--brand); }
-
-
-/* ── Filter schemes ────────────────────────────────────────────────────────
-   Narrow a table to one category at a time. Built by static/js/table-filter.js
-   from the values actually present in the marked columns. */
 
 .filter-scheme {
   display: flex;
@@ -2424,12 +1849,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-variant-numeric: tabular-nums;
 }
 .filter-scheme__clear { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
-
-
-/* ── Notices ───────────────────────────────────────────────────────────────
-   A saved / warned / refused banner, in the tokens rather than in the markup.
-   Written against --ok, --warn and --danger so dark mode is a token swap and
-   not another [style*="background:#f0fdf4"] override down in section 12. */
 
 .notice {
   display: flex;
@@ -2455,15 +1874,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .notice--danger svg { color: var(--danger); }
 .notice a { text-decoration: underline; color: inherit; }
 
-
-/* ── "Optional" field marker ───────────────────────────────────────────────
-   Registration asks for a great deal and needs almost none of it. Marking what
-   can be skipped is what makes the form finishable in one sitting.
-
-   The marker is quiet on purpose — it is permission to skip, not a heading, and
-   at this density anything louder would read as the label itself. Normal weight
-   so it cannot be mistaken for part of the field name. */
-
 .label-optional {
   margin-left: 0.35rem;
   font-size: 0.7rem;
@@ -2472,11 +1882,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
   white-space: nowrap;
 }
-
-
-/* ── Scholarship logo picker ───────────────────────────────────────────────
-   The seal beside its dropdown on the scholarship form, so the office is
-   choosing a picture rather than a filename. */
 
 .logo-picker {
   display: flex;
@@ -2495,15 +1900,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   background: var(--surface);
 }
 
-
-/* ── No Scholarship tab: the row actions ───────────────────────────────────
-   The tab draws its own table rather than the .scholar-table the programme
-   tabs share, so the small buttons in the last cell are declared here for it.
-   The soft-danger variant is unscoped because a second table now wants it, and
-   it reads from the --danger tokens so the dark theme repaints it — the
-   .scholar-table copy above is left on its literals so that table looks
-   exactly as it did. */
-
 .unawarded-actions {
   display: flex;
   align-items: center;
@@ -2517,14 +1913,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--danger);
   border: 1px solid var(--danger-border);
 }
-
-
-/* ── When a form is open ───────────────────────────────────────────────────
-   The Application Period card on the Applications tab and the Renewal Period
-   card on the Renewal Applications tab — one shared partial, drawn above the
-   queue each one governs. Two boxes rather than a date range: the office
-   announces a window as a start and a length, and a length cannot be typed the
-   wrong way round. The switch beside them is the third state, "closed now". */
 
 .app-window {
   border: 1px solid var(--border);
@@ -2560,11 +1948,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   margin: 0;
 }
 
-
-/* ── External partners ─────────────────────────────────────────────────────
-   The SDSO's access picker, and the partner portal's own read-only tables.
-   A partner administers nothing, so these carry no action column. */
-
 .partner-access {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -2590,20 +1973,12 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   padding: 0.3rem 0.1rem;
   cursor: pointer;
 }
-/* width:auto, because the form reset near the top sizes every input like a
-   text box. Full width and flex-shrink:0 together let the checkbox take the
-   whole option to itself, and the programme name beside it was left a column
-   one character wide — the overflow-wrap below then broke it letter by letter,
-   which is what made a 0px-wide label 546px tall. */
 .partner-access__option input {
   width: auto;
   flex: none;
   margin: 0.2rem 0 0;
   padding: 0;
 }
-/* A flex item defaults to min-width:auto and so refuses to shrink below its
-   own text — which is how a long programme name pushed the option, its card
-   and the whole page sideways. The text wraps instead. */
 .partner-access__option > span {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2633,9 +2008,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .partner-table .cell-muted { color: var(--text-muted); font-size: 0.8rem; }
 .partner-table__num { text-align: right; font-variant-numeric: tabular-nums; }
 .partner-table .btn { padding: 0.2rem 0.55rem; font-size: 0.75rem; }
-/* The actions column. Kept on one line and out of the way of the columns the
-   partner actually chose: a row that wraps its two buttons is a row twice as
-   tall as the twenty around it. */
 .partner-table .cell-actions {
   white-space: nowrap;
   display: flex;
@@ -2673,11 +2045,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .partner-manage__row input[type="password"] { width: 14rem; }
 
-
-/* ── The archive-column picker, now that order is part of the answer ────────
-   A list rather than a grid: a grid that wraps cannot say what comes after
-   what, and the order these post in is the order the table reads. */
-
 .col-picker__list {
   list-style: none;
   margin: 0 0 0.5rem;
@@ -2696,7 +2063,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   border-bottom: 1px solid var(--border);
 }
 .col-picker__item:last-child { border-bottom: none; }
-/* Off the table: still listed, because it is what you tick to add it back. */
 .col-picker__item.is-off { background: var(--surface-2); }
 .col-picker__item.is-off .col-picker__label { color: var(--text-muted); }
 
@@ -2725,7 +2091,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   line-height: 1.3;
 }
 
-/* The partner's column panel: a settings drawer beside the table it changes. */
 .col-panel > summary {
   cursor: pointer;
   font-weight: 600;
@@ -2734,17 +2099,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   list-style: revert;
 }
 .col-panel[open] > summary { margin-bottom: 0.25rem; }
-
-
-/* ── Rule-based recommendations ────────────────────────────────────────────
-   The Student Ranking page, both tabs: Affirmative Action and TES. Two tables
-   with one job — say what the rules made of a student's record, and show the
-   reason underneath so the office can defend the answer.
-
-   `.th-cell` and `.td-cell` were a <style> block inside vpsea/ranking.html.
-   They are here now because the TES tab needs the same header row, and two
-   copies of a heading style is how two tables start looking like two
-   products. */
 
 .th-cell {
   text-align: left;
@@ -2755,9 +2109,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .th-cell--rank { width: 3rem; }
 
-/* The count cards above the table. Five figures that have to be readable at a
-   glance and in the same order every time, so they get a fixed grid rather than
-   flowing to whatever fits. */
 .rec-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
@@ -2784,32 +2135,18 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 
 .rec-search { max-width: 18rem; }
 
-/* The search box and the download beside it. They share the right-hand end of
-   the heading row and wrap together rather than the button dropping under the
-   input on its own — a lone button under a search field reads as belonging to
-   the search. */
 .rec-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: flex-end;
-  /* It shares a justify-between row with the card's heading, and the heading is
-     long enough to squeeze this to 335px — enough for the search box, not for
-     the button after it, which then hung underneath looking like part of the
-     search. The floor is what the two controls actually need side by side; the
-     min() hands the whole line back on a screen too narrow for that, so they
-     wrap as a pair instead of pushing the card open. The heading is prose and
-     wraps happily, which is why it is the one that gives way. */
   flex: 0 1 auto;
   min-width: min(100%, 28rem);
 }
 .rec-actions .rec-search { min-width: 0; }
 .rec-actions .btn { flex: 0 0 auto; white-space: nowrap; }
 
-/* The explanation above the table. It is long on purpose: the ordering rules
-   are the whole basis of the list, and an office defending a ranking needs them
-   written down where the ranking is. */
 .rec-note {
   margin-bottom: 1rem;
   font-size: 0.75rem;
@@ -2829,8 +2166,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .rec-cell--muted  { color: var(--text-muted); }
 .rec-cell--strong { font-weight: 500; }
 .rec-cell--ok     { color: var(--ok); }
-/* Amber rather than red: something not collected yet is an errand, not a fault
-   of the student's. */
 .rec-cell--missing { font-size: 0.75rem; color: var(--warn); }
 .rec-missing { color: var(--warn); }
 
@@ -2843,8 +2178,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 
 .rec-why { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
 
-/* The audit trail, revealed under a row by "Why?". Sunken so it reads as
-   belonging to the row above rather than as another row. */
 .rec-reason-cell { padding: 0 0.75rem 1rem; }
 .rec-reason {
   background: var(--surface-sunken);
@@ -2882,14 +2215,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .rec-empty__hint { display: block; margin-top: 0.35rem; font-size: 0.75rem; }
 
-/* ── The Affirmative tab's own pieces ──────────────────────────────────────
-   The three recommenders share everything above; these are the parts only
-   Affirmative has — a ranked medal, the student's initial, and the fit-score
-   bar. They were inline hex in the template until now, which is why this was
-   the one tab of the three that stayed light in dark mode. */
-
-/* A qualifier a rule turned down is still listed — the office reads it for the
-   reason — but it is not competing for a place. */
 .trow--dim { opacity: 0.6; }
 
 .rec-medal { font-size: 1.1rem; }
@@ -2898,8 +2223,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-size: 0.875rem;
   color: var(--text-muted);
 }
-/* A value nobody has supplied. Dimmer than muted text so an empty cell is not
-   mistaken for a short answer. */
 .rec-none { color: var(--text-muted); opacity: 0.7; }
 
 .rec-person { display: flex; align-items: center; gap: 0.5rem; }
@@ -2931,8 +2254,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .rec-stack--start { align-items: flex-start; }
 .rec-cert { font-size: 0.75rem; color: var(--brand); }
 
-/* The tie-break, drawn rather than printed: the office compares rows down the
-   column faster than it reads two-digit numbers. */
 .rec-fit { display: flex; align-items: center; gap: 0.5rem; }
 .rec-fit__track {
   width: 5rem;
@@ -2947,8 +2268,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .rec-fit__bar--danger { background: var(--danger); }
 .rec-fit__value { font-size: 0.875rem; font-weight: 600; }
 
-/* The GPA threshold. A row inside the card rather than a card of its own above
-   it: it changes what the table below shows, so it belongs to that table. */
 .rec-filter {
   display: flex;
   flex-wrap: wrap;
@@ -2970,13 +2289,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   .rec-reason__verdict { width: auto; }
 }
 
-
-/* ── The mail panel ────────────────────────────────────────────────────────
-   On Account Verification, because that is where the office already asks
-   whether somebody was told. Collapsed when mail is working and open when it
-   is not: a panel that is always open becomes furniture, and this one has to
-   be noticed on the day it matters. */
-
 .mail-panel { padding: 0; }
 .mail-panel__summary {
   display: flex;
@@ -2987,8 +2299,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   list-style: none;
   user-select: none;
 }
-/* The default triangle sits badly against a badge row; the card's own border
-   already says this opens. */
 .mail-panel__summary::-webkit-details-marker { display: none; }
 .mail-panel__summary::marker { content: ''; }
 .mail-panel__summary:hover { background: var(--surface-2); }
@@ -2998,7 +2308,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .mail-panel__hint {
   font-size: 0.75rem;
   color: var(--text-muted);
-  /* Pushed to the end so the badge stays beside the title, where it is read. */
   margin-left: auto;
 }
 
@@ -3011,8 +2320,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .mail-panel__body .section-title { margin-top: 1.25rem; }
 
-/* The provider's own words, kept monospaced and wrapped: these are quoted
-   strings with punctuation that matters, and they are the whole diagnosis. */
 .mail-panel__error {
   margin: 0.5rem 0 0;
   padding: 0.6rem 0.75rem;
@@ -3039,18 +2346,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   .mail-panel__test input { max-width: none; flex: 1 1 100%; }
 }
 
-
-/* ── The account record dialog ─────────────────────────────────────────────
-   On Account Verification's decided list. The queue shows a whole registration
-   under every card; the decided list showed six columns and nothing else, so
-   the moment an account left the queue the evidence behind its decision became
-   unreachable. This is that registration read back — the same detail partial,
-   plus the verdict and what became of every scholarship declared with it.
-
-   Read-only on purpose: nothing in the dialog is a control except the one
-   button that closes it, and the Verify-anyway form stays out on the row where
-   it has always been. */
-
 .record-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3064,9 +2359,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .record-actions form { margin: 0; }
 
-/* Wider than the 640px default: this dialog carries the registration's own
-   three-column grids, and at 640 they wrapped to one column each and turned a
-   record into a very long scroll. */
 .record-modal { max-width: 52rem; }
 .record-modal__who { min-width: 0; }
 .record-modal__name {
@@ -3083,8 +2375,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   overflow-wrap: anywhere;
 }
 
-/* The verdict, first thing in the body, because it is the question the dialog
-   was opened to answer. */
 .record-verdict {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-lg);
@@ -3123,9 +2413,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   color: var(--text-muted);
 }
 
-/* One card per scholarship the registration declared, with what became of it.
-   Neutral rather than amber: in the queue these are a thing to decide, here
-   they are a thing already decided, and the badge carries the outcome. */
 .record-declaration {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-lg);
@@ -3155,6 +2442,20 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .record-declaration a { color: var(--brand); text-decoration: underline; }
 
+.record-consent {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+.record-consent__label {
+  display: block;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+.record-consent__missing { color: var(--text-muted); font-style: italic; }
+
 .record-empty {
   margin: 0;
   font-size: 0.8125rem;
@@ -3162,21 +2463,8 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 
 @media (max-width: 640px) {
-  /* The row's two buttons stack rather than squeezing the last column. */
   .record-actions { flex-direction: column; align-items: stretch; }
 }
-
-
-/* ── Adding a scholarship ──────────────────────────────────────────────────
-   My Profile carries the registration form's Scholarship Data cards, so a
-   student who registered before they won something has somewhere to say so;
-   .declaration-card below is how one looks waiting for a decision in its own
-   section of Account Verification.
-
-   Built from the same furniture as the two pages they came from — .card,
-   .badge, .detail-grid — so only what is genuinely new is here, and written
-   against the tokens, so dark mode is a token swap rather than an override of
-   a colour hard-coded into a template. */
 
 .declare-eyebrow {
   font-size: 0.75rem;
@@ -3187,9 +2475,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   margin: 0 0 0.35rem;
 }
 
-/* The quiet line under a field, and under a section heading when it carries
-   --lead. Same size as the registration form's, which is the form this one is
-   a continuation of. */
 .declare-hint {
   font-size: 0.75rem;
   line-height: 1.55;
@@ -3199,8 +2484,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .declare-hint--lead { margin-bottom: 1.25rem; }
 .declare-hint a { color: var(--brand); text-decoration: underline; }
 
-/* One award already on the record, above the question asking for another.
-   Read-only: correcting one is the office's to do. */
 .held-award {
   padding: 1rem;
   border-radius: var(--radius-lg);
@@ -3223,15 +2506,10 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 .held-award__note { margin-top: 0.5rem; }
 
-/* Inputs are full-width across these forms; a checkbox is not an input in that
-   sense, and stretching one turns a tick box into a grey bar. */
 .check-inline { width: auto; }
 
 .declare-form { display: grid; gap: 1.25rem; }
 
-/* The card's own heading, with Remove sitting opposite it on every card but
-   the first — which cannot be removed, because a form with no cards on it is
-   a page that does nothing. */
 .declare-card-head {
   display: flex;
   flex-wrap: wrap;
@@ -3243,11 +2521,6 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   padding: 0.15rem 0.5rem;
   font-size: 0.75rem;
 }
-
-/* ── One waiting scholarship, on Account Verification ──────────────────────
-   Amber, like the declaration cards the registrations carry on that page: both
-   are a claim somebody is being asked to check against records this system
-   does not hold. */
 
 .declaration-card {
   padding: 1.1rem 1.25rem;
@@ -3299,7 +2572,5 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 }
 
 @media (max-width: 640px) {
-  /* Verify and Reject stack rather than squeezing onto one line beside the
-     message field, where the two were a mis-tap apart. */
   .declaration-actions { flex-direction: column; align-items: stretch; }
 }

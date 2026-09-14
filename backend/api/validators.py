@@ -1,37 +1,15 @@
-"""Limits on what may be uploaded.
-
-The portal takes files from anyone who can reach the registration form, so the
-FileFields need to say what they will accept rather than taking whatever
-arrives. Two checks, both cheap:
-
-* extension — an allowlist, not a denylist, because a denylist is only ever as
-  current as the last thing someone thought of;
-* size — a ceiling, so one upload cannot fill the disk or the storage quota.
-
-These run on save. They are not a substitute for the access control in
-:mod:`api.media_views`; they only decide what gets stored in the first place.
-"""
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.utils.deconstruct import deconstructible
 
-# Scans, photographs of certificates, and the occasional PDF export.
 DOCUMENT_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic']
 
-# Office imports: the scholar lists the SDSO rolls over each term.
 SPREADSHEET_EXTENSIONS = ['xlsx', 'xls', 'csv']
 
 
 @deconstructible
 class MaxFileSize:
-    """Reject uploads past a ceiling, in megabytes.
-
-    Deconstructible so migrations can serialise it; comparing by ``limit_mb``
-    keeps makemigrations from emitting a fresh migration on every run.
-    """
-
     def __init__(self, limit_mb=None):
         self.limit_mb = limit_mb
 

@@ -1,16 +1,3 @@
-{% comment %}
-What one account claimed about itself at registration, laid out the way the
-registration form asked for it.
-
-Included twice: under each card in the verification queue, where it is what the
-officer checks before deciding, and inside the record dialog on the decided
-list, where it is the evidence behind a decision already made. One file because
-those are the same facts — a group added to the registration form has to appear
-in both places, or the second becomes a lie by omission.
-
-Expects `account`, with `student_profile` and `employee_profile` already
-attached by the view.
-{% endcomment %}
 {% with p=account.student_profile %}
 {% if p %}
 <div class="mb-3">
@@ -77,3 +64,12 @@ attached by the view.
 <div class="mb-3 text-xs" style="color:#92400e;">No profile was created with this account{% if deciding %} — worth asking why before verifying it{% endif %}.</div>
 {% endif %}
 {% endwith %}
+<div class="record-consent">
+  <span class="record-consent__label">Terms &amp; Data Privacy</span>
+  {% if account.accepted_terms %}
+  Accepted version {{ account.terms_version }} on {{ account.terms_accepted_at|date:"M j, Y" }}
+  at {{ account.terms_accepted_at|time:"g:i a" }}
+  {% else %}
+  <span class="record-consent__missing">Not recorded — the notice was not shown when this account was created.</span>
+  {% endif %}
+</div>

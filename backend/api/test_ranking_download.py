@@ -1,27 +1,3 @@
-"""The Student Ranking page's three lists, taken away as a workbook.
-
-Each tab is a list the office has to act on somewhere else — an Affirmative
-shortlist to the Board of Regents, a TES recommendation onward to UniFAST, the
-Faculty and Staff list through PASUC-8 — and the only way off the screen used to
-be to retype it.
-
-Two things these tests hold down, because both are ways a download of a
-recommendation goes quietly wrong:
-
-* **The file says what the page says.** Both are built from the same
-  ``_..._ranking_data``, so what is checked here is that the download really
-  goes through it — same rows, same order, same ranks — rather than running a
-  second query that drifts.
-
-* **A rank never appears beside a row that is not in the list.** Both ranking
-  modules number *every* evaluation from 1, held-out ones included, and a page
-  could hide it by leaving Rank off a second table. A spreadsheet cannot. TES
-  now settles this upstream - an undecidable record never becomes a row at all
-  - but the Staff list still carries both kinds, so the guard stays.
-
-And one that is the point of the whole page: a verdict travels with its reason.
-TES and Staff carry a second sheet holding the Why? panel, rule by rule.
-"""
 from datetime import date
 from io import BytesIO
 
@@ -55,14 +31,10 @@ class RankingDownloadFixtures:
         return StudentProfile.objects.create(user=user, student_id=student_id, **fields)
 
     def an_eligible_student(self, **kw):
-        """Passes all three Affirmative rules, so evaluate_and_sync recommends."""
         return self.a_student(shs_gpa=91.0, suc_exam_score=42.0, suc_exam_total=50.0,
                               is_tes_beneficiary=False, course='BSCS', year_level=2,
                               **kw)
 
-    # Every answer api.tes_ranking.REQUIRED_ANSWERS asks for. TES is decided on
-    # complete records only, so a student short of one of these is not a row on
-    # the TES sheet - they are part of the count in its title block.
     TES_COMPLETE = dict(
         citizenship='Filipino',
         school='School of Technologies and Computer Studies',
@@ -74,7 +46,6 @@ class RankingDownloadFixtures:
     )
 
     def a_ranked_student(self, **kw):
-        """A record the TES rules can actually be run against."""
         fields = dict(self.TES_COMPLETE, year_first_enrolled=date.today().year - 1)
         fields.update(kw)
         return self.a_student(**fields)
@@ -86,7 +57,6 @@ class RankingDownloadFixtures:
         return response, load_workbook(BytesIO(response.content))
 
     def rows_of(self, ws):
-        """The data rows under the header, which sits below the title block."""
         head = None
         for line in ws.iter_rows(values_only=True):
             if line[0] in ('Rank', 'Student', 'Applicant'):
@@ -108,8 +78,6 @@ class TheFileIsOfferedTest(RankingDownloadFixtures, TestCase):
         response, _ = self.book('TES')
         self.assertIn('BiPSU_TES_recommendation_', response['Content-Disposition'])
         self.assertIn('.xlsx', response['Content-Disposition'])
-        # The title is "TES Recommendation"; naming the file from it once gave
-        # BiPSU_TES_Recommendation_recommendation_<date>.xlsx.
         self.assertNotIn('Recommendation_recommendation',
                          response['Content-Disposition'])
 
@@ -137,7 +105,7 @@ class TheAffirmativeListTest(RankingDownloadFixtures, TestCase):
 
     def test_a_recommended_student_is_on_it_with_their_rank(self):
         self.an_eligible_student()
-        self.c.get('/vpsea/ranking/')          # the page syncs; the download reads
+        self.c.get('/vpsea/ranking/')
         _, wb = self.book()
         rows = list(self.rows_of(wb.active))
         self.assertEqual(len(rows), 1)
@@ -156,22 +124,18 @@ class TheAffirmativeListTest(RankingDownloadFixtures, TestCase):
         self.assertEqual(row['Not a TES Beneficiary'], 'Yes')
 
     def test_the_threshold_on_the_page_is_the_threshold_in_the_file(self):
-        """Download the list you are looking at, not the one at the default."""
         self.an_eligible_student()
-        self.c.get('/vpsea/ranking/')          # recommended at the default 75
+        self.c.get('/vpsea/ranking/')
         self.c.get('/vpsea/ranking/?passing=95')
 
         _, wb = self.book(passing=95)
         titles = [c.value for c in wb.active['A'][:6] if c.value]
         self.assertTrue(any('95%' in str(t) for t in titles), titles)
-        # 91.0 clears 75 but not 95, so the same student reads differently in a
-        # file downloaded from a page the office had raised the bar on.
         row = next(self.rows_of(wb.active))
         self.assertEqual(row['GPA ≥ 95%'], 'No')
         self.assertIn(row['Rank'], (None, ''))
 
     def test_downloading_does_not_re_evaluate_anybody(self):
-        """A GET for a file must not rewrite the recommendations it pictures."""
         self.an_eligible_student()
         self.c.get('/vpsea/ranking/')
         rec = AffirmativeRecommendation.objects.get()
@@ -194,15 +158,9 @@ class TheTesListTest(RankingDownloadFixtures, TestCase):
         self.assertEqual(len(names), 2)
 
     def test_a_student_the_screen_held_back_is_a_count_not_a_row(self):
-        """They leave no row, no rank and no name - only the tally above it.
-
-        That is the whole trade the policy makes, and the file has to make it
-        the same way the page does: a reader who cannot see the held-back
-        students on screen must not find them in the spreadsheet either.
-        """
         self.a_ranked_student()
         self.a_student(email='c@bipsu.edu.ph', student_id='2022-00333',
-                       first='Cita', last='Reyes')     # nothing else on file
+                       first='Cita', last='Reyes')
         _, wb = self.book('TES')
         ws = wb.worksheets[0]
         names = {row['Student'] for row in self.rows_of(ws)}
@@ -219,14 +177,11 @@ class TheTesListTest(RankingDownloadFixtures, TestCase):
         labels = {row['Rule'] for row in rules}
         self.assertIn('Citizenship', labels)
         self.assertIn('Current College Enrollment', labels)
-        # A verdict without its reading is the half of this page that matters,
-        # missing.
         for row in rules:
             self.assertTrue(row['Verdict'])
             self.assertTrue(row['Reading'])
 
     def test_no_status_is_written_onto_a_student(self):
-        """UniFAST awards TES. Producing the file decides nothing."""
         profile = self.an_eligible_student()
         self.book('TES')
         profile.refresh_from_db()

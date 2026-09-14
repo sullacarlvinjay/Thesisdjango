@@ -1,13 +1,3 @@
-"""Civil status, educational background and family background are write-once.
-
-These three are what the masterlist exports and CHED's TES form are built from,
-so once a student has entered them a later edit would quietly change a record
-the office has already reviewed. They follow the same write-once rule the
-address and middle name already use.
-
-The office is the escape hatch: the archives edit screen can still correct one
-that was entered wrong, which is the whole point of that screen.
-"""
 from django.test import Client, TestCase
 
 from api.models import Scholarship, StudentProfile, SystemSettings, User
@@ -44,8 +34,6 @@ class LockedProfileFieldsTest(TestCase):
         self.profile.refresh_from_db()
         return r
 
-    # ── the lock ────────────────────────────────────────────────────────────
-
     def test_the_first_save_is_accepted(self):
         self._post()
         self.assertEqual(self.profile.civil_status, 'Single')
@@ -72,7 +60,6 @@ class LockedProfileFieldsTest(TestCase):
         self.assertEqual(self.profile.mother_occupation, 'Teacher')
 
     def test_a_half_filled_group_stays_open(self):
-        """Locking a group the student has not finished would strand them."""
         self._post(highschool='', last_school='')
         self.assertEqual(self.profile.elementary, 'Naval Central')
         self._post(elementary='Naval Central', highschool='Biliran NHS',
@@ -93,8 +80,6 @@ class LockedProfileFieldsTest(TestCase):
         self.assertFalse(r.context['civil_status_locked'])
         self.assertFalse(r.context['education_locked'])
         self.assertFalse(r.context['family_locked'])
-
-    # ── the office override ─────────────────────────────────────────────────
 
     def test_the_archives_edit_can_correct_a_locked_field(self):
         self._post()
@@ -118,7 +103,6 @@ class LockedProfileFieldsTest(TestCase):
         self.assertEqual(self.profile.father_first_name, 'Pedro Jr.')
 
     def test_a_blank_override_field_leaves_the_value_alone(self):
-        """The modal renders these empty, so blank has to mean 'keep'."""
         self._post()
         User.objects.create_user(
             username='vpsea2@bipsu.edu.ph', email='vpsea2@bipsu.edu.ph',

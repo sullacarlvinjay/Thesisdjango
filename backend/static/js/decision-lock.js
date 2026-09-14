@@ -1,19 +1,8 @@
-// A decision is made once.
-//
-// Approve, Send Back and Reject all record one, so a review modal opened on an
-// application that already carries a decision shows what was decided instead of
-// offering the buttons again. The server refuses a second decision either way —
-// this is so the office is not offered an action that cannot succeed.
 (function (window, document) {
   'use strict';
 
-  // The statuses that mean "the office has decided". Anything else — Pending
-  // Validation, Draft — is a submission still waiting on review. Kept in step
-  // with DECIDED_APPLICATION_STATUSES in api/constants.py.
   var DECIDED = ['Approved', 'Rejected', 'Needs Revision'];
 
-  // 'Needs Revision' is the stored status; 'Sent back' is what the office
-  // pressed. The button says the same thing.
   var WORDING = {
     'Approved': 'Approved',
     'Rejected': 'Rejected',
@@ -32,10 +21,6 @@
     return el.innerHTML;
   }
 
-  // status   — the application's current status
-  // formId   — the form holding the decision buttons
-  // noticeId — the element that stands in for it once decided
-  // remarks  — what the office wrote at the time, if anything
   function lockDecision(status, formId, noticeId, remarks) {
     var form = document.getElementById(formId);
     var notice = document.getElementById(noticeId);

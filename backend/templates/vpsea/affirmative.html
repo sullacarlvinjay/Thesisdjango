@@ -268,13 +268,11 @@
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script src="{% static 'js/decision-lock.js' %}?v=1"></script>
 <script>
-// ── helpers ──────────────────────────────────────────────────────────────────
 function field(label, value) {
   if (!value && value !== 0) return '';
   return '<div><p style="font-size:0.7rem;color:#6b7a99;margin-bottom:0.1rem;">' + label +
          '</p><p class="font-medium" style="word-break:break-word;">' + value + '</p></div>';
 }
-// ── Academic modal ────────────────────────────────────────────────────────────
 function openAcademicModal(row) {
   const d = row.dataset;
   const scriptEl = document.getElementById(d.formdataId);
@@ -322,7 +320,6 @@ function openAcademicModal(row) {
   document.getElementById('academicModal').style.display = 'flex';
 }
 function closeAcadModal() { document.getElementById('academicModal').style.display = 'none'; }
-// ── Affirmative / Staff modal ─────────────────────────────────────────────────
 function openAffModal(id, name, type, course, shs, suc, status, remarks) {
   document.getElementById('affModalAppId').value = id;
   document.getElementById('affModalTab').value = 'affirmative';
@@ -364,6 +361,5 @@ function openStaffModal(row) {
   document.getElementById('affModal').style.display = 'flex';
 }
 function closeAffModal() { document.getElementById('affModal').style.display = 'none'; }
-// ── Table filter ──────────────────────────────────────────────────────────────
 </script>
 {% endblock %}

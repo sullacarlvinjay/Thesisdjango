@@ -1,15 +1,3 @@
-"""The deploy-time proof that uploads will work.
-
-Worth testing carefully because it runs under `set -o errexit`: if it raises
-when it should not, it stops a deploy that would have been fine, and if it
-stays quiet when the credentials are wrong the failure lands on a student
-instead.
-
-Nothing here touches a network. The storage backend is substituted, which is
-also the only honest way to test the failure branches — a real bucket cannot be
-asked to produce SignatureDoesNotMatch on demand.
-"""
-
 from io import StringIO
 from unittest import mock
 
@@ -30,7 +18,6 @@ class LocalStorageTest(TestCase):
 
     @override_settings(USE_SUPABASE_STORAGE=False)
     def test_it_does_nothing_when_uploads_are_local(self):
-        """A laptop and the test suite have no remote store, and must not need one."""
         output = run()
         self.assertIn('nothing to check', output)
 
@@ -94,7 +81,6 @@ class RemoteStorageTest(TestCase):
         self.assertIn('SUPABASE_S3_ENDPOINT', str(caught.exception))
 
     def test_a_bucket_that_returns_the_wrong_bytes_is_a_failure(self):
-        """Reachable is not the same as working."""
         with mock.patch.object(check_storage.default_storage, 'save',
                                lambda n, c: n), \
              mock.patch.object(check_storage.default_storage, 'open',
@@ -115,7 +101,6 @@ class RemoteStorageTest(TestCase):
         self.assertIn('uploads will fail', output)
 
     def test_a_probe_that_cannot_be_deleted_does_not_fail_the_deploy(self):
-        """A few stray bytes are not worth blocking a release over."""
         with mock.patch.object(check_storage.default_storage, 'save',
                                lambda n, c: n), \
              mock.patch.object(check_storage.default_storage, 'open',

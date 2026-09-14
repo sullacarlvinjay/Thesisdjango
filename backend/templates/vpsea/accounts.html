@@ -250,12 +250,6 @@
   {% endif %}
 </div>
 
-{% comment %}
-  Scholarships a signed-in student added themselves, on an account this office
-  released terms ago. They cannot ride on an account decision the way the cards
-  above do — that decision is long made — so each is verified or refused on its
-  own, with the same two buttons and the same archive matching.
-{% endcomment %}
 {% if added_scholarships %}
 <div class="card p-6 mb-4">
   <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#92400e;">Scholarships added by verified students</p>
@@ -415,12 +409,6 @@
   {% endif %}
 </div>
 
-{% comment %}
-One dialog per decided account: everything the decision was made on, kept
-reachable after the card it was made on has left the queue. The list itself
-stays six columns wide — a table that carried a whole registration would be
-unreadable, and this is a question an officer asks of one row at a time.
-{% endcomment %}
 {% for account in decided %}
 <div class="modal-overlay" id="record-{{ account.id }}" data-preview>
   <div class="modal record-modal">

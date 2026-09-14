@@ -1,23 +1,4 @@
 {% extends "base.html" %}
-{% comment %}
-The partner's Scholars page, laid out as the SDSO's Scholarship Archives is.
-
-Same shape, in the same order: the programme tabs and the one bulk action on
-the first row, then a card whose heading names the programme and the term, with
-the search, the row actions and the Download Excel menu on its right, a filter
-bar under them and the scholars below that.
-
-Two of the office's buttons are deliberately missing, and neither is an
-oversight. **New Semester** and **Undo Semester** move the whole university on
-to the next term — every programme, every portal, the window students apply
-through — and that is the SDSO's decision, not one funder's. Everything else the
-office has on this page is here.
-
-Upload Excel is here and does mean what it means on the office's page, with one
-difference written into api/student_views.partner_archive_import: it replaces
-only the rows this partner may touch, never a scholar the office has already
-matched to a BiPSU student account.
-{% endcomment %}
 {% block title %}Scholars — {{ office.name }}{% endblock %}
 {% block logo_src %}{{ office.logo_url }}{% endblock %}
 {% block brand %}{{ office.name }}{% endblock %}
@@ -34,7 +15,6 @@ matched to a BiPSU student account.
   </div>
 </div>
 {% else %}
-<!-- Type tabs -->
 <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
   <div class="flex flex-wrap gap-2">
     {% for t in archive_types %}
@@ -75,8 +55,6 @@ matched to a BiPSU student account.
     <div>
       <div class="flex items-center gap-2">
         <h3 class="font-semibold">{{ active_type }} Scholars</h3>
-        <!-- The term the table is on. A GET form so it works without
-             scripting; the change handler only saves the reader a click. -->
         <form method="get" data-auto-submit>
           <input type="hidden" name="type" value="{{ active_type }}" />
           <select name="sy" class="term-pill" aria-label="Term">
@@ -137,7 +115,6 @@ matched to a BiPSU student account.
     {% endfor %}
   </div>
 </div>
-<!-- Upload Excel -->
 <div class="modal-overlay" id="uploadExcelModal" data-preview>
   <div class="modal">
     <div class="modal-header">

@@ -65,7 +65,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
 </script>
 <form method="post" enctype="multipart/form-data" class="space-y-6">
   {% csrf_token %}
-  <!-- Personal Information -->
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Personal Information</p>
     <p class="text-xs mb-4" style="color:#6b7a99;">First name, last name, Student ID, Email, GWA, School, and Course are managed by the admin and cannot be changed here. Your middle name is yours to enter — it is saved once, then locked like your address.</p>
@@ -197,7 +196,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       {% endif %}
     </div>
   </div>
-  <!-- Educational Background -->
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Educational Background</p>
     <div class="grid sm:grid-cols-2 gap-4">
@@ -228,10 +226,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         <input name="last_school" value="{{ profile.last_school }}" />
         {% endif %}
       </div>
-      <!-- Answerable even when the school names above are locked: nobody was
-           asked this before it existed, and locking it would shut every
-           student registered until now out of an Affirmative Action group they
-           may belong to. -->
       <div class="space-y-1.5">
         <label>Was your high school a public school?</label>
         <select name="highschool_is_public">
@@ -248,7 +242,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       {% endif %}
     </div>
   </div>
-  <!-- Family Background -->
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Family Background</p>
     <p class="text-xs mb-4" style="color:var(--text-muted);">
@@ -339,7 +332,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
     <p class="text-xs mt-4" style="color:#6b7a99;">&#9888; Family background is locked after first save. Contact the admin to update.</p>
     {% endif %}
   </div>
-  <!-- Socioeconomic Information -->
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Socioeconomic Information</p>
     <div class="grid sm:grid-cols-2 gap-4">
@@ -362,7 +354,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </div>
     </div>
   </div>
-  <!-- TES Eligibility Information -->
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">TES Eligibility Information</p>
     <p class="text-xs mb-4" style="color:#6b7a99;">
@@ -429,7 +420,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </div>
     </div>
   </div>
-  <!-- Scholarship Eligibility Information -->
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
     <p class="text-xs mb-4" style="color:#6b7a99;">Required for scholarship matching. Upload certified documents as proof.</p>
@@ -483,10 +473,6 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </label>
     </div>
   </div>
-  <!-- Scholarship Data. The registration form's card, asked again: a student
-       who registered before they won something has nowhere else to say so.
-       Field names, element ids and behaviour are register.html's — see
-       _declared_scholarships in api/student_views.py for the reader. -->
   <div class="card p-6">
     <p class="declare-eyebrow">Scholarship Data</p>
     <p class="declare-hint declare-hint--lead">

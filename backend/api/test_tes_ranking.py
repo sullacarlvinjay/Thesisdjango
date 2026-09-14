@@ -1,20 +1,3 @@
-"""The TES rule-based recommender, now the SDSO's.
-
-The rule these tests exist to protect: **TES is decided on complete records
-only**. A student still missing an answer is screened out before any rule runs
-— not ranked, not failed, not listed — so most of what follows is about the
-line between a record the rules can be run against and one they cannot.
-
-That line is the whole of how incompleteness is handled. Past the screen every
-rule is a plain PASS or FAIL, and the tests below hold that: a rule that needed
-a third verdict would mean the screen had let something through.
-
-The other thing pinned here is where the facts live. Nobody applies for TES in
-this system any more — UniFAST awards it, outside the portal — so every field
-the rules read is on the student's own record, entered at registration and
-correctable on My Profile. A rule that could only be answered by a form nobody
-can fill in would keep that student off the list forever.
-"""
 from datetime import date
 
 from django.test import Client, TestCase
@@ -36,8 +19,6 @@ COMPLETE = dict(
     is_listahanan_household=False,
     is_4ps_beneficiary=False,
     is_solo_parent_dependent=False,
-    # The screen requires an answer here. 'NO' is how CHED's own Disability_List
-    # declines the question, and _stated reads it as a no rather than a PWD.
     disability_type='NO',
 )
 
@@ -53,8 +34,6 @@ def make_student(email, student_id, **overrides):
 
 
 class CompleteDataTest(TestCase):
-    """A student whose record is fully populated gets a decided answer."""
-
     def setUp(self):
         self.profile = make_student('ana@bipsu.edu.ph', '2022-00111')
 
@@ -74,18 +53,11 @@ class CompleteDataTest(TestCase):
         self.assertEqual(e.recommendation, 'Recommended')
 
     def test_every_rule_names_the_field_it_read(self):
-        # Auditability: an officer must be able to check the source of a verdict.
         for rule in tes_ranking.evaluate(self.profile).rules:
             self.assertTrue(rule.source, f'{rule.key} does not say where it read from')
             self.assertTrue(rule.detail, f'{rule.key} does not explain itself')
 
     def test_nothing_it_reads_comes_from_outside_the_student_record(self):
-        """Every source is a StudentProfile field or the office's own records.
-
-        The recommender used to read a TES application for three of its answers.
-        There is no such form now, so a rule sourced anywhere else is one no
-        screen can ever satisfy.
-        """
         allowed = ('StudentProfile.', 'Application', 'ScholarshipLinkRequest')
         for rule in tes_ranking.evaluate(self.profile).rules:
             self.assertTrue(rule.source.startswith(allowed),
@@ -101,14 +73,6 @@ class CompleteDataTest(TestCase):
 
 
 class ScreenTest(TestCase):
-    """An unanswered question keeps a student off the list entirely.
-
-    Not failed and not flagged - absent. The office sees a count of how many
-    were held back and nothing else about them, which is the trade the policy
-    makes: a short list every row of which was decided on full data, against no
-    way to tell from this page who is missing what.
-    """
-
     def _screen(self, **overrides):
         StudentProfile.objects.all().delete()
         User.objects.all().delete()
@@ -120,12 +84,6 @@ class ScreenTest(TestCase):
         self.assertEqual(gaps, ())
 
     def test_every_answer_a_rule_reads_is_one_the_screen_requires(self):
-        """The screen and the rules must ask for the same things.
-
-        A field a rule reads but the screen does not check is exactly how a
-        record with a hole in it reaches evaluate(), where nothing is left to
-        catch it.
-        """
         profile, _ = self._screen()
         blank = {'citizenship': '', 'disability_type': ''}
         for attribute, label in tes_ranking.REQUIRED_ANSWERS:
@@ -145,7 +103,6 @@ class ScreenTest(TestCase):
         self.assertIn('School', gaps)
 
     def test_an_unknown_institution_is_not_assumed_ched_recognised(self):
-        """Not a failure: this system cannot place the school, so it cannot say."""
         _, gaps = self._screen(school='Some Other College')
         self.assertIn('CHED recognition of "Some Other College"', gaps)
 
@@ -173,7 +130,6 @@ class ScreenTest(TestCase):
         self.assertEqual([e.rank for e in ranked], [1])
 
     def test_the_screen_asks_once_per_cohort_not_once_per_student(self):
-        """The declaration lookup is a query; doing it per row is how it grows."""
         for n in range(6):
             make_student(f's{n}@bipsu.edu.ph', f'2022-0000{n}', last_name=f'S{n}')
         profiles = list(StudentProfile.objects.select_related(
@@ -183,8 +139,6 @@ class ScreenTest(TestCase):
 
 
 class ConfirmedFailuresTest(TestCase):
-    """What an answered question can still fail on. These are real verdicts."""
-
     def _evaluate(self, **overrides):
         StudentProfile.objects.all().delete()
         User.objects.all().delete()
@@ -206,12 +160,10 @@ class ConfirmedFailuresTest(TestCase):
         self.assertEqual(e.status, tes_ranking.NOT_ELIGIBLE)
 
     def test_the_grace_year_is_allowed(self):
-        # Four-year programme plus one year of grace: the fifth year still passes.
         e = self._evaluate(year_first_enrolled=date.today().year - 4)
         self.assertEqual(e.rule('maximum_years').verdict, tes_ranking.PASS)
 
     def test_every_rule_is_pass_or_fail_and_nothing_else(self):
-        """Past the screen there is no third verdict left to reach."""
         for e in (self._evaluate(), self._evaluate(citizenship='American'),
                   self._evaluate(has_previous_degree=True)):
             for rule in e.rules:
@@ -228,8 +180,6 @@ class ConfirmedFailuresTest(TestCase):
 
 
 class IncomeIsNeverInventedTest(TestCase):
-    """family_income defaults to 0.0, which must not read as a household of P0."""
-
     def _screen(self, **overrides):
         StudentProfile.objects.all().delete()
         User.objects.all().delete()
@@ -251,7 +201,6 @@ class IncomeIsNeverInventedTest(TestCase):
         self.assertIn('Household size', gaps)
 
     def test_no_ranked_student_is_ever_short_an_income(self):
-        """The screen is what lets sort_key compare incomes without a guard."""
         make_student('a@bipsu.edu.ph', '2022-00001', last_name='Poor',
                      family_income=60000.0, household_size=6)
         make_student('b@bipsu.edu.ph', '2022-00002', last_name='Unknown',
@@ -280,8 +229,6 @@ class PriorityLevelTest(TestCase):
         self.assertIn('4Ps beneficiary', e.priority_markers)
 
     def test_pwd_ip_and_solo_parent_each_reach_priority_1(self):
-        # Naming a disability is the PWD declaration — there is no separate
-        # is_pwd column to set. StudentProfile.is_pwd derives from this.
         self.assertEqual(
             self._evaluate(disability_type='Visual Disability').priority,
             tes_ranking.PRIORITY_1)
@@ -291,7 +238,6 @@ class PriorityLevelTest(TestCase):
                          tes_ranking.PRIORITY_1)
 
     def test_na_in_a_free_text_field_is_an_answer_of_no_not_a_disability(self):
-        # Real records in this system hold the literal string "N/A".
         e = self._evaluate(disability_type='N/A', indigenous_group='None')
         self.assertEqual(e.priority, tes_ranking.PRIORITY_2)
         self.assertEqual(e.priority_markers, [])
@@ -300,13 +246,6 @@ class PriorityLevelTest(TestCase):
         self.assertEqual(self._evaluate().priority, tes_ranking.PRIORITY_2)
 
     def test_priority_is_only_ever_one_of_the_two(self):
-        """There is no third priority left: the screen settles the inputs first.
-
-        Both questions that used to leave it unfinalised - the Listahanan / 4Ps
-        listing and solo parent status - now hold the student off the list
-        instead, so every ranked row has a priority that was decided, not
-        defaulted.
-        """
         for overrides in ({}, {'is_listahanan_household': True},
                           {'is_solo_parent_dependent': True}):
             self.assertIn(self._evaluate(**overrides).priority,
@@ -361,13 +300,6 @@ class ConflictingAssistanceTest(TestCase):
             tes_ranking.PASS)
 
     def test_an_unverified_declaration_holds_the_student_back(self):
-        """Declared at registration, not yet decided by the office.
-
-        It may be ongoing government assistance, which disqualifies, or
-        one-time emergency help, which does not. Nobody knows until the proof
-        is looked at, so the student is screened out rather than guessed at -
-        the conflict rule can neither pass nor fail on it.
-        """
         ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST', status='Pending',
             proof_document='x.pdf')
@@ -385,8 +317,6 @@ class ConflictingAssistanceTest(TestCase):
 
 
 class RankingPageTest(TestCase):
-    """The recommender is the SDSO's, on the Student Ranking page's TES tab."""
-
     URL = '/vpsea/ranking/?type=TES'
 
     def setUp(self):
@@ -400,7 +330,6 @@ class RankingPageTest(TestCase):
         self.assertTrue(self.c.login(email='vpsea@bipsu.edu.ph', password='pw'))
 
     def test_every_student_is_screened_because_nobody_applies(self):
-        """There is no application to filter on, so the population is everyone."""
         r = self.c.get(self.URL)
         self.assertEqual(r.context['tes_student_total'] + r.context['tes_excluded'], 2)
 
@@ -408,16 +337,9 @@ class RankingPageTest(TestCase):
         r = self.c.get(self.URL)
         ranked = [e.student_id for e in r.context['tes_rows']]
         self.assertEqual(ranked, ['2022-00001'])
-        # Ranks are contiguous from 1, not inherited from the wider evaluation.
         self.assertEqual([e.rank for e in r.context['tes_rows']], [1])
 
     def test_an_incomplete_record_is_counted_and_not_otherwise_shown(self):
-        """The count is the only trace the office gets - by design, and a cost.
-
-        Nothing on the page names the held-back student or says what they lack,
-        so a record with one answer missing is invisible here until somebody
-        goes looking for it.
-        """
         r = self.c.get(self.URL)
         self.assertEqual(r.context['tes_excluded'], 1)
         html = r.content.decode()
@@ -436,7 +358,6 @@ class RankingPageTest(TestCase):
         self.assertIn('Surname', html)
 
     def test_the_page_says_it_recommends_rather_than_awards(self):
-        """UniFAST awards TES. A page that read as an award list would be a lie."""
         html = self.c.get(self.URL).content.decode()
         self.assertIn('UniFAST awards TES', html)
 
@@ -447,7 +368,7 @@ class RankingPageTest(TestCase):
 
     def test_the_page_shows_a_per_capita_figure_for_the_ranked_student(self):
         html = self.c.get(self.URL).content.decode()
-        self.assertIn('₱', html)                # the complete student's
+        self.assertIn('₱', html)
 
     def test_both_tabs_are_reachable_from_either_one(self):
         for url in ('/vpsea/ranking/', self.URL):
@@ -469,12 +390,6 @@ class RankingPageTest(TestCase):
 
 
 class ProfileFormFeedsTheRecommenderTest(TestCase):
-    """The student profile page is where the TES facts are actually entered.
-
-    Without this the recommender had six fields no form could fill, so every
-    student read For Verification forever.
-    """
-
     def setUp(self):
         self.profile = make_student(
             'ana@bipsu.edu.ph', '2022-00111',
@@ -503,7 +418,6 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
             self.assertIn(f'name="{name}"', html)
 
     def test_registration_asks_for_them_too(self):
-        """Otherwise the office would have to chase every student individually."""
         html = Client().get('/register/').content.decode()
         for name in ('citizenship', 'household_size', 'year_first_enrolled',
                      'is_listahanan_household', 'is_4ps_beneficiary',
@@ -540,7 +454,6 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
         self.assertEqual(p.year_first_enrolled, 2023)
 
     def test_filling_the_form_in_moves_a_student_onto_the_list(self):
-        """The way back from invisible, and the only one the student controls."""
         self.assertEqual(tes_ranking.rank([self.profile]), [],
                          'an incomplete record was ranked before the form was filled')
 
@@ -557,7 +470,6 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
         self.assertEqual(after.per_capita_income, 24000.0)
 
     def test_answering_non_filipino_is_the_one_way_to_fail_citizenship(self):
-        """Failing it takes an answer. Leaving it blank keeps them off the list."""
         self._save(citizenship='Non-Filipino', household_size='5',
                    year_first_enrolled=str(date.today().year - 1),
                    is_listahanan_household='no', has_previous_degree='no',
@@ -569,7 +481,6 @@ class ProfileFormFeedsTheRecommenderTest(TestCase):
         self.assertEqual(e.status, tes_ranking.NOT_ELIGIBLE)
 
     def test_evaluate_refuses_a_record_that_has_not_been_screened(self):
-        """The contract, enforced: no rule gets to run on a hole in the record."""
         with self.assertRaises(ValueError) as caught:
             tes_ranking.evaluate(self.profile)
         self.assertIn('has not been screened', str(caught.exception))

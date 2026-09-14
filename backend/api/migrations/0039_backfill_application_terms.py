@@ -1,33 +1,11 @@
-"""Move the term, provenance and reporting values out of Application.form_data
-into the columns added by 0038.
-
-Non-destructive on purpose: the promoted keys are *copied*, not removed, so this
-migration is reversible and any reader still going through ``form_data`` keeps
-working while the call sites are converted. The one thing that is deleted is
-``csrfmiddlewaretoken``, which ``request.POST.dict()`` swept into every
-student-submitted row and which has no business being stored at all.
-
-Rows created by the office (link approvals, TES approvals, renewals) carry an
-``academic_year``. Student-submitted rows carry no term key whatever — that is
-the bug this whole change exists to fix — so their term is derived from the row's
-own ``submitted_at`` rather than from whatever the active setting happens to say
-today. BiPSU's 1st semester runs from August, which is the boundary used below.
-"""
 from django.db import migrations
 
 FIRST_SEM_START_MONTH = 8
 
-# Mirrors constants.APPLICATION_SOURCES. Inlined so the migration keeps working
-# if that list is later changed.
 KNOWN_SOURCES = {'portal', 'link', 'tes_application', 'renewal', 'import'}
 
 
 def parse_label(label):
-    """'26-1' -> ('2026-2027', '1st Semester'). Mirrors SystemSettings.parse_label.
-
-    Reimplemented here because historical models carry fields, not methods, and
-    a data migration must not depend on today's version of that helper.
-    """
     try:
         yy, sem = label.split('-')
         start = 2000 + int(yy)
@@ -37,7 +15,6 @@ def parse_label(label):
 
 
 def label_for(school_year, semester):
-    """'2026-2027' + '1st Semester' -> '26-1'."""
     try:
         start = int(str(school_year).split('-')[0])
         return f"{start - 2000}-{'1' if semester == '1st Semester' else '2'}"
@@ -46,7 +23,6 @@ def label_for(school_year, semester):
 
 
 def term_from_date(when):
-    """The academic term a submission date falls in."""
     if not when:
         return '', ''
     if when.month >= FIRST_SEM_START_MONTH:
@@ -68,8 +44,6 @@ def forwards(apps, schema_editor):
     for app in Application.objects.all():
         fd = app.form_data if isinstance(app.form_data, dict) else {}
 
-        # ── Term. The office wrote 'academic_year'; a couple of paths wrote
-        # 'school_year'. Either may hold the expanded form or the short label.
         raw = fd.get('academic_year') or fd.get('school_year') or ''
         semester = fd.get('semester') or ''
         if raw:
@@ -88,14 +62,11 @@ def forwards(apps, schema_editor):
         app.semester = semester
         app.term_label = label_for(school_year, semester)
 
-        # ── Provenance and reporting columns.
         source = fd.get('source') or 'portal'
         app.source = source if source in KNOWN_SOURCES else 'portal'
         app.award_number = fd.get('award_number') or ''
         app.congress_district = fd.get('congress_district') or ''
 
-        # ── Foreign keys that were integers inside the JSON. Only adopt an id
-        # that still resolves; a dangling one is exactly what this replaces.
         claimed = fd.get('claimed_archive_id')
         if claimed in archive_ids:
             app.claimed_archive_id = claimed
@@ -105,8 +76,6 @@ def forwards(apps, schema_editor):
             app.tes_application_id = tes
             stats['tes_fk'] += 1
 
-        # ── The one deletion: session credential material swept in by
-        # form_data=request.POST.dict().
         if isinstance(app.form_data, dict) and 'csrfmiddlewaretoken' in app.form_data:
             app.form_data.pop('csrfmiddlewaretoken')
             stats['csrf_stripped'] += 1
@@ -125,8 +94,6 @@ def forwards(apps, schema_editor):
 
 
 def backwards(apps, schema_editor):
-    """Clear the promoted columns. The values they came from are still in
-    form_data — this migration never removed them — so nothing is lost."""
     Application = apps.get_model('api', 'Application')
     Application.objects.all().update(
         term_label='', school_year='', semester='', source='portal',

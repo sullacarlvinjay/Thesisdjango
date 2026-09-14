@@ -1,17 +1,3 @@
-"""VPSEA scholars masterlist — the BiPSU "LIST OF SCHOLARS" Word document.
-
-The office's own document is bundled at ``templates/docx/masterlist_template.docx``
-as a docxtpl (Jinja) template: every table body row carries ``{%tr for row in
-programN.female %}`` loops and ``{{ row.* }}`` placeholders. Rendering fills the
-rows in place, so the letterhead, column headers, merged cells, borders, page
-setup and signatory blocks are the office's originals rather than anything
-recreated in code.
-
-The template exposes 16 program slots. ``PROGRAM_SLOTS`` below decides which
-scholarship lands in which slot — reorder that list to reorder the document.
-A programme added to the catalogue needs a slot here too, or its scholars are
-on file and missing from the document the office actually files.
-"""
 import os
 import re
 
@@ -20,12 +6,6 @@ TEMPLATE_PATH = os.path.join(
     'templates', 'docx', 'masterlist_template.docx',
 )
 
-# Slot -> (heading, scholarship type, layout).
-#   'gendered' fills programN.female / programN.male
-#   'students' fills programN.students (the BiPSU Staff table has no gender split)
-# program11 is skipped: its table only has a female loop, so a program placed
-# there would silently drop its male scholars.
-# (slot, heading, source key, layout, header style)
 PROGRAM_SLOTS = [
     ('program1',  'ACADEMIC',        'Academic',    'gendered'),
     ('program2',  'BiPSU STAFF',     'Staff',       'students'),
@@ -38,25 +18,14 @@ PROGRAM_SLOTS = [
     ('program9',  'GSIS',            'GSIS',        'gendered'),
     ('program10', 'CoScho',          'CoScho',      'gendered'),
     ('program12', 'SPORTS',          'Sports',      'gendered'),
-    # The three programmes the catalogue gained from BiPSU's own chart. They
-    # were listed as scholarships and archivable, but the masterlist still had
-    # no table for them, so a scholar under any of them was on file and absent
-    # from the document the office files. None is reviewed in this portal —
-    # they fill from the office's Excel import, which apps() already includes.
     ('program13', 'SUC-TDP',         'SUC-TDP',     'gendered'),
     ('program14', 'DOST-JLSS',       'JLSS',        'gendered'),
     ('program15', 'FHE',             'FHE',         'gendered'),
 ]
 ALL_SLOTS = [f'program{i}' for i in range(1, 17)]
 
-# The office template carries 16 program blocks but PROGRAM_SLOTS fills fewer.
-# Spare slots are named with this marker so the rendered document can find and
-# delete them — otherwise they print as an unnamed heading over an empty table.
 UNUSED_MARKER = '∅UNUSED'
 
-# Every column heading in the office template maps to one row field. The
-# preview builds its cells from this, so a table's columns always match the
-# document's — no slot's headings are hardcoded here.
 HEADER_FIELD = {
     'NO.': 'no',
     'AWARD NUMBER': 'award_number',
@@ -85,12 +54,6 @@ _HEADER_CACHE = {}
 
 
 def slot_headers():
-    """The real column headings of each program table, read from the template.
-
-    Every slot has its own shape — GSIS carries no award number, Sports has
-    neither barangay nor congressional district — so reading them beats keeping
-    a second copy in code that can drift out of step with the document.
-    """
     if _HEADER_CACHE:
         return _HEADER_CACHE
     import re
@@ -105,7 +68,7 @@ def slot_headers():
             continue
         raw = [c.text.strip().replace(chr(10), ' ') for c in table.rows[1].cells]
         headings = []
-        for h in raw:                      # collapse Word's merged duplicates
+        for h in raw:
             if not headings or headings[-1] != h:
                 headings.append(h)
         _HEADER_CACHE[found.group(1)] = headings
@@ -113,7 +76,6 @@ def slot_headers():
 
 
 def cells_for(row, headings):
-    """A row rendered in the order a given table's headings ask for."""
     return [row.get(HEADER_FIELD.get(h, ''), '') for h in headings]
 
 
@@ -130,8 +92,6 @@ def _initial(name):
 
 
 def _blank_row(no):
-    """Every field any of the 16 tables might reference, so a row dropped into
-    any slot fills the cells that exist there and leaves the rest blank."""
     return {
         'no': no, 'col': '',
         'last_name': '', 'first_name': '', 'first_name1': '',
@@ -146,7 +106,6 @@ def _blank_row(no):
 
 
 def _application_row(no, app):
-    """A row from an approved Application (the student-portal programs)."""
     p = app.student
     u = p.user
     middle = getattr(p, 'middle_name', '') or ''
@@ -184,7 +143,6 @@ def _application_row(no, app):
 
 
 def _affirmative_row(no, app):
-    """A row from an approved AffirmativeStaffApplication (Affirmative / Staff)."""
     parts = (app.full_name or '').strip().split()
     if len(parts) >= 3:
         last, first, middle = parts[-1], parts[0], parts[1]
@@ -212,13 +170,6 @@ def _affirmative_row(no, app):
 
 
 def _imported_row(no, rec):
-    """A row from an ImportedScholar — a scholar the office uploaded or typed in.
-
-    These are the bulk of the office's records for every programme without a
-    portal, and the masterlist used to read straight past them: it asked only
-    Application and AffirmativeStaffApplication, so a list of imported CHED or
-    DOST scholars produced an empty table under a printed heading.
-    """
     middle = rec.middle_name or ''
     gwa = rec.gwa or 0
     if rec.scholarship_type == 'Academic':
@@ -226,8 +177,6 @@ def _imported_row(no, rec):
     else:
         percent = ''
 
-    # Set in _sources so the programme's proper name costs one query, not one
-    # per scholar. Falls back to the bare type if a Scholarship row is missing.
     name = getattr(rec, '_program_name', '') or rec.scholarship_type
 
     row = _blank_row(no)
@@ -254,7 +203,6 @@ def _imported_row(no, rec):
 
 
 def _row_for(no, record):
-    """Build a row from whichever of the three shapes a scholar arrived in."""
     from .models import AffirmativeStaffApplication, ImportedScholar
 
     if isinstance(record, AffirmativeStaffApplication):
@@ -265,7 +213,6 @@ def _row_for(no, record):
 
 
 def _gender_of(record):
-    """The gender to split a table on, whatever shape the record is."""
     from .models import Application
 
     if isinstance(record, Application):
@@ -274,18 +221,6 @@ def _gender_of(record):
 
 
 def _sources(term_label=None):
-    """Every scholarship type mapped to its approved records, already ordered.
-
-    Three shapes land here. Applications are the portal's awards;
-    AffirmativeStaffApplications cover the two programmes applied for outside it;
-    ImportedScholars are everyone the office uploaded or added by hand, which for
-    most programmes is nearly all of them.
-
-    Imported rows are scoped to one term because they carry one, and a document
-    stamped with a single semester should not print every scholar the office has
-    ever imported. A row already claimed by a student account is skipped — that
-    scholar has an Application above and would otherwise be printed twice.
-    """
     from .models import (STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, Application,
                          AffirmativeStaffApplication, ImportedScholar,
                          Scholarship, SystemSettings, split_ched)
@@ -341,17 +276,6 @@ def _sources(term_label=None):
 
 
 def known_terms():
-    """Every term a masterlist can be built for, newest first.
-
-    A term earns a place by having scholars imported into it, plus the active
-    one, which is offered whether anything has been imported into it yet or
-    not — it is the term a document generated today is for.
-
-    Applications are deliberately not consulted. An award is a standing thing:
-    it carries the term it was granted in and is renewed term by term against
-    that same row, so the terms an Application has been *current* in are not
-    written down anywhere to read back.
-    """
     from .models import ImportedScholar, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     labels = {label for label in ImportedScholar.objects
@@ -361,11 +285,6 @@ def known_terms():
 
 
 def _term_order(label):
-    """'26-1' -> (26, 1), so a list of them reads newest first.
-
-    A label somebody typed by hand that does not parse sorts to the bottom
-    rather than raising. A report is not where that should be discovered.
-    """
     try:
         yy, sem = label.split('-')
         return (int(yy), int(sem))
@@ -374,12 +293,6 @@ def _term_order(label):
 
 
 def term_for(requested):
-    """The term a report is for: the one asked for if it is real, else the active one.
-
-    Anything else — a stale bookmark, a term whose imports have since been
-    deleted, a hand-edited query string — falls back rather than producing an
-    empty document that looks like a year with no scholars in it.
-    """
     label = (requested or '').strip()
     if label in known_terms():
         return label
@@ -389,12 +302,6 @@ def term_for(requested):
 
 
 def build_context(sources=None, term_label=None):
-    """The docxtpl context: one entry per program slot, plus per-slot counts.
-
-    `term_label` chooses whose imported scholars are printed — the active term
-    when it is None. It is ignored when `sources` is given, which is how the
-    tests hand records straight in.
-    """
     sources = sources if sources is not None else _sources(term_label)
     headings = slot_headers()
     context = {slot: {'name': UNUSED_MARKER, 'female': [], 'male': [], 'students': []}
@@ -403,9 +310,6 @@ def build_context(sources=None, term_label=None):
 
     for slot, heading, key, layout in PROGRAM_SLOTS:
         records = sources.get(key, [])
-        # A slot now holds a mix of shapes — an imported row can sit beside a
-        # portal application in the same table — so the builder is chosen per
-        # record rather than per slot.
         build, gender_of = _row_for, _gender_of
 
         entry = {'name': heading, 'female': [], 'male': [], 'students': []}
@@ -430,11 +334,6 @@ def build_context(sources=None, term_label=None):
 
 
 def _restamp_period(document, sy, semester):
-    """The template's headings carry a literal '1st SEMESTER SY: 2019-2020'.
-
-    There is no Jinja tag for it, so rewrite those headings after rendering
-    rather than shipping a document stamped with the wrong school year.
-    """
     second = semester.strip().lower().startswith('2')
     year_re = re.compile(r'SY:\s*\d{4}\s*[-–]\s*\d{4}', re.I)
     sem_re = re.compile(r'\b1(st|ST)\b')
@@ -453,7 +352,6 @@ def _restamp_period(document, sy, semester):
             updated = fix(original)
             if updated == original or not p.runs:
                 continue
-            # Collapse into the first run so a match spanning runs still lands.
             p.runs[0].text = updated
             for run in p.runs[1:]:
                 run.text = ''
@@ -469,12 +367,6 @@ def _restamp_period(document, sy, semester):
 
 
 def _drop_unused_sections(document):
-    """Delete the spare program blocks the office template ships with.
-
-    A program block runs from its heading paragraph to the next heading. A
-    heading is identified structurally: it is the paragraph immediately followed
-    by the template's "SCHOLARSHIP GRANT" line.
-    """
     from docx.text.paragraph import Paragraph
 
     body = document.element.body
@@ -512,7 +404,6 @@ def _drop_unused_sections(document):
                 parent.remove(el)
                 removed += 1
 
-    # Belt and braces: never let the marker itself reach the reader.
     for el in children:
         if is_para(el) and UNUSED_MARKER in text_of(el):
             para = Paragraph(el, document)
@@ -522,14 +413,6 @@ def _drop_unused_sections(document):
 
 
 def build_document(academic_year, semester, term_label=None):
-    """Return ``(BytesIO, summary)`` for the filled masterlist document.
-
-    `academic_year` and `semester` are what the headings are stamped with;
-    `term_label` is which term's imported scholars fill the tables. They are
-    separate arguments because they are separate questions, but every caller in
-    this app derives all three from one chosen term — see
-    `student_views._report_term`.
-    """
     from io import BytesIO
     from docxtpl import DocxTemplate
 

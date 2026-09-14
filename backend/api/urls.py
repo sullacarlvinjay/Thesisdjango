@@ -4,10 +4,8 @@ from . import student_views
 from django.shortcuts import redirect
 
 urlpatterns = [
-    # Public landing
     path('', student_views.landing_view),
 
-    # Auth
     path('login/', student_views.login_view),
     path('logout/', student_views.logout_view),
     path('register/', student_views.register_view),
@@ -15,7 +13,6 @@ urlpatterns = [
     path('register/verify/<str:token>/', student_views.verify_email),
     path('register/resend/', student_views.resend_confirmation),
 
-    # Student portal — /student/ redirects straight to applications
     path('student/', lambda r: redirect('/student/applications/')),
     path('student/apply/academic/', student_views.student_apply_academic),
     path('student/applications/', student_views.student_applications),
@@ -23,7 +20,6 @@ urlpatterns = [
     path('student/renewal/academic/', student_views.student_renewal_academic),
     path('student/profile/', student_views.student_profile),
 
-    # REST API
     path('api/auth/register/', views.RegisterView.as_view()),
     path('api/auth/login/', views.LoginView.as_view()),
     path('api/auth/logout/', views.LogoutView.as_view()),
@@ -45,7 +41,6 @@ urlpatterns = [
     path('api/vpsea/announcements/', views.VPSEAAnnouncementListCreateView.as_view()),
     path('api/vpsea/reports/', views.VPSEAReportsView.as_view()),
     path('api/vpsea/ranking/', views.VPSEAStudentRankingView.as_view()),
-    # VPSEA portal pages
     path('vpsea/', student_views.vpsea_dashboard),
     path('vpsea/affirmative/', student_views.vpsea_affirmative_applications),
     path('vpsea/renewals/', student_views.vpsea_renewals),
@@ -80,7 +75,6 @@ urlpatterns = [
     path('vpsea/students/add/', student_views.vpsea_student_add),
     path('vpsea/students/<int:pk>/edit/', student_views.vpsea_student_edit),
     path('vpsea/students/<int:pk>/delete/', student_views.vpsea_student_delete),
-    # BiPSU Staff portal pages
     path('nsu-staff/', student_views.nsu_staff_dashboard),
     path('nsu-staff/apply/', student_views.nsu_staff_apply),
     path('nsu-staff/applications/', student_views.nsu_staff_applications),
@@ -88,7 +82,6 @@ urlpatterns = [
     path('nsu-staff/notifications/', student_views.nsu_staff_notifications),
     path('nsu-staff/renewal/', student_views.nsu_staff_renewal),
 
-    # External partner portal pages
     path('vpsea/partners/', student_views.vpsea_partners),
     path('partner/', student_views.partner_dashboard),
     path('partner/profile/', student_views.partner_profile),
@@ -98,7 +91,3 @@ urlpatterns = [
     path('partner/scholars/', student_views.partner_scholars),
     path('partner/reports/download/', student_views.partner_report_download),
 ]
-
-# /media/ is wired in config.urls, through a view that checks who is asking.
-# It is deliberately not served here: this URLconf is included first, so a
-# static() fallback would shadow that check whenever DEBUG was on.

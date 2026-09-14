@@ -13,7 +13,6 @@ def system_settings(request):
 
 
 def _profile_photo_url(request):
-    """URL of the signed-in user's profile photo, or '' when none is set."""
     user = getattr(request, 'user', None)
     if user and user.is_authenticated:
         return user.photo_url
@@ -21,13 +20,6 @@ def _profile_photo_url(request):
 
 
 def _scholarship_standing(request):
-    """What this student holds, and which programmes are therefore still open.
-
-    The student nav hides an Apply page once that programme is closed to them.
-    Individual views used to compute this for their own template, which meant
-    the nav quietly showed the wrong thing on every page that forgot to.
-    Answered here instead, so it is right on all of them.
-    """
     closed = {'enrolled': False, 'can_apply_academic': False}
     user = getattr(request, 'user', None)
     if not (user and user.is_authenticated and getattr(user, 'role', '') == 'student'):
@@ -46,14 +38,6 @@ def _scholarship_standing(request):
 
 
 def _pending_accounts(request):
-    """Badge count for the Account Verification page, VPSEA users only.
-
-    Everything waiting on that page, not only the registrations: it also
-    decides the scholarships students add to accounts it released terms ago,
-    and those carry no other signal at all — no new account, no application —
-    so an officer with an empty registration queue would read a clear sidebar
-    and leave awards sitting undecided behind it.
-    """
     user = getattr(request, 'user', None)
     if not (user and user.is_authenticated and getattr(user, 'role', '') == 'vpsea'):
         return 0

@@ -1,14 +1,3 @@
-/* Add Scholar: what the "portal account" choice demands of the form.
- *
- * There is no password box on this form and there should not be — the office
- * does not choose the scholar's password, the student number becomes it, and
- * the scholar is emailed to say so. That only works if both fields are actually
- * filled in, and neither is required for an import, so the requirement has to
- * follow the radio rather than sit on the input.
- *
- * The server refuses the same combination regardless (vpsea_archive_add); this
- * only moves the complaint from after the submit to before it.
- */
 (function () {
   'use strict';
 
@@ -21,7 +10,6 @@
     if (!radios.length) return;
 
     function fields() {
-      // Both branches of the modal name them the same; only one is rendered.
       return {
         email: form.querySelector('input[name="email"]'),
         studentId: form.querySelector('input[name="student_id"]')
@@ -37,7 +25,6 @@
         if (!el) return;
         if (on) el.setAttribute('required', 'required');
         else el.removeAttribute('required');
-        // The asterisk the rest of this form uses for a required field.
         var label = el.closest('div') && el.closest('div').querySelector('label');
         if (label) label.classList.toggle('is-required', on);
       });

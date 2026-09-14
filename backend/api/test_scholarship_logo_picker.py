@@ -1,22 +1,3 @@
-"""The office can say whose seal a programme it adds should wear.
-
-`Scholarship.logo_url` resolved the seal from the programme type alone, which
-covers every programme in the catalogue and nothing else. A programme added
-through /vpsea/scholarships/add/ has a type the funding map has never heard of,
-so it fell back to BiPSU's seal whoever funds it — the exact fault the mapping
-exists to prevent, reintroduced through the one route that can create a
-programme the map cannot know about.
-
-The stored value is a bare filename rendered straight into an `<img src>`, so
-the view validates it against the files that actually exist rather than trusting
-the post. Anything else — a path, a URL, a deleted seal — is discarded and the
-programme falls back to its type's default.
-
-It is a picker over the seals committed to `media/logos/` rather than an upload.
-That folder is served off the filesystem (`api.media_views` reads it through
-`FileSystemStorage`, deliberately not the uploads bucket), and Render's disk does
-not survive a deploy — an uploaded seal would be gone at the next one.
-"""
 from django.test import Client, TestCase
 
 from api.constants import available_logos
@@ -39,8 +20,6 @@ class ScholarshipLogoPickerTest(TestCase):
             'group': 'external', 'description': 'x',
         }, **extra))
 
-    # ── The gap this closes ─────────────────────────────────────────────────
-
     def test_a_programme_the_office_adds_can_carry_its_funders_seal(self):
         self._add(logo='CHED.png')
         s = Scholarship.objects.get(type='ProvBoard')
@@ -48,14 +27,12 @@ class ScholarshipLogoPickerTest(TestCase):
         self.assertEqual(s.logo_url, '/media/logos/CHED.png')
 
     def test_without_a_choice_it_still_falls_back_to_the_type_default(self):
-        """Unchanged behaviour for every programme in the catalogue."""
         self._add()
         s = Scholarship.objects.get(type='ProvBoard')
         self.assertEqual(s.logo, '')
         self.assertEqual(s.logo_url, '/media/logos/BiPSU.png')
 
     def test_a_catalogue_programme_still_resolves_from_its_type(self):
-        """The chosen seal is an override, not a replacement for the map."""
         s = Scholarship.objects.create(
             name='DOST', type='DOST', category='recommendation',
             description='x', eligibility='x', requirements=[])
@@ -67,10 +44,7 @@ class ScholarshipLogoPickerTest(TestCase):
             description='x', eligibility='x', requirements=[], logo='UniFAST.png')
         self.assertEqual(s.logo_url, '/media/logos/UniFAST.png')
 
-    # ── What may be stored ──────────────────────────────────────────────────
-
     def test_a_path_is_refused_rather_than_stored(self):
-        """The value is rendered into a URL, so this is the one that matters."""
         self._add(logo='../../../etc/passwd')
         self.assertEqual(Scholarship.objects.get(type='ProvBoard').logo, '')
 
@@ -88,8 +62,6 @@ class ScholarshipLogoPickerTest(TestCase):
         self.assertIn('BiPSU.png', available_logos())
         self.assertIn('CHED.png', available_logos())
         self.assertIn('UniFAST.png', available_logos())
-
-    # ── Editing ─────────────────────────────────────────────────────────────
 
     def test_the_seal_can_be_changed_later(self):
         self._add(logo='CHED.png')
@@ -111,8 +83,6 @@ class ScholarshipLogoPickerTest(TestCase):
         s.refresh_from_db()
         self.assertEqual(s.logo_url, '/media/logos/BiPSU.png')
 
-    # ── The form ────────────────────────────────────────────────────────────
-
     def test_the_add_form_offers_the_seals_on_file(self):
         html = self.c.get('/vpsea/scholarships/add/').content.decode()
         self.assertIn('data-logo-picker', html)
@@ -126,7 +96,6 @@ class ScholarshipLogoPickerTest(TestCase):
         self.assertIn('value="CHED.png" selected', html)
 
     def test_the_landing_page_shows_the_chosen_seal(self):
-        """End to end: the reason the field exists at all."""
         self._add(logo='CHED.png')
         html = Client().get('/').content.decode()
         self.assertIn('Provincial Board Scholarship', html)

@@ -1,21 +1,5 @@
-"""Copy every student's record onto their detail rows, and stamp the terms.
-
-Runs between 0049, which builds the tables, and 0051, which drops the columns
-read here. A row is written for every student and every group, even an empty
-one: the profile reads a missing row as "the default a fresh one would hold",
-which is right, but leaving some students short of a row would mean the admin
-inlines and any query against a detail table saw a different population than
-the profile table does. StudentProfile.ensure_details does the same for every
-student registered after this.
-
-The term backfill uses each record's own submission date rather than the active
-term, because these are historical submissions: a renewal filed in October 2025
-belongs to the first semester of 2025-2026, not to whatever term happens to be
-open when this migration runs.
-"""
 from django.db import migrations
 
-# related name -> (detail model, the columns to carry across)
 DETAIL_GROUPS = {
     'enrollment': ('EnrollmentData', ['school', 'course', 'year_level', 'gwa']),
     'personal': ('PersonalInformation', [
@@ -38,11 +22,7 @@ DETAIL_GROUPS = {
         'mother_middle_name', 'mother_occupation']),
 }
 
-# The student-submitted records that gained a term stamp, and the date field the
-# backfill reads a historical term off.
 TERM_STAMPED = [
-    # A profile has no date of its own; the account it belongs to was created
-    # when the student registered, which is exactly the term being recorded.
     ('StudentProfile', 'user.date_joined'),
     ('AcademicRenewal', 'submitted_at'),
     ('StaffRenewal', 'submitted_at'),
@@ -54,11 +34,6 @@ TERM_STAMPED = [
 
 
 def label_for(when):
-    """The '<yy>-<sem>' term a date falls in.
-
-    BiPSU's first semester runs from August; anything from January to July is
-    the second semester of the school year that started the previous August.
-    """
     if when is None:
         return ''
     year, month = when.year, when.month
@@ -68,7 +43,6 @@ def label_for(when):
 
 
 def submitted_on(row, path):
-    """The date a row was submitted, following a dotted path across a relation."""
     for step in path.split('.'):
         row = getattr(row, step, None)
         if row is None:
@@ -112,7 +86,6 @@ def move_forward(apps, schema_editor):
 
 
 def move_backward(apps, schema_editor):
-    """Copy the detail rows back onto the profile, for a reversal of 0051."""
     StudentProfile = apps.get_model('api', 'StudentProfile')
     for related, (model_name, columns) in DETAIL_GROUPS.items():
         Detail = apps.get_model('api', model_name)

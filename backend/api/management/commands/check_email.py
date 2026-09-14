@@ -1,31 +1,3 @@
-"""Prove mail actually leaves the server, and say why when it does not.
-
-Every other path in this system is deliberately quiet about mail. ``notify.send_email``
-catches everything and logs, because a review screen mid-save must not fail over
-a mail server, and ``settings.py`` falls back to the console backend when
-EMAIL_HOST is unset so a laptop and the test suite never touch SMTP. Both are
-right, and together they mean a misconfigured deployment looks exactly like a
-working one: messages are written to the service log, every caller is told
-'sent', and nobody is ever emailed.
-
-This is the one place that tells the truth. It prints the configuration it is
-actually about to use, sends one real message with ``fail_silently=False``, and
-reports the exception with its cause named rather than swallowing it.
-
-    python manage.py check_email you@example.com
-
-There are two routes out and this reports whichever one is live: Brevo over
-HTTPS when BREVO_API_KEY is set, SMTP otherwise. The console backend is reported
-as the non-delivery it is, not as success.
-
-**On Render this needs a shell, and the free plan has none.** Run it against the
-same credentials from a laptop instead — copy BREVO_API_KEY and
-EMAIL_HOST_USER out of the dashboard into a local .env — which tests the
-two things that actually go wrong: the key, and whether the sender address is
-verified. What it cannot test from there is the network path out of Render, and
-for Brevo that is ordinary HTTPS on 443, which is the whole reason for using it.
-"""
-
 from django.conf import settings
 from django.core.mail import get_connection, send_mail
 from django.core.management.base import BaseCommand, CommandError
@@ -33,8 +5,6 @@ from django.core.management.base import BaseCommand, CommandError
 CONSOLE = 'django.core.mail.backends.console.EmailBackend'
 BREVO = 'api.email_backends.BrevoEmailBackend'
 
-# What each failure usually means. The exception class alone sends people to
-# search engines; the deployment causes are few and worth naming.
 HINTS = [
     ('SMTPAuthenticationError',
      'The username or password was refused. For Gmail this is almost always the '
@@ -90,8 +60,6 @@ class Command(BaseCommand):
         if over_http:
             rows += [
                 ('route', 'Brevo HTTPS API, port 443'),
-                # Never a secret's value, here or below: this runs in a shell
-                # whose scrollback is shared.
                 ('BREVO_API_KEY',
                  'set' if getattr(settings, 'BREVO_API_KEY', '') else '(unset)'),
             ]
@@ -131,16 +99,12 @@ class Command(BaseCommand):
                 'them. Then run this again.'
             )
 
-        # Opened explicitly so a connection failure is reported as one, before
-        # anything is blamed on the message itself. Nothing to open on the HTTP
-        # route: that request carries its own credentials, so a bad key is only
-        # discovered by the send, and it is reported there.
         connection = get_connection(fail_silently=False)
         if not over_http:
             self.stdout.write(f'Connecting to {host}...')
             try:
                 connection.open()
-            except Exception as exc:                    # noqa: BLE001
+            except Exception as exc:
                 raise CommandError(self._explain('Could not connect', exc))
             self.stdout.write(self.style.SUCCESS('  connected and authenticated'))
 
@@ -159,7 +123,7 @@ class Command(BaseCommand):
                 fail_silently=False,
                 connection=connection,
             )
-        except Exception as exc:                        # noqa: BLE001
+        except Exception as exc:
             raise CommandError(self._explain('The message was refused', exc))
         finally:
             connection.close()
@@ -187,7 +151,6 @@ class Command(BaseCommand):
             ))
 
     def _explain(self, headline, exc):
-        """The exception, plus what it usually means for this deployment."""
         name = type(exc).__name__
         lines = [f'{headline}: {name}: {exc}']
         for needle, hint in HINTS:

@@ -1,17 +1,3 @@
-"""Analytics when uploads are not on the local disk.
-
-The deployed site keeps uploads in Supabase Storage, and that backend has no
-``path()`` — Django's base Storage raises NotImplementedError for it, because
-there is no local file to name. The rollover sheets a past semester is read
-back from were being opened with ``openpyxl.load_workbook(field.excel_file.path)``,
-so every one of those reads raised on its first line, the ``except Exception``
-around it returned an empty tally, and the analytics page drew empty charts.
-
-Locally, on a FileSystemStorage, the same code worked perfectly. That is the
-whole shape of the bug: nothing to see in development, nothing on the page in
-production. These tests run the rollover reads against a storage backend with
-no ``path()``, which is what the deployed one is.
-"""
 from io import BytesIO
 
 import openpyxl
@@ -25,15 +11,6 @@ from api.models import (
 
 
 class PathlessStorage(Storage):
-    """A bucket, in the only way that matters here: bytes in, bytes out, no path.
-
-    ``path()`` is deliberately left to inherit the base Storage implementation
-    — the one that raises NotImplementedError. That inheritance IS the
-    condition under test, and it is the same one django-storages' S3Storage
-    sits under, so anything reaching for a filesystem path fails here exactly
-    as it does on Supabase.
-    """
-
     _files = {}
 
     def _open(self, name, mode='rb'):
@@ -100,8 +77,6 @@ class RolloverOnRemoteStorageTest(TestCase):
         r = self.c.get('/vpsea/analytics/', {'sy': label})
         self.assertEqual(r.status_code, 200)
         return r
-
-    # ── the reads that were raising ─────────────────────────────────────────
 
     def test_course_counts_come_off_a_sheet_with_no_local_path(self):
         self.rollover('CHED', '25-2',

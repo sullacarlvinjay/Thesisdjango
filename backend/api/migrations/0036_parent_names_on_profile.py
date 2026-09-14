@@ -1,29 +1,7 @@
-"""Parent names move onto StudentProfile, in parts, and stop being duplicated.
-
-StudentProfile held one combined string per parent while TESApplication held the
-same names split into last / first / middle. Two records of one fact, in two
-shapes, kept in step by nobody.
-
-The parts win: CHED's TES form asks for them separately, and a combined name
-cannot be split back reliably — "Maria Dela Cruz Santos" has no single correct
-reading. So the columns are added to the profile, filled from whatever is
-already on file, and only then are the old ones dropped.
-
-Filling order matters. A TES application's split names are what the student
-actually typed into those boxes, so they are trusted first. The combined
-profile string is only parsed when there is nothing better, and it is parsed
-conservatively: the last token is the surname, the first is the given name, and
-anything between is the middle name. A two-word name yields no middle name
-rather than a guessed one.
-
-The student's own middle_name is treated the same way: TESApplication.middle_name
-is copied onto the profile where the profile has none, then dropped.
-"""
 from django.db import migrations, models
 
 
 def split_combined(name):
-    """('First Middle Last') -> (last, first, middle). Blank parts when unclear."""
     parts = (name or '').strip().split()
     if len(parts) >= 3:
         return parts[-1], parts[0], ' '.join(parts[1:-1])
@@ -36,7 +14,6 @@ def carry_names_over(apps, schema_editor):
     StudentProfile = apps.get_model('api', 'StudentProfile')
     TESApplication = apps.get_model('api', 'TESApplication')
 
-    # What the student typed on their TES form, keyed by profile.
     from_tes = {}
     for tes in TESApplication.objects.all().order_by('submitted_at'):
         from_tes[tes.student_id] = tes
@@ -76,7 +53,6 @@ def carry_names_over(apps, schema_editor):
 
 
 def put_names_back(apps, schema_editor):
-    """Rebuild the combined strings so the old columns are not restored empty."""
     StudentProfile = apps.get_model('api', 'StudentProfile')
     for profile in StudentProfile.objects.all():
         def joined(last, first, middle):
@@ -96,7 +72,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1. The new columns, before anything is read out of the old ones.
         migrations.AddField('studentprofile', 'father_last_name',
                             models.CharField(blank=True, max_length=100)),
         migrations.AddField('studentprofile', 'father_first_name',
@@ -110,10 +85,8 @@ class Migration(migrations.Migration):
         migrations.AddField('studentprofile', 'mother_middle_name',
                             models.CharField(blank=True, max_length=100)),
 
-        # 2. Carry every name that exists onto the profile.
         migrations.RunPython(carry_names_over, put_names_back),
 
-        # 3. Only now drop the duplicates.
         migrations.RemoveField('studentprofile', 'father_name'),
         migrations.RemoveField('studentprofile', 'mother_name'),
         migrations.RemoveField('tesapplication', 'middle_name'),

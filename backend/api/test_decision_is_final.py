@@ -1,12 +1,3 @@
-"""A decision is made once.
-
-The review screen used to write whatever status was posted, every time it was
-posted, taking no notice of what the application already said. An approval could
-be turned into a rejection days later — the applicant left holding a
-notification that no longer matched their record, and nothing anywhere saying
-who changed it or why. These tests hold the SDSO's applications page to one
-decision per application.
-"""
 import datetime
 
 from django.test import Client, TestCase
@@ -27,8 +18,6 @@ def make_student(email, sid, last='Cruz'):
 
 
 class SDSODecidesOnceTest(TestCase):
-    """The SDSO applications screen — Academic, Affirmative and Staff tabs."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
         self.scholarship = Scholarship.objects.create(
@@ -62,10 +51,7 @@ class SDSODecidesOnceTest(TestCase):
         )
 
     def _decoded(self, response):
-        """The redirect target, readable — the reason is URL-quoted into it."""
         return response['Location'].replace('%20', ' ').replace('+', ' ')
-
-    # ── the first decision still works ──────────────────────────────────────
 
     def test_a_waiting_application_can_be_decided(self):
         app = self._application()
@@ -75,8 +61,6 @@ class SDSODecidesOnceTest(TestCase):
         self.assertEqual(app.status, 'Approved')
         self.assertEqual(app.remarks, 'Congratulations.')
         self.assertEqual(Notification.objects.filter(student=self.student).count(), 1)
-
-    # ── and only the first ──────────────────────────────────────────────────
 
     def test_an_approval_cannot_be_turned_into_a_rejection(self):
         app = self._application('Approved')
@@ -95,7 +79,6 @@ class SDSODecidesOnceTest(TestCase):
         self.assertEqual(app.status, 'Rejected')
 
     def test_an_application_sent_back_is_decided_too(self):
-        """Send Back is a decision like the other two, so it locks like them."""
         app = self._application('Needs Revision')
         self._decide(app, 'Approved')
 
@@ -103,7 +86,6 @@ class SDSODecidesOnceTest(TestCase):
         self.assertEqual(app.status, 'Needs Revision')
 
     def test_the_same_decision_posted_twice_announces_it_once(self):
-        """A double-click on Approve must not tell the applicant twice."""
         app = self._application()
         self._decide(app, 'Approved', 'Congratulations.')
         self._decide(app, 'Approved', 'Congratulations.')
@@ -116,8 +98,6 @@ class SDSODecidesOnceTest(TestCase):
 
         self.assertIn(f'APP-{app.id:07d}', target)
         self.assertIn('Approved', target)
-
-    # ── the affirmative and staff tabs follow the same rule ─────────────────
 
     def test_a_decided_affirmative_application_is_not_decided_again(self):
         aff = self._affirmative('Approved')
@@ -135,14 +115,11 @@ class SDSODecidesOnceTest(TestCase):
         self.assertEqual(staff.status, 'Rejected')
 
     def test_approving_an_affirmative_application_twice_makes_one_account(self):
-        """Approval creates the applicant's account — twice would collide."""
         aff = self._affirmative()
         self._decide(aff, 'Approved', tab='affirmative')
         self._decide(aff, 'Approved', tab='affirmative')
 
         self.assertEqual(User.objects.filter(email='juan@bipsu.edu.ph').count(), 1)
-
-    # ── what the screen shows ───────────────────────────────────────────────
 
     def test_the_button_is_named_for_what_it_does(self):
         self._application()
@@ -152,7 +129,6 @@ class SDSODecidesOnceTest(TestCase):
         self.assertNotContains(r, 'Request Revision')
 
     def test_a_decided_row_carries_its_decision_to_the_modal(self):
-        """The modal hides the buttons off these, so they have to reach it."""
         self._application('Approved')
         r = self.c.get('/vpsea/affirmative/?tab=academic')
 

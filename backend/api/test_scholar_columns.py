@@ -1,14 +1,3 @@
-"""A programme choosing the columns its archive table shows.
-
-The archive page carried seven hand-written tables, one per programme, each with
-three copies of the row markup — one per shape a scholar arrives in. A column
-added to one of them reached none of the others, and a programme that wanted a
-column nobody had thought of could not have one at all.
-
-A programme now names its columns on its own form. These tests cover the two
-halves that have to agree: what the scholarship form stores, and what the
-archive table renders from it.
-"""
 from django.test import Client, TestCase
 
 from api import scholar_columns
@@ -19,12 +8,6 @@ from api.models import (
 
 
 def ticked_columns(html):
-    """The column keys whose checkbox came back ticked.
-
-    Parsed rather than matched as a substring: the template puts `checked` on
-    its own line, and a test that assumed otherwise would pass or fail on the
-    template's indentation rather than on the choice.
-    """
     import re
     found = []
     for tag in re.findall(r'<input type="checkbox" name="table_columns".*?/>', html, re.S):
@@ -35,36 +18,21 @@ def ticked_columns(html):
 
 
 def custom_column_names(html):
-    """The names typed into the custom-column boxes, as the form shows them back."""
     import re
     return re.findall(r'<input name="extra_columns" value="([^"]*)"', html)
 
 
 def headings_of(html, index=0):
-    """The heading row of one archive table, as a list.
-
-    Read off the table rather than searched for in the page: 'GWA' and
-    'Municipality' are also field labels in the add-a-scholar form above it, so
-    a bare substring check passes whether the column is shown or not.
-    """
     import re
     tables = re.findall(r'<table class="scholar-table".*?</thead>', html, re.S)
     if index >= len(tables):
         return []
-    # A heading carries attributes now — data-filter marks it as something the
-    # filter bar can narrow by, data-no-sort keeps the actions column out of the
-    # sort — so the pattern has to allow them.
-    # `<th(?:\s...)?>` rather than `<th[^>]*>`: the looser one also matches the
-    # opening <thead>, and swallows the first heading into the tag.
     return [h.strip()
             for h in re.findall(r'<th(?:\s[^>]*)?>(.*?)</th>', tables[index], re.S)]
 
 
 class ColumnChoiceTest(TestCase):
-    """What the picker stores, before any table renders it."""
-
     def test_an_unconfigured_programme_gets_the_columns_its_table_always_had(self):
-        """The seven tables were never alike, so neither are the defaults."""
         programme = Scholarship(name='Academic Scholarship', type='Academic')
         keys = [c['key'] for c in scholar_columns.resolve(programme)]
         self.assertEqual(keys, scholar_columns.default_for('Academic'))
@@ -78,29 +46,22 @@ class ColumnChoiceTest(TestCase):
             self.assertIn('cong_dist', keys, stype)
 
     def test_a_partner_keeps_its_own_default_where_the_two_disagreed(self):
-        """A funder reports against the award number it issued; the SDSO does not."""
         sdso = [c['key'] for c in scholar_columns.resolve(None, 'TES')]
         partner = [c['key'] for c in scholar_columns.resolve(None, 'TES', 'partner')]
         self.assertNotIn('award_number', sdso)
         self.assertIn('award_number', partner)
 
     def test_a_configured_programme_ignores_who_is_asking(self):
-        """Choosing the columns once is what makes the two tables agree."""
         programme = Scholarship(name='TES', type='TES', table_columns=['last_name'])
         for portal in ('', 'partner'):
             keys = [c['key'] for c in scholar_columns.resolve(programme, 'TES', portal)]
             self.assertEqual(keys, ['last_name'])
 
     def test_columns_keep_the_order_they_were_given(self):
-        """The order is the office's now. It used to be re-sorted into catalogue
-        order on the grounds that the office was choosing which columns appear
-        rather than rearranging them — a smaller claim than they wanted, and the
-        picker numbers the columns precisely so the order can be read and set."""
         chosen = scholar_columns.clean_choice(['course', 'last_name', 'award_number'])
         self.assertEqual(chosen, ['course', 'last_name', 'award_number'])
 
     def test_a_column_named_twice_is_kept_once(self):
-        """Two copies would print the same value under the same heading."""
         self.assertEqual(
             scholar_columns.clean_choice(['course', 'last_name', 'course']),
             ['course', 'last_name'])
@@ -143,8 +104,6 @@ class ColumnChoiceTest(TestCase):
 
 
 class ArchiveFixtureMixin:
-    """One programme with an award and an imported row under it, and an officer."""
-
     def setUp(self):
         SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
         self.term = '26-1'
@@ -178,8 +137,6 @@ class ArchiveFixtureMixin:
 
 
 class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
-    """The other half: the table renders what the programme asked for."""
-
     def test_an_unconfigured_programme_looks_the_way_it_always_did(self):
         headings = headings_of(self.archive())
         self.assertEqual(headings[0], '#')
@@ -189,8 +146,6 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
         self.assertNotIn('Award No.', headings)
 
     def test_ticking_a_column_puts_it_in_the_table_where_it_was_put(self):
-        """Stored order is rendered order — the picker numbers the columns so
-        the office can set it, and the archive has to honour what it set."""
         self.programme.table_columns = ['last_name', 'award_number']
         self.programme.save(update_fields=['table_columns'])
         self.assertEqual(headings_of(self.archive()),
@@ -209,20 +164,12 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
             self.assertNotIn(gone, headings)
 
     def test_every_row_shape_lands_in_the_one_table(self):
-        """An award, an imported row and a staff application, all one table now."""
         html = self.archive()
-        self.assertIn('Lim', html)          # the award
-        self.assertIn('Cruz', html)         # the imported row
-        self.assertIn('Imported', html)     # and it kept its own delete
+        self.assertIn('Lim', html)
+        self.assertIn('Cruz', html)
+        self.assertIn('Imported', html)
 
     def test_both_ched_tiers_report_the_one_programme_the_same_way(self):
-        """CHED is still two blocks; each block is a tab now, not a band.
-
-        This used to read both bands off one page and compare their heading
-        rows. The columns belong to the *programme*, and CHED is one programme
-        whichever tier a scholar is on, so the same thing is asserted across the
-        two tabs. That the band itself is gone is api/test_archive_tabs.py.
-        """
         Scholarship.objects.create(name='CHED Merit', type='CHED',
                                    category='application', description='x',
                                    eligibility='x', requirements=[])
@@ -231,7 +178,7 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
 
         self.assertEqual(full, half,
                          'the two CHED tabs report the same programme')
-        self.assertIn('Award No.', full)      # CHED's own default column set
+        self.assertIn('Award No.', full)
 
     def test_an_affirmative_or_staff_table_renders_from_its_own_records(self):
         for stype in ('Affirmative', 'Staff'):
@@ -248,8 +195,6 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
 
 
 class CustomColumnValuesTest(ArchiveFixtureMixin, TestCase):
-    """A column the office added, and the values typed down it."""
-
     def setUp(self):
         super().setUp()
         self.programme.table_columns = ['last_name']
@@ -273,8 +218,6 @@ class CustomColumnValuesTest(ArchiveFixtureMixin, TestCase):
         self.assertIn('2026-A', self.archive())
 
     def test_typing_a_value_saves_it_on_an_imported_row_too(self):
-        """Most programmes reach the system only as imported rows — a custom
-        column that skipped them would be blank exactly where it mattered."""
         self.c.post('/vpsea/archives/columns/', {
             'type': 'Academic', 'sy': self.term,
             f'extra__imported__{self.imported.pk}__extra_batch': '2026-B',
@@ -294,7 +237,6 @@ class CustomColumnValuesTest(ArchiveFixtureMixin, TestCase):
         self.assertEqual(self.award.form_data['note'], 'keep me')
 
     def test_a_field_name_that_is_not_a_custom_column_is_ignored(self):
-        """The field names carry a record id, so they cannot be taken on trust."""
         self.c.post('/vpsea/archives/columns/', {
             'type': 'Academic', 'sy': self.term,
             f'extra__award__{self.award.pk}__gwa': '1.00',
@@ -313,8 +255,6 @@ class CustomColumnValuesTest(ArchiveFixtureMixin, TestCase):
 
 
 class ScholarshipFormTest(TestCase):
-    """The picker on the Add / Edit Scholarship form."""
-
     def setUp(self):
         User.objects.create_user(
             username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
@@ -377,12 +317,6 @@ class ScholarshipFormTest(TestCase):
 
 
 class TheArchiveReadsTheProgrammesChoiceTest(TestCase):
-    """A programme names its columns once and the archive page renders those.
-
-    The archive used to carry a hand-written table per programme, so the columns
-    on screen and the columns the office had chosen could disagree.
-    """
-
     def setUp(self):
         SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
         self.programme = Scholarship.objects.create(
@@ -416,7 +350,6 @@ class TheArchiveReadsTheProgrammesChoiceTest(TestCase):
         self.assertEqual(self.imported.extra_data['extra_batch'], '2026-B')
 
     def test_a_student_cannot_write_column_values(self):
-        """The endpoint writes office records; only an officer reaches it."""
         user = User.objects.create_user(
             username='ana@bipsu.edu.ph', email='ana@bipsu.edu.ph', password='pw',
             first_name='Ana', last_name='Lim', role='student')
@@ -431,16 +364,6 @@ class TheArchiveReadsTheProgrammesChoiceTest(TestCase):
 
 
 class ACustomColumnDeclaresWhatItHoldsTest(TestCase):
-    """The kind of data a column the office added is allowed to hold.
-
-    A custom column used to be a name and an empty text box on every row, so one
-    'Batch' column came back holding '2026-A', '2026 A', 'AY 2026', 'n/a' and
-    blank — in the column a report groups by. The office says what the column
-    holds at the moment it names it, and that answer is what the row's box is
-    made of, what a typed value is checked against, and what kind of cell the
-    archive's workbook carries.
-    """
-
     def test_the_kind_is_stored_beside_the_name(self):
         columns = scholar_columns.clean_custom(
             ['Batch', 'Stipend', 'Awarded On'], ['text', 'number', 'date'], ['', '', ''])
@@ -453,8 +376,6 @@ class ACustomColumnDeclaresWhatItHoldsTest(TestCase):
         self.assertEqual(columns[0]['options'], ['Full', 'Partial'])
 
     def test_a_choice_list_with_no_options_is_a_text_column(self):
-        """A dropdown nobody can pick anything from is a column that can never
-        be filled in."""
         columns = scholar_columns.clean_custom(['Tier'], ['choice'], ['  '])
         self.assertEqual(columns[0]['type'], 'text')
         self.assertNotIn('options', columns[0])
@@ -464,8 +385,6 @@ class ACustomColumnDeclaresWhatItHoldsTest(TestCase):
         self.assertEqual(columns[0]['type'], 'text')
 
     def test_a_blank_row_does_not_slide_the_kinds_onto_the_wrong_columns(self):
-        """The three field lists are parallel and read by position. Dropping the
-        blank before pairing them is how a Date column ends up refusing dates."""
         columns = scholar_columns.clean_custom(
             ['Batch', '', 'Stipend'], ['text', 'date', 'number'], ['', '', ''])
         self.assertEqual([(c['label'], c['type']) for c in columns],
@@ -480,14 +399,11 @@ class ACustomColumnDeclaresWhatItHoldsTest(TestCase):
 
 
 class OnlyThatKindOfValueIsStoredTest(TestCase):
-    """What ``clean_value`` accepts, refuses and normalises."""
-
     def cleaned(self, kind, raw, options=None):
         column = {'type': kind, 'options': options or []}
         return scholar_columns.clean_value(column, raw)
 
     def test_blank_is_always_allowed(self):
-        """A column the office added is not one every scholar has an answer for."""
         for kind in ('text', 'number', 'date', 'choice', 'yesno'):
             self.assertEqual(self.cleaned(kind, '   ', ['Full']), '')
 
@@ -496,7 +412,6 @@ class OnlyThatKindOfValueIsStoredTest(TestCase):
         self.assertIsNone(self.cleaned('number', '2,500 pesos'))
 
     def test_a_number_column_refuses_the_two_floats_that_are_not_figures(self):
-        """float() reads both, and neither survives the trip to an int."""
         self.assertIsNone(self.cleaned('number', 'inf'))
         self.assertIsNone(self.cleaned('number', 'nan'))
 
@@ -524,8 +439,6 @@ class OnlyThatKindOfValueIsStoredTest(TestCase):
 
 
 class TheRowsBoxIsTheKindTheColumnDeclaredTest(ArchiveFixtureMixin, TestCase):
-    """What the office types a value into, on the archive page."""
-
     def with_columns(self, *extras):
         self.programme.table_columns = ['last_name']
         self.programme.extra_columns = list(extras)
@@ -561,8 +474,6 @@ class TheRowsBoxIsTheKindTheColumnDeclaredTest(ArchiveFixtureMixin, TestCase):
 
 
 class AValueThatIsNotThatKindIsNotStoredTest(ArchiveFixtureMixin, TestCase):
-    """Refused per cell, and counted, so a forty-row save still lands."""
-
     def setUp(self):
         super().setUp()
         self.programme.table_columns = ['last_name']
@@ -589,8 +500,6 @@ class AValueThatIsNotThatKindIsNotStoredTest(ArchiveFixtureMixin, TestCase):
             f'extra__award__{self.award.pk}__extra_tier': 'Three-quarters',
         })
         self.assertIn('columns_bad=2', response['Location'])
-        # And the count reaches the page as a sentence, rather than sitting in
-        # the query string with nothing rendering it.
         followed = self.c.get(response['Location']).content.decode()
         self.assertIn('2 values did not match', followed)
 
@@ -604,16 +513,12 @@ class AValueThatIsNotThatKindIsNotStoredTest(ArchiveFixtureMixin, TestCase):
         self.assertIn('columns_saved=1', response['Location'])
 
     def test_a_column_belonging_to_some_other_programme_is_not_written(self):
-        """The field name carries the column key, so it cannot be taken on
-        trust: only a column this programme actually has is saved."""
         self.save(**{f'extra__award__{self.award.pk}__extra_somebody_elses': 'x'})
         self.award.refresh_from_db()
         self.assertNotIn('extra_somebody_elses', self.award.form_data)
 
 
 class TheFormAsksWhatTheColumnHoldsTest(TestCase):
-    """The kind is chosen where the column is named, not guessed at later."""
-
     def setUp(self):
         User.objects.create_user(
             username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
@@ -622,11 +527,6 @@ class TheFormAsksWhatTheColumnHoldsTest(TestCase):
         self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
 
     def test_the_form_offers_every_kind(self):
-        """A new programme has no custom columns yet, so there is no <select> on
-        the page to read — the kinds reach the row the office adds through the
-        list the server hands the script, which is what is checked here. A
-        second copy of the kinds in column-picker.js is the thing this avoids:
-        it could offer one the server would not accept."""
         html = self.c.get('/vpsea/scholarships/add/').content.decode()
         for key, label in scholar_columns.CUSTOM_TYPES:
             self.assertIn(f'{key}:{label}', html)
@@ -657,18 +557,6 @@ class TheFormAsksWhatTheColumnHoldsTest(TestCase):
 
 
 class ANamedColumnCannotRepeatACatalogueOneTest(TestCase):
-    """The duplicate the `extra_` prefix hid.
-
-    A custom column's key can never collide — 'Course' is stored as
-    'extra_course', never as 'course'. What it did instead was sit beside the
-    catalogue column, so the table came back with two headings both reading
-    'Course': one the archive filled from each scholar's record, and one that
-    could only be filled by typing a value per scholar, for every scholar.
-
-    So a name that already means a catalogue column is refused, and the office
-    is told which one and where to find it.
-    """
-
     def setUp(self):
         User.objects.create_user(
             username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
@@ -676,14 +564,11 @@ class ANamedColumnCannotRepeatACatalogueOneTest(TestCase):
         self.c = Client()
         self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
 
-    # ── which names are taken ───────────────────────────────────────────────
-
     def test_a_name_the_archive_already_fills_is_refused(self):
         for typed in ('Course', 'GWA', 'Last Name', 'Sex', 'Scholarship Program'):
             self.assertTrue(scholar_columns.names_a_catalogue_column(typed), typed)
 
     def test_the_name_is_matched_however_it_is_written(self):
-        # The heading, the key, and every casing and punctuation between them.
         for typed in ('Award No.', 'award no', 'AWARD NO', 'Award Number',
                       'award_number', '  award   no.  '):
             self.assertTrue(scholar_columns.names_a_catalogue_column(typed), typed)
@@ -691,8 +576,6 @@ class ANamedColumnCannotRepeatACatalogueOneTest(TestCase):
     def test_a_genuinely_new_name_is_still_allowed(self):
         for typed in ('Batch', 'Batch No.', 'Adviser', 'Remarks', 'Year Awarded'):
             self.assertFalse(scholar_columns.names_a_catalogue_column(typed), typed)
-
-    # ── what is stored, and what is drawn ───────────────────────────────────
 
     def test_the_clashing_column_is_not_stored(self):
         columns = scholar_columns.clean_custom(['Course', 'Batch', 'GWA', 'Adviser'])
@@ -705,8 +588,6 @@ class ANamedColumnCannotRepeatACatalogueOneTest(TestCase):
         labels = [c['label'] for c in scholar_columns.resolve(programme)]
         self.assertEqual(labels, ['Last Name', 'Course', 'Batch'])
         self.assertEqual(len(labels), len(set(labels)), labels)
-
-    # ── and the office hears about it ───────────────────────────────────────
 
     def test_the_refused_names_are_reported_in_the_order_they_were_typed(self):
         self.assertEqual(

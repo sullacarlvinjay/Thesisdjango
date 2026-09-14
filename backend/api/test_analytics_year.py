@@ -1,15 +1,3 @@
-"""Number of scholars per academic year, on the analytics page.
-
-The number this card reports is people, not entries, and that is the whole
-difficulty. A scholar enrolled in both semesters of 2025-2026 is on both terms'
-lists and is still one scholar, so the year cannot be the sum of its semesters.
-Nor can it be the larger of the two: that never double counts, but it drops a
-scholar who was on one semester's list and not the other.
-
-So the year's scholars are gathered as a set of people — across its semesters,
-across programmes, and across the shapes a scholar's record can take — and
-counted once each.
-"""
 from io import BytesIO
 
 import openpyxl
@@ -20,7 +8,6 @@ from api.models import (
     ImportedScholar, Scholarship, ScholarListImport, SystemSettings, User,
 )
 
-# Terms '25-1' and '25-2' are both AY 2025-2026; '26-1' is the year after.
 FIRST, SECOND, NEXT_YEAR = '25-1', '25-2', '26-1'
 THIS_YEAR, FOLLOWING = '2025-2026', '2026-2027'
 
@@ -28,8 +15,6 @@ THIS_YEAR, FOLLOWING = '2025-2026', '2026-2027'
 class ScholarsPerYearTest(TestCase):
 
     def setUp(self):
-        # An active term of its own, so every term under test is a past one and
-        # nothing live is mixed into them.
         SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '27-1'})
         for stype in ('Academic', 'CHED'):
             Scholarship.objects.create(
@@ -42,7 +27,6 @@ class ScholarsPerYearTest(TestCase):
         self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
 
     def listed(self, stype, label, people):
-        """`people` as (last, first, student_id) triples on one term's list."""
         ImportedScholar.objects.bulk_create([
             ImportedScholar(scholarship_type=stype, term_label=label,
                             last_name=last, first_name=first, student_id=sid,
@@ -54,15 +38,12 @@ class ScholarsPerYearTest(TestCase):
         self.assertEqual(r.status_code, 200)
         return {y['year']: y['scholars'] for y in r.context['year_dist']}
 
-    # ── counting people rather than entries ─────────────────────────────────
-
     def test_a_scholar_in_both_semesters_is_one_scholar_that_year(self):
         self.listed('CHED', FIRST, [('Cruz', 'Ana', '32-1-00001')])
         self.listed('CHED', SECOND, [('Cruz', 'Ana', '32-1-00001')])
         self.assertEqual(self.years()[THIS_YEAR], 1)
 
     def test_the_year_is_not_the_larger_semester_either(self):
-        """Two terms of two, four people: neither a sum nor a maximum."""
         self.listed('CHED', FIRST, [('Cruz', 'Ana', '32-1-00001'),
                                     ('Lim', 'Ben', '32-1-00002')])
         self.listed('CHED', SECOND, [('Reyes', 'Cara', '32-1-00003'),
@@ -88,8 +69,6 @@ class ScholarsPerYearTest(TestCase):
         self.assertEqual(counted[THIS_YEAR], 1)
         self.assertEqual(counted[FOLLOWING], 1)
 
-    # ── matching one person across two records of them ──────────────────────
-
     def test_the_same_student_number_typed_differently_is_one_person(self):
         self.listed('CHED', FIRST, [('Cruz', 'Ana', '32-1-00001')])
         self.listed('CHED', SECOND, [('Cruz', 'Ana', '3210 0001')])
@@ -105,8 +84,6 @@ class ScholarsPerYearTest(TestCase):
         self.listed('CHED', SECOND, [('Cruz', 'Ana Marie', '32-1-00009')])
         self.assertEqual(self.years()[THIS_YEAR], 2)
 
-    # ── a term held only as an uploaded sheet ───────────────────────────────
-
     def test_a_term_with_only_a_sheet_is_counted_from_its_names(self):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -120,12 +97,9 @@ class ScholarsPerYearTest(TestCase):
             scholarship_type='CHED', term_label=FIRST, scholar_count=2)
         record.excel_file.save('CHED_25-1.xlsx', ContentFile(buf.getvalue()),
                                save=True)
-        # …and one of the two continues into the 2nd semester as an imported row.
         self.listed('CHED', SECOND, [('Cruz', 'Ana', '32-1-00001')])
 
         self.assertEqual(self.years()[THIS_YEAR], 2)
-
-    # ── the card ────────────────────────────────────────────────────────────
 
     def test_the_page_shows_the_chart_and_the_exact_numbers(self):
         self.listed('CHED', FIRST, [('Cruz', 'Ana', '32-1-00001')])

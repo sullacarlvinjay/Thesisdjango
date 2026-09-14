@@ -1,13 +1,3 @@
-"""End-to-end check of the import -> register -> verify merge.
-
-A student who already holds a scholarship says so on the registration form, in
-the Scholarship Data card, and uploads the proof there. The SDSO decides it on
-the account verification queue, in the same action that releases the account:
-there is no separate Link Scholarship page for the student and no separate Link
-Requests queue for the office.
-
-Runs against a throwaway test database, so db.sqlite3 is never touched.
-"""
 from django.test import TestCase, Client
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -19,12 +9,6 @@ from api.test_registration_payload import a_student
 
 
 def archive_rows(response, kind=None):
-    """The rows the archive table rendered, optionally of one record shape.
-
-    'imported' rows come from an office spreadsheet, 'award' rows from an
-    Application. The merge these tests cover is exactly the moment a scholar
-    stops being the first and becomes the second.
-    """
     rows = [row for group in response.context['scholar_groups'] for row in group['rows']]
     return [row for row in rows if kind is None or row['kind'] == kind]
 
@@ -33,8 +17,6 @@ def a_proof(name='award.pdf', size=1024):
     return SimpleUploadedFile(name, b'x' * size, content_type='application/pdf')
 
 
-# The same person as the imported row above, which is the whole point of the
-# merge these tests cover — so the name matches it down to the middle initial.
 REGISTRATION = a_student(
     first_name='Juan', last_name='Dela Cruz', middle_name='S',
     email='juan@bipsu.edu.ph', student_id='2022-0001',
@@ -44,8 +26,6 @@ REGISTRATION = a_student(
 
 
 class RegisterWithAScholarshipTest(TestCase):
-    """The whole path: the office imports, the student registers, the SDSO verifies."""
-
     def setUp(self):
         s = SystemSettings.objects.create(pk=1, academic_year='26-1',
                                           active_semester='1st Semester')
@@ -54,7 +34,6 @@ class RegisterWithAScholarshipTest(TestCase):
             name='Academic Scholarship', type='Academic', category='application',
             description='x', eligibility='x', requirements=[],
         )
-        # 1. VPSEA imports the scholar from the office's Excel file.
         self.archive = ImportedScholar.objects.create(
             scholarship_type='Academic', term_label=self.label,
             last_name='Dela Cruz', first_name='Juan', middle_name='S',
@@ -83,8 +62,6 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertTrue(c.login(email='vpsea@bipsu.edu.ph', password='pw'))
         return c
 
-    # ── Registering ─────────────────────────────────────────────────────────
-
     def test_the_declaration_is_stored_with_the_registration(self):
         r = self._register()
         self.assertEqual(r.status_code, 302)
@@ -95,8 +72,6 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertEqual(req.award_number, 'AW-99')
         self.assertEqual(req.term_label, self.label)
         self.assertEqual(req.student.student_id, '2022-0001')
-        # The account itself is still waiting; declaring a scholarship does not
-        # let anybody past the SDSO.
         self.assertTrue(req.student.user.awaiting_verification)
 
     def test_registering_without_one_stores_nothing(self):
@@ -123,8 +98,6 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertEqual(ScholarshipLinkRequest.objects.count(), 0)
         self.assertEqual(StudentProfile.objects.count(), 0)
 
-    # ── Verifying ───────────────────────────────────────────────────────────
-
     def test_the_queue_offers_the_imported_row_as_a_match(self):
         self._register()
         r = self._office().get('/vpsea/accounts/')
@@ -142,7 +115,6 @@ class RegisterWithAScholarshipTest(TestCase):
         profile = req.student
         office = self._office()
 
-        # Archives before the decision: the imported row, and no live scholar.
         r = office.get('/vpsea/archives/?type=Academic')
         self.assertEqual(r.context['total'], 1)
         self.assertEqual(len(archive_rows(r, 'imported')), 1)
@@ -164,7 +136,6 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertEqual(req.matched_archive_id, self.archive.id)
         self.assertEqual(self.archive.claimed_by_id, profile.id)
 
-        # The declaration became a real Approved Application for this semester.
         app = Application.objects.get()
         self.assertEqual(app.status, 'Approved')
         self.assertEqual(app.student_id, profile.id)
@@ -174,18 +145,15 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertEqual(app.term_label, '26-1')
         self.assertEqual(req.linked_application_id, app.id)
 
-        # Blank profile fields were backfilled from the office's import.
         self.assertEqual(profile.year_level, 3)
         self.assertEqual(profile.gwa, 1.25)
         self.assertEqual(profile.municipality, 'Naval')
 
-        # The archives now show ONE entry, not two.
         r = office.get('/vpsea/archives/?type=Academic')
         self.assertEqual(r.context['total'], 1)
         self.assertEqual(len(archive_rows(r, 'imported')), 0)
         self.assertEqual(len(archive_rows(r, 'award')), 1)
 
-        # And the account itself was released, with the student notified.
         profile.user.refresh_from_db()
         self.assertTrue(profile.user.can_sign_in)
         self.assertTrue(Notification.objects.filter(
@@ -206,7 +174,6 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertEqual(Application.objects.get().status, 'Approved')
 
     def test_a_past_semester_row_cannot_be_claimed(self):
-        """History is never rewritten by this term's decision."""
         old = ImportedScholar.objects.create(
             scholarship_type='Academic', term_label='25-2',
             last_name='Dela Cruz', first_name='Juan', student_id='2022-0001',
@@ -253,19 +220,10 @@ class RegisterWithAScholarshipTest(TestCase):
         self.assertIn('error=', r['Location'])
         req.refresh_from_db()
         self.assertEqual(req.status, 'Pending')
-        # Neither half happened: no award, and the account is still waiting.
         self.assertEqual(Application.objects.count(), 0)
         self.assertTrue(req.student.user.awaiting_verification)
 
     def test_staff_type_is_a_single_canonical_key(self):
-        """'Staff' is the key; 'NSU Staff' was the rename this guards against.
-
-        It is still one canonical key, and still the name the catalogue shows —
-        but it is no longer a key a *student* may declare. An award to an
-        employee is an AffirmativeStaffApplication, which has no StudentProfile
-        to hang off, so the staff half of the registration form asks it instead.
-        See api/test_staff_declaration.py.
-        """
         from api.models import SCHOLARSHIP_TYPE_CHOICES
         keys = [k for k, _ in SCHOLARSHIP_TYPE_CHOICES]
         self.assertIn('Staff', keys)
@@ -278,15 +236,12 @@ class RegisterWithAScholarshipTest(TestCase):
             description='x', eligibility='x', requirements=[],
         )
 
-        # Neither the old value nor the canonical one is a student's to claim,
-        # and both are refused in the same words.
         for posted in ('NSU Staff', 'Staff'):
             r = self._register(scholarship_type=posted)
             self.assertContains(r, 'Say which scholarship you already hold', msg_prefix=posted)
         self.assertFalse(ScholarshipLinkRequest.objects.exists())
 
     def test_a_declaration_the_student_may_make_still_goes_all_the_way(self):
-        """The path the test above used to cover, on a programme students hold."""
         self.assertEqual(self._register(scholarship_type='Academic').status_code, 302)
         req = ScholarshipLinkRequest.objects.get()
 
@@ -299,17 +254,9 @@ class RegisterWithAScholarshipTest(TestCase):
 
 
 class ChedTierDeclarationTest(TestCase):
-    """A CHED scholar declaring their award has to say which tier it is.
-
-    CHED grants Full Merit and Half Merit under one programme, and every
-    masterlist reports the two in separate blocks — so without the tier the
-    office cannot tell which block a linked scholar belongs in.
-    """
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
-        # Deliberately named without 'Full' or 'Half': the programme name is
-        # exactly what cannot be used to tell the two tiers apart.
         Scholarship.objects.create(
             name='CHED Merit', type='CHED', category='recommendation',
             description='x', eligibility='x', requirements=[],
@@ -366,8 +313,6 @@ class ChedTierDeclarationTest(TestCase):
         req = ScholarshipLinkRequest.objects.get()
         office = self._office()
 
-        # The queue offers the correction: a tier select preset to the
-        # student's answer, beside the Verify button.
         page = office.get('/vpsea/accounts/')
         self.assertContains(page, f'name="award_tier_{req.pk}"')
         self.assertContains(page, 'value="Half"')
@@ -391,22 +336,12 @@ class ChedTierDeclarationTest(TestCase):
             name='DOST Merit Scholarship', type='DOST', category='recommendation',
             description='x', eligibility='x', requirements=[],
         )
-        # A tier posted for a non-CHED programme is ignored rather than stored.
         self.assertEqual(
             self._register(scholarship_type='DOST', award_tier='Full').status_code, 302)
         self.assertEqual(ScholarshipLinkRequest.objects.get().award_tier, '')
 
 
 class ScholarshipDataCardTest(TestCase):
-    """What the student can see of their own scholarship afterwards.
-
-    The Link Scholarship page is gone, so the record of what they hold — and of
-    a declaration still being checked — lives on My Profile, in the Scholarship
-    Data card. The card is the registration form's, asked again: it lists the
-    awards on the record and then asks whether there is one more, which is how
-    a student who won something after they registered says so. See
-    api/test_add_scholarship.py for that half of it.
-    """
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -422,8 +357,6 @@ class ScholarshipDataCardTest(TestCase):
         self.assertTrue(self.c.login(email='noel@bipsu.edu.ph', password='pw'))
 
     def test_the_card_asks_rather_than_disappearing_when_they_hold_nothing(self):
-        # It used to render only for a student who held something, which left
-        # the one person with something to declare looking at no card at all.
         r = self.c.get('/student/profile/')
         self.assertEqual(r.context['scholarships_held'], [])
         self.assertContains(r, 'Scholarship Data')
@@ -443,9 +376,6 @@ class ScholarshipDataCardTest(TestCase):
         ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST', term_label='26-1')
         r = self.c.get('/student/profile/')
-        # html=True because the label carries an ampersand, which the
-        # template escapes to S&amp;T — it renders as S&T and matching the
-        # raw source would mean hard-coding the entity.
         self.assertContains(r, 'DOST S&T Undergraduate Scholarship', html=True)
         self.assertContains(r, 'still verifying')
 
@@ -458,7 +388,6 @@ class ScholarshipDataCardTest(TestCase):
         self.assertContains(r, 'not on the DOST list')
 
     def test_an_approved_declaration_is_shown_once_not_twice(self):
-        """Approving one writes the award; listing both would double it."""
         app = Application.objects.create(
             student=self.profile, scholarship=self.scholarship, status='Approved',
             school_year='2026-2027', semester='1st Semester', form_data={})

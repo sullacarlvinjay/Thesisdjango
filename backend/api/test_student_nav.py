@@ -1,17 +1,3 @@
-"""What the student sidebar offers, and when.
-
-Renewal used to show from the day an account was created, so a student with
-nothing to renew could walk into a page whose only job was to tell them so. It
-now arrives with the scholarship it renews.
-
-The nav had been copied into ten templates, which is how that survived: a change
-had to be made ten times to be made at all. It lives in student/_nav.html now,
-and the last test here is what keeps it there.
-
-Which Apply page is offered is a per-programme question, not a per-student one.
-Every programme is held on its own, so holding any one of them closes the Apply
-pages. See can_hold_alongside in api/student_views.py.
-"""
 import glob
 import io
 import os
@@ -45,7 +31,6 @@ class StudentNavTest(TestCase):
         self.assertTrue(self.c.login(email='ana@bipsu.edu.ph', password='pw'))
 
     def nav(self, url='/student/applications/'):
-        """The sidebar link labels, in order."""
         r = self.c.get(url)
         self.assertEqual(r.status_code, 200, url)
         html = r.content.decode()
@@ -57,8 +42,6 @@ class StudentNavTest(TestCase):
         Application.objects.create(
             student=self.profile, scholarship=self.scholarship, status='Approved',
             school_year='2026-2027', semester='1st Semester')
-
-    # ── Renewal ─────────────────────────────────────────────────────────────
 
     def test_renewal_is_hidden_until_there_is_something_to_renew(self):
         self.assertNotIn('Renewal', self.nav())
@@ -80,8 +63,6 @@ class StudentNavTest(TestCase):
             term_label='26-1')
         self.assertIn('Renewal', self.nav())
 
-    # ── Apply ───────────────────────────────────────────────────────────────
-
     def test_the_apply_page_is_offered_to_a_student_holding_nothing(self):
         self.assertIn('Apply: Academic', self.nav())
 
@@ -90,40 +71,26 @@ class StudentNavTest(TestCase):
         self.assertNotIn('Apply: Academic', self.nav())
 
     def test_any_other_programme_closes_the_page_too(self):
-        """TDP, DOST, CHED and the rest are held on their own."""
         ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='DOST', status='Approved',
             term_label='26-1')
         self.assertNotIn('Apply: Academic', self.nav())
 
     def test_there_is_no_tes_page_to_offer(self):
-        """TES is UniFAST's and is not applied for here — see the catalogue."""
         self.assertNotIn('Apply: TES', self.nav())
         self.assertEqual(self.c.get('/student/apply/tes/').status_code, 404)
 
     def test_there_is_no_link_scholarship_entry_left(self):
-        """A scholarship already held is declared at registration instead."""
         self.assertNotIn('Link Scholarship', self.nav())
         self.assertNotIn('/student/link-scholarship/', self.c.get(
             '/student/applications/').content.decode())
 
-    # ── The nav lives in one file ───────────────────────────────────────────
-
     def test_every_student_template_includes_the_shared_nav(self):
-        """Copied into ten files is how the two bugs above were possible.
-
-        The tag is matched up to the template name rather than in full: what
-        this protects is that the nav comes from one file, and a page that
-        passes the include an argument has not broken that. Matching the whole
-        `{% include ... %}` failed a template for adding a `with` clause, which
-        is a spelling difference, not a second copy of the nav.
-        """
         for path in sorted(glob.glob(os.path.join(TEMPLATE_DIR, '*.html'))):
             name = os.path.basename(path)
             if name == '_nav.html':
                 continue
             html = io.open(path, encoding='utf-8').read()
             self.assertIn('{% include "student/_nav.html"', html, name)
-            # No stray copy left behind to drift out of step again.
             self.assertNotIn('/student/renewal/academic/" class="sidebar-link',
                              html, f'{name} still has its own copy of the nav')

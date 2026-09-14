@@ -1,23 +1,11 @@
-"""Request-time hooks that keep account verification from being a chore.
-
-Registration deliberately does not sign anyone in — the SDSO has to release the
-account first. But the person is left holding a browser that knows exactly who
-they are, so when the decision finally lands there is no reason to make them
-find the login page and retype the password they chose minutes earlier.
-"""
 from datetime import timedelta
 
 from django.contrib.auth import login
 from django.utils import timezone
 
-# Session keys written by the registration form.
 PENDING_EMAIL = 'awaiting_verification_email'
 PENDING_SINCE = 'awaiting_verification_since'
 
-# How long a registration keeps the right to be let in without typing a
-# password. It covers the realistic wait for the office to get to the queue.
-# Past it the browser has probably changed hands — a shared lab PC should not
-# sign a stranger in as whoever registered on it last week.
 AUTO_RELEASE_WINDOW = timedelta(days=3)
 
 
@@ -37,16 +25,6 @@ def _forget(session):
 
 
 class ReleaseVerifiedAccountMiddleware:
-    """Sign a just-registered visitor in the moment the SDSO verifies them.
-
-    Costs a dict lookup for everyone else: only a browser that went through the
-    registration form carries the session key that makes this do any work, and
-    the key is dropped as soon as the account is released or the window closes.
-
-    Must sit after AuthenticationMiddleware, which is what puts ``request.user``
-    there for the check below.
-    """
-
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -69,9 +47,7 @@ class ReleaseVerifiedAccountMiddleware:
         from .models import User
         account = User.objects.filter(email=session[PENDING_EMAIL]).first()
         if account is None or account.awaiting_verification:
-            return              # still in the queue; nothing to do yet
+            return
         if account.can_sign_in:
             login(request, account)
             _forget(session)
-        # A rejected account keeps the key so the 'registration received' page
-        # can tell them what the office said. The window above bounds how long.

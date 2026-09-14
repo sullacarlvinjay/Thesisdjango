@@ -1,18 +1,3 @@
-"""The public landing page: how the cards read, and how to reach them.
-
-Two requests, and both are about the page being read rather than skimmed:
-
-* **The card prose is justified**, and every sentence in it starts with a
-  capital. The text is typed into a textarea by whoever set the programme up, at
-  speed, and half of it arrived lowercase.
-* **Two links in the navbar**, Internal and External, each taking the reader
-  down to the list it names.
-
-The capitalisation is a filter and not an edit to the data on purpose: nothing
-rewrites what the office typed, and the acronyms this catalogue is full of —
-CHED, DOST, TES, BiPSU, UniFAST — have to survive it. That is what most of this
-file is about.
-"""
 from django.conf import settings
 from django.test import Client, TestCase
 
@@ -21,8 +6,6 @@ from api.templatetags.srms_text import sentence_case
 
 
 class SentenceCaseTest(TestCase):
-    """The filter on its own, away from any page."""
-
     def test_the_first_letter_is_capitalised(self):
         self.assertEqual(sentence_case('for BiPSU students only'),
                          'For BiPSU students only')
@@ -32,7 +15,6 @@ class SentenceCaseTest(TestCase):
                          'One. Two! Three? Four')
 
     def test_nothing_else_is_touched(self):
-        """The whole reason this is not |capitalize or |title."""
         self.assertEqual(
             sentence_case('the CHED grant. it is not TES, and not DOST either.'),
             'The CHED grant. It is not TES, and not DOST either.')
@@ -93,18 +75,6 @@ class TheCardsTest(TestCase):
 
 
 class TheJumpLinksTest(TestCase):
-    """Two labels in the navbar, each taking the reader to the list it names.
-
-    They were briefly a marquee of every programme name scrolling past. That is
-    not what was asked for and not what the page needed — the reader wants to
-    get to a list, not to read a moving one.
-
-    Plain anchors, so this works with scripting off. What makes them land in the
-    right place is CSS the stylesheet test guards: `scroll-padding-top`, so the
-    heading clears the sticky navbar, and a snap point on each list, so
-    `mandatory` snapping does not drag the jump back out again.
-    """
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -131,9 +101,6 @@ class TheJumpLinksTest(TestCase):
         self.assertIn('id="external"', html)
 
     def test_the_links_are_named_in_full_even_where_the_word_is_hidden(self):
-        """"Scholarships" is dropped on a phone by CSS, and the gap in front of
-        it is a margin rather than a character — so without the aria-label the
-        link is announced as one run-together word."""
         self._programme('Academic Scholarship', 'internal')
         self._programme('CHED Merit', 'external')
         html = self._html()
@@ -141,7 +108,6 @@ class TheJumpLinksTest(TestCase):
         self.assertIn('aria-label="External Scholarships"', html)
 
     def test_a_list_that_is_empty_is_not_linked_to(self):
-        """A link to a heading that was never rendered goes nowhere."""
         self._programme('Academic Scholarship', 'internal')
         html = self._html()
         self.assertIn('href="#internal"', html)
@@ -151,10 +117,9 @@ class TheJumpLinksTest(TestCase):
         self._programme('Staff Scholarship', 'institutional')
         html = self._html()
         self.assertNotIn('landing-jump', html)
-        self.assertIn('Staff Scholarship', html)      # its card is still there
+        self.assertIn('Staff Scholarship', html)
 
     def test_nothing_scrolls_by_itself_any_more(self):
-        """The marquee is gone from the markup, the stylesheet and the script."""
         self._programme('Academic Scholarship', 'internal')
         self.assertNotIn('landing-ticker', self._html())
 

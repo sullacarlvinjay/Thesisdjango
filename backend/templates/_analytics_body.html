@@ -1,5 +1,4 @@
 <div class="space-y-6">
-  <!-- Filters -->
   <div class="card p-4 flex flex-wrap items-center gap-4">
     <span class="text-sm font-medium" style="color:#374151;">Viewing: <strong>{{ selected_sy_display }}</strong></span>
     <form method="get" class="flex flex-wrap items-center gap-3 ml-auto">
@@ -22,7 +21,6 @@
       </div>
     </form>
   </div>
-  <!-- Scholars Over Time -->
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
       <div>
@@ -43,7 +41,6 @@
     <p class="chart-empty mt-4">Not enough semester data yet to show a trend. Import at least two semesters of rollover records.</p>
     {% endif %}
   </div>
-  <!-- Scholars per Scholarship Program -->
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
       {% if selected_type %}
@@ -71,7 +68,6 @@
   </div>
   <div class="grid lg:grid-cols-2 gap-6">
     {% if show_gwa %}
-    <!-- GWA Distribution — merit-based programmes only -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h3 class="font-semibold">GWA Distribution</h3>
@@ -84,7 +80,6 @@
       <canvas id="gwaChart" height="180"></canvas>
     </div>
     {% endif %}
-    <!-- Number of Scholars per Academic Year -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h3 class="font-semibold">Number of Scholars per Academic Year</h3>
@@ -109,7 +104,6 @@
       <p class="chart-empty">No scholars on record in any academic year for this selection.</p>
       {% endif %}
     </div>
-    <!-- Scholars by Course -->
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h3 class="font-semibold">Scholars by Course</h3>

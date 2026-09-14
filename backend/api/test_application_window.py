@@ -1,23 +1,3 @@
-"""When a programme accepts applications, and when it accepts renewals.
-
-The office announces a window as a start and a length — "open from the 3rd, for
-two weeks" — so that is how it is stored. A window is inclusive of both ends,
-and a programme with none set stays open, because every programme predates the
-setting and a default that closed them all would have shut the portal on
-migrate.
-
-Two windows, because they are two announcements: applications open for the
-incoming batch, renewals for the continuing scholars, and rarely on the same
-dates. Each carries a switch beside it for the state a window cannot express —
-"not this semester", which is not a date and used to be said by inventing one
-that had already passed.
-
-Both are set on the tab that shows the queue they fill, not on the programme's
-own form under Scholarship Programs. That is where an officer already is when
-they decide to shut a form, and it is why this file checks that the programme
-form no longer writes them: a form that stopped asking but kept saving would
-close every programme the first time somebody corrected a typo in its name.
-"""
 from datetime import date, timedelta
 
 from django.test import Client, TestCase
@@ -42,7 +22,6 @@ class WindowArithmeticTest(TestCase):
         self.assertEqual(p.window_closed_reason(date(2099, 1, 1)), '')
 
     def test_one_day_open_means_the_opening_day_only(self):
-        """What "open for 1 day" means to whoever typed it."""
         p = self._programme(applications_open_on=date(2026, 9, 3),
                             applications_open_days=1)
         self.assertEqual(p.applications_close_on, date(2026, 9, 3))
@@ -64,9 +43,6 @@ class WindowArithmeticTest(TestCase):
         self.assertTrue(p.accepts_applications_on(date(2099, 1, 1)))
 
     def test_the_reason_says_which_side_of_the_window_they_are_on(self):
-        """"Applications are closed" leaves a student refreshing the page. The
-        two closures need different answers: one is a date to wait for, the
-        other a date that passed."""
         p = self._programme(applications_open_on=date(2026, 9, 3),
                             applications_open_days=14)
         early = p.window_closed_reason(date(2026, 9, 1))
@@ -76,8 +52,6 @@ class WindowArithmeticTest(TestCase):
 
 
 class ApplyFormRespectsTheWindowTest(TestCase):
-    """The three apply flows, each of which reaches the window differently."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1', active_semester='1st Semester')
         for name, stype in (('Academic Scholarship', 'Academic'),
@@ -113,8 +87,6 @@ class ApplyFormRespectsTheWindowTest(TestCase):
         else:
             self._window(stype, today - timedelta(days=30), 7)
 
-    # ── open ────────────────────────────────────────────────────────────────
-
     def test_a_programme_with_no_window_is_open(self):
         for client, url in ((self.student, '/student/apply/academic/'),
                             (self.staff, '/nsu-staff/apply/')):
@@ -130,8 +102,6 @@ class ApplyFormRespectsTheWindowTest(TestCase):
                             (self.staff, '/nsu-staff/apply/')):
             self.assertFalse(client.get(url).context.get('blocked'), url)
 
-    # ── shut ────────────────────────────────────────────────────────────────
-
     def test_the_academic_form_closes_outside_its_window(self):
         self._shut('Academic')
         r = self.student.get('/student/apply/academic/')
@@ -145,8 +115,6 @@ class ApplyFormRespectsTheWindowTest(TestCase):
         self.assertIn('closed on', r.context['blocked_reason'])
 
     def test_the_staff_form_closes_outside_its_window(self):
-        """Staff hold no StudentProfile, so that form never went through
-        scholarship_block_reason and asks the window on its own."""
         self._shut('Staff')
         r = self.staff.get('/nsu-staff/apply/')
         self.assertTrue(r.context['blocked'])
@@ -158,7 +126,6 @@ class ApplyFormRespectsTheWindowTest(TestCase):
         self.assertFalse(self.staff.get('/nsu-staff/apply/').context.get('blocked'))
 
     def test_a_closed_window_refuses_the_post_too(self):
-        """The template's absence of a form is advisory; anything can be POSTed."""
         from api.models import Application
         self._shut('Academic')
         self.student.post('/student/apply/academic/', {'gwa': '1.20'})
@@ -166,12 +133,6 @@ class ApplyFormRespectsTheWindowTest(TestCase):
 
 
 class SwitchClosesTheFormOutrightTest(TestCase):
-    """The third state, and the one a window alone could not express.
-
-    "Not yet" and "no longer" are dates. "Not this semester" is not, and the
-    office used to have to invent a window that had already passed to say it.
-    """
-
     def _programme(self, **kw):
         return Scholarship(name='Academic Scholarship', type='Academic',
                            category='application', description='x',
@@ -184,7 +145,6 @@ class SwitchClosesTheFormOutrightTest(TestCase):
                          'Applications for the Academic Scholarship are closed.')
 
     def test_off_beats_a_window_that_is_open_today(self):
-        """Read in order: the switch answers first, and it answers for good."""
         p = self._programme(accepting_applications=False,
                             applications_open_on=date(2026, 9, 3),
                             applications_open_days=14)
@@ -192,8 +152,6 @@ class SwitchClosesTheFormOutrightTest(TestCase):
         self.assertIn('are closed', p.window_closed_reason(date(2026, 9, 4)))
 
     def test_the_closed_reason_names_no_date_it_cannot_stand_behind(self):
-        """A switched-off form has no date to come back for, so it offers
-        none — 'open on' beside a date nobody set is the worst answer here."""
         reason = self._programme(accepting_applications=False).window_closed_reason(
             date(2026, 9, 3))
         self.assertNotIn('open on', reason)
@@ -208,9 +166,6 @@ class SwitchClosesTheFormOutrightTest(TestCase):
 
 
 class RenewalsHaveTheirOwnWindowTest(TestCase):
-    """Applications and renewals are two announcements, so they are two
-    windows. Closing one used to mean closing both or neither."""
-
     def _programme(self, **kw):
         return Scholarship(name='Academic Scholarship', type='Academic',
                            category='application', description='x',
@@ -235,8 +190,6 @@ class RenewalsHaveTheirOwnWindowTest(TestCase):
         self.assertFalse(p.accepts_renewals_on(date(2026, 9, 3)))
 
     def test_the_reason_says_renewals_rather_than_applications(self):
-        """A scholar turned away from the renewal form because applications
-        closed would be told something both true and useless."""
         p = self._programme(renewals_open_on=date(2026, 9, 3),
                             renewals_open_days=14)
         self.assertIn('Renewals for the Academic Scholarship',
@@ -257,10 +210,6 @@ class RenewalFormRespectsItsWindowTest(TestCase):
             first_name='Juan', last_name='Cruz', role='student')
         profile = StudentProfile.objects.create(
             user=su, student_id='2024-0001', course='BSCS', year_level=2)
-        # A renewal continues an award, and the form is now built from the ones
-        # this student actually holds — a scholar on nothing is told there is
-        # nothing to renew rather than shown a window. These tests are about
-        # the window, so the student is a scholar.
         Application.objects.create(
             student=profile, scholarship=academic, status='Approved',
             school_year='2026-2027', semester='1st Semester')
@@ -287,8 +236,6 @@ class RenewalFormRespectsItsWindowTest(TestCase):
         self.assertIn('open on', r.context['blocked_reason'])
 
     def test_a_closed_window_refuses_the_post_too(self):
-        """The template's absence of a form is advisory; anything can be
-        POSTed."""
         from api.models import AcademicRenewal
         Scholarship.objects.filter(type='Academic').update(accepting_renewals=False)
         self.student.post(self.URL, {})
@@ -301,10 +248,6 @@ class RenewalFormRespectsItsWindowTest(TestCase):
 
 
 class WindowIsSetOnTheQueueItGovernsTest(TestCase):
-    """Both cards moved off the programme's own form and onto the tab that
-    shows the queue they fill — the page an officer already has open when they
-    decide to shut a form."""
-
     APPLICATIONS = '/vpsea/affirmative/'
     RENEWALS = '/vpsea/renewals/'
 
@@ -334,8 +277,6 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
         data.update(extra)
         return self.c.post(self.RENEWALS, data)
 
-    # -- Where the cards are ------------------------------------------------
-
     def test_the_applications_tab_offers_the_application_window(self):
         r = self.c.get(self.APPLICATIONS)
         self.assertContains(r, 'name="applications_open_on"')
@@ -349,15 +290,11 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
         self.assertContains(r, 'name="accepting_renewals"')
 
     def test_neither_is_on_the_programme_form_any_more(self):
-        """It is the whole point of the move: two places to set one thing is
-        how the two start disagreeing."""
         r = self.c.get(f'/vpsea/scholarships/{self.s.pk}/edit/')
         self.assertNotContains(r, 'name="applications_open_on"')
         self.assertNotContains(r, 'name="renewals_open_on"')
 
     def test_editing_a_programme_leaves_its_windows_alone(self):
-        """The failure the move invites: a form that no longer asks, still
-        writing -- every programme closed by a typo correction."""
         Scholarship.objects.filter(pk=self.s.pk).update(
             applications_open_on=date(2026, 9, 3), applications_open_days=14,
             accepting_renewals=False)
@@ -368,8 +305,6 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
         self.assertEqual(self.s.applications_open_on, date(2026, 9, 3))
         self.assertEqual(self.s.applications_open_days, 14)
         self.assertFalse(self.s.accepting_renewals)
-
-    # -- Setting them -------------------------------------------------------
 
     def test_the_office_sets_an_application_window(self):
         self._applications(applications_open_on='2026-09-03',
@@ -383,8 +318,6 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
         self.assertEqual(self.s.renewals_close_on, date(2026, 9, 16))
 
     def test_unticking_the_switch_closes_the_form(self):
-        """A checkbox posts nothing when it is off, which is exactly the state
-        that has to be recorded."""
         self.c.post(self.APPLICATIONS, {'window': 'applications', 'tab': 'academic'})
         self.s.refresh_from_db()
         self.assertFalse(self.s.accepting_applications)
@@ -405,16 +338,12 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
         self.assertTrue(self.s.accepts_applications_on(date(2099, 1, 1)))
 
     def test_the_staff_tab_sets_the_staff_programmes_window(self):
-        """Each tab sets the window for the queue it shows, so the two cannot
-        be set from one another by accident."""
         self._applications(tab='staff', applications_open_on='2026-10-01',
                            applications_open_days='7')
         self.staff.refresh_from_db()
         self.s.refresh_from_db()
         self.assertEqual(self.staff.applications_close_on, date(2026, 10, 7))
         self.assertIsNone(self.s.applications_open_on)
-
-    # -- Refusals -----------------------------------------------------------
 
     def test_a_length_with_no_opening_date_is_refused(self):
         from urllib.parse import unquote
@@ -440,8 +369,6 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
         self.assertIsNone(self.s.applications_open_days)
 
     def test_a_decision_post_is_not_mistaken_for_a_window_post(self):
-        """Both cards share a page with the review form. The window card names
-        itself, and nothing without that name touches a programme."""
         self.c.post(self.APPLICATIONS, {'tab': 'academic', 'app_id': '999',
                                         'status': 'Approved'})
         self.s.refresh_from_db()

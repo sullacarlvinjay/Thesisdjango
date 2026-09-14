@@ -1,5 +1,3 @@
-"""Uploaded documents open in the shared overlay, not a new tab."""
-
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, Client
 from django.utils.html import escape
@@ -33,7 +31,6 @@ class DocumentViewerTest(TestCase):
             role='vpsea',
         )
 
-    # ── The viewer itself ───────────────────────────────────────────────────
     def test_every_page_carries_the_viewer(self):
         c = Client()
         c.login(email='juan@bipsu.edu.ph', password='pw')
@@ -46,10 +43,8 @@ class DocumentViewerTest(TestCase):
         c = Client()
         c.login(email='juan@bipsu.edu.ph', password='pw')
         r = c.get('/student/applications/')
-        # Django defaults to DENY, which would blank the viewer's iframe.
         self.assertEqual(r.headers.get('X-Frame-Options'), 'SAMEORIGIN')
 
-    # ── Each surface that shows a document ──────────────────────────────────
     def test_student_application_documents_use_the_overlay(self):
         app = Application.objects.create(
             student=self.profile, scholarship=self.scholarship, status='Approved',
@@ -66,15 +61,6 @@ class DocumentViewerTest(TestCase):
                          "only the viewer's own Open-in-new-tab control may use it")
 
     def test_declared_scholarship_proof_uses_the_overlay(self):
-        """The proof arrives with the registration and is read on the queue
-        that decides it — there is no separate link-request page any more.
-
-        The label is taken from the programme's own display name rather than
-        spelled out here. It used to be spelled out, and splitting DOST into the
-        S&T Undergraduate and Junior Level Science programmes renamed it out
-        from under this test — which is about the overlay, not about what DOST
-        is called this year. Escaped because that name contains an ampersand.
-        """
         self.student_user.verification_status = 'pending'
         self.student_user.save(update_fields=['verification_status'])
         declared = ScholarshipLinkRequest.objects.create(

@@ -1,28 +1,3 @@
-"""A scholar who holds two awards renews each of them separately.
-
-The renewal page was Academic's alone. It asked Academic's renewal window, wrote
-an `AcademicRenewal` carrying nothing that said which programme it was for, and
-the office approved every one of them into an Academic award. That is three
-separate failures for a student holding two scholarships, which is an ordinary
-thing to hold here — two declared at registration and both approved is how it
-usually happens:
-
-* They could not renew the second award at all.
-* Both renewals reached the office as identical rows.
-* Approving a DOST scholar's renewal silently awarded them Academic.
-
-So the submission now says which programme it renews. The rules that follow from
-that are what this file checks, and each is a way it could go wrong again:
-
-* **A student on one award is never asked.** A question with one possible answer
-  is not a question; the view fills it in.
-* **Only programmes whose renewal window is open are offered.** Offering a shut
-  one earns the student a refusal for choosing what they were shown.
-* **One closed window is not a closed page.** A scholar on two awards whose
-  Academic renewals have closed can still renew the other one.
-* **A replacement stays inside its own programme.** Re-uploading for the second
-  award must not overwrite the first one's documents.
-"""
 from datetime import date, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -44,8 +19,6 @@ def documents():
 
 
 class RenewalPageTest(TestCase):
-    """One student, and whatever awards each test decides to give them."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -62,15 +35,12 @@ class RenewalPageTest(TestCase):
         self.c = Client()
         self.assertTrue(self.c.login(email='s@bipsu.edu.ph', password='pw'))
 
-    # ── fixtures ────────────────────────────────────────────────────────────
-
     def _award(self, scholarship):
         Application.objects.create(
             student=self.profile, scholarship=scholarship, status='Approved',
             school_year='2026-2027', semester='1st Semester')
 
     def _close_renewals(self, scholarship):
-        """Shut one programme's renewal window, and only that one's."""
         scholarship.renewals_open_on = date.today() + timedelta(days=30)
         scholarship.renewals_open_days = 14
         scholarship.save()
@@ -83,8 +53,6 @@ class RenewalPageTest(TestCase):
         data.update(extra)
         return self.c.post('/student/renewal/academic/', data)
 
-    # ── holding nothing ─────────────────────────────────────────────────────
-
     def test_a_student_holding_nothing_is_told_so_rather_than_shown_a_form(self):
         page = self._page()
         self.assertContains(page, 'Nothing to renew yet')
@@ -93,8 +61,6 @@ class RenewalPageTest(TestCase):
     def test_and_a_submission_from_one_writes_no_renewal(self):
         self._submit(scholarship_type='Academic')
         self.assertEqual(AcademicRenewal.objects.count(), 0)
-
-    # ── holding one ─────────────────────────────────────────────────────────
 
     def test_one_award_is_not_a_question_worth_asking(self):
         self._award(self.academic)
@@ -109,13 +75,9 @@ class RenewalPageTest(TestCase):
         self.assertEqual(renewal.scholarship_type, 'Academic')
 
     def test_the_programme_is_read_off_the_award_not_off_the_page_name(self):
-        """The page is /renewal/academic/ for historical reasons. A DOST scholar
-        renewing there is renewing DOST."""
         self._award(self.dost)
         self._submit()
         self.assertEqual(AcademicRenewal.objects.get().scholarship_type, 'DOST')
-
-    # ── holding two ─────────────────────────────────────────────────────────
 
     def test_two_awards_are_both_offered(self):
         self._award(self.academic)
@@ -149,14 +111,11 @@ class RenewalPageTest(TestCase):
         self.assertEqual(AcademicRenewal.objects.count(), 0)
 
     def test_an_approved_link_counts_as_an_award_to_renew(self):
-        """Two records make somebody a scholar and only one is an Application."""
         self._award(self.academic)
         ScholarshipLinkRequest.objects.create(
             student=self.profile, scholarship_type='CHED', status='Approved',
             term_label='26-1')
         self.assertContains(self._page(), '<option value="CHED">')
-
-    # ── replacing what is already in ────────────────────────────────────────
 
     def test_re_uploading_replaces_that_programmes_documents(self):
         self._award(self.academic)
@@ -165,8 +124,6 @@ class RenewalPageTest(TestCase):
         self.assertEqual(AcademicRenewal.objects.count(), 1)
 
     def test_and_leaves_the_other_programmes_alone(self):
-        """The failure this guards: a scholar renewing their second award
-        overwriting the first one's documents instead of adding to them."""
         self._award(self.academic)
         self._award(self.dost)
         self._submit(scholarship_type='Academic')
@@ -176,11 +133,7 @@ class RenewalPageTest(TestCase):
         self.assertEqual(
             AcademicRenewal.objects.filter(scholarship_type='Academic').count(), 1)
 
-    # ── windows ─────────────────────────────────────────────────────────────
-
     def test_a_shut_programme_is_not_offered(self):
-        """With one of the two shut there is only one answer left, so the form
-        stops asking and fills it in — the same as a student on one award."""
         self._award(self.academic)
         self._award(self.dost)
         self._close_renewals(self.academic)
@@ -208,8 +161,6 @@ class RenewalPageTest(TestCase):
         self._close_renewals(self.academic)
         self.assertContains(self._page(), 'Renewals Are Closed')
 
-    # ── documents are still required ────────────────────────────────────────
-
     def test_the_two_certificates_are_still_required(self):
         self._award(self.academic)
         page = self.c.post('/student/renewal/academic/', {})
@@ -219,9 +170,6 @@ class RenewalPageTest(TestCase):
 
 
 class TheOfficeSeesWhichProgrammeTest(TestCase):
-    """The other half of it: approving the right award, and being able to tell
-    two of a scholar's renewals apart on screen."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -251,7 +199,6 @@ class TheOfficeSeesWhichProgrammeTest(TestCase):
         self.assertContains(self.c.get('/vpsea/renewals/'), 'DOST')
 
     def test_approving_a_dost_renewal_awards_dost(self):
-        """It awarded Academic to everybody, whatever they were renewing."""
         renewal = self._renewal('DOST')
         self.c.post('/vpsea/renewals/',
                     {'renewal_id': renewal.id, 'status': 'Approved', 'remarks': ''})
@@ -266,7 +213,6 @@ class TheOfficeSeesWhichProgrammeTest(TestCase):
         self.assertEqual(award.scholarship, self.academic)
 
     def test_a_programme_with_no_catalogue_row_writes_no_award(self):
-        """Rather than falling back to whichever programme happens to be first."""
         renewal = self._renewal('CHED')
         self.c.post('/vpsea/renewals/',
                     {'renewal_id': renewal.id, 'status': 'Approved', 'remarks': ''})

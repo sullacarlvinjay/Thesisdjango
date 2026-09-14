@@ -6,7 +6,6 @@
 {% block page_subtitle %}Students holding no award this term{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="archives" %}{% endblock %}
 {% block content %}
-<!-- Type Tabs -->
 <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
   <div class="flex flex-wrap gap-2">
     {% for t in archive_types %}
@@ -121,9 +120,6 @@
   </div>
 </div>
 <script>
-  // Course options follow the chosen school, using the same BiPSU mapping the
-  // student form uses. Course was a free-text box until now, which is how a
-  // record ended up reading "Batchelor of Science in Computer Science ".
   var ARCH_COURSES = {{ bipsu_courses_json|safe }};
   function archFillCourses(schoolSelId, courseSelId, wanted) {
     var school = document.getElementById(schoolSelId).value;
@@ -135,8 +131,6 @@
       if (c === wanted) opt.selected = true;
       sel.appendChild(opt);
     });
-    // A course typed in before these were dropdowns may match no school. Keep
-    // it selectable rather than silently blanking the field on save.
     if (wanted && sel.value !== wanted) {
       var keep = document.createElement('option');
       keep.value = wanted;
@@ -156,7 +150,6 @@
     archFillCourses(schoolSelId, courseSelId, course);
   }
 </script>
-<!-- Edit Student Modal -->
 <div id="studentEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:32rem;">
     <div class="modal-sheet-head">
@@ -285,7 +278,6 @@
     document.getElementById('seGender').value = gender || '';
     archInitSchoolCourse('seSchool', 'seCourse', school, course);
     document.getElementById('seYear').value = year;
-    // A GWA of 0 means nobody has entered one; show it empty rather than as a mark.
     document.getElementById('seGwa').value = (gwa && parseFloat(gwa) > 0) ? gwa : '';
     document.getElementById('seContact').value = contact;
     document.getElementById('seBarangay').value = barangay;

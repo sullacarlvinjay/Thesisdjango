@@ -1,43 +1,3 @@
-"""Remove the student records that approving a Staff Scholarship used to invent.
-
-Approving a BiPSU Staff application on the Affirmative/Staff queue used to build
-a Django account with ``role='student'``, a ``StudentProfile`` numbered
-``AFF-<id>`` where the employee had no student number, and an ``Application``
-nothing reads. The award itself was always the ``AffirmativeStaffApplication``,
-which is what the Staff archive tab, the masterlist's BiPSU STAFF block and the
-reports read — so the student record was pure surplus, and it put a BiPSU
-employee on My Students, on the No Scholarship archive tab, and on the TES
-recommendation the SDSO sends onward to UniFAST.
-
-The view no longer does that. This clears up what it already made.
-
-    python manage.py prune_staff_student_profiles            # show, change nothing
-    python manage.py prune_staff_student_profiles --delete    # act
-
-**Nothing is deleted without ``--delete``.** The default run is a report, so the
-list can be read before anything goes.
-
-Two tiers, and only the first is ever removed:
-
-* **Certain** — the account's address owns a Staff application that the
-  applicant filed **for themselves** (``is_nsu_staff``), and the profile has
-  done nothing as a student. An employee applying on their own behalf is not a
-  BiPSU student under any reading, so the profile can only be the invented one.
-* **Worth a look** — everything else that touches a Staff application: a
-  *dependent's* claim, or a profile that has been used. A dependent may well be
-  a genuine BiPSU student, and a profile with a renewal or a sign-in behind it
-  belongs to somebody. Listed for a person to judge, never touched.
-
-Deliberately **not** a rule: "the student number starts ``AFF-``". Approving an
-*Affirmative* application still mints one of those, and an Affirmative scholar
-is a real student — see the note in vpsea_affirmative_applications. Pruning on
-the prefix alone would take them out with the employees.
-
-The award survives either way: deleting the account cannot reach the
-``AffirmativeStaffApplication``, which is a separate row with no foreign key to
-it.
-"""
-
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -48,12 +8,6 @@ from api.models import (
 
 
 def student_side_activity(profile):
-    """What this profile has done as a student, as a list of short phrases.
-
-    A phantom has none. Anything here means a person has been using the account
-    as a student, and the row is not the throwaway this command is about — so it
-    is reported beside the row rather than left for the operator to guess at.
-    """
     activity = []
 
     awards = list(Application.objects.filter(student=profile)
@@ -82,9 +36,6 @@ class Command(BaseCommand):
             help='Actually remove them. Without it nothing is written.')
 
     def handle(self, *args, **options):
-        # The employee applying on their own behalf, by address. A dependent's
-        # claim is kept apart: the dependent is a different person from the
-        # employee, and may be a student in their own right.
         own_claim, other_claim = set(), set()
         for application in (AffirmativeStaffApplication.objects
                             .filter(qualified_for='Staff').exclude(email='')):
@@ -123,9 +74,6 @@ class Command(BaseCommand):
         with transaction.atomic():
             removed = 0
             for profile, _activity in certain:
-                # The account, so the cascade takes the profile, its detail
-                # rows and its notifications with it. ActivityLog.user is
-                # SET_NULL, so the office's record of what was done survives.
                 profile.user.delete()
                 removed += 1
 

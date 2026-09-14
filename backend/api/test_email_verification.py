@@ -1,10 +1,3 @@
-"""Proving a registrant's address is real, and telling them what was decided.
-
-Two halves of the same gap. Before this, the registration form took any string
-with an @ in it, and the SDSO's approval or rejection was announced to whatever
-that string was — an address nobody had ever reached, and nobody could tell had
-never been reached.
-"""
 import re
 from unittest import mock
 
@@ -17,8 +10,6 @@ from api.test_registration_payload import a_student
 
 
 class BrokenBackend:
-    """A mail backend that fails the way a refused relay does."""
-
     def __init__(self, *args, **kwargs):
         pass
 
@@ -27,8 +18,6 @@ class BrokenBackend:
 
 
 class AddressCheckTest(TestCase):
-    """The cheap check, on the posted form, before an account exists."""
-
     def test_a_usable_address_passes(self):
         for address in ('juan@gmail.com', 'a.dela-cruz@bipsu.edu.ph',
                         'student+tag@yahoo.com.ph'):
@@ -41,12 +30,6 @@ class AddressCheckTest(TestCase):
                                 f'{address!r} was accepted')
 
     def test_the_holes_djangos_validator_leaves_open_are_closed(self):
-        """Both are valid addresses and neither is ever a real one on this form.
-
-        Django allowlists 'localhost' and accepts an IP literal. Everything else
-        malformed — a dotless domain, a one-letter TLD, a leading hyphen — its
-        own validator already refuses, which is why this rule is narrow.
-        """
         for address in ('juan@localhost', 'juan@[127.0.0.1]'):
             self.assertIn('not a domain', email_verify.address_error(address),
                           address)
@@ -86,7 +69,6 @@ class ConfirmationTokenTest(TestCase):
         self.assertEqual(reason, 'expired')
 
     def test_a_link_stops_working_when_the_address_changes(self):
-        """It proved somebody reads the old address, which says nothing of the new."""
         token = email_verify.make_token(self.user)
         self.user.email = 'someone.else@gmail.com'
         self.user.save(update_fields=['email'])
@@ -101,8 +83,6 @@ class ConfirmationTokenTest(TestCase):
 
 
 class ConfirmationLinkTest(TestCase):
-    """A relative path in an email is not a link — nobody can click it."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -119,7 +99,6 @@ class ConfirmationLinkTest(TestCase):
 
     @override_settings(SITE_URL='')
     def test_without_site_url_the_link_is_built_from_the_request(self):
-        """An installation that never set it still sends something clickable."""
         body = self._register()
         self.assertIn('http://testserver/register/verify/', body)
 
@@ -142,13 +121,10 @@ class RegistrationConfirmationTest(TestCase):
                            a_student(email=email, student_id=student_id))
 
     def _link(self):
-        """The confirmation path out of the message that was just sent."""
         body = mail.outbox[-1].body
         found = re.search(r'/register/verify/[^\s]+/', body)
         self.assertIsNotNone(found, f'no confirmation link in:\n{body}')
         return found.group(0)
-
-    # ── Registering ─────────────────────────────────────────────────────────
 
     def test_registering_sends_a_confirmation_link(self):
         self._register()
@@ -164,13 +140,12 @@ class RegistrationConfirmationTest(TestCase):
 
     def test_a_bad_address_never_becomes_an_account(self):
         r = self._register(email='juan@localhost')
-        self.assertEqual(r.status_code, 200)          # back on the form
+        self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'not a domain')
         self.assertFalse(User.objects.filter(email='juan@localhost').exists())
         self.assertEqual(len(mail.outbox), 0)
 
     def test_a_bad_address_is_not_reported_as_already_registered(self):
-        """Two different problems; saying the wrong one sends people in circles."""
         r = self._register(email='juan@')
         self.assertContains(r, 'not a valid email address')
         self.assertNotContains(r, 'Email already registered')
@@ -181,8 +156,6 @@ class RegistrationConfirmationTest(TestCase):
         self.assertContains(r, 'Email already registered')
         self.assertEqual(User.objects.filter(email='juan@gmail.com').count(), 1)
 
-    # ── Confirming ──────────────────────────────────────────────────────────
-
     def test_opening_the_link_confirms_the_address(self):
         self._register()
         r = self.c.get(self._link())
@@ -192,7 +165,6 @@ class RegistrationConfirmationTest(TestCase):
         self.assertTrue(User.objects.get(email='juan@gmail.com').email_verified)
 
     def test_confirming_does_not_sign_anyone_in_or_release_them(self):
-        """The SDSO's review is still the gate — this only proves the address."""
         self._register()
         self.c.get(self._link())
 
@@ -200,7 +172,6 @@ class RegistrationConfirmationTest(TestCase):
         self.assertTrue(user.email_verified)
         self.assertEqual(user.verification_status, 'pending')
         self.assertFalse(user.can_sign_in)
-        # And the waiting room is still a waiting room, not a portal.
         r = self.c.get('/register/received/')
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.context['waiting'])
@@ -237,8 +208,6 @@ class RegistrationConfirmationTest(TestCase):
         self.assertContains(r, 'Confirm your email address')
         self.assertContains(r, '/register/resend/')
 
-    # ── Resending ───────────────────────────────────────────────────────────
-
     def test_the_link_can_be_sent_again(self):
         self._register()
         mail.outbox.clear()
@@ -250,11 +219,10 @@ class RegistrationConfirmationTest(TestCase):
         self.assertIn('/register/verify/', mail.outbox[0].body)
 
     def test_resend_only_ever_writes_to_this_browsers_own_registration(self):
-        """Otherwise it is a way to make the site email anyone on demand."""
         self._register()
         mail.outbox.clear()
 
-        stranger = Client()                 # no registration in its session
+        stranger = Client()
         r = stranger.post('/register/resend/')
         self.assertEqual(r.status_code, 302)
         self.assertIn('confirm_error', r['Location'])
@@ -272,8 +240,6 @@ class RegistrationConfirmationTest(TestCase):
 
 
 class DecisionEmailTest(TestCase):
-    """What the applicant is told when the SDSO decides, and what the office sees."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -301,14 +267,11 @@ class DecisionEmailTest(TestCase):
         self.assertEqual(message.to, ['juan@gmail.com'])
         self.assertIn('Account verified', message.subject)
         self.assertIn('Checked against the enrolment list.', message.body)
-        # An inbox supplies none of the context a portal does, so the message
-        # has to say who it is from and what to do next.
         self.assertIn('Juan', message.body)
         self.assertIn('verified', message.body)
         self.assertIn('sign in', message.body.lower())
 
     def test_rejecting_emails_the_applicant_too(self):
-        """They have no portal to read a notification in — the email is all there is."""
         self._decide('reject', 'That student ID is not on our enrolment list.')
 
         self.assertEqual(len(mail.outbox), 1)
@@ -316,7 +279,6 @@ class DecisionEmailTest(TestCase):
         self.assertEqual(message.to, ['juan@gmail.com'])
         self.assertIn('Account not verified', message.subject)
         self.assertIn('not on our enrolment list', message.body)
-        # And what they can do about it, since nothing else will tell them.
         self.assertIn('contact the SDSO office', message.body)
 
     def test_approving_with_no_message_still_says_something_useful(self):
@@ -327,7 +289,6 @@ class DecisionEmailTest(TestCase):
         self.assertIn('sign in', body.lower())
 
     def test_the_bell_keeps_the_offices_own_words_not_the_letter(self):
-        """In the portal the surrounding context is already on the screen."""
         from api.models import Notification
 
         self._decide('approve', 'Checked against the enrolment list.')
@@ -344,13 +305,6 @@ class DecisionEmailTest(TestCase):
 
     @override_settings(EMAIL_ENABLED=False)
     def test_delivery_is_not_claimed_where_nothing_is_actually_sent(self):
-        """The console backend accepts everything and reports success.
-
-        Saying 'they have been emailed' on the strength of that is the silent
-        lie the mail panel exists to stop. The standing warning that used to sit
-        here is that panel's 'Not configured' badge now, driven by the same
-        EMAIL_ENABLED — see api/test_mail_panel.py.
-        """
         r = self._decide('approve', 'Welcome.')
         page = self.c.get(r['Location'])
         self.assertNotContains(page, 'They have been emailed')
@@ -358,18 +312,14 @@ class DecisionEmailTest(TestCase):
 
     @override_settings(EMAIL_ENABLED=True)
     def test_the_office_is_told_when_the_email_did_not_go_out(self):
-        """A mail server that is down used to look exactly like one that worked."""
         with self.settings(EMAIL_BACKEND='api.test_email_verification.BrokenBackend'):
             r = self._decide('reject', 'Not on the list.')
 
         self.assertIn('emailed=0', r['Location'])
         self.assertContains(self.c.get(r['Location']),
                             'the email did not go out')
-        # The decision itself is not lost because the announcement failed.
         self.applicant.refresh_from_db()
         self.assertEqual(self.applicant.verification_status, 'rejected')
-
-    # ── What the officer sees while deciding ────────────────────────────────
 
     def test_an_unconfirmed_address_is_flagged_on_the_queue(self):
         from django.utils import timezone
@@ -386,7 +336,6 @@ class DecisionEmailTest(TestCase):
         self.assertNotContains(r, 'Email address not confirmed')
 
     def test_an_unconfirmed_address_does_not_block_the_decision(self):
-        """Mail is optional here; a gate would strand every applicant without it."""
         self.assertFalse(self.applicant.email_verified)
         self._decide('approve', 'Verified in person at the office.')
 
@@ -396,7 +345,6 @@ class DecisionEmailTest(TestCase):
 
     @override_settings(EMAIL_ENABLED=False)
     def test_the_office_is_warned_when_no_mail_server_is_configured(self):
-        """The mail panel says so on the page, without being opened."""
         self.assertContains(self.c.get('/vpsea/accounts/'), 'Not configured')
 
     @override_settings(EMAIL_ENABLED=True)
@@ -405,8 +353,6 @@ class DecisionEmailTest(TestCase):
 
 
 class OfficeAccountsAreExemptTest(TestCase):
-    """An account the office creates is not asked to prove an address to itself."""
-
     def test_a_created_account_starts_confirmed(self):
         user = User.objects.create_user(
             username='staff@bipsu.edu.ph', email='staff@bipsu.edu.ph',
@@ -422,14 +368,6 @@ class OfficeAccountsAreExemptTest(TestCase):
 
 
 class TheAPIRegistrationDoorAsksTheSameThingTest(TestCase):
-    """/api/auth/register/ is a public form too, whatever its content type.
-
-    It set neither ``email_verified`` nor a confirmation link, so an account
-    made through it reached the SDSO's queue reading 'address confirmed' when
-    nobody had ever written to that address — the one fact the column exists to
-    keep honest.
-    """
-
     payload = {
         'email': 'api-registrant@gmail.com',
         'password': 'a-long-enough-password',
@@ -463,7 +401,6 @@ class TheAPIRegistrationDoorAsksTheSameThingTest(TestCase):
         self.assertIsNotNone(user.email_confirmation_sent_at)
 
     def test_opening_that_link_confirms_the_account(self):
-        """End to end, so the token the API mailed is one this site accepts."""
         Client().post('/api/auth/register/', self.payload,
                       content_type='application/json')
         link = re.search(r'/register/verify/[^\s]+/', mail.outbox[0].body).group(0)
@@ -471,7 +408,6 @@ class TheAPIRegistrationDoorAsksTheSameThingTest(TestCase):
         self.assertTrue(User.objects.get(email=self.payload['email']).email_verified)
 
     def test_it_still_refuses_to_release_the_account(self):
-        """Confirming an address is not the SDSO's decision — see verify_email."""
         Client().post('/api/auth/register/', self.payload,
                       content_type='application/json')
         user = User.objects.get(email=self.payload['email'])

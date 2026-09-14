@@ -7,6 +7,89 @@ several of them removed something that used to work.
 
 ---
 
+## The BiPSU seal is the browser-tab icon
+
+Every page showed the browser's blank-page globe in its tab. A portal open
+beside somebody's other work had nothing to find it by, and a tab icon that is
+only on some pages reads as a different site — so it is one include,
+`templates/_favicon.html`, in the head of base.html and of the five standalone
+pages that do not extend it.
+
+**Served from `static/img/`, not from `media/logos/`** where the seal the pages
+display lives. Media is on S3 in production and on disk locally, so the icon
+would be cross-origin in one place and not the other; the seal there is a 3.7 MB
+print-resolution PNG against the 32-pixel tile a tab actually draws; and
+WhiteNoise gives static the cache headers an icon wants. The three sizes are
+committed, and `python manage.py make_favicon` rebuilds them from that same
+seal — cropped to the seal's own edge, because the source carries 5% of
+transparent margin and at 32px that costs three pixels it cannot spare. The
+command is not part of `build.sh`; it is there so replacing the seal does not
+mean opening an image editor and guessing at sizes.
+
+**The same icon on every portal, the SDSO's included**, whose navbar wears the
+SDSO mark instead. The tab says which site this is; the navbar says which part
+of it you are in.
+
+## A dialog's corners cut what is inside them
+
+`.modal` now carries `overflow: hidden`. It looks removable and is not.
+
+The landing page's scholarship dialogs open with a coloured strip across the
+top — yellow for an internal programme, blue for external, green for
+institutional — and the white panel showed through above the yellow at both
+ends. The strip had been given a `border-radius` of its own to match the panel,
+and a radius cannot match a corner it is not measured from: the panel's is
+measured on its outer edge while the strip sits inside the 1px border, and a
+16px radius on a box 6px tall is squared off to 6px by the browser anyway. So
+the strip had near-square corners against a rounded panel.
+
+Clipping needs no numbers to agree, which is why `.page-landing .card` has been
+doing it all along — the same strip read correctly on a card and broken on a
+dialog because only one of the two was clipped. The strip's own radius is gone;
+the panel's corner shapes it now, at whatever radius the panel is given.
+
+Safe because a dialog here is already a closed box: `.modal-body` and
+`.modal-sheet-body` do their own scrolling, and the one absolutely positioned
+popup in the system — `.dl-menu`, the Download Excel dropdown — is a sibling of
+the dialogs on both pages that have it, never a child.
+
+## Registration asks for agreement to terms, and records it
+
+The form collects a household's income, its Listahanan and 4Ps membership, a
+disability, and the documents proving each — sensitive personal information
+under the Data Privacy Act of 2012 — and it collected all of it without ever
+saying so, let alone asking. Nobody registering could find out what the office
+would do with the record, who outside BiPSU would see it, how long it would be
+kept, or what rights they had over it; and the office, asked afterwards what a
+scholar had agreed to, had nothing to answer with.
+
+**A Terms and Agreement card now closes the registration form**, below Account
+Security and above *Create Account*. Both account types get it: a staff
+registration is a personnel record and is no less personal for that. It carries
+one sentence beside the tickbox — what is declared is true, and the record may
+be processed and shared with whoever funds the scholarship — and a button that
+opens the full notice in a dialog on the same page. Not a page of its own:
+leaving a half-filled registration to go and read something is how a form gets
+abandoned.
+
+**The words live in `api/terms.py`**, not in the template, because the form that
+shows them and the account that records agreement to them must name the same
+text. The module carries a `VERSION`, and it is the version — not merely the
+fact of a tick — that is stored, so a notice revised next year cannot silently
+restate what an account agreed to last year. Revise the text and the version
+together.
+
+**Refused on the server, not only by the checkbox.** `required` on an input is
+a convenience for whoever is filling the form in; `register_view` is the rule,
+and without the agreement no user, no profile and no declaration is written at
+all. What was typed comes back on the refusal, so one unticked box does not cost
+somebody the whole form.
+
+**The SDSO reads it back on Account Verification**, at the foot of the account
+record: the version and the moment it was accepted. An account the office
+created itself says *Not recorded* rather than going blank — it was never shown
+the notice, and a consent record that implies otherwise is worse than none.
+
 ## A scholarship won after registration can be added from My Profile
 
 The registration form asks what a student already holds, and that was the only

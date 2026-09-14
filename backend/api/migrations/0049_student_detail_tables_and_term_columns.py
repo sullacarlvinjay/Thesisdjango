@@ -1,12 +1,3 @@
-"""Build the student detail tables and stamp every submission with its term.
-
-Three migrations do the split, in the only order that keeps the data: this one
-adds the new tables and columns, 0050 copies the profile's columns into them and
-fills in the terms, and 0051 drops the columns that have been copied. Splitting
-it up is what makes the middle step possible — a single migration would drop the
-source columns in the same transaction that created their replacements.
-"""
-
 import api.validators
 import django.core.validators
 import django.db.models.deletion

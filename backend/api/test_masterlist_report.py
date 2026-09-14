@@ -1,4 +1,3 @@
-"""The VPSEA masterlist renders into the office's own Word template."""
 from io import BytesIO
 from unittest import mock
 
@@ -14,8 +13,6 @@ from api.models import (
 
 
 def _docx_text(data):
-    """Every paragraph and cell of a .docx, joined — for checking what was sent
-    to the converter is the real document."""
     document = docx.Document(BytesIO(data))
     parts = [p.text for p in document.paragraphs]
     parts += [c.text for t in document.tables for row in t.rows for c in row.cells]
@@ -65,12 +62,8 @@ class MasterlistFixtures:
             qualified_for='Staff', status='Approved', is_nsu_staff=True,
         )
 
-    # ── Context shape ───────────────────────────────────────────────────────
-
 
 class MasterlistReportTest(MasterlistFixtures, TestCase):
-    """Context building and the rendered document."""
-
     def test_context_supplies_every_slot_the_template_loops_over(self):
         context, _ = masterlist_report.build_context()
         for slot in masterlist_report.ALL_SLOTS:
@@ -90,7 +83,6 @@ class MasterlistReportTest(MasterlistFixtures, TestCase):
         self.assertEqual(acad['name'], 'ACADEMIC')
         self.assertEqual([r['last_name'] for r in acad['female']], ['Cruz'])
         self.assertEqual([r['last_name'] for r in acad['male']], ['Bautista'])
-        # Each gender column is numbered from 1 independently, as the form does.
         self.assertEqual(acad['female'][0]['no'], 1)
         self.assertEqual(acad['male'][0]['no'], 1)
 
@@ -142,7 +134,6 @@ class MasterlistReportTest(MasterlistFixtures, TestCase):
         self.assertEqual(row['percent'], '100%')
         self.assertEqual(row['number'], 'EMP-01')
 
-    # ── The rendered document ───────────────────────────────────────────────
     def test_download_returns_a_word_file_with_the_scholars_in_it(self):
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         self._scholar('TDP', 'Bautista', 'Ben', 'M', '2024-0002')
@@ -157,15 +148,12 @@ class MasterlistReportTest(MasterlistFixtures, TestCase):
         text = '\n'.join(p.text for p in d.paragraphs)
         cells = '\n'.join(c.text for t in d.tables for row in t.rows for c in row.cells)
 
-        # The office's own headings survive verbatim.
         self.assertIn('Republic of the Philippines', text)
         self.assertIn('BILIRAN PROVINCE STATE UNIVERSITY', text)
         self.assertIn('ACADEMIC', text)
         self.assertIn('BiPSU STAFF', text)
-        # No unrendered Jinja is left behind.
         self.assertNotIn('{{', text + cells)
         self.assertNotIn('{%', text + cells)
-        # The scholars landed in the tables.
         self.assertIn('Cruz', cells)
         self.assertIn('Bautista', cells)
         self.assertIn('Lim', cells)
@@ -192,7 +180,6 @@ class MasterlistReportTest(MasterlistFixtures, TestCase):
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         r = self.c.get('/vpsea/reports/download/')
         d = docx.Document(BytesIO(r.content))
-        # Two tables per gendered program, one for the ungendered staff table.
         gendered = sum(1 for x in masterlist_report.PROGRAM_SLOTS if x[3] == 'gendered')
         ungendered = sum(1 for x in masterlist_report.PROGRAM_SLOTS if x[3] == 'students')
         self.assertEqual(len(d.tables), gendered * 2 + ungendered)
@@ -218,8 +205,6 @@ class MasterlistReportTest(MasterlistFixtures, TestCase):
 
 
 class MasterlistPreviewTest(MasterlistFixtures, TestCase):
-    """The on-screen preview is driven by the same context as the document."""
-
     def test_preview_lists_the_programs_in_document_order(self):
         r = self.c.get('/vpsea/reports/')
         self.assertEqual(r.status_code, 200)
@@ -236,7 +221,6 @@ class MasterlistPreviewTest(MasterlistFixtures, TestCase):
         self.assertEqual(r.context['grand_total'], 2)
 
         doc_context, _ = masterlist_report.build_context()
-        # Preview rows are cells in header order, so read them by column position.
         preview = {sec[0]: sec for sec in r.context['sections']}
 
         def surnames(section, which):
@@ -263,19 +247,6 @@ class MasterlistPreviewTest(MasterlistFixtures, TestCase):
 
 
 class MasterlistTermTest(MasterlistFixtures, TestCase):
-    """Which school year the masterlist is for, chosen on the Reports tab.
-
-    It used to be the active term and nothing else, so producing last
-    semester's list — the one an auditor asks for — meant changing the active
-    term for every other screen in the office, and changing it back afterwards.
-
-    Only imported scholars are scoped by it. An award is a standing thing: an
-    Application carries the term it was granted in and is renewed term by term
-    against that same row, so the terms it has been current in are written down
-    nowhere to filter on. Scoping applications by their own term_label would
-    drop every scholar awarded before this semester out of the list.
-    """
-
     def _imported(self, stype, last, term):
         from api.models import ImportedScholar
         return ImportedScholar.objects.create(
@@ -284,38 +255,26 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
             student_id=f'{term}-{last}',
         )
 
-    # ── The list of terms ───────────────────────────────────────────────────
-
     def test_the_terms_offered_are_the_ones_with_scholars_in_them(self):
         self._imported('Academic', 'Reyes', '25-1')
         self._imported('DOST', 'Lim', '25-2')
         self.assertEqual(masterlist_report.known_terms(), ['26-1', '25-2', '25-1'])
 
     def test_the_active_term_is_offered_even_with_nothing_imported_into_it(self):
-        """It is the term a document generated today is for."""
         self.assertEqual(masterlist_report.known_terms(), ['26-1'])
 
     def test_a_label_that_does_not_parse_sorts_last_rather_than_raising(self):
-        """Somebody typed it into Settings by hand. A report is not where that
-        should be discovered."""
         self._imported('Academic', 'Reyes', 'whenever')
         self.assertEqual(masterlist_report.known_terms(), ['26-1', 'whenever'])
-
-    # ── Choosing one ────────────────────────────────────────────────────────
 
     def test_asking_for_a_term_that_exists_gets_it(self):
         self._imported('Academic', 'Reyes', '25-1')
         self.assertEqual(masterlist_report.term_for('25-1'), '25-1')
 
     def test_anything_else_falls_back_to_the_active_term(self):
-        """A stale bookmark, a term whose imports have since been deleted, a
-        hand-edited query string. Falling back beats an empty document, which
-        reads as a year with no scholars in it rather than as a mistake."""
         for asked in ('99-1', '', None, 'drop table'):
             with self.subTest(asked=asked):
                 self.assertEqual(masterlist_report.term_for(asked), '26-1')
-
-    # ── What choosing one changes ───────────────────────────────────────────
 
     def test_only_the_chosen_terms_imported_scholars_are_printed(self):
         self._imported('Academic', 'Reyes', '25-1')
@@ -331,9 +290,6 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
                          ['Lim'])
 
     def test_an_awarded_scholar_is_on_every_terms_list(self):
-        """The rule that keeps the picker from emptying the document: the award
-        is standing, and the term stamped on it says when it was granted rather
-        than which semesters it covers."""
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         self._imported('Academic', 'Reyes', '25-1')
 
@@ -342,8 +298,6 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
                 context, _ = masterlist_report.build_context(term_label=term)
                 self.assertIn('Cruz',
                               [r['last_name'] for r in context['program1']['female']])
-
-    # ── On the page ─────────────────────────────────────────────────────────
 
     def test_the_tab_offers_every_term_and_stamps_the_one_chosen(self):
         self._imported('Academic', 'Reyes', '25-1')
@@ -355,9 +309,6 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
         self.assertContains(r, 'LIST OF SCHOLARS FOR 1st Semester SY: 2025-2026')
 
     def test_the_chosen_term_travels_to_the_downloads(self):
-        """A document built for one term and downloaded for another is the one
-        mistake this page can make that nobody notices until the file is on
-        somebody's desk."""
         self._imported('Academic', 'Reyes', '25-1')
         body = self.c.get('/vpsea/reports/', {'sy': '25-1'}).content.decode()
         for href in ('/vpsea/reports/download/?sy=25-1',
@@ -388,8 +339,6 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
         self.assertIn('SY: 2025-2026', text)
 
     def test_the_spreadsheet_follows_it_too(self):
-        """Its headings used to read 'SY: 26-1' beside the Word document's
-        'SY: 2026-2027' — one term spelled two ways on two files of one list."""
         self._imported('Academic', 'Reyes', '25-1')
         r = self.c.get('/vpsea/reports/download/excel/', {'sy': '25-1'})
         self.assertEqual(r.status_code, 200)
@@ -398,21 +347,12 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
 
 
 class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
-    """The Reports tab frames the document as a PDF instead of retyping it.
-
-    Whether the frame gets the converted Word file or the stand-in layout
-    depends on the machine, so every assertion about page content pins the view
-    to one path rather than reading whatever this developer happens to have
-    installed.
-    """
-
     def test_the_tab_frames_the_preview_rather_than_a_table(self):
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         r = self.c.get('/vpsea/reports/')
         body = r.content.decode()
         self.assertIn('src="/vpsea/reports/preview/?sy=26-1"', body)
         self.assertIn('report-preview-frame', body)
-        # The old editable replica is gone: nothing on this page is typed into.
         self.assertNotIn('contenteditable', body)
 
     def test_the_frame_serves_the_converted_word_document(self):
@@ -425,7 +365,6 @@ class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
         self.assertEqual(r.content, b'%PDF-1.7 converted')
         source, suffix = convert.call_args[0]
         self.assertEqual(suffix, '.docx')
-        # What went to the converter is the generated document itself.
         self.assertTrue(source.startswith(b'PK'))
         self.assertIn('Cruz', _docx_text(source))
 
@@ -446,7 +385,6 @@ class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
         self.assertIn('Bautista', text)
         self.assertIn('LIST OF SCHOLARS FOR', text)
         self.assertIn('BILIRAN PROVINCE STATE UNIVERSITY', text)
-        # And it says on its face that it is not the office template.
         self.assertIn('STAND-IN LAYOUT', text)
 
     def test_a_failed_conversion_falls_back_instead_of_erroring(self):
@@ -481,8 +419,6 @@ class MasterlistPreviewPageTest(MasterlistFixtures, TestCase):
 
 
 class MasterlistUnusedSlotsTest(MasterlistFixtures, TestCase):
-    """The template's spare program blocks must not reach the reader."""
-
     def test_no_unnamed_headings_or_orphan_tables(self):
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         r = self.c.get('/vpsea/reports/download/')
@@ -493,13 +429,11 @@ class MasterlistUnusedSlotsTest(MasterlistFixtures, TestCase):
                     if i + 1 < len(paragraphs)
                     and paragraphs[i + 1].upper().startswith('SCHOLARSHIP GRANT')]
 
-        # One heading per filled slot, every one of them named.
         self.assertEqual(len(headings), len(masterlist_report.PROGRAM_SLOTS))
         for heading in headings:
             stripped = heading.replace('(@)', '').replace('(*)', '').strip()
             self.assertTrue(stripped, f'unnamed program heading: {heading!r}')
 
-        # 2 tables per gendered program, 1 for the ungendered staff table.
         gendered = sum(1 for s in masterlist_report.PROGRAM_SLOTS if s[3] == 'gendered')
         ungendered = sum(1 for s in masterlist_report.PROGRAM_SLOTS if s[3] == 'students')
         self.assertEqual(len(d.tables), gendered * 2 + ungendered)
@@ -520,17 +454,13 @@ class MasterlistUnusedSlotsTest(MasterlistFixtures, TestCase):
         self.assertIn('BILIRAN PROVINCE STATE UNIVERSITY', text)
         self.assertIn('Naval, Biliran', text)
         self.assertIn('LIST OF SCHOLARS FOR', text)
-        # sectPr (margins, orientation) is untouched by the block removal.
         self.assertTrue(d.sections)
         self.assertIsNotNone(d.sections[0].page_width)
 
 
 class MasterlistColumnShapeTest(MasterlistFixtures, TestCase):
-    """Each programme's columns come from its own table in the office template."""
-
     def test_headers_are_read_from_the_template_not_hardcoded(self):
         headings = masterlist_report.slot_headers()
-        # Every filled slot has an entry, and the shapes genuinely differ.
         for slot, _h, _k, _l in masterlist_report.PROGRAM_SLOTS:
             self.assertIn(slot, headings, slot)
         self.assertGreater(len({len(v) for v in headings.values()}), 1,
@@ -540,11 +470,9 @@ class MasterlistColumnShapeTest(MasterlistFixtures, TestCase):
         _, summary = masterlist_report.build_context()
         by_heading = {e['heading']: e['headers'] for e in summary}
 
-        # GSIS and Sports have no award number in the office form.
         self.assertNotIn('AWARD NUMBER', by_heading['GSIS'])
         self.assertNotIn('AWARD NUMBER', by_heading['SPORTS'])
         self.assertNotIn('AWARD NUMBER', by_heading['ACADEMIC'])
-        # DOST and TES do.
         self.assertIn('AWARD NUMBER', by_heading['DOST'])
         self.assertIn('AWARD NUMBER', by_heading['TES'])
 
@@ -573,8 +501,6 @@ class MasterlistColumnShapeTest(MasterlistFixtures, TestCase):
 
 
 class StaffNameSplitTest(TestCase):
-    """AffirmativeStaffApplication stores one full_name; the archives show parts."""
-
     def _app(self, full_name):
         return AffirmativeStaffApplication(
             full_name=full_name, email='x@bipsu.edu.ph', contact_number='09',
@@ -613,23 +539,11 @@ class StaffNameSplitTest(TestCase):
 
 
 class MasterlistCoversEveryProgrammeTest(TestCase):
-    """A programme in the catalogue needs a table in the document.
-
-    SUC-TDP, JLSS and FHE were added to the catalogue and to the archives but
-    not here, so a scholar under any of them was on file and absent from the
-    masterlist the office files — the one place the omission is invisible,
-    because an empty table and a missing table look the same until somebody
-    counts.
-    """
-
     def test_every_catalogue_programme_has_a_slot(self):
         from api.constants import SCHOLARSHIP_TYPE_CHOICES
         from api.masterlist_report import PROGRAM_SLOTS
 
         keys = {key for _, _, key, _ in PROGRAM_SLOTS}
-        # CHED is split across two tables, Full and Half, which the office
-        # reports separately; TES and FHE are not declarable so they are not in
-        # the choices list, and are checked on their own below.
         keys.discard('CHED_FULL')
         keys.discard('CHED_HALF')
         keys.add('CHED')
@@ -645,8 +559,6 @@ class MasterlistCoversEveryProgrammeTest(TestCase):
             self.assertIn(key, keys)
 
     def test_no_slot_is_claimed_twice_and_none_drops_male_scholars(self):
-        """program11's table has only a female loop, so anything placed there
-        would silently lose half its scholars."""
         from api.masterlist_report import PROGRAM_SLOTS
 
         slots = [slot for slot, _, _, _ in PROGRAM_SLOTS]

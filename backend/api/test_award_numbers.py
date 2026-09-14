@@ -1,15 +1,3 @@
-"""Award numbers come from the funding agency, and are read from their column.
-
-Nothing in the system generates an award number. Every write is either typed by
-an officer or read out of the agency's own spreadsheet, which is correct: the
-university does not decide these.
-
-What is pinned here is a regression. Promoting award_number and
-congress_district out of Application.form_data moved the Python readers but left
-the *template* readers on the old JSON path, so an award created afterwards
-rendered as a blank cell — no error, just a missing number on an official list.
-These tests render the real page and look for the value.
-"""
 from django.test import Client, TestCase
 
 from api.models import (
@@ -48,19 +36,13 @@ class AwardNumberTest(TestCase):
             award_number=award, congress_district=cong,
         )
 
-    # ── nothing invents an award number ─────────────────────────────────────
-
     def test_an_award_number_is_never_generated(self):
-        """A new award starts blank. The agency issues the number, not us."""
         app = self._award('TDP', last='Blank', sid='2024-0009')
         self.assertEqual(app.award_number, '')
         app.refresh_from_db()
         self.assertEqual(app.award_number, '')
 
-    # ── the column, not the JSON ────────────────────────────────────────────
-
     def test_an_award_number_on_the_column_reaches_the_page(self):
-        """The Tier 2 regression: writers moved to the column, readers did not."""
         self._award('TDP', last='Reyes', sid='2024-0002',
                     award='TDP-2026-0042', cong='Lone District')
         r = self.c.get('/vpsea/archives/?type=TDP')
@@ -68,7 +50,6 @@ class AwardNumberTest(TestCase):
         self.assertContains(r, 'Lone District')
 
     def test_an_award_number_left_in_old_form_data_is_not_read_instead(self):
-        """form_data may still hold a stale copy from before the migration."""
         app = self._award('TDP', last='Cruz', sid='2024-0003', award='NEW-0001')
         app.form_data = {'award_number': 'STALE-9999'}
         app.save()
@@ -77,7 +58,6 @@ class AwardNumberTest(TestCase):
         self.assertNotContains(r, 'STALE-9999')
 
     def test_the_sdso_archives_do_not_offer_an_award_number_for_tes(self):
-        """The SDSO side of the house does not carry one for this programme."""
         Scholarship.objects.create(
             name='Tertiary Education Subsidy', type='TES', category='application',
             description='x', eligibility='x', requirements=[],
@@ -85,8 +65,6 @@ class AwardNumberTest(TestCase):
         self._award('TES', last='Lim', sid='2024-0006')
         r = self.c.get('/vpsea/archives/?type=TES')
         self.assertNotContains(r, 'Award No.')
-
-    # ── round trip through the office's edit screen ─────────────────────────
 
     def test_the_office_can_record_the_agencys_award_number(self):
         app = self._award('CHED', last='Lim', sid='2024-0004')

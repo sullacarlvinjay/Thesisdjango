@@ -1,11 +1,3 @@
-"""Outside funders with an account here, and the wall around what they see.
-
-The SDSO runs the one office portal. A partner — DOST, GSIS, UniFAST, a
-foundation — has standing of its own and a different job: it reads the archive
-of its own scholars and takes a list away. What it may read is a decision the
-SDSO records per partner, so most of what is worth testing is the boundary: a
-partner must never reach another funder's scholars.
-"""
 from django.test import Client, TestCase
 
 from api.models import (
@@ -53,8 +45,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
     PAGE = '/vpsea/partners/'
 
     def test_creating_a_partner_makes_the_account_that_signs_in_as_it(self):
-        """An office nobody can log into is not something the SDSO ever wants,
-        so both are made in one step and there is no window without a way in."""
         r = self.office.post(self.PAGE, {
             'action': 'create', 'name': 'DOST Region VIII',
             'email': 'dost@bipsu.edu.ph', 'password': 'a-good-password',
@@ -70,8 +60,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
         self.assertTrue(Client().login(email='dost@bipsu.edu.ph', password='a-good-password'))
 
     def test_a_partner_can_be_created_with_no_access_at_all(self):
-        """The safe default: nothing ticked means an empty portal, never
-        everyone's scholars."""
         self.office.post(self.PAGE, {
             'action': 'create', 'name': 'New Foundation',
             'email': 'nf@bipsu.edu.ph', 'password': 'a-good-password'})
@@ -137,8 +125,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
         self.assertEqual(office.name, 'DOST')
 
     def test_the_office_resets_a_partners_password(self):
-        """Set here and told to the partner directly; nothing emails it, so
-        there is no reset link for an outside body to lose."""
         office, _ = self._partner('DOST', 'dost@bipsu.edu.ph', [self.dost])
         account = office.accounts.get()
         self.office.post(self.PAGE, {
@@ -166,8 +152,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
         self.assertTrue(Client().login(email='gsis@bipsu.edu.ph', password='partner-pass'))
 
     def test_deleting_a_partner_takes_its_accounts_with_it(self):
-        """A login whose office is gone reaches nothing — leaving it behind is
-        an account that exists and does nothing."""
         office, _ = self._partner('DOST', 'dost@bipsu.edu.ph', [self.dost])
         r = self.office.post(self.PAGE, {'action': 'delete', 'office_id': office.pk})
         self.assertIn('deleted=', r['Location'])
@@ -175,7 +159,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
         self.assertFalse(User.objects.filter(email='dost@bipsu.edu.ph').exists())
 
     def test_deleting_a_partner_leaves_the_scholars_alone(self):
-        """They belong to the programme, not to the funder reading them."""
         self._scholar('DOST', 'Santos', '2024-0500')
         office, _ = self._partner('DOST', 'dost@bipsu.edu.ph', [self.dost])
         self.office.post(self.PAGE, {'action': 'delete', 'office_id': office.pk})
@@ -197,8 +180,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
         self.assertEqual(client.get('/partner/').status_code, 302)
 
     def test_removing_the_office_does_not_delete_its_people(self):
-        """SET_NULL, not CASCADE: the account survives, unable to reach the
-        portal, and the office decides what to do with it."""
         office, _ = self._partner('DOST', 'dost@bipsu.edu.ph', [self.dost])
         office.delete()
         account = User.objects.get(email='dost@bipsu.edu.ph')
@@ -222,8 +203,6 @@ class SDSOManagesPartnersTest(PartnerFixtures, TestCase):
 
 
 class PartnerSeesOnlyItsOwnTest(PartnerFixtures, TestCase):
-    """The boundary that matters."""
-
     def setUp(self):
         super().setUp()
         self._scholar('DOST', 'Santos', '2024-0001')
@@ -238,8 +217,6 @@ class PartnerSeesOnlyItsOwnTest(PartnerFixtures, TestCase):
         self.assertNotContains(r, 'Reyes')
 
     def test_asking_for_another_funders_programme_falls_back_to_its_own(self):
-        """Not a 500 and not an empty page: the tab it asked for is not one it
-        has, so it lands on one it does."""
         r = self.dost_client.get('/partner/archives/?type=GSIS')
         self.assertEqual(r.context['active_type'], 'DOST')
         self.assertNotContains(r, 'Reyes')
@@ -253,8 +230,6 @@ class PartnerSeesOnlyItsOwnTest(PartnerFixtures, TestCase):
         self.assertEqual([p['scholarship'].type for p in r.context['programmes']], ['DOST'])
 
     def test_a_partner_with_no_access_sees_an_empty_portal_not_everyones(self):
-        """The failure that matters is the one where a funder reads another
-        funder's scholars, so nothing is the default."""
         _, empty = self._partner('New Foundation', 'nf@bipsu.edu.ph', [])
         r = empty.get('/partner/archives/')
         self.assertEqual(r.context['archive_types'], [])
@@ -311,17 +286,12 @@ class PartnerSeesOnlyItsOwnTest(PartnerFixtures, TestCase):
         self.assertEqual(client.get('/partner/').status_code, 302)
 
     def test_a_partner_collects_nothing(self):
-        """The portal is a window onto the archive, not a second place to
-        apply. It briefly had a form builder and a submissions queue; the SDSO
-        decided a funder that wants its own questions asks them on its own site,
-        and the office records the award here once it is granted."""
         for url in ('/partner/form/', '/partner/submissions/',
                     '/partner/submissions/download/?type=DOST',
                     '/student/apply/partner/DOST/'):
             self.assertEqual(self.dost_client.get(url).status_code, 404, url)
 
     def test_the_sidebar_offers_only_what_is_left(self):
-        """A nav link to a route that 404s is worse than no link."""
         text = self.dost_client.get('/partner/').content.decode()
         self.assertIn('/partner/archives/', text)
         self.assertNotIn('/partner/form/', text)
@@ -329,8 +299,6 @@ class PartnerSeesOnlyItsOwnTest(PartnerFixtures, TestCase):
 
 
 class PartnerReadsApplicationsTooTest(PartnerFixtures, TestCase):
-    """Not only imported rows: a programme reviewed in the portal counts too."""
-
     def test_an_approved_application_appears_beside_the_imported_rows(self):
         u = User.objects.create_user(
             username='s@bipsu.edu.ph', email='s@bipsu.edu.ph', password='pw',
@@ -349,13 +317,6 @@ class PartnerReadsApplicationsTooTest(PartnerFixtures, TestCase):
 
 
 class OneDownloadNotTwoTest(PartnerFixtures, TestCase):
-    """The Reports tab is gone; the download it offered lives on the Scholars tab.
-
-    Both tabs listed the partner's own programmes behind the same workbook, so a
-    funder could take the same file away from two places and the second one
-    carried nothing the first did not.
-    """
-
     def setUp(self):
         super().setUp()
         self._scholar('DOST', 'Santos', '2024-0001')
@@ -382,7 +343,6 @@ class OneDownloadNotTwoTest(PartnerFixtures, TestCase):
         self.assertIn('.xlsx', r['Content-Disposition'])
 
     def test_a_refused_download_lands_on_the_scholars_tab(self):
-        """It used to send the funder to a page that no longer exists."""
         r = self.dost_client.get('/partner/reports/download/?type=GSIS')
         self.assertEqual(r.status_code, 302)
         self.assertTrue(r['Location'].startswith('/partner/archives/'), r['Location'])

@@ -1,20 +1,3 @@
-"""Prove the file store actually works, at deploy time.
-
-settings.py checks only that the SUPABASE_S3_* variables are *set*. A wrong
-region, a mistyped endpoint or a bad secret all start the site perfectly and
-fail much later, the first time somebody uploads a document — by which point
-the error belongs to a student filling in a form, and the deploy that caused
-it is days behind.
-
-So the deploy does one round trip: write a small object, read it back, delete
-it. Anything wrong with the credentials, the endpoint or the bucket surfaces
-here, in the build log, with the cause named.
-
-Does nothing when uploads are on the local filesystem — a laptop and the test
-suite have no remote store to check, and this must not become a reason the
-tests need network access.
-"""
-
 import uuid
 
 from django.conf import settings
@@ -22,13 +5,8 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 
-# Written and removed on every deploy. The prefix is not one api.media_views
-# recognises, so even if a probe is ever left behind it is unreadable through
-# the site rather than quietly public.
 PROBE_PREFIX = 'healthcheck/'
 
-# What the common failures actually mean, in the words of the dashboard the
-# reader has to go back to.
 HINTS = [
     ('SignatureDoesNotMatch',
      'SUPABASE_S3_SECRET_ACCESS_KEY is wrong. Regenerate the pair under '
@@ -98,8 +76,6 @@ class Command(BaseCommand):
                 try:
                     default_storage.delete(written)
                 except Exception:
-                    # Not worth failing a deploy over: the probe is a few bytes
-                    # in a prefix nothing serves.
                     self.stderr.write(self.style.WARNING(
                         f'  storage: could not remove the probe {written}'))
 

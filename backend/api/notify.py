@@ -1,21 +1,3 @@
-"""Telling an applicant what the office decided.
-
-Every review screen ends the same way: a status changes and the person who
-submitted it needs to hear about it. Before this module each screen just saved
-the row, so approvals and rejections reached nobody — the portal's bell only
-ever lit up for link requests and account verification, which were the two
-places that had remembered to write a Notification by hand.
-
-There is one entry point, :func:`decision`, and it does both halves: the in-app
-Notification the portal reads, and the same wording by email. Keeping them in
-one call is the point — two call sites cannot drift into telling a student
-different things about the same decision.
-
-Email is best-effort by design. A mail server that is down, slow or
-misconfigured must never take the office's review screen with it, so every send
-is wrapped and logged. The office's decision is already saved by the time we get
-here; failing to announce it is not a reason to lose it.
-"""
 import logging
 
 from django.conf import settings
@@ -23,7 +5,6 @@ from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
 
-# Which Notification.type badge a status deserves, and how to open the sentence.
 _TONE = {
     'Approved': ('success', 'has been approved'),
     'Rejected': ('warning', 'was not approved'),
@@ -34,7 +15,6 @@ _TONE = {
 
 
 def _recipient(target):
-    """(StudentProfile or None, email or '') for a profile, user, or address."""
     from .models import StudentProfile, User
 
     if isinstance(target, StudentProfile):
@@ -47,14 +27,6 @@ def _recipient(target):
 
 
 def _record_attempt(to, subject, error):
-    """Keep what became of the last send, for the office's mail panel.
-
-    Best-effort inside a function that is already best-effort: this runs on the
-    failure path of something that must not raise, so a database that is down
-    while mail is also down must not turn a logged warning into a 500. The log
-    line above is the durable record; this is the copy somebody can actually
-    read without a shell.
-    """
     from django.utils import timezone
 
     try:
@@ -68,16 +40,11 @@ def _record_attempt(to, subject, error):
                 'last_mail_error': error,
             },
         )
-    except Exception:                                   # noqa: BLE001
+    except Exception:
         logger.exception('Could not record the outcome of the last mail attempt')
 
 
 def send_email(to, subject, body):
-    """Send one plain-text message. Returns True if it left the process.
-
-    Never raises: callers are review screens mid-save, and a mail failure is not
-    their problem to handle.
-    """
     if not to:
         return False
     try:
@@ -88,11 +55,8 @@ def send_email(to, subject, body):
             recipient_list=[to],
             fail_silently=False,
         )
-    except Exception as exc:                            # noqa: BLE001
-        # Bad credentials, no network, a refused relay — all the same to us.
+    except Exception as exc:
         logger.exception('Could not email %s: %s', to, subject)
-        # str(exc) rather than the class: the useful half of a BrevoSendError
-        # is the provider's own wording, and of an SMTP error the server's.
         _record_attempt(to, subject, str(exc) or exc.__class__.__name__)
         return False
     _record_attempt(to, subject, '')
@@ -100,22 +64,6 @@ def send_email(to, subject, body):
 
 
 def notify(target, title, body, tone='info', email=True, email_body=None):
-    """Write the in-app notification and optionally email the same words.
-
-    ``target`` may be a StudentProfile, a User, or a bare email address. A
-    target with no StudentProfile — office staff, or an applicant the office
-    added who has no portal account — still gets the email; there is simply no
-    bell for it to land in, because Notification hangs off StudentProfile.
-
-    ``email_body`` says it at more length for the message that leaves the
-    building. The bell sits inside a portal that gives it all its context — who
-    it is about, what it refers to, a link to the thing. An email arrives with
-    none of that, sometimes to someone who cannot sign in to go and look, so a
-    one-line body that reads perfectly in the portal can be unreadable in an
-    inbox. Both still come from this one call, so they cannot contradict.
-
-    Returns ``(notified_in_app, emailed)``.
-    """
     from .models import Notification
 
     profile, address = _recipient(target)
@@ -133,13 +81,6 @@ def notify(target, title, body, tone='info', email=True, email_body=None):
 
 
 def account_decision(account, status, note):
-    """Tell someone whether their registration was accepted, and what happens next.
-
-    Its own function because this message goes to a person who, half the time,
-    cannot sign in to read anything else — a rejected registration has no portal
-    behind it. The office's own note is the heart of it; everything around it is
-    the context an inbox does not supply.
-    """
     approved = status == 'approved'
     title = 'Account verified' if approved else 'Account not verified'
 
@@ -176,20 +117,6 @@ def account_decision(account, status, note):
 
 
 def broadcast(title, body, tone='info'):
-    """Put one announcement in every student's portal.
-
-    Posting an announcement used to write the Announcement row and stop there.
-    The row surfaced in exactly one place — the top three on the student
-    dashboard — so a fourth announcement pushed the first off the only screen it
-    ever appeared on, and nobody was told any of them existed.
-
-    Written straight into Notification rather than emailed: this goes to the
-    whole student body, and sending that many messages inside the request would
-    hold the office's page open on SMTP for as long as it took. The bell is
-    immediate and costs one bulk insert.
-
-    Returns the number of students reached.
-    """
     from .models import Notification, StudentProfile
 
     profiles = list(StudentProfile.objects.only('id'))
@@ -201,25 +128,6 @@ def broadcast(title, body, tone='info'):
 
 
 def office(subject, body, actor=None):
-    """Tell the SDSO something its queue counts cannot say on their own.
-
-    Every other function here writes to an applicant. This one goes the other
-    way, and it exists because the office's only standing signal is a badge
-    counting *accounts* waiting to be verified — which says nothing about what
-    any of them contains. A registration that needs a closer look is
-    indistinguishable from one that does not until somebody opens it.
-
-    Two channels, for the two ways an officer finds out:
-
-    * **Email**, to every active VPSEA account. There is no in-app bell for
-      staff — ``Notification`` hangs off ``StudentProfile`` — so this is the
-      only thing that reaches an officer who is not already on the page.
-    * **ActivityLog**, which survives whatever mail does. Delivery here is
-      best-effort like every send in this module, and a warning nobody can find
-      afterwards is a warning that was never given.
-
-    Returns how many addresses it reached.
-    """
     from .models import ActivityLog, User
 
     ActivityLog.objects.create(user=actor, action=f'{subject} — {body}')
@@ -231,18 +139,6 @@ def office(subject, body, actor=None):
 
 
 def multiple_declarations(profile, declarations):
-    """Tell the SDSO that one registration declared more than one scholarship.
-
-    The ordinary registration declares nothing, and the next most ordinary
-    declares one. Two or more is the case the office asked to be told about:
-    each one is a separate link request to check against a separate set of
-    records, and the account queue shows them stacked inside a single card that
-    an officer skimming a list has no reason to open.
-
-    Named for the situation rather than for the channel, so the wording of this
-    warning lives in one place and cannot drift between the registration path
-    and anything that later wants to raise the same flag.
-    """
     from .constants import DECLARABLE_SCHOLARSHIP_TYPES
 
     labels = dict(DECLARABLE_SCHOLARSHIP_TYPES)
@@ -266,18 +162,6 @@ def multiple_declarations(profile, declarations):
 
 
 def scholarship_added(profile, declarations):
-    """Tell the SDSO a verified student has added a scholarship to their account.
-
-    A scholarship declared at registration needs no announcement: the
-    registration is itself a thing somebody has to look at before that person
-    can sign in, and the declaration rides in on it. One added from inside an
-    account released terms ago arrives with nothing attached — no new account,
-    no application — so unannounced it sits in a section of the page the
-    officer had no reason to scroll to.
-
-    Named for the event rather than the channel, the way
-    :func:`multiple_declarations` is, so the wording lives in one place.
-    """
     from .constants import DECLARABLE_SCHOLARSHIP_TYPES
 
     labels = dict(DECLARABLE_SCHOLARSHIP_TYPES)
@@ -301,13 +185,6 @@ def scholarship_added(profile, declarations):
 
 
 def decision(target, subject, status, remarks='', detail='', link=''):
-    """Announce a review outcome.
-
-    ``subject`` names what was decided in the applicant's own words — "Your
-    Academic Scholarship application", "Your TES application". ``detail`` is an
-    optional extra sentence, and ``link`` a portal path such as
-    ``/student/applications/`` which becomes a full URL when SITE_URL is set.
-    """
     tone, phrase = _TONE.get(status, ('info', f'was marked {status}'))
 
     title = f'{subject} {phrase}'

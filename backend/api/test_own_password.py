@@ -1,31 +1,10 @@
-"""The SDSO and an external partner can change their own password.
-
-Neither could. The SDSO could reset a *student's* password from Account
-Verification and a *partner's* from External Partners, and a partner could
-change nothing at all — the office had to type a new password into a form and
-read it back down the phone. Both now have a profile page of their own, and the
-password card on it is the same one, included by both.
-
-Three rules hold it together, and each is a way it could go wrong:
-
-* **The current password is asked for.** This is not the office resetting
-  somebody else's; it is an account changing its own, and a session left open on
-  a shared office machine must not be enough on its own to lock the owner out.
-* **Empty means "leave it alone".** The fields sit on the same form as the
-  account's name, so saving a corrected surname must not blank the password.
-* **The person stays signed in.** Django cycles the session key on a password
-  change, which signs them out of the very tab they did it in unless the session
-  is told about it.
-"""
 from django.test import Client, TestCase
 
 from api.models import PartnerOffice, Scholarship, SystemSettings, User
 
 
 class OwnPasswordTestMixin:
-    """The same six behaviours, asked of each portal's own profile page."""
-
-    url = None          # set by the subclass
+    url = None
     email = None
 
     def _post(self, **fields):
@@ -36,8 +15,6 @@ class OwnPasswordTestMixin:
     def _signs_in_with(self, password):
         checker = Client()
         return checker.login(email=self.email, password=password)
-
-    # ── changing it ─────────────────────────────────────────────────────────
 
     def test_the_password_changes(self):
         self._post(current_password='oldpassword1',
@@ -57,8 +34,6 @@ class OwnPasswordTestMixin:
                    new_password='fresh-Passphrase-9',
                    new_password_confirm='fresh-Passphrase-9')
         self.assertEqual(self.c.get(self.url).status_code, 200)
-
-    # ── refusing it ─────────────────────────────────────────────────────────
 
     def test_the_wrong_current_password_changes_nothing(self):
         page = self._post(current_password='not-the-password',
@@ -81,15 +56,11 @@ class OwnPasswordTestMixin:
         self.assertContains(page, 'too short', msg_prefix=str(page.context['errors']))
 
     def test_a_refused_change_does_not_save_the_name_either(self):
-        """One form, one outcome. Half-saving would leave the person unsure
-        which half went through."""
         self._post(first_name='Renamed', current_password='wrong',
                    new_password='fresh-Passphrase-9',
                    new_password_confirm='fresh-Passphrase-9')
         self.user.refresh_from_db()
         self.assertNotEqual(self.user.first_name, 'Renamed')
-
-    # ── leaving it alone ────────────────────────────────────────────────────
 
     def test_saving_the_name_alone_leaves_the_password_standing(self):
         page = self._post(first_name='Renamed')
@@ -97,8 +68,6 @@ class OwnPasswordTestMixin:
         self.assertEqual(self.user.first_name, 'Renamed')
         self.assertTrue(self._signs_in_with('oldpassword1'))
         self.assertNotContains(page, 'your password has been changed')
-
-    # ── who may open the page ───────────────────────────────────────────────
 
     def test_a_signed_out_visitor_is_sent_to_the_login_page(self):
         self.assertEqual(Client().get(self.url).status_code, 302)
@@ -166,15 +135,12 @@ class ThePartnerProfileTest(OwnPasswordTestMixin, TestCase):
             name='DOST S&T Undergraduate', type='DOST', category='recommendation',
             group='external', description='x', eligibility='x', requirements=[])
         self.office.scholarships.add(scholarship)
-        # Escaped, because the ampersand in the name is and the template does
-        # not turn it off.
         self.assertContains(self.c.get(self.url), 'DOST S&amp;T Undergraduate')
 
     def test_an_account_with_none_is_told_that_is_not_the_same_as_no_scholars(self):
         self.assertContains(self.c.get(self.url), 'not the same')
 
     def test_the_programmes_cannot_be_granted_from_this_page(self):
-        """What a partner may read is the SDSO's decision, not the partner's."""
         scholarship = Scholarship.objects.create(
             name='CHED Merit', type='CHED', category='recommendation',
             group='external', description='x', eligibility='x', requirements=[])

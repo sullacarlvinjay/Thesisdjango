@@ -1,11 +1,3 @@
-"""Whether a registrant's email address was proved to be theirs.
-
-``email_verified`` defaults to True, so every account that already exists keeps
-working and nobody who registered before this gate is locked out of a portal
-they were already let into. Only the public registration form sets it False —
-see api/email_verify.py.
-"""
-
 from django.db import migrations, models
 
 

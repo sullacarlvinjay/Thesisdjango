@@ -1,14 +1,3 @@
-"""Who may read an uploaded file.
-
-Before this, /media/ went through ``static()``: every document was readable by
-anyone holding the URL, and the whole tree vanished once DEBUG was off. These
-tests pin both halves of the replacement — that the right people still get their
-files, and that nobody else does.
-
-MEDIA_ROOT is redirected into a temporary directory for the duration, so a run
-cannot deposit fixtures in the real media folder.
-"""
-
 import shutil
 import tempfile
 from unittest import mock
@@ -70,8 +59,6 @@ class MediaAccessTest(TestCase):
         )
         self.url = '/media/' + self.doc.file.name
 
-    # ── the file reaches the people it should ────────────────────────────────
-
     def test_the_student_who_uploaded_it_can_read_it(self):
         self.client.force_login(self.owner_user)
         self.assertEqual(self.client.get(self.url).status_code, 200)
@@ -80,10 +67,7 @@ class MediaAccessTest(TestCase):
         self.client.force_login(self.office)
         self.assertEqual(self.client.get(self.url).status_code, 200)
 
-    # ── and nobody else ──────────────────────────────────────────────────────
-
     def test_a_signed_out_visitor_holding_the_url_gets_nothing(self):
-        """The old static() route served this to anyone who asked."""
         self.assertEqual(self.client.get(self.url).status_code, 404)
 
     def test_another_student_cannot_read_someone_elses_document(self):
@@ -96,13 +80,9 @@ class MediaAccessTest(TestCase):
         invented = self.client.get('/media/documents/no-such-file.pdf')
         self.assertEqual(real.status_code, invented.status_code)
 
-    # ── office-only artefacts ────────────────────────────────────────────────
-
     def test_students_cannot_reach_office_imports(self):
         self.client.force_login(self.owner_user)
         self.assertEqual(self.client.get('/media/rollovers/list.xlsx').status_code, 404)
-
-    # ── branding stays public ────────────────────────────────────────────────
 
     def test_the_logo_is_readable_signed_out_because_the_login_page_needs_it(self):
         from django.core.files.storage import default_storage
@@ -110,15 +90,7 @@ class MediaAccessTest(TestCase):
             'test-logo.png', b'\x89PNG\r\n\x1a\n', 'image/png'))
         self.assertEqual(self.client.get('/media/' + name).status_code, 200)
 
-    # ── path handling ────────────────────────────────────────────────────────
-
     def test_branding_is_read_from_disk_not_from_the_upload_bucket(self):
-        """In production default_storage is Supabase, which has no logos in it.
-
-        The university's branding ships with the code, so it must come off the
-        filesystem regardless of where uploads are kept. Standing in for the
-        bucket is a storage that fails loudly if anything asks it for a logo.
-        """
         from django.core.files.storage import default_storage
 
         name = default_storage.save('logos/from-disk.png', SimpleUploadedFile(
@@ -137,19 +109,12 @@ class MediaAccessTest(TestCase):
             self.client.get('/media/../config/settings.py').status_code, 404)
 
     def test_an_unrecognised_prefix_is_refused_rather_than_guessed(self):
-        """A new FileField is invisible until media_views learns about it.
-
-        Failing closed is the point: the alternative is a field that silently
-        serves to everyone the day it is added.
-        """
         self.client.force_login(self.owner_user)
         self.assertEqual(self.client.get('/media/somewhere-new/x.pdf').status_code, 404)
 
 
 @override_settings(MEDIA_ROOT=MEDIA)
 class LinkRequestProofAccessTest(TestCase):
-    """Link-request proofs are the largest folder on disk, so they get their own."""
-
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(MEDIA, ignore_errors=True)

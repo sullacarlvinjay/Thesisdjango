@@ -37,7 +37,6 @@
     </p>
   </div>
   {% else %}
-  <!-- Submission Form -->
   <div class="card p-6">
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
       <h3 class="font-semibold">{% if replacing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h3>
@@ -47,13 +46,6 @@
     <form method="post" enctype="multipart/form-data" class="space-y-5">
       {% csrf_token %}
       {% if multiple %}
-      {% comment %}
-        Only asked of a student who holds more than one award. Somebody on a
-        single scholarship is not made to answer a question with one possible
-        answer — the view fills it in for them — and a programme whose renewal
-        window is shut is not offered here at all, because picking it would only
-        earn a refusal.
-      {% endcomment %}
       <div class="space-y-1.5">
         <label class="block text-sm font-medium mb-1" style="color:#374151;">Which scholarship are you renewing? <span style="color:#e03131;">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">You hold more than one. Each is renewed separately, with its own documents — submit this form again for the other.</p>
@@ -105,8 +97,6 @@
     </form>
   </div>
   {% endif %}
-  <!-- Programmes whose renewal window is shut, so a scholar on two awards is
-       told why the second one is not on the form above. -->
   {% if not blocked %}
   {% for p in programmes %}{% if not p.open %}
   <div class="notice notice--warn">
@@ -117,7 +107,6 @@
   </div>
   {% endif %}{% endfor %}
   {% endif %}
-  <!-- Previous Submissions -->
   {% if renewals %}
   <div class="card p-6">
     <h3 class="font-semibold mb-4">Previous Submissions</h3>

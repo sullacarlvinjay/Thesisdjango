@@ -1,34 +1,3 @@
-"""Affirmative Action is an affirmative action programme, and the list says so.
-
-The PASUC-8 proposal has two halves that the code used to read as one. Section 2
-says who is *eligible* — an SHS GPA of 75%, at least 50% in the admission exam,
-not already a TES beneficiary — and the mandate paragraph says who the programme
-is *for*:
-
-    1. coming from the indigenous groups;
-    2. person with disabilities;
-    3. students from public schools; and
-    4. students from depressed areas
-
-Only the first half was in the system. The four groups were invisible to this
-programme — two of them collected for TES and never read here, two not collected
-at all — and the shortlist was ordered by a fit score of 50% SHS GPA + 50%
-admission exam. So an affirmative action programme handed the Board of Regents a
-merit list, which section 1 says in as many words it must not be: "the grades
-will not be the only factor to qualify", and a qualifier "may not necessarily be
-indigent nor excellent academic performers".
-
-What these tests hold down is the shape of the fix, which is easy to get wrong in
-either direction:
-
-* **The groups order the list. They do not gate it.** A student in none of the
-  four is still eligible and still on the shortlist; a student in all four who
-  fails a section 2 rule is still not. Reading the mandate as a fourth rule would
-  turn a description of who the programme is for into a bar to clear.
-* **Silence is not a "no".** A question nobody has asked is reported as
-  unanswered, so the office can go and ask it, rather than quietly costing a
-  student a place they may be entitled to.
-"""
 from io import BytesIO
 
 from django.test import Client, TestCase
@@ -41,8 +10,6 @@ from api.test_registration_payload import a_student as a_registration
 
 
 class Fixtures:
-    """A student record that passes section 2, so only the groups vary."""
-
     def setUp(self):
         SystemSettings.objects.create(pk=1, academic_year='26-1',
                                       active_semester='1st Semester')
@@ -59,8 +26,6 @@ class Fixtures:
         user = User.objects.create_user(
             username=email, email=email, password='pw',
             first_name=first, last_name=last, role='student')
-        # Every group question answered "no" unless the test says otherwise, so
-        # a marker in a result is something the test asked for.
         fields.setdefault('disability_type', 'NO')
         fields.setdefault('highschool_is_public', False)
         fields.setdefault('is_from_depressed_area', False)
@@ -68,11 +33,6 @@ class Fixtures:
             user=user, student_id=f'2022-{self.seq:05d}', **fields)
 
     def an_eligible_student(self, **fields):
-        """Passes all three section 2 rules, so evaluate_and_sync recommends them.
-
-        Every one of them is a default a test can override — a test about what
-        happens when a rule *fails* needs to fail exactly one.
-        """
         for name, value in (('shs_gpa', 91.0), ('suc_exam_score', 42.0),
                             ('suc_exam_total', 50.0), ('is_tes_beneficiary', False),
                             ('course', 'BSCS'), ('year_level', 2)):
@@ -80,15 +40,12 @@ class Fixtures:
         return self.a_student(**fields)
 
     def ranked(self):
-        """The shortlist the page and the download are both built from."""
         AffirmativeRecommendation.evaluate_and_sync(75.0)
         return _affirmative_ranking_data(75.0)
 
     def names_in_order(self):
         return [r['profile'].user.first_name for r in self.ranked()['rows']]
 
-
-# ── reading the four groups off a record ────────────────────────────────────
 
 class TheFourGroupsTest(Fixtures, TestCase):
 
@@ -121,13 +78,10 @@ class TheFourGroupsTest(Fixtures, TestCase):
         self.assertEqual(groups.summary, '')
 
     def test_declining_the_question_is_not_a_group(self):
-        """'N/A' is how real records in this system spell "no"."""
         groups = target_groups(self.a_student(indigenous_group='N/A',
                                               disability_type='NO'))
         self.assertEqual(groups.count, 0)
 
-
-# ── the difference between "no" and "nobody asked" ──────────────────────────
 
 class SilenceIsNotAnAnswerTest(Fixtures, TestCase):
 
@@ -151,17 +105,13 @@ class SilenceIsNotAnAnswerTest(Fixtures, TestCase):
         self.assertEqual(groups.unknown, ())
 
     def test_a_blank_indigenous_group_is_not_chased(self):
-        """The one question on the form that stays optional: blank means no."""
         groups = target_groups(self.a_student(indigenous_group=''))
         self.assertEqual(groups.unknown, ())
 
 
-# ── what the groups do, and what they must not do ───────────────────────────
-
 class TheGroupsOrderTheListTest(Fixtures, TestCase):
 
     def test_a_target_group_outranks_a_higher_fit_score(self):
-        """The whole point. Before this, Bea's grades put her first."""
         self.an_eligible_student(first='Bea', shs_gpa=99.0)
         self.an_eligible_student(first='Ana', shs_gpa=76.0, highschool_is_public=True)
         self.assertEqual(self.names_in_order(), ['Ana', 'Bea'])
@@ -188,22 +138,12 @@ class TheGroupsOrderTheListTest(Fixtures, TestCase):
 class TheGroupsAreNotARuleTest(Fixtures, TestCase):
 
     def test_a_student_in_no_group_is_still_eligible(self):
-        """Section 1: a qualifier need be neither indigent nor an excellent
-        performer, and may be outside the 4Ps."""
         self.an_eligible_student(first='Bea')
         data = self.ranked()
         self.assertEqual(data['eligible_count'], 1)
         self.assertEqual(data['rows'][0]['rank'], 1)
 
     def test_every_group_does_not_rescue_a_failed_rule(self):
-        """Section 2(c) disqualifies a TES beneficiary whoever they are.
-
-        Taken through the path a real record takes: a student is recommended,
-        then UniFAST awards them TES, and the next sync has to turn them down —
-        all four groups notwithstanding. (A student who never passed a rule has
-        no recommendation row at all, so there is nothing for the groups to
-        rescue in the first place.)
-        """
         student = self.an_eligible_student(
             first='Ana', indigenous_group='Manobo',
             disability_type='Visual Disability', highschool_is_public=True,
@@ -221,15 +161,12 @@ class TheGroupsAreNotARuleTest(Fixtures, TestCase):
                          'Disqualified')
 
     def test_the_three_rules_are_still_the_only_ones_synced(self):
-        """evaluate_and_sync must not learn about the groups."""
         self.an_eligible_student(first='Ana')
         created, _ = AffirmativeRecommendation.evaluate_and_sync(75.0)
         self.assertEqual(created, 1)
         self.assertEqual(AffirmativeRecommendation.objects.get().status,
                          'Recommended')
 
-
-# ── what the office actually sees ───────────────────────────────────────────
 
 class ThePageShowsTheGroupsTest(Fixtures, TestCase):
 
@@ -272,7 +209,7 @@ class TheWorkbookCarriesTheGroupsTest(Fixtures, TestCase):
 
     def test_the_groups_are_columns_on_the_sheet(self):
         self.an_eligible_student(indigenous_group='Manobo', highschool_is_public=True)
-        self.c.get('/vpsea/ranking/')          # the page syncs; the file reads
+        self.c.get('/vpsea/ranking/')
         row = next(self.rows_of(self.book().active))
         self.assertEqual(row['Groups Matched'], 2)
         self.assertIn('Indigenous group (Manobo)', row['Target Groups'])
@@ -291,8 +228,6 @@ class TheWorkbookCarriesTheGroupsTest(Fixtures, TestCase):
         filed = [r['Student'].split()[0] for r in self.rows_of(self.book().active)]
         self.assertEqual(filed, self.names_in_order())
 
-
-# ── the two questions that had to be added to ask them ──────────────────────
 
 class TheQuestionsAreAskedTest(TestCase):
 
@@ -328,9 +263,6 @@ class TheQuestionsAreAskedTest(TestCase):
 
 
 class AnExistingStudentCanStillAnswerTest(Fixtures, TestCase):
-    """Locking these with the school names would shut out every student who
-    registered before the questions existed — which is all of them."""
-
     def test_my_profile_takes_the_answer_after_the_school_names_are_locked(self):
         student = self.an_eligible_student(
             elementary='Naval Central School', highschool='Biliran NHS',

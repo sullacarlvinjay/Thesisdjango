@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register — BiPSU SRMS</title>
+  {% include '_favicon.html' %}
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=52" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -207,9 +208,6 @@
             <label>High School</label>
             <input name="highschool" value="{{ post.highschool }}" required />
           </div>
-          <!-- Asked rather than inferred: no reading of a school's name says
-               whether it is public. One of the four groups the Affirmative
-               Action programme is for. -->
           <div class="space-y-1.5">
             <label>Was your high school a public school?</label>
             <select name="highschool_is_public" required>
@@ -239,8 +237,6 @@
               <input name="indigenous_group" value="{{ post.indigenous_group }}" />
             </div>
           </div>
-          <!-- The fourth Affirmative Action group. Declared here for the SDSO
-               to verify, the way the Listahanan and 4Ps answers below are. -->
           <div class="space-y-1.5">
             <label>Are you from a depressed area?</label>
             <select name="is_from_depressed_area" required>
@@ -522,18 +518,60 @@
           </div>
         </div>
       </div>
+      <div class="auth-card mb-4" id="termsCard">
+        <p class="terms-eyebrow">Terms and Agreement</p>
+        <p class="terms-lead">
+          Registering places a personal record — including income, household and
+          disability answers — in the hands of the SDSO, and a scholar's record is
+          shared with whoever funds the scholarship. Read what that means before
+          you agree to it.
+        </p>
+        <button type="button" class="btn btn-outline terms-open" data-preview-open="termsModal">
+          Read the {{ terms_title }}
+        </button>
+        <input type="hidden" name="terms_version" value="{{ terms_version }}" />
+        <label class="terms-consent">
+          <input type="checkbox" name="accept_terms" id="acceptTerms" value="yes"
+                 {% if post.accept_terms %}checked{% endif %} required />
+          <span class="terms-consent__text">{{ terms_summary }}</span>
+        </label>
+        <p class="terms-meta">Version {{ terms_version }} · {{ terms_effective }}</p>
+      </div>
       <button type="submit" id="submit-btn"
               class="btn btn-auth">
         Create Account
       </button>
     </form>
     <p class="auth-footnote">Already have an account? <a href="/login/">Sign in</a></p>
-    <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Main Page</a></p>
+    <p class="auth-footnote auth-footnote--back"><a href="/">← Back to Main Page</a></p>
   </div>
+<div class="modal-overlay" id="termsModal" data-preview>
+  <div class="modal modal-sheet terms-sheet" role="dialog" aria-modal="true"
+       aria-labelledby="termsModalTitle">
+    <div class="modal-sheet-head">
+      <div>
+        <h2 class="text-lg font-bold modal-title" id="termsModalTitle">{{ terms_title }}</h2>
+        <p class="terms-meta">Version {{ terms_version }} · Effective {{ terms_effective }}</p>
+      </div>
+      <button type="button" class="modal-close" data-preview-close aria-label="Close">✕</button>
+    </div>
+    <div class="modal-sheet-body">
+      {% for section in terms_sections %}
+      <section class="terms-section">
+        <h3>{{ forloop.counter }}. {{ section.heading }}</h3>
+        {% for paragraph in section.body %}<p>{{ paragraph }}</p>{% endfor %}
+      </section>
+      {% endfor %}
+    </div>
+    <div class="modal-sheet-foot terms-foot">
+      <button type="button" class="btn btn-auth terms-agree" id="termsAgree">
+        I have read and agree
+      </button>
+      <button type="button" class="btn btn-outline" data-preview-close>Close</button>
+    </div>
+  </div>
+</div>
 <script>
-// Courses belong to a school, so the Course list follows the School choice.
-// Picking from the canonical list is what lets the masterlist exports and the
-// School column line up — a typed course matches nothing.
 var BIPSU_COURSES = {{ bipsu_courses_json|safe }};
 var chosenCourse = "{{ post.course|escapejs }}";
 function updateCourseDropdown() {
@@ -552,7 +590,6 @@ function updateCourseDropdown() {
     sel.appendChild(opt);
   });
 }
-// After a failed submit the form comes back filled in; restore both lists.
 (function () {
   var schoolSel = document.getElementById('schoolSelect');
   if (!schoolSel) return;
@@ -563,11 +600,6 @@ function updateCourseDropdown() {
   }
   updateCourseDropdown();
 })();
-// Hidden with the `hidden` attribute rather than a style, so the browser skips
-// what is inside — and requiredness is lifted with the block and put back when
-// it returns, because a required field in a hidden div blocks the submit with a
-// message nobody can see. Switching to Staff after ticking "I already hold a
-// scholarship" is exactly that trap.
 function setBlocksHidden(selector, hide) {
   document.querySelectorAll(selector).forEach(function (el) {
     el.hidden = hide;
@@ -591,8 +623,6 @@ function selectType(type) {
   const btn = document.getElementById('submit-btn');
   const title = document.getElementById('section-title');
   const student = type === 'student';
-  // Every block belonging to one account type carries its own marker, so a
-  // block added later is shown and hidden without touching this function.
   setBlocksHidden('[data-student-only]', !student);
   setBlocksHidden('[data-staff-only]', student);
   syncScholarshipData();
@@ -600,8 +630,6 @@ function selectType(type) {
   if (student) {
     cardStudent.className = 'type-card selected-student';
     cardStaff.className   = 'type-card';
-    // The button keeps the yellow call-to-action of the landing identity; only
-    // the section heading changes to mark which kind of account is selected.
     btn.style.background = '';
     btn.style.color      = '';
     title.style.color    = 'var(--brand)';
@@ -616,9 +644,9 @@ function selectType(type) {
 </script>
 <script src="{% static 'js/register-scholarship.js' %}?v=4"></script>
 <script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
+<script src="{% static 'js/modal-open.js' %}?v=2"></script>
+<script src="{% static 'js/terms-agree.js' %}?v=1"></script>
 <script>
-// Last, so the two scripts above have registered their handlers before the
-// initial state is painted.
 (function() {
   var t = document.getElementById('account_type').value;
   selectType(t === 'nsu_staff' ? 'nsu_staff' : 'student');
