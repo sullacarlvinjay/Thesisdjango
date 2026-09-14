@@ -74,13 +74,27 @@ class RegisterEligibilityOrderTest(TestCase):
         from api.models import User
 
         data = a_student(email='ana@gmail.com', student_id='23-0002')
-        for question in ('shs_gpa', 'citizenship', 'is_4ps_beneficiary'):
+        for question in ('citizenship', 'is_4ps_beneficiary'):
             del data[question]
         r = self.c.post('/register/', data)
-        self.assertContains(r, 'SHS Grade Point Average is required')
         self.assertContains(r, 'Citizenship is required')
         self.assertContains(r, 'please answer Yes or No')
         self.assertFalse(User.objects.filter(email='ana@gmail.com').exists())
+
+    def test_a_student_registers_without_an_shs_gpa(self):
+        from api.models import User
+
+        data = a_student(email='cora@gmail.com', student_id='23-0004')
+        del data['shs_gpa']
+        self.assertEqual(self.c.post('/register/', data).status_code, 302)
+        user = User.objects.filter(email='cora@gmail.com').first()
+        self.assertIsNotNone(user)
+        self.assertIsNone(user.profile.shs_gpa)
+
+    def test_the_form_does_not_make_the_browser_ask_for_an_shs_gpa(self):
+        html = self._form()
+        field = re.search(r'<input[^>]*name="shs_gpa"[^>]*>', html).group(0)
+        self.assertNotRegex(field, r'required')
 
     def test_a_declared_scholar_registers_with_the_cards_posting_nothing(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

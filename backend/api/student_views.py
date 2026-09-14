@@ -411,7 +411,6 @@ _REQUIRED_AFFIRMATIVE_ANSWERS = (
 )
 
 _REQUIRED_OF_AN_APPLICANT = (
-    ('shs_gpa', 'SHS Grade Point Average'),
     ('citizenship', 'Citizenship'),
     ('household_size', 'Household Size'),
     ('year_first_enrolled', 'Year You First Enrolled in This Course'),

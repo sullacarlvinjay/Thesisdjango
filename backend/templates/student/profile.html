@@ -422,10 +422,10 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
   </div>
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Required for scholarship matching. Upload certified documents as proof.</p>
+    <p class="text-xs mb-4" style="color:#6b7a99;">Used for scholarship matching. Upload certified documents as proof.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
-        <label>SHS Grade Point Average (%)</label>
+        <label>SHS Grade Point Average (%) <span class="label-optional">Optional</span></label>
         <input name="shs_gpa" type="number" step="0.01" min="0" max="100"
           value="{% if profile.shs_gpa %}{{ profile.shs_gpa }}{% endif %}"
           placeholder="e.g. 88.5" />
