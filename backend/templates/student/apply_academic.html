@@ -15,6 +15,12 @@
   {% endif %}
 </div>
 {% endif %}
+{% if errors %}
+<div class="form-errors mb-6">
+  <p class="form-errors-title">Your application was not sent — {{ errors|length }} thing{{ errors|length|pluralize }} still missing</p>
+  {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
 {% if blocked %}
 <div class="card p-5 flex items-center gap-3 mb-6" style="border-color:#e03131;background:#fff5f5;">
   <svg class="h-5 w-5 shrink-0" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
@@ -32,7 +38,7 @@
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</h3>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5"><label>Student Number</label><input name="student_number" value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label>Course</label><input name="course" value="{{ profile.course }}" /></div>
+          <div class="space-y-1.5"><label class="is-required">Course</label><input name="course" value="{{ form.course }}" required /></div>
           <div class="space-y-1.5"><label>Name</label><input name="name" value="{{ profile.user.get_full_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" /></div>
           <div class="space-y-1.5"><label>Age</label><input name="age" id="ageField" type="number" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" /></div>
           <div class="space-y-1.5"><label>Birth Date</label><input name="birth_date" id="birthDateField" type="date" value="{{ profile.date_of_birth|date:'Y-m-d' }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" /></div>
@@ -44,26 +50,26 @@
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Educational Background</h3>
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5"><label>Elementary School</label><input name="elementary" value="{{ profile.elementary }}" /></div>
-          <div class="space-y-1.5"><label>High School</label><input name="highschool" value="{{ profile.highschool }}" /></div>
-          <div class="space-y-1.5"><label>Last School Attended</label><input name="last_school" value="{{ profile.last_school }}" /></div>
+          <div class="space-y-1.5"><label class="is-required">Elementary School</label><input name="elementary" value="{{ form.elementary }}" required /></div>
+          <div class="space-y-1.5"><label class="is-required">High School</label><input name="highschool" value="{{ form.highschool }}" required /></div>
+          <div class="space-y-1.5"><label class="is-required">Last School Attended</label><input name="last_school" value="{{ form.last_school }}" required /></div>
         </div>
       </div>
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Family Background</h3>
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5"><label>Father's Name</label><input name="father_name" value="{{ profile.father_name }}" /></div>
-          <div class="space-y-1.5"><label>Father's Occupation</label><input name="father_occupation" value="{{ profile.father_occupation }}" /></div>
-          <div class="space-y-1.5"><label>Mother's Name</label><input name="mother_name" value="{{ profile.mother_name }}" /></div>
-          <div class="space-y-1.5"><label>Mother's Occupation</label><input name="mother_occupation" value="{{ profile.mother_occupation }}" /></div>
+          <div class="space-y-1.5"><label class="is-required">Father's Name</label><input name="father_name" value="{{ form.father_name }}" required /></div>
+          <div class="space-y-1.5"><label class="is-required">Father's Occupation</label><input name="father_occupation" value="{{ form.father_occupation }}" required /></div>
+          <div class="space-y-1.5"><label class="is-required">Mother's Name</label><input name="mother_name" value="{{ form.mother_name }}" required /></div>
+          <div class="space-y-1.5"><label class="is-required">Mother's Occupation</label><input name="mother_occupation" value="{{ form.mother_occupation }}" required /></div>
         </div>
       </div>
       <div class="card p-6">
         <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:#3b5bdb;">Academic Information</h3>
         <div class="grid sm:grid-cols-3 gap-4 mb-4">
-          <div class="space-y-1.5"><label>GWA</label><input name="gwa" type="number" step="0.01" value="{{ profile.gwa }}" id="gwaInput" oninput="validateGWA(this.value)" /></div>
-          <div class="space-y-1.5"><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly /></div>
-          <div class="space-y-1.5"><label>School Year</label><input name="school_year" value="{{ active_school_year }}" readonly /></div>
+          <div class="space-y-1.5"><label class="is-required">GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" value="{{ form.gwa }}" id="gwaInput" placeholder="e.g. 1.25" required oninput="validateGWA(this.value)" /></div>
+          <div class="space-y-1.5"><label class="is-required">Semester</label><input name="semester" value="{{ form.semester }}" readonly required /></div>
+          <div class="space-y-1.5"><label class="is-required">School Year</label><input name="school_year" value="{{ form.school_year }}" readonly required /></div>
         </div>
       </div>
       <div class="card p-6">
@@ -73,7 +79,7 @@
           <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">1</span>
-              <label class="text-sm font-medium" style="color:#374151;">Certificate of Grades <span style="color:#e03131;">*</span></label>
+              <label class="text-sm font-medium is-required" style="color:#374151;">Certificate of Grades</label>
             </div>
             <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Official COG from the Registrar for the previous semester.</p>
             <input type="file" name="doc_certificate_of_grades" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
@@ -81,7 +87,7 @@
           <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">2</span>
-              <label class="text-sm font-medium" style="color:#374151;">Certificate of Enrollment <span style="color:#e03131;">*</span></label>
+              <label class="text-sm font-medium is-required" style="color:#374151;">Certificate of Enrollment</label>
             </div>
             <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Official COE from the Registrar for the current semester.</p>
             <input type="file" name="doc_certificate_of_enrollment" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
@@ -89,7 +95,7 @@
           <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">3</span>
-              <label class="text-sm font-medium" style="color:#374151;">Prospectus / Subject Checklist <span style="color:#e03131;">*</span></label>
+              <label class="text-sm font-medium is-required" style="color:#374151;">Prospectus / Subject Checklist</label>
             </div>
             <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Program prospectus or subject checklist showing your enrolled subjects.</p>
             <input type="file" name="doc_prospectus" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
@@ -97,7 +103,7 @@
           <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">4</span>
-              <label class="text-sm font-medium" style="color:#374151;">2×2 ID Photo <span style="color:#e03131;">*</span></label>
+              <label class="text-sm font-medium is-required" style="color:#374151;">2×2 ID Photo</label>
             </div>
             <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Recent 2×2 ID photo with white background.</p>
             <input type="file" name="doc_id_photo" accept=".jpg,.jpeg,.png" required style="width:100%;" />
@@ -105,7 +111,7 @@
           <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">5</span>
-              <label class="text-sm font-medium" style="color:#374151;">Application Form <span style="color:#e03131;">*</span></label>
+              <label class="text-sm font-medium is-required" style="color:#374151;">Application Form</label>
             </div>
             <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Signed and accomplished scholarship application form.</p>
             <input type="file" name="doc_application_form" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
@@ -124,7 +130,7 @@
         <div id="validationResult" class="p-4 rounded-xl {% if eligible %}bg-green-50{% else %}bg-red-50{% endif %}">
           <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
           <p class="text-xl font-bold mt-1 {% if eligible %}text-green-600{% else %}text-red-600{% endif %}" id="classificationText">{{ classification|default:"Enter your GWA below" }}</p>
-          <p class="text-xs mt-2" id="gwaReadout">GWA {{ profile.gwa|floatformat:2 }}</p>
+          <p class="text-xs mt-2" id="gwaReadout">{% if form.gwa %}GWA {{ form.gwa|floatformat:2 }}{% else %}No GWA entered yet{% endif %}</p>
         </div>
         <div class="mt-4 space-y-2 text-xs">
           <div class="flex justify-between"><span>Rule: GWA ≤ {{ university_max_gwa }}</span>

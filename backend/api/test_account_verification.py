@@ -433,7 +433,11 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         User.objects.create_user(
             username='sdso@bipsu.edu.ph', email='sdso@bipsu.edu.ph', password='pw',
             first_name='Rosario', last_name='Bayhon', role='vpsea')
-        Client().post('/register/', dict(self.REGISTRATION))
+        from api.test_registration_payload import CERTIFICATES, a_certificate
+
+        posted = dict(self.REGISTRATION)
+        posted.update({name: a_certificate(name) for name in CERTIFICATES})
+        Client().post('/register/', posted)
         self.profile = StudentProfile.objects.get(student_id='2022-00777')
         self.c = Client()
         self.assertTrue(self.c.login(email='sdso@bipsu.edu.ph', password='pw'))

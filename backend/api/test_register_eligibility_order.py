@@ -1,5 +1,6 @@
 import re
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
 from api.models import SystemSettings
@@ -81,20 +82,69 @@ class RegisterEligibilityOrderTest(TestCase):
         self.assertContains(r, 'please answer Yes or No')
         self.assertFalse(User.objects.filter(email='ana@gmail.com').exists())
 
-    def test_a_student_registers_without_an_shs_gpa(self):
+    def test_a_student_cannot_register_without_an_shs_gpa(self):
         from api.models import User
 
         data = a_student(email='cora@gmail.com', student_id='23-0004')
         del data['shs_gpa']
-        self.assertEqual(self.c.post('/register/', data).status_code, 302)
-        user = User.objects.filter(email='cora@gmail.com').first()
-        self.assertIsNotNone(user)
-        self.assertIsNone(user.profile.shs_gpa)
+        r = self.c.post('/register/', data)
+        self.assertContains(r, 'SHS Grade Point Average is required')
+        self.assertFalse(User.objects.filter(email='cora@gmail.com').exists())
 
-    def test_the_form_does_not_make_the_browser_ask_for_an_shs_gpa(self):
+    def test_every_eligibility_answer_is_asked_for_by_name(self):
+        from api.models import User
+
+        data = a_student(email='dina@gmail.com', student_id='23-0005')
+        for question in ('shs_gpa', 'suc_exam_score', 'suc_exam_total'):
+            del data[question]
+        r = self.c.post('/register/', data)
+        for wanted in ('SHS Grade Point Average is required',
+                       'SUC Admission Exam Score is required',
+                       'SUC Admission Exam Score — total items is required'):
+            with self.subTest(error=wanted):
+                self.assertContains(r, wanted)
+        self.assertFalse(User.objects.filter(email='dina@gmail.com').exists())
+
+    def test_a_student_cannot_register_without_the_certificates(self):
+        from api.models import User
+
+        data = a_student(email='elsa@gmail.com', student_id='23-0006')
+        for upload in ('shs_gpa_cert', 'suc_exam_cert'):
+            del data[upload]
+        r = self.c.post('/register/', data)
+        self.assertContains(r, 'SHS GPA Certificate is required')
+        self.assertContains(r, 'SUC Exam Certificate is required')
+        self.assertFalse(User.objects.filter(email='elsa@gmail.com').exists())
+
+    def test_a_complete_eligibility_card_registers(self):
+        from api.models import User
+
+        data = a_student(email='fely@gmail.com', student_id='23-0007')
+        self.assertEqual(self.c.post('/register/', data).status_code, 302)
+        user = User.objects.filter(email='fely@gmail.com').first()
+        self.assertIsNotNone(user)
+        self.assertEqual(user.profile.shs_gpa, 92.5)
+        self.assertTrue(user.profile.shs_gpa_cert)
+        self.assertTrue(user.profile.suc_exam_cert)
+
+    def test_the_form_makes_the_browser_ask_for_every_eligibility_answer(self):
         html = self._form()
-        field = re.search(r'<input[^>]*name="shs_gpa"[^>]*>', html).group(0)
-        self.assertNotRegex(field, r'required')
+        for name in ('shs_gpa', 'shs_gpa_cert',
+                     'suc_exam_score', 'suc_exam_total', 'suc_exam_cert'):
+            with self.subTest(field=name):
+                field = re.search(r'<input[^>]*name="%s"[^>]*>' % name,
+                                  html).group(0)
+                self.assertRegex(field, r'\brequired\b')
+
+    def test_a_declared_scholar_is_still_asked_for_none_of_it(self):
+        from api.models import User
+
+        data = a_declared_scholar(email='gina@gmail.com', student_id='23-0008',
+                                  scholarship_type='DOST')
+        data['proof_document'] = SimpleUploadedFile(
+            'award.pdf', b'%PDF-1.4 award letter', content_type='application/pdf')
+        self.assertEqual(self.c.post('/register/', data).status_code, 302)
+        self.assertTrue(User.objects.filter(email='gina@gmail.com').exists())
 
     def test_a_declared_scholar_registers_with_the_cards_posting_nothing(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

@@ -23,14 +23,18 @@ class StudentMixin:
             first_name='Ana', last_name='Lim', role='student')
         self.profile = StudentProfile.objects.create(
             user=self.user, student_id='2022-00111', course='BSCS', year_level=3,
-            gwa=1.25, gender='Female',
+            gwa=1.25, gender='Female', date_of_birth='2004-03-11',
+            contact_number='09171234567', barangay='Brgy. Larrazabal',
+            municipality='Naval', province='Biliran',
             mother_last_name='Lim', mother_first_name='Rosa')
         self.c = Client()
         self.assertTrue(self.c.login(email='ana@bipsu.edu.ph', password='pw'))
 
     def apply(self, **extra):
-        data = {'action': 'submit', 'gwa': '1.25',
-                'doc_certificate_of_grades': a_pdf('cog.pdf')}
+        from api.test_academic_application import a_complete_application
+
+        data = a_complete_application(gwa='1.25')
+        data['doc_certificate_of_grades'] = a_pdf('cog.pdf')
         data.update(extra)
         return self.c.post('/student/apply/academic/', data)
 

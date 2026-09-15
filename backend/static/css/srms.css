@@ -32,8 +32,8 @@
   --on-accent:    #0000ff;
   --ring:         rgba(0, 0, 255, 0.22);
 
-  --sidebar-bg:      #0000ff;
-  --sidebar-bg-2:    #0000c4;
+  --sidebar-bg:      #4b71e3;
+  --sidebar-bg-2:    #3a57af;
   --sidebar-border:  rgba(255, 255, 255, 0.20);
   --sidebar-text:    rgba(255, 255, 255, 0.86);
   --sidebar-brand:   #ffffff;
@@ -862,7 +862,7 @@ body { overflow-x: hidden; }
 }
 
 .dark body, html.dark body { background: var(--bg); color: var(--text); }
-.dark { --sidebar-bg: #0000a0; --sidebar-bg-2: #00005a; }
+.dark { --sidebar-bg: #3a57af; --sidebar-bg-2: #24376e; }
 .dark header { background: color-mix(in srgb, var(--surface) 88%, transparent) !important;
                border-color: var(--border) !important; }
 .dark .doc-viewer-backdrop { background: rgba(0, 0, 0, 0.66); }
@@ -1340,6 +1340,17 @@ body { overflow-x: hidden; }
 .account-choice-note[hidden] { display: none; }
 
 label.is-required::after { content: ' *'; color: var(--danger); }
+
+.form-errors {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: 0.8125rem;
+  padding: 0.875rem 1rem;
+}
+.form-errors p { margin: 0.25rem 0; }
+.form-errors-title { font-weight: 700; margin-bottom: 0.5rem !important; }
 
 .imported-cell { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
 .imported-cell form { margin: 0; }

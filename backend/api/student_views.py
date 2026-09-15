@@ -410,6 +410,17 @@ _REQUIRED_AFFIRMATIVE_ANSWERS = (
     ('is_from_depressed_area', 'Are you from a depressed area?'),
 )
 
+_REQUIRED_ELIGIBILITY = (
+    ('shs_gpa', 'SHS Grade Point Average'),
+    ('suc_exam_score', 'SUC Admission Exam Score'),
+    ('suc_exam_total', 'SUC Admission Exam Score — total items'),
+)
+
+_REQUIRED_CERTIFICATES = (
+    ('shs_gpa_cert', 'SHS GPA Certificate'),
+    ('suc_exam_cert', 'SUC Exam Certificate'),
+)
+
 _REQUIRED_OF_AN_APPLICANT = (
     ('citizenship', 'Citizenship'),
     ('household_size', 'Household Size'),
@@ -439,6 +450,11 @@ def _unanswered(posted, questions):
 def _unanswered_tes(posted, questions):
     return [f'{label} — please answer Yes or No.' for name, label in questions
             if (posted.get(name) or '').strip().casefold() not in ('yes', 'no')]
+
+
+def _missing_certificates(files, questions):
+    return [f'{label} is required.' for name, label in questions
+            if not files.get(name)]
 
 
 def register_view(request):
@@ -495,6 +511,8 @@ def register_view(request):
             errors.extend(link_errors)
             errors.extend(_certificate_errors(request.FILES))
             if not any(f'has_scholarship{slot}' in p for slot in DECLARATION_SLOTS):
+                errors += _unanswered(p, _REQUIRED_ELIGIBILITY)
+                errors += _missing_certificates(request.FILES, _REQUIRED_CERTIFICATES)
                 errors += _unanswered(p, _REQUIRED_OF_AN_APPLICANT)
                 errors += _unanswered_tes(p, _REQUIRED_TES_ANSWERS)
         else:
@@ -644,12 +662,95 @@ def _scholarship_records(profile):
     return records
 
 
+GWA_REQUIRED = ('Enter your GWA before sending this application. The office '
+                'ranks Academic applicants by it, so it cannot read one that '
+                'has none — and it has to fall between 1.00 and 5.00.')
+
+_APPLY_ACADEMIC_TYPED = (
+    ('course', 'Course'),
+    ('elementary', 'Elementary School'),
+    ('highschool', 'High School'),
+    ('last_school', 'Last School Attended'),
+    ('father_name', "Father's Name"),
+    ('father_occupation', "Father's Occupation"),
+    ('mother_name', "Mother's Name"),
+    ('mother_occupation', "Mother's Occupation"),
+    ('semester', 'Semester'),
+    ('school_year', 'School Year'),
+)
+
+_APPLY_ACADEMIC_FROM_PROFILE = (
+    ('student_id', 'Student Number'),
+    ('full_name', 'Name'),
+    ('date_of_birth', 'Birth Date'),
+    ('gender', 'Gender'),
+    ('contact_number', 'Contact Number'),
+    ('address', 'Address'),
+)
+
+_APPLY_ACADEMIC_DOCUMENTS = (
+    ('doc_certificate_of_grades', 'Certificate Of Grades'),
+    ('doc_certificate_of_enrollment', 'Certificate Of Enrollment'),
+    ('doc_prospectus', 'Prospectus'),
+    ('doc_id_photo', 'Id Photo'),
+    ('doc_application_form', 'Application Form'),
+)
+
+
+def _missing_from_profile(profile):
+    return [label for name, label in _APPLY_ACADEMIC_FROM_PROFILE
+            if not str(getattr(profile, name, '') or '').strip()]
+
+
+def _missing_documents(files, editing):
+    on_file = (set(editing.documents.values_list('name', flat=True))
+               if editing else set())
+    return [f'{label} is required.' for field, label in _APPLY_ACADEMIC_DOCUMENTS
+            if not files.get(field) and label not in on_file]
+
+
+def _apply_academic_errors(request, profile, editing):
+    errors = _unanswered(request.POST, _APPLY_ACADEMIC_TYPED)
+    if _parse_gwa(request.POST.get('gwa')) is None:
+        errors.append(GWA_REQUIRED)
+    missing = _missing_from_profile(profile)
+    if missing:
+        errors.append(
+            'Your student record has no ' + ', '.join(missing) + '. The form '
+            'sends those straight from your record, so open My Profile, fill '
+            'them in there, and come back to this page.')
+    errors += _missing_documents(request.FILES, editing)
+    return errors
+
+
+def _apply_academic_values(profile, term, posted=None):
+    names = [name for name, _label in _APPLY_ACADEMIC_TYPED]
+    if posted is not None:
+        values = {name: (posted.get(name) or '').strip() for name in names}
+        values['gwa'] = (posted.get('gwa') or '').strip()
+        return values
+    values = {name: (getattr(profile, name, '') or '') if profile else ''
+              for name in names}
+    values['semester'] = term['semester']
+    values['school_year'] = term['sy']
+    values['gwa'] = _gwa_for_display(profile.gwa if profile else 0)
+    return values
+
+
 def _parse_gwa(raw):
     try:
         value = float((raw or '').strip())
     except (TypeError, ValueError):
         return None
     return value if 1.0 <= value <= 5.0 else None
+
+
+def _gwa_for_display(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ''
+    return number if 1.0 <= number <= 5.0 else ''
 
 
 def held_scholarship_types(profile):
@@ -778,13 +879,17 @@ def student_apply_academic(request):
             'blocked_reason': blocked_reason,
             'classification': '', 'eligible': False,
         })
+    errors, posted = [], None
     if request.method == 'POST':
         scholarship = Scholarship.objects.filter(type='Academic').first()
-        if scholarship and profile:
-            declared = _parse_gwa(request.POST.get('gwa'))
-            if declared is not None:
-                profile.gwa = declared
-                profile.save(update_fields=['gwa'])
+        if not (scholarship and profile):
+            return redirect('/student/applications/')
+        errors = _apply_academic_errors(request, profile, editing)
+        if errors:
+            posted = request.POST
+        else:
+            profile.gwa = _parse_gwa(request.POST.get('gwa'))
+            profile.save(update_fields=['gwa'])
             if editing:
                 app = editing
                 app.form_data = request.POST.dict()
@@ -797,18 +902,12 @@ def student_apply_academic(request):
                     status='Pending Validation',
                     form_data=request.POST.dict()
                 )
-            for field, label in [
-                ('doc_certificate_of_grades', 'Certificate Of Grades'),
-                ('doc_certificate_of_enrollment', 'Certificate Of Enrollment'),
-                ('doc_prospectus', 'Prospectus'),
-                ('doc_id_photo', 'Id Photo'),
-                ('doc_application_form', 'Application Form'),
-            ]:
+            for field, label in _APPLY_ACADEMIC_DOCUMENTS:
                 uploaded = request.FILES.get(field)
                 if uploaded:
                     app.documents.filter(name=label).delete()
                     ApplicationDocument.objects.create(application=app, name=label, file=uploaded)
-        return redirect('/student/applications/')
+            return redirect('/student/applications/')
     from .constants import (
         COLLEGE_SCHOLAR_MAX_GWA, UNIVERSITY_SCHOLAR_MAX_GWA, academic_classification,
     )
@@ -828,6 +927,8 @@ def student_apply_academic(request):
         'enrolled': _is_enrolled(profile),
         'university_max_gwa': UNIVERSITY_SCHOLAR_MAX_GWA,
         'college_max_gwa': COLLEGE_SCHOLAR_MAX_GWA,
+        'errors': errors,
+        'form': _apply_academic_values(profile, term, posted),
     })
     
 
@@ -2653,13 +2754,26 @@ def _scholars_from_sheet(file, stype, term_label, imported_from=None,
                          custom_columns=None):
     import openpyxl
 
-    from .models import ImportedScholar
-
-    ws = openpyxl.load_workbook(file).active
+    workbook = openpyxl.load_workbook(file)
     col_map = COLUMN_MAPS.get(stype, COLUMN_MAPS['CoScho'])
 
     if custom_columns is None:
         custom_columns = _custom_columns_for(stype)
+
+    records, refused = [], 0
+    for worksheet in workbook.worksheets:
+        found, bad = _scholars_from_worksheet(
+            worksheet, stype, term_label, col_map, custom_columns,
+            imported_from or file.name)
+        records.extend(found)
+        refused += bad
+    return records, refused
+
+
+def _scholars_from_worksheet(ws, stype, term_label, col_map, custom_columns,
+                             imported_from):
+    from .models import ImportedScholar
+
     headings = [cell.value for cell in ws[1]] if ws.max_row else []
     from_sheet = _sheet_custom_columns(headings, col_map, custom_columns)
 
@@ -2720,7 +2834,7 @@ def _scholars_from_sheet(file, stype, term_label, imported_from=None,
             award_number=extra.get('award_number', ''),
             congress_district=extra.get('congress_district', ''),
             extra_data=added,
-            imported_from=imported_from or file.name,
+            imported_from=imported_from,
         ))
     return records, refused
 

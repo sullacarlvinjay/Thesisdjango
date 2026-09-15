@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=54" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=55" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -342,34 +342,34 @@
       <div data-student-only class="card mb-4" id="scholarshipEligibility" style="padding:1.5rem;"
            {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
         <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">Used for scholarship matching. Upload the certified documents as proof — you can add them later under My Profile.</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">Used for scholarship matching. All of it has to be answered, and the certified documents uploaded as proof, before the form will send.</p>
         <div class="space-y-3">
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>SHS Grade Point Average (%) <span class="label-optional">Optional</span></label>
+              <label>SHS Grade Point Average (%)</label>
               <input name="shs_gpa" type="number" step="0.01" min="0" max="100"
-                     value="{{ post.shs_gpa }}" placeholder="e.g. 88.5" />
+                     value="{{ post.shs_gpa }}" placeholder="e.g. 88.5" required />
             </div>
             <div class="space-y-1.5">
-              <label>SHS GPA Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span> <span class="label-optional">Optional</span></label>
-              <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+              <label>SHS GPA Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
+              <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
             </div>
           </div>
           
           <div class="space-y-1.5">
-            <label>SUC Admission Exam Score <span class="label-optional">Optional</span></label>
+            <label>SUC Admission Exam Score</label>
             <div class="suc-score-pair">
               <input name="suc_exam_score" type="number" step="0.01" min="0"
-                     value="{{ post.suc_exam_score }}" placeholder="score, e.g. 35" aria-label="SUC exam score" />
+                     value="{{ post.suc_exam_score }}" placeholder="score, e.g. 35" aria-label="SUC exam score" required />
               <span class="suc-score-of">out of</span>
               <input name="suc_exam_total" type="number" step="0.01" min="1"
-                     value="{{ post.suc_exam_total }}" placeholder="total, e.g. 50" aria-label="Total items" />
+                     value="{{ post.suc_exam_total }}" placeholder="total, e.g. 50" aria-label="Total items" required />
             </div>
-            <p class="text-xs" style="color:var(--text-muted);">Enter 100 as the total if your certificate already gives a percentage. Leave both blank if you do not have the score yet — you can add it later under My Profile.</p>
+            <p class="text-xs" style="color:var(--text-muted);">Enter 100 as the total if your certificate already gives a percentage. Both come off the same certificate, so copy them from the document rather than from memory.</p>
           </div>
           <div class="space-y-1.5">
-            <label>SUC Exam Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span> <span class="label-optional">Optional</span></label>
-            <input name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+            <label>SUC Exam Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
+            <input name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
           </div>
           <label class="flex items-center gap-2 cursor-pointer text-sm">
             <input type="checkbox" name="is_tes_beneficiary" {% if post.is_tes_beneficiary %}checked{% endif %} style="width:auto;" />

@@ -21,6 +21,8 @@ STUDENT_REQUIRED = {
     'elementary', 'highschool', 'last_school',
     'highschool_is_public', 'is_from_depressed_area',
     'family_income',
+    'shs_gpa', 'shs_gpa_cert', 'suc_exam_score', 'suc_exam_total',
+    'suc_exam_cert',
     'citizenship', 'household_size', 'year_first_enrolled',
     'is_listahanan_household', 'is_4ps_beneficiary',
     'is_solo_parent_dependent', 'has_previous_degree',
@@ -35,9 +37,7 @@ CHECKBOXES = ({'has_staff_scholarship', 'is_tes_beneficiary', 'terms_version'}
 NEVER_MARKED = (ALWAYS_REQUIRED | STUDENT_REQUIRED | STAFF_REQUIRED
                 | CONDITIONALLY_REQUIRED | CHECKBOXES)
 
-OPTIONAL = ({'suffix', 'indigenous_group',
-             'shs_gpa', 'shs_gpa_cert', 'suc_exam_cert', 'staff_notes',
-             'suc_exam_score', 'suc_exam_total'}
+OPTIONAL = ({'suffix', 'indigenous_group', 'staff_notes'}
             | per_card('award_number', 'notes'))
 
 FIELD = re.compile(r'<(?:input|select|textarea)\b[^>]*?\bname="([^"]+)"[^>]*?>')

@@ -1,3 +1,5 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
+
 from api import terms
 
 STUDENT = {
@@ -24,9 +26,18 @@ STUDENT = {
 }
 
 ELIGIBILITY = ('shs_gpa', 'suc_exam_score', 'suc_exam_total',
+               'shs_gpa_cert', 'suc_exam_cert',
                'citizenship', 'household_size', 'year_first_enrolled',
                'is_listahanan_household', 'is_4ps_beneficiary',
                'is_solo_parent_dependent', 'has_previous_degree')
+
+CERTIFICATES = ('shs_gpa_cert', 'suc_exam_cert')
+
+
+def a_certificate(name):
+    return SimpleUploadedFile(f'{name}.pdf', b'%PDF-1.4 certificate',
+                              content_type='application/pdf')
+
 
 STAFF = {
     'account_type': 'nsu_staff',
@@ -40,7 +51,8 @@ STAFF = {
 
 
 def a_student(**overrides):
-    return dict(STUDENT, **overrides)
+    certificates = {name: a_certificate(name) for name in CERTIFICATES}
+    return dict(STUDENT, **certificates, **overrides)
 
 
 def a_declared_scholar(**overrides):
