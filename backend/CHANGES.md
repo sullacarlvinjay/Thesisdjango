@@ -3531,3 +3531,78 @@ The reservation is now clamped: never more than 40% of the width or 50% of the h
 skipped entirely while the canvas still measures zero. When the clamp bites, the table
 simply is not drawn — the existing `MIN_COLUMN` / `MIN_BAND` guards in `afterDraw`
 already handle that — and the chart keeps its plot.
+
+---
+
+## The by-semester chart can be asked for one semester, one year, or everything
+
+"This academic year" always drew both semesters, even when the Period dropdown had
+named a single one. The range toggle now follows the Period:
+
+- Period is **one semester** → three tabs, **This semester** (default) / This academic
+  year / All academic years.
+- Period is a **whole academic year** → two tabs, This academic year (default) / All
+  academic years. There is no single semester to offer, so none is.
+
+`term_labels` (already in the context — it is the term or terms the Period resolves to)
+is rendered as a per-bar flag alongside the year flag, and the toggle slices on
+whichever one it is showing. No reload, and nothing recomputed.
+
+`selected_term_display` was added because `selected_sy_display` is
+`2025-2026 — 1st Semester`, and putting that after the heading's own dash read
+`Scholars by Semester — 2025-2026 — 1st Semester`. The new value drops the inner dash.
+
+---
+
+## All academic years can be capped to the recent ones
+
+With enough semesters on file, *All academic years* becomes unreadable. A **Show**
+select next to the tabs takes the last 4, 6, 8 or 12 semesters, or every one. It
+defaults to the last 8, appears **only** in the all-years view, and hides itself when
+there are fewer than five semesters on record — there is nothing to trim.
+
+It keeps the **most recent** ones and trims each series to match, so the table under
+the chart never disagrees with the bars.
+
+---
+
+## Scholars per Scholarship Program was removed
+
+Asked for directly. Its numbers are all in the by-semester chart now — one series per
+programme and award level, with the counts in the table under it — so the card was a
+less detailed second view of the same thing.
+
+`rollover_counts` is **still computed and still in the context**: it is the
+de-duplicated head count per programme, several tests assert on it, and it is what
+`show_program` is derived from. Only the chart and its script went.
+
+The analytics page is now three cards: **Scholars by Semester**, **GWA Distribution**,
+and **Scholars by Course** (titled *&lt;Programme&gt; — Scholar Distribution by Course*
+when a programme is filtered).
+
+---
+
+## Eight pre-existing errors in the suite, and what causes them
+
+A full run is 1409 tests with **8 errors**, all in `api/test_account_verification.py`,
+all the same cause and **none of them from this work** — verified by removing the one
+line this work adds to the registration path (`_remember_registration_source`) and
+watching them fail identically without it.
+
+`register_view` requires `shs_gpa_cert` and `suc_exam_cert` when a registration
+declares no existing scholarship. `TheQueueShowsWhatTheRegistrationSentTest.setUp`
+knows that and posts them:
+
+    posted.update({name: a_certificate(name) for name in CERTIFICATES})
+
+Two other paths do not — the two tests in that class that re-post `self.REGISTRATION`
+with a different email, and `TheDecidedListShowsTheWholeRecordTest.setUp`, which posts
+`dict(self.REGISTRATION)` bare. Those registrations are rejected for the missing
+uploads, no account is created, and the lookup that follows raises
+`StudentProfile.DoesNotExist` or `User.DoesNotExist`.
+
+The fix is to add the certificates at those three call sites the way `setUp` already
+does. It is **not applied here**: which side is wrong — the tests, or a product rule
+that made the certificates mandatory — is a decision for whoever changed the required
+set, and `api/test_own_password.py` is sitting modified in the working tree, so
+somebody is mid-change in this area.
