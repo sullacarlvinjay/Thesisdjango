@@ -1,4 +1,6 @@
+{% load static %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/excel-charts.js' %}?v=5"></script>
 <script>
 function chartHasData(canvas) {
   const chart = (window.Chart && Chart.getChart) ? Chart.getChart(canvas) : null;
@@ -28,13 +30,6 @@ function downloadChart(canvasId, filename) {
   link.click();
   document.body.removeChild(link);
 }
-const gridColor = '#e8ecf0';
-Chart.defaults.font = { family: 'inherit', size: 12 };
-Chart.defaults.color = '#6b7a99';
-const PIE_COLORS = [
-  '#3b5bdb','#1971c2','#2f9e44','#f59f00','#e64980',
-  '#7048e8','#0ca678','#f76707','#c2255c','#6b7a99',
-];
 const DEGREE_PREFIX = /^bachelor\s+(?:of\s+)?(?:science|arts)?\s*(?:in\s+)?/i;
 const LEGEND_MAX = 26;
 function legendText(text) {
@@ -51,205 +46,70 @@ function shortLegendLabels(chart) {
   return generate(chart).map(item =>
     Object.assign({}, item, { text: legendText(item.text) }));
 }
-function pieLegend(display, position) {
-  return {
-    display,
-    position: position || 'right',
-    labels: { boxWidth: 12, font: { size: 11 }, generateLabels: shortLegendLabels },
-  };
+function excelChart(canvas, type, labels, series, config) {
+  const settings = Object.assign({}, config || {});
+  const pie = type === 'pie' || type === 'doughnut';
+  const datasets = pie
+    ? [Object.assign({ label: series[0].name }, ExcelChart.slices(series[0].data))]
+    : ExcelChart.bars(labels, series);
+  settings.pie = pie;
+  settings.table = settings.table !== false;
+  if (settings.legend === undefined) settings.legend = series.length > 1;
+  return new Chart(canvas, {
+    type: pie ? type : 'bar',
+    data: { labels: labels, datasets: datasets },
+    options: ExcelChart.options(settings),
+  });
 }
 function makeToggle(containerId, chartRef, types, buildFn) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  types.forEach(type => {
+  if (types.length < 2) { container.hidden = true; return; }
+  types.forEach((choice, index) => {
+    const value = typeof choice === 'string' ? choice : choice.value;
+    const text = typeof choice === 'string'
+      ? value.charAt(0).toUpperCase() + value.slice(1)
+      : choice.label;
     const btn = document.createElement('button');
-    btn.className = 'chart-toggle-btn' + (type === types[0] ? ' active' : '');
-    btn.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+    btn.className = 'chart-toggle-btn' + (index === 0 ? ' active' : '');
+    btn.textContent = text;
     btn.onclick = () => {
       container.querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       chartRef.chart.destroy();
-      chartRef.chart = buildFn(type);
+      chartRef.chart = buildFn(value);
     };
     container.appendChild(btn);
   });
 }
-{% if show_program %}
-{% if selected_type %}
-const programLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-const programData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
-const programRef = {};
-function buildProgramChart(type) {
-  const isPie = type === 'pie' || type === 'doughnut';
-  return new Chart(document.getElementById('programChart'), {
-    type,
-    data: {
-      labels: programLabels,
-      datasets: [{
-        label: 'Scholars',
-        data: programData,
-        backgroundColor: PIE_COLORS,
-        borderWidth: 1,
-        borderRadius: isPie ? 0 : 6,
-      }],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: pieLegend(isPie, isPie ? 'right' : 'top'),
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} scholars` } },
-      },
-      scales: isPie ? {} : {
-        x: { grid: { color: gridColor } },
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
-      },
-    },
-  });
-}
-programRef.chart = buildProgramChart('pie');
-makeToggle('programChartToggle', programRef, ['pie','doughnut','bar','line'], buildProgramChart);
-{% else %}
-const rcMap = { {% for t, cnt in rollover_counts.items %}'{{ t }}': {{ cnt }}{% if not forloop.last %},{% endif %}{% endfor %} };
-const allLabels = [{% for t in all_types %}'{{ t }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-const allCounts = allLabels.map(t => rcMap[t] || 0);
-const filteredLabels = allLabels.filter((_, i) => allCounts[i] > 0);
-const filteredCounts = allCounts.filter(v => v > 0);
-const chartLabels = filteredLabels.length ? filteredLabels : allLabels;
-const chartCounts = filteredLabels.length ? filteredCounts : allCounts;
-const programRef = {};
-function buildProgramChart(type) {
-  const isPie = type === 'pie' || type === 'doughnut';
-  return new Chart(document.getElementById('programChart'), {
-    type,
-    data: {
-      labels: chartLabels,
-      datasets: [{
-        label: 'Scholars',
-        data: chartCounts,
-        backgroundColor: PIE_COLORS,
-        borderWidth: 1,
-        borderRadius: isPie ? 0 : 6,
-      }],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: pieLegend(isPie),
-      },
-      scales: isPie ? {} : {
-        x: { grid: { color: gridColor } },
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
-      },
-    },
-  });
-}
-programRef.chart = buildProgramChart('bar');
-makeToggle('programChartToggle', programRef, ['bar','pie','doughnut','line'], buildProgramChart);
-{% endif %}
-{% endif %}
 {% if show_gwa %}
 const gwaLabels = [{% for g in gpa_ranges %}'{{ g.range }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const gwaData   = [{% for g in gpa_ranges %}{{ g.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
 const gwaRef = {};
 function buildGwaChart(type) {
-  const isPie = type === 'pie' || type === 'doughnut';
-  return new Chart(document.getElementById('gwaChart'), {
-    type,
-    data: {
-      labels: gwaLabels,
-      datasets: [{
-        label: 'Students',
-        data: gwaData,
-        backgroundColor: ['#3b5bdb','#4c6ef5','#748ffc','#91a7ff','#bac8ff'],
-        borderColor: '#3b5bdb',
-        borderWidth: isPie ? 1 : 2,
-        borderRadius: isPie ? 0 : 6,
-        fill: type === 'line',
-        tension: 0.4,
-      }],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: isPie } },
-      scales: isPie ? {} : {
-        x: { grid: { color: gridColor } },
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
-      },
-    },
-  });
+  return excelChart(document.getElementById('gwaChart'), type, gwaLabels,
+    [{ name: 'Students', data: gwaData }],
+    { title: 'GWA Distribution', categoryTitle: 'GWA band' });
 }
 gwaRef.chart = buildGwaChart('bar');
-makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut','line'], buildGwaChart);
-{% endif %}
-{% if show_years %}
-const yLabels = [{% for y in year_dist %}'{{ y.year|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-const yData   = [{% for y in year_dist %}{{ y.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
-const yearRef = {};
-function buildYearChart(type) {
-  const isPie = type === 'pie' || type === 'doughnut';
-  return new Chart(document.getElementById('yearChart'), {
-    type: isPie ? type : (type === 'line' ? 'line' : 'bar'),
-    data: {
-      labels: yLabels,
-      datasets: [{
-        label: 'Scholars',
-        data: yData,
-        backgroundColor: isPie ? PIE_COLORS : '#0b7285',
-        borderColor: '#0b7285',
-        borderWidth: isPie ? 1 : 2,
-        borderRadius: isPie ? 0 : 6,
-        fill: type === 'line',
-        tension: 0.4,
-      }],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: pieLegend(isPie, 'top') },
-      scales: isPie ? {} : {
-        x: { grid: { color: gridColor } },
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
-      },
-    },
-  });
-}
-yearRef.chart = buildYearChart('bar');
-makeToggle('yearChartToggle', yearRef, ['bar','line','pie','doughnut'], buildYearChart);
+makeToggle('gwaChartToggle', gwaRef, ['bar','pie','doughnut'], buildGwaChart);
 {% endif %}
 {% if course_dist %}
 const cLabels = [{% for c in course_dist %}'{{ c.course|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
 const cData   = [{% for c in course_dist %}{{ c.scholars }}{% if not forloop.last %},{% endif %}{% endfor %}];
 const courseRef = {};
 function buildCourseChart(type) {
-  const isPie = type === 'pie' || type === 'doughnut';
-  const isHBar = type === 'bar';
-  return new Chart(document.getElementById('courseChart'), {
-    type: isPie ? type : 'bar',
-    data: {
-      labels: cLabels,
-      datasets: [{
-        label: 'Scholars',
-        data: cData,
-        backgroundColor: isPie ? PIE_COLORS : '#1971c2',
-        borderColor: '#1971c2',
-        borderWidth: isPie ? 1 : 2,
-        borderRadius: isPie ? 0 : 6,
-        fill: type === 'line',
-        tension: 0.4,
-      }],
-    },
-    options: {
-      indexAxis: (!isPie && type !== 'line') ? 'y' : 'x',
-      responsive: true,
-      plugins: { legend: pieLegend(isPie, 'top') },
-      scales: isPie ? {} : {
-        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, precision: 0 } },
-        y: { grid: { color: gridColor } },
-      },
-    },
-  });
+  const pie = type === 'pie' || type === 'doughnut';
+  return excelChart(document.getElementById('courseChart'), type, cLabels,
+    [{ name: 'Scholars', data: cData }], {
+      title: 'Scholars by Course',
+      categoryTitle: 'Course',
+      indexAxis: pie ? 'x' : 'y',
+      generateLabels: shortLegendLabels,
+    });
 }
 courseRef.chart = buildCourseChart('bar');
-makeToggle('courseChartToggle', courseRef, ['bar','pie','doughnut','line'], buildCourseChart);
+makeToggle('courseChartToggle', courseRef, ['bar','pie','doughnut'], buildCourseChart);
 {% endif %}
 {% if show_trend %}
 const trendLabels = [{% for t in trend_data %}'{{ t.display|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -258,62 +118,85 @@ const trendSeries = [
   { name: '{{ s.type|escapejs }}', data: [{% for c in s.counts %}{{ c }}{% if not forloop.last %},{% endif %}{% endfor %}] }{% if not forloop.last %},{% endif %}
   {% endfor %}
 ];
+const trendInYear = [{% for t in trend_data %}{% if t.label in trend_year_labels %}true{% else %}false{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}];
+const trendInTerm = [{% for t in trend_data %}{% if t.label in term_labels %}true{% else %}false{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}];
+const TREND_YEAR = '{{ selected_academic_year|escapejs }}';
+const TREND_TERM = '{{ selected_term_display|escapejs }}';
+const TREND_PROGRAM = '{% if selected_type %}{{ selected_type|escapejs }}{% endif %}';
+const TREND_ONE_TERM = {% if whole_year %}false{% else %}true{% endif %};
+const TREND_RANGES = (TREND_ONE_TERM
+  ? [{ value: 'term', label: 'This semester' },
+     { value: 'year', label: 'This academic year' }]
+  : [{ value: 'year', label: 'This academic year' }]
+).concat([{ value: 'all', label: 'All academic years' }]);
 const trendRef = {};
-function buildTrendChart(type) {
-  const isLine = type === 'line';
-  return new Chart(document.getElementById('trendChart'), {
-    type: isLine ? 'line' : 'bar',
-    data: {
-      labels: trendLabels,
-      datasets: trendSeries.map(function (s, i) {
-        const colour = PIE_COLORS[i % PIE_COLORS.length];
-        return {
-          label: s.name,
-          data: s.data,
-          backgroundColor: isLine ? 'transparent' : colour,
-          borderColor: colour,
-          borderWidth: isLine ? 2.5 : 1.5,
-          borderRadius: isLine ? 0 : 6,
-          pointBackgroundColor: colour,
-          pointRadius: isLine ? 4 : 0,
-          pointHoverRadius: isLine ? 6 : 0,
-          fill: false,
-          tension: 0.4,
-        };
-      }),
-    },
-    options: {
-      responsive: true,
+const trendCountBox = document.getElementById('trendCount');
+function trendShown() {
+  const value = trendCountBox ? parseInt(trendCountBox.value, 10) : 0;
+  return isNaN(value) ? 0 : value;
+}
+function trendSlice(range) {
+  let keep = trendLabels.map((_, i) => {
+    if (range === 'all') return true;
+    if (range === 'term') return trendInTerm[i];
+    return trendInYear[i];
+  });
+  if (range === 'all') {
+    const shown = trendShown();
+    const total = keep.filter(Boolean).length;
+    if (shown > 0 && total > shown) {
+      let budget = shown;
+      keep = keep.map(() => false);
+      for (let i = trendLabels.length - 1; i >= 0 && budget > 0; i -= 1) {
+        keep[i] = true;
+        budget -= 1;
+      }
+    }
+  }
+  const labels = trendLabels.filter((_, i) => keep[i]);
+  const series = trendSeries.map(s => ({
+    name: s.name,
+    data: s.data.filter((_, i) => keep[i]),
+  }));
+  const withData = series.filter(s => s.data.some(v => v));
+  return { labels: labels, series: withData.length ? withData : series };
+}
+function trendScope(range) {
+  if (range === 'all') return 'All academic years';
+  if (range === 'term') return TREND_TERM;
+  return TREND_YEAR;
+}
+function buildTrendChart(range) {
+  trendRef.range = range;
+  const slice = trendSlice(range);
+  const scope = trendScope(range);
+  const counter = document.querySelector('.trend-count');
+  if (counter) counter.hidden = range !== 'all' || trendLabels.length < 5;
+  const heading = document.querySelector('[data-trend-scope]');
+  if (heading) heading.textContent = '— ' + scope;
+  const caption = document.querySelector('[data-trend-range]');
+  if (caption) {
+    caption.textContent = range === 'all'
+      ? 'every academic year on record'
+      : scope;
+  }
+  return excelChart(document.getElementById('trendChart'), 'bar',
+    slice.labels.map(l => l.replace('\n', ' ')), slice.series, {
+      title: (TREND_PROGRAM ? TREND_PROGRAM + ' Scholars' : 'Scholars')
+             + ' by Semester — ' + scope,
+      categoryTitle: 'Semester',
+      legend: slice.series.length > 1,
       interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: trendSeries.length > 1,
-          position: 'bottom',
-          labels: { boxWidth: 12, boxHeight: 12, usePointStyle: true, font: { size: 11 } },
-        },
-        tooltip: {
-          callbacks: {
-            title: (items) => items[0].label.replace('\\n', ' '),
-          },
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: gridColor },
-          ticks: { maxRotation: 45, minRotation: 30 },
-        },
-        y: {
-          beginAtZero: true,
-          grid: { color: gridColor },
-          ticks: { stepSize: 1, precision: 0 },
-          title: { display: true, text: 'Number of Scholars', color: '#6b7a99', font: { size: 11 } },
-        },
-      },
-    },
+    });
+}
+trendRef.chart = buildTrendChart(TREND_RANGES[0].value);
+makeToggle('trendChartToggle', trendRef, TREND_RANGES, buildTrendChart);
+if (trendCountBox) {
+  trendCountBox.addEventListener('change', () => {
+    trendRef.chart.destroy();
+    trendRef.chart = buildTrendChart(trendRef.range);
   });
 }
-trendRef.chart = buildTrendChart('line');
-makeToggle('trendChartToggle', trendRef, ['line', 'bar'], buildTrendChart);
 {% endif %}
 (function () {
   document.querySelectorAll('.chart-png-btn').forEach(function (btn) {

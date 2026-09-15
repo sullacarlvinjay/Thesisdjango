@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=55" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -32,5 +32,7 @@
     </div>
     <p class="auth-footnote">{% block footnote %}<a href="/">← Back to Main Page</a>{% endblock %}</p>
   </div>
+<script src="{% static 'js/chrome.js' %}?v=1" defer></script>
+<script src="{% static 'js/loading.js' %}?v=2" defer></script>
 </body>
 </html>

@@ -129,7 +129,8 @@
             {{ account.get_full_name|default:account.email }}
             <span class="badge {% if account.role == 'nsu_staff' %}badge-success{% else %}badge-info{% endif %}" style="margin-left:0.35rem;">{{ account.get_role_display }}</span>
           </p>
-          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}</p>
+          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}
+            <button type="button" class="copy-btn" data-copy="{{ account.email }}" aria-label="Copy this email address"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span data-copy-label>Copy</span></button></p>
           
           {% if account.email_verified %}
           <p class="text-xs mt-1" style="color:#2f9e44;">✓ Email address confirmed by them</p>

@@ -8,8 +8,14 @@ def system_settings(request):
         ctx = {'active_semester': '', 'academic_year': ''}
     ctx['pending_accounts'] = _pending_accounts(request)
     ctx['profile_photo_url'] = _profile_photo_url(request)
+    ctx['support_email'] = _support_email()
     ctx.update(_scholarship_standing(request))
     return ctx
+
+
+def _support_email():
+    from django.conf import settings
+    return getattr(settings, 'SUPPORT_EMAIL', '')
 
 
 def _profile_photo_url(request):

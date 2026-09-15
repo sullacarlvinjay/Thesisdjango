@@ -16,14 +16,72 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _utm_payload(request):
+    import json
+    raw = (request.POST.get('utm_payload') or '').strip()
+    if not raw or len(raw) > 2000:
+        return {}
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _active_catalogue():
+    from django.conf import settings as django_settings
+    from django.core.cache import cache
+    from django.db.models import Count, Max
+
+    stamp = Scholarship.objects.filter(is_active=True).aggregate(
+        last=Max('updated_at'), total=Count('id'))
+    marker = stamp['last'].timestamp() if stamp['last'] else 0
+    key = f"landing:catalogue:{stamp['total']}:{marker}"
+
+    rows = cache.get(key)
+    if rows is None:
+        rows = list(Scholarship.objects.filter(is_active=True).order_by('type'))
+        cache.set(key, rows, django_settings.CATALOGUE_CACHE_SECONDS)
+    return rows, stamp['last']
+
+
+def _alert_signup(request):
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    from .models import SignupSource
+
+    email = (request.POST.get('alert_email') or '').strip()
+    if not email:
+        return {'alert_error': 'Enter the email address we should write to.'}
+    try:
+        validate_email(email)
+    except ValidationError:
+        return {'alert_error': 'That does not look like an email address.',
+                'alert_email': email}
+
+    try:
+        SignupSource.record(email, 'alert', _utm_payload(request))
+    except Exception:
+        logger.exception('alerts: could not record a signup for %s', email)
+        return {'alert_error': 'Something went wrong saving that. Please try again.',
+                'alert_email': email}
+    return {'alert_ok': 'You are on the list. We will write to ' + email
+                        + ' when a scholarship opens for applications.'}
+
+
 def landing_view(request):
-    qs = Scholarship.objects.filter(is_active=True).order_by('type')
-    return render(request, 'landing.html', {
-        'scholarships': qs,
-        'internal': qs.filter(group='internal'),
-        'external': qs.filter(group='external'),
-        'institutional': qs.filter(group='institutional'),
-    })
+    rows, catalogue_updated = _active_catalogue()
+    context = {
+        'scholarships': rows,
+        'internal': [s for s in rows if s.group == 'internal'],
+        'external': [s for s in rows if s.group == 'external'],
+        'institutional': [s for s in rows if s.group == 'institutional'],
+        'catalogue_updated': catalogue_updated,
+    }
+    if request.method == 'POST':
+        context.update(_alert_signup(request))
+    return render(request, 'landing.html', context)
 
 
 PORTAL_FOR_ROLE = {
@@ -457,6 +515,17 @@ def _missing_certificates(files, questions):
             if not files.get(name)]
 
 
+def _remember_registration_source(request, email):
+    from .models import SignupSource
+    payload = _utm_payload(request)
+    if not payload:
+        return
+    try:
+        SignupSource.record(email, 'registration', payload)
+    except Exception:
+        logger.exception('registration: could not record the signup source for %s', email)
+
+
 def register_view(request):
     if request.method == 'POST':
         p = request.POST
@@ -539,6 +608,7 @@ def register_view(request):
             terms_accepted_at=timezone.now(),
         )
         email_verify.send_confirmation(user, request)
+        _remember_registration_source(request, user.email)
 
         if account_type == 'student':
             profile = StudentProfile.objects.create(
@@ -2993,7 +3063,7 @@ def _rollover_workbook(field_file):
         return openpyxl.load_workbook(BytesIO(handle.read()))
 
 
-def _analytics_context(request, all_types, include_gwa=True):
+def _build_analytics_context(request, all_types, include_gwa=True):
     from .models import ScholarListImport, SystemSettings
     from collections import defaultdict
 
@@ -3024,12 +3094,39 @@ def _analytics_context(request, all_types, include_gwa=True):
         all_labels.insert(0, active_label)
     all_sy_display = [(lbl, f"{SystemSettings.parse_label(lbl)['sy']} — {SystemSettings.parse_label(lbl)['semester']}") for lbl in all_labels]
 
+    terms_by_year = {}
+    for lbl in all_labels:
+        terms_by_year.setdefault(
+            SystemSettings.parse_label(lbl)['sy'], []).append(lbl)
+
+    whole_year_terms = {}
+    for sy, labels in terms_by_year.items():
+        if len(set(labels)) > 1:
+            whole_year_terms[f"{sorted(labels)[0].split('-')[0]}-Y"] = sorted(set(labels))
+
+    sy_groups = []
+    for sy in sorted(terms_by_year, reverse=True):
+        labels = sorted(set(terms_by_year[sy]))
+        options = []
+        year_key = f"{labels[0].split('-')[0]}-Y"
+        if year_key in whole_year_terms:
+            options.append((year_key, 'Whole academic year'))
+        options += [(lbl, SystemSettings.parse_label(lbl)['semester'])
+                    for lbl in labels]
+        sy_groups.append({'sy': sy, 'options': options})
+
+    selectable = set(all_labels) | set(whole_year_terms)
     selected_label = request.GET.get('sy', active_label)
-    if selected_label not in all_labels:
+    if selected_label not in selectable:
         selected_label = active_label
-    selected_parsed = SystemSettings.parse_label(selected_label)
+
+    whole_year = selected_label in whole_year_terms
+    term_labels = whole_year_terms.get(selected_label, [selected_label])
+
+    selected_parsed = SystemSettings.parse_label(term_labels[0])
     selected_sy = selected_parsed['sy']
-    selected_semester = selected_parsed['semester']
+    selected_semester = ('Whole academic year' if whole_year
+                         else SystemSettings.parse_label(selected_label)['semester'])
     selected_type = request.GET.get('stype', '')
 
     def _sheet_for(stype):
@@ -3179,63 +3276,6 @@ def _analytics_context(request, all_types, include_gwa=True):
         buckets = buckets or _gwa_from_sheet() or {band: 0 for band in GWA_BANDS}
         gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
 
-    def _label_sort_key(lbl):
-        try:
-            yy, s = lbl.split('-')
-            return int(yy) * 10 + int(s)
-        except Exception:
-            return 0
-
-    trend_labels_sorted = sorted(set(all_labels), key=_label_sort_key)
-
-    trend_data = []
-    for lbl in trend_labels_sorted:
-        parsed = SystemSettings.parse_label(lbl)
-
-        counts = {}
-        for t in ALL_TYPES:
-            if lbl == active_label:
-                if t in ('Affirmative', 'Staff'):
-                    from .models import AffirmativeStaffApplication
-                    c = AffirmativeStaffApplication.objects.filter(
-                        status='Approved', qualified_for=t
-                    ).count()
-                else:
-                    c = Application.objects.filter(
-                        status='Approved', scholarship__type=t
-                    ).count()
-                c += _imported_current(t).count()
-            else:
-                c = ImportedScholar.objects.filter(
-                    scholarship_type=t, term_label=lbl
-                ).count()
-            if not c:
-                r = ScholarListImport.objects.filter(
-                    scholarship_type=t, term_label=lbl
-                ).first()
-                c = r.scholar_count if r else 0
-            counts[t] = c
-
-        parsed_display = f"{parsed['sy']} — {parsed['semester']}"
-        trend_data.append({
-            'label': lbl,
-            'sy': parsed['sy'],
-            'display': parsed_display,
-            'total': sum(counts.values()),
-            'counts': counts,
-            'per_type': {t: c for t, c in counts.items() if c},
-        })
-
-    if selected_type and selected_type in ALL_TYPES:
-        series_types = [selected_type]
-    else:
-        series_types = [t for t in ALL_TYPES
-                        if any(d['counts'].get(t) for d in trend_data)]
-    trend_series = [
-        {'type': t, 'counts': [d['counts'].get(t, 0) for d in trend_data]}
-        for t in series_types
-    ]
-
     def _identity(student_id, last, first):
         digits = ''.join(ch for ch in (student_id or '').upper() if ch.isalnum())
         if digits:
@@ -3243,11 +3283,11 @@ def _analytics_context(request, all_types, include_gwa=True):
         name = ' '.join(' '.join((last or '', first or '')).upper().split())
         return f'name:{name}' if name else None
 
-    def _identities_from_sheet(stype, label):
+    def _details_from_sheet(stype, label):
         record = ScholarListImport.objects.filter(
             scholarship_type=stype, term_label=label).first()
         if not record or not record.excel_file:
-            return set()
+            return {}
         try:
             ws = _rollover_workbook(record.excel_file).active
 
@@ -3261,67 +3301,215 @@ def _analytics_context(request, all_types, include_gwa=True):
             last_col = column('last name')
             first_col = column('first name')
             id_col = column('student number', 'student id', 'student no')
+            course_col = column('course')
+            gwa_col = column('gwa')
+            tier_col = column('award tier', 'scholar type', 'tier')
             if last_col is None and id_col is None:
-                return set()
+                return {}
 
             def cell(row, index):
                 if index is None or index >= len(row):
                     return ''
                 return str(row[index]).strip() if row[index] is not None else ''
 
-            people = set()
+            people = {}
             for row in ws.iter_rows(min_row=2, values_only=True):
                 if not row or row[0] is None:
                     continue
                 key = _identity(cell(row, id_col), cell(row, last_col),
                                 cell(row, first_col))
                 if key:
-                    people.add(key)
+                    people[key] = {'course': cell(row, course_col),
+                                   'gwa': cell(row, gwa_col),
+                                   'tier': _tier_word(cell(row, tier_col))}
             return people
         except Exception:
             logger.exception('analytics: could not read rollover sheet for %s %s',
                              stype, label)
-            return set()
+            return {}
 
-    def _scholars_in(stype, label):
-        people = set()
+    def _tier_word(text):
+        lowered = str(text or '').lower()
+        if 'full' in lowered:
+            return 'Full'
+        if 'half' in lowered or 'partial' in lowered:
+            return 'Half'
+        return ''
+
+    def _scholar_details(stype, label):
+        people = {}
 
         if label == active_label:
             if stype in ('Affirmative', 'Staff'):
                 from .models import AffirmativeStaffApplication
                 for r in AffirmativeStaffApplication.objects.filter(
                     status='Approved', qualified_for=stype
-                ).values('enrollment__student_id', 'full_name'):
+                ).values('enrollment__student_id', 'full_name',
+                         'enrollment__course'):
                     parts = (r['full_name'] or '').split()
-                    people.add(_identity(r['enrollment__student_id'],
-                                         parts[-1] if parts else '',
-                                         parts[0] if len(parts) > 1 else ''))
+                    key = _identity(r['enrollment__student_id'],
+                                    parts[-1] if parts else '',
+                                    parts[0] if len(parts) > 1 else '')
+                    people[key] = {'course': r['enrollment__course'],
+                                   'gwa': None, 'tier': ''}
             else:
                 for r in Application.objects.filter(
                     status='Approved', scholarship__type=stype
                 ).values('student__student_id', 'student__user__last_name',
-                         'student__user__first_name'):
-                    people.add(_identity(r['student__student_id'],
-                                         r['student__user__last_name'],
-                                         r['student__user__first_name']))
+                         'student__user__first_name',
+                         'student__enrollment__course',
+                         'student__enrollment__gwa',
+                         'form_data', 'scholarship__name'):
+                    key = _identity(r['student__student_id'],
+                                    r['student__user__last_name'],
+                                    r['student__user__first_name'])
+                    declared = (r['form_data'] or {}).get('scholar_type') or ''
+                    people[key] = {'course': r['student__enrollment__course'],
+                                   'gwa': r['student__enrollment__gwa'],
+                                   'tier': _tier_word(declared)
+                                           or _tier_word(r['scholarship__name'])}
             rows = _imported_current(stype)
         else:
             rows = ImportedScholar.objects.filter(
                 scholarship_type=stype, term_label=label)
 
-        for r in rows.values('student_id', 'last_name', 'first_name'):
-            people.add(_identity(r['student_id'], r['last_name'], r['first_name']))
+        for r in rows.values('student_id', 'last_name', 'first_name',
+                             'course', 'gwa', 'award_tier'):
+            key = _identity(r['student_id'], r['last_name'], r['first_name'])
+            people[key] = {'course': r['course'], 'gwa': r['gwa'],
+                           'tier': _tier_word(r['award_tier'])}
 
-        people.discard(None)
-        return people or _identities_from_sheet(stype, label)
+        people.pop(None, None)
+        return people or _details_from_sheet(stype, label)
 
-    year_people = {}
-    for d in trend_data:
-        people = year_people.setdefault(d['sy'], set())
-        for t in series_types:
-            people |= _scholars_in(t, d['label'])
-    year_dist = [{'year': sy, 'scholars': len(people)}
-                 for sy, people in sorted(year_people.items())]
+    def _people_across(stype, labels):
+        merged = {}
+        for label in labels:
+            for key, row in _scholar_details(stype, label).items():
+                if key in merged and not (row.get('course') or row.get('gwa')):
+                    continue
+                merged[key] = row
+        return merged
+
+    if whole_year:
+        rollover_counts = {t: len(_people_across(t, term_labels))
+                           for t in ALL_TYPES}
+
+        if selected_type and selected_type in ALL_TYPES:
+            year_people_by_type = {selected_type: _people_across(selected_type, term_labels)}
+        else:
+            year_people_by_type = {t: _people_across(t, term_labels) for t in ALL_TYPES}
+
+        raw = defaultdict(int)
+        for rows in year_people_by_type.values():
+            for row in rows.values():
+                raw[str(row.get('course') or 'Unknown').strip() or 'Unknown'] += 1
+        course_dist = [{'course': k, 'scholars': v}
+                       for k, v in sorted(raw.items(), key=lambda x: -x[1])]
+
+        if include_gwa:
+            buckets = _banded(row.get('gwa') for row
+                              in _people_across('Academic', term_labels).values())
+            buckets = buckets or {band: 0 for band in GWA_BANDS}
+            gpa_ranges = [{'range': k, 'count': v} for k, v in buckets.items()]
+
+    def _label_sort_key(lbl):
+        try:
+            yy, s = lbl.split('-')
+            return int(yy) * 10 + int(s)
+        except Exception:
+            return 0
+
+    every_label = sorted(set(all_labels), key=_label_sort_key)
+    trend_year_labels = [lbl for lbl in every_label
+                         if SystemSettings.parse_label(lbl)['sy'] == selected_sy]
+    trend_labels_sorted = every_label
+
+    def _as_number(value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _subtype(stype, row):
+        if stype == 'Academic':
+            from .constants import academic_classification
+            label = academic_classification(_as_number(row.get('gwa')))
+            return label if label in ('University Scholar', 'College Scholar') else ''
+        if stype == 'CHED':
+            return {'Full': 'Full Merit', 'Half': 'Half Merit'}.get(
+                (row.get('tier') or '').strip(), '')
+        return ''
+
+    def _series_name(stype, sub):
+        return f'{stype} — {sub}' if sub else stype
+
+    def _trend_counts(stype, label):
+        rows = _scholar_details(stype, label)
+        if rows:
+            buckets = {}
+            for row in rows.values():
+                name = _series_name(stype, _subtype(stype, row))
+                buckets[name] = buckets.get(name, 0) + 1
+            return buckets
+        record = ScholarListImport.objects.filter(
+            scholarship_type=stype, term_label=label).first()
+        total = record.scholar_count if record else 0
+        return {stype: total} if total else {}
+
+    if selected_type and selected_type in ALL_TYPES:
+        trend_types = [selected_type]
+    else:
+        trend_types = ALL_TYPES
+
+    trend_data = []
+    for lbl in trend_labels_sorted:
+        parsed = SystemSettings.parse_label(lbl)
+        counts = {}
+        for t in trend_types:
+            for name, value in _trend_counts(t, lbl).items():
+                counts[name] = counts.get(name, 0) + value
+        trend_data.append({
+            'label': lbl,
+            'sy': parsed['sy'],
+            'display': f"{parsed['sy']} — {parsed['semester']}",
+            'total': sum(counts.values()),
+            'counts': counts,
+            'per_type': {t: c for t, c in counts.items() if c},
+        })
+
+    for stype in trend_types:
+        split = {name for d in trend_data for name in d['counts']
+                 if name.startswith(f'{stype} — ')}
+        if not split:
+            continue
+        renamed = f'{stype} — Level not recorded'
+        for entry in trend_data:
+            if stype in entry['counts']:
+                entry['counts'][renamed] = entry['counts'].pop(stype)
+                entry['per_type'] = {k: v for k, v in entry['counts'].items() if v}
+
+    series_names = []
+    for t in trend_types:
+        for name in sorted({name for d in trend_data for name in d['counts']
+                            if name == t or name.startswith(f'{t} — ')}):
+            if name not in series_names and any(d['counts'].get(name)
+                                                for d in trend_data):
+                series_names.append(name)
+
+    if selected_type and selected_type in ALL_TYPES and not series_names:
+        series_names = [selected_type]
+
+    trend_series = [
+        {'type': name, 'counts': [d['counts'].get(name, 0) for d in trend_data]}
+        for name in series_names
+    ]
+    series_types = [t for t in trend_types
+                    if any(name == t or name.startswith(f'{t} — ')
+                           for name in series_names)]
+
+    course_chart_height = max(420, 150 + len(course_dist) * 34)
+    trend_chart_height = max(420, 250 + len(trend_series) * 26)
 
     show_program = bool(course_dist) if selected_type else any(rollover_counts.values())
     show_gwa = (
@@ -3330,26 +3518,83 @@ def _analytics_context(request, all_types, include_gwa=True):
         and any(g['count'] for g in gpa_ranges)
     )
     show_trend = len(trend_data) > 1 and any(any(s['counts']) for s in trend_series)
-    show_years = any(y['scholars'] for y in year_dist)
 
     return {
         'rollover_counts': rollover_counts,
         'all_types': ALL_TYPES,
         'course_dist': course_dist,
+        'course_chart_height': course_chart_height,
+        'trend_chart_height': trend_chart_height,
         'gpa_ranges': gpa_ranges,
         'show_program': show_program,
         'show_gwa': show_gwa,
         'show_trend': show_trend,
-        'show_years': show_years,
         'all_sy_display': all_sy_display,
+        'sy_groups': sy_groups,
+        'whole_year': whole_year,
+        'term_labels': term_labels,
         'selected_sy': selected_label,
         'selected_type': selected_type,
         'selected_sy_display': f"{selected_sy} — {selected_semester}",
         'active_sy': active_label,
         'trend_data': trend_data,
         'trend_series': trend_series,
-        'year_dist': year_dist,
+        'trend_year_labels': trend_year_labels,
+        'selected_academic_year': selected_sy,
+        'selected_term_display': f'{selected_sy} {selected_semester}',
     }
+
+
+def _analytics_data_version():
+    from django.db.models import Count, Max
+
+    from .models import ImportedScholar, ScholarListImport
+
+    sheets = ScholarListImport.objects.aggregate(n=Count('id'), last=Max('created_at'))
+    scholars = ImportedScholar.objects.aggregate(n=Count('id'))
+    approved = Application.objects.filter(status='Approved').count()
+    staff = AffirmativeStaffApplication.objects.filter(status='Approved').count()
+    marker = sheets['last'].timestamp() if sheets['last'] else 0
+    return f"{sheets['n']}:{marker}:{scholars['n']}:{approved}:{staff}"
+
+
+def _analytics_context(request, all_types, include_gwa=True):
+    import hashlib
+
+    from django.conf import settings as django_settings
+    from django.core.cache import cache
+    from django.utils import timezone
+
+    from .models import SystemSettings
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    seed = '|'.join((
+        settings_obj.academic_year,
+        request.GET.get('sy', ''),
+        request.GET.get('stype', ''),
+        str(int(bool(include_gwa))),
+        str(len(all_types)),
+        _analytics_data_version(),
+    ))
+    key = 'analytics:' + hashlib.sha1(seed.encode('utf-8')).hexdigest()
+
+    fresh = request.GET.get('refresh') == '1'
+    cached = None if fresh else cache.get(key)
+
+    if cached is None:
+        context = _build_analytics_context(request, all_types, include_gwa)
+        context['analytics_generated'] = timezone.now()
+        cache.set(key, context, django_settings.ANALYTICS_CACHE_SECONDS)
+        context = dict(context)
+        context['analytics_cached'] = False
+    else:
+        context = dict(cached)
+        context['analytics_cached'] = True
+
+    query = request.GET.copy()
+    query['refresh'] = '1'
+    context['analytics_refresh_url'] = '?' + query.urlencode()
+    return context
 
 
 @_vpsea_required
@@ -4015,27 +4260,54 @@ def vpsea_accounts(request):
 
 @_vpsea_required
 def vpsea_profile(request):
+    from . import email_verify
+    from .models import ActivityLog
+
     user = request.user
     errors = []
-    saved = password_changed = False
+    saved = password_changed = email_changed = False
 
     if request.method == 'POST':
         wanted_password = bool(request.POST.get('new_password') or
                                request.POST.get('current_password'))
-        errors = _change_own_password(request, user)
+        old_email = user.email
+        new_email = (request.POST.get('email') or old_email).strip()
+        wanted_email = new_email.lower() != old_email.lower()
+        if wanted_email:
+            problem = email_verify.address_error(new_email)
+            if problem:
+                errors.append(problem)
+            elif len(new_email) > 150:
+                errors.append('That email address is too long to sign in with. '
+                              'Keep it under 150 characters.')
+            elif User.objects.filter(email__iexact=new_email).exclude(pk=user.pk).exists():
+                errors.append(f'{new_email} already signs another account in. '
+                              'Two accounts cannot share an address.')
+        if not errors:
+            errors = _change_own_password(request, user)
         if not errors:
             user.first_name = (request.POST.get('first_name') or user.first_name).strip()
             user.last_name = (request.POST.get('last_name') or user.last_name).strip()
+            user.email = new_email
+            user.username = new_email
             if request.FILES.get('photo'):
                 user.photo = request.FILES['photo']
-            user.save(update_fields=['first_name', 'last_name', 'photo'])
+            user.save(update_fields=['first_name', 'last_name', 'email',
+                                     'username', 'photo'])
+            if wanted_email:
+                ActivityLog.objects.create(
+                    user=user,
+                    action=f'Changed their own sign-in email from {old_email} '
+                           f'to {new_email}')
             saved = True
             password_changed = wanted_password
+            email_changed = wanted_email
 
     return render(request, 'vpsea/profile.html', {
         'active': 'profile',
         'saved': saved,
         'password_changed': password_changed,
+        'email_changed': email_changed,
         'errors': errors,
     })
 

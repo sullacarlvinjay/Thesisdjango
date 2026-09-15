@@ -730,6 +730,8 @@ class Scholarship(models.Model):
         null=True, blank=True,
         help_text='How many days renewals stay open, counting the first.')
 
+    updated_at = models.DateTimeField(auto_now=True)
+
     table_columns = models.JSONField(
         default=list, blank=True,
         help_text='Column keys from api/scholar_columns.COLUMNS. Empty means the default set.')
@@ -897,6 +899,69 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.title
+
+
+SIGNUP_KINDS = (
+    ('alert', 'Scholarship alerts'),
+    ('registration', 'Registration'),
+)
+
+
+class SignupSource(models.Model):
+    email = models.EmailField()
+    kind = models.CharField(max_length=20, choices=SIGNUP_KINDS, default='alert')
+    is_active = models.BooleanField(default=True)
+
+    utm_source = models.CharField(max_length=120, blank=True)
+    utm_medium = models.CharField(max_length=120, blank=True)
+    utm_campaign = models.CharField(max_length=120, blank=True)
+    utm_term = models.CharField(max_length=120, blank=True)
+    utm_content = models.CharField(max_length=120, blank=True)
+    referrer = models.CharField(max_length=200, blank=True)
+    landed_on = models.CharField(max_length=200, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('email', 'kind')
+
+    def __str__(self):
+        return f'{self.email} ({self.get_kind_display()})'
+
+    @property
+    def campaign_label(self):
+        parts = [self.utm_source, self.utm_medium, self.utm_campaign]
+        return ' / '.join(p for p in parts if p) or 'direct'
+
+    @classmethod
+    def record(cls, email, kind, payload):
+        email = (email or '').strip().lower()
+        if not email:
+            return None
+        data = payload if isinstance(payload, dict) else {}
+        fields = {
+            name: str(data.get(name) or '')[:120]
+            for name in ('utm_source', 'utm_medium', 'utm_campaign',
+                         'utm_term', 'utm_content')
+        }
+        fields['referrer'] = str(data.get('referrer') or '')[:200]
+        fields['landed_on'] = str(data.get('landed_on') or '')[:200]
+        fields['is_active'] = True
+        row, created = cls.objects.get_or_create(
+            email=email, kind=kind, defaults=fields)
+        if not created:
+            changed = ['is_active']
+            row.is_active = True
+            for name, value in fields.items():
+                if name == 'is_active':
+                    continue
+                if value and getattr(row, name) != value:
+                    setattr(row, name, value)
+                    changed.append(name)
+            row.save(update_fields=changed + ['updated_at'])
+        return row
 
 
 class ImportedScholar(PhilippineAddress):

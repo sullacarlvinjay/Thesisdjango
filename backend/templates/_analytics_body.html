@@ -1,18 +1,22 @@
 <div class="space-y-6">
   <div class="card p-4 flex flex-wrap items-center gap-4">
     <span class="text-sm font-medium" style="color:#374151;">Viewing: <strong>{{ selected_sy_display }}</strong></span>
-    <form method="get" class="flex flex-wrap items-center gap-3 ml-auto">
+    <form method="get" class="flex flex-wrap items-center gap-3 ml-auto" data-auto-submit>
       <div class="flex items-center gap-2">
-        <label class="text-sm" style="color:#6b7a99;">Semester:</label>
-        <select name="sy" onchange="this.form.submit()" class="select-inline">
-          {% for lbl, display in all_sy_display %}
-          <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ display }}</option>
+        <label class="text-sm" style="color:#6b7a99;">Period:</label>
+        <select name="sy" class="select-inline">
+          {% for group in sy_groups %}
+          <optgroup label="{{ group.sy }}">
+            {% for lbl, display in group.options %}
+            <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ display }}</option>
+            {% endfor %}
+          </optgroup>
           {% endfor %}
         </select>
       </div>
       <div class="flex items-center gap-2">
         <label class="text-sm" style="color:#6b7a99;">Program:</label>
-        <select name="stype" onchange="this.form.submit()" class="select-inline">
+        <select name="stype" class="select-inline">
           <option value="" {% if not selected_type %}selected{% endif %}>All Programs</option>
           {% for t in all_types %}
           <option value="{{ t }}" {% if t == selected_type %}selected{% endif %}>{{ t }}</option>
@@ -20,104 +24,80 @@
         </select>
       </div>
     </form>
+    {% if analytics_generated %}
+    <p class="stamp w-full" data-print-hide>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Figures worked out <time datetime="{{ analytics_generated|date:'c' }}">{{ analytics_generated|date:'j M Y, g:i a' }}</time>{% if analytics_cached %} · served from cache{% endif %}
+      <a href="{{ analytics_refresh_url }}" class="pill-btn" data-loading data-busy-text="Recalculating…">Recalculate now</a>
+    </p>
+    {% endif %}
   </div>
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
       <div>
-        <h3 class="font-semibold">Scholars Over Time</h3>
-        <p class="text-xs mt-0.5" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one line per scholarship program{% endif %}</p>
+        <h3 class="font-semibold">Scholars by Semester <span data-trend-scope>&mdash; {% if whole_year %}{{ selected_academic_year }}{% else %}{{ selected_term_display }}{% endif %}</span></h3>
+        <p class="text-xs mt-0.5" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one bar per scholarship program and award level{% endif %}</p>
       </div>
       <div class="flex items-center gap-2">
-        {% if show_trend %}<div class="flex gap-1" id="trendChartToggle"></div>
-        <button type="button" class="chart-toggle-btn chart-png-btn" data-png="trendChart" data-png-name="scholars-over-time">&#8681; PNG</button>
+        {% if show_trend %}
+        <label class="trend-count" for="trendCount" hidden>
+          <span>Show</span>
+          <select id="trendCount" class="select-inline">
+            <option value="4">Last 4 semesters</option>
+            <option value="6">Last 6 semesters</option>
+            <option value="8" selected>Last 8 semesters</option>
+            <option value="12">Last 12 semesters</option>
+            <option value="0">Every semester</option>
+          </select>
+        </label>
+        <div class="chart-tabs" id="trendChartToggle"></div>
+        <button type="button" class="chart-toggle-btn chart-png-btn" data-png="trendChart" data-png-name="scholars-by-semester">&#8681; PNG</button>
         {% endif %}
       </div>
     </div>
     {% if show_trend %}
-    <canvas id="trendChart" height="80"></canvas>
+    <figure class="xl-figure">
+      <canvas id="trendChart" width="900" height="{{ trend_chart_height }}"></canvas>
+      <figcaption class="xl-figure__caption" data-figure>Scholars enrolled per semester{% if selected_type %}, {{ selected_type }} program{% endif %} — <span data-trend-range>{% if whole_year %}{{ selected_academic_year }}{% else %}{{ selected_term_display }}{% endif %}</span></figcaption>
+    </figure>
     {% elif trend_data|length > 1 %}
     <p class="chart-empty mt-4">No scholars on record in any semester for this selection.</p>
     {% else %}
     <p class="chart-empty mt-4">Not enough semester data yet to show a trend. Import at least two semesters of rollover records.</p>
     {% endif %}
   </div>
+  {% if show_gwa %}
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-      {% if selected_type %}
-      <h3 class="font-semibold">{{ selected_type }} — Scholar Distribution by Course</h3>
-      {% else %}
-      <h3 class="font-semibold">Scholars per Scholarship Program</h3>
-      {% endif %}
+      <h3 class="font-semibold">GWA Distribution</h3>
       <div class="flex items-center gap-2">
-        {% if show_program %}
-        <div class="flex gap-1" id="programChartToggle"></div>
-        <button type="button" class="chart-toggle-btn chart-png-btn" data-png="programChart" data-png-name="scholars-per-program">&#8681; PNG</button>
-        {% endif %}
+        <div class="chart-tabs" id="gwaChartToggle"></div>
+        <button type="button" class="chart-toggle-btn chart-png-btn" data-png="gwaChart" data-png-name="gwa-distribution">&#8681; PNG</button>
       </div>
     </div>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Based on rollover list{% if not selected_type %}s{% endif %} for {{ selected_sy_display }}</p>
-    {% if not show_program %}
-    <p class="chart-empty">No scholars on record for this selection.</p>
-    {% elif selected_type %}
-    <div style="max-width:420px;margin:0 auto;">
-      <canvas id="programChart"></canvas>
-    </div>
-    {% else %}
-    <canvas id="programChart" height="90"></canvas>
-    {% endif %}
+    <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
+    <figure class="xl-figure">
+      <canvas id="gwaChart" width="600" height="420"></canvas>
+      <figcaption class="xl-figure__caption" data-figure>General weighted average of academic scholars — {{ selected_sy_display }}</figcaption>
+    </figure>
   </div>
-  <div class="grid lg:grid-cols-2 gap-6">
-    {% if show_gwa %}
-    <div class="card p-6">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h3 class="font-semibold">GWA Distribution</h3>
-        <div class="flex items-center gap-2">
-          <div class="flex gap-1" id="gwaChartToggle"></div>
-          <button type="button" class="chart-toggle-btn chart-png-btn" data-png="gwaChart" data-png-name="gwa-distribution">&#8681; PNG</button>
-        </div>
+  {% endif %}
+  <div class="card p-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+      <h3 class="font-semibold">{% if selected_type %}{{ selected_type }} — Scholar Distribution by Course{% else %}Scholars by Course{% endif %}</h3>
+      <div class="flex items-center gap-2">
+        {% if course_dist %}<div class="chart-tabs" id="courseChartToggle"></div>{% endif %}
+        {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-course">&#8681; PNG</button>{% endif %}
       </div>
-      <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
-      <canvas id="gwaChart" height="180"></canvas>
     </div>
+    <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
+    {% if course_dist %}
+    <figure class="xl-figure">
+      <canvas id="courseChart" width="900" height="{{ course_chart_height }}"></canvas>
+      <figcaption class="xl-figure__caption" data-figure>Scholars by course{% if selected_type %}, {{ selected_type }} program{% endif %} — {{ selected_sy_display }}</figcaption>
+    </figure>
+    {% else %}
+    <p class="chart-empty">No rollover data available for this selection.</p>
     {% endif %}
-    <div class="card p-6">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h3 class="font-semibold">Number of Scholars per Academic Year</h3>
-        <div class="flex items-center gap-2">
-          {% if show_years %}<div class="flex gap-1" id="yearChartToggle"></div>
-          <button type="button" class="chart-toggle-btn chart-png-btn" data-png="yearChart" data-png-name="scholars-per-academic-year">&#8681; PNG</button>
-          {% endif %}
-        </div>
-      </div>
-      <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — each scholar counted once per year, however many semesters{% if not selected_type %} or programmes{% endif %} they are on</p>
-      {% if show_years %}
-      <canvas id="yearChart" height="180"></canvas>
-      <table class="year-tally">
-        <thead><tr><th>Academic Year</th><th>Scholars</th></tr></thead>
-        <tbody>
-          {% for y in year_dist %}
-          <tr><td>{{ y.year }}</td><td class="year-tally__count">{{ y.scholars }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="chart-empty">No scholars on record in any academic year for this selection.</p>
-      {% endif %}
-    </div>
-    <div class="card p-6">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h3 class="font-semibold">Scholars by Course</h3>
-        <div class="flex items-center gap-2">
-          {% if course_dist %}<div class="flex gap-1" id="courseChartToggle"></div>{% endif %}
-          {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-course">&#8681; PNG</button>{% endif %}
-        </div>
-      </div>
-      <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
-      {% if course_dist %}
-      <canvas id="courseChart" height="180"></canvas>
-      {% else %}
-      <p class="chart-empty">No rollover data available for this selection.</p>
-      {% endif %}
-    </div>
   </div>
 </div>

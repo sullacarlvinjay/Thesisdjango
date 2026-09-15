@@ -3017,3 +3017,517 @@ preview would otherwise have closed the record underneath it as well.
 See `api/test_account_verification.py`,
 `TheDecidedListShowsTheWholeRecordTest` and
 `TheDecidedRecordShowsWhatBecameOfADeclarationTest`.
+
+---
+
+## The yellow was lightened one step
+
+`--accent` went from **#fde607** to **#fdea2b**, and its pressed partner
+`--accent-strong` from **#e2ce00** to **#f2d900**. Same hue and saturation, about
+seven points more lightness. Asked for directly — "can lighten up the yellow as
+well only a little bit" — so the yellow the system paints is now a shade off the
+**#fde607** the brand spec names. If the spec value has to come back, those two
+tokens plus `--sidebar-hover` and `--sidebar-hover-bg` in `static/css/srms.css`
+are the whole change; nothing else names the colour.
+
+---
+
+## Buttons and dropdowns say when they are working
+
+Nothing on the site acknowledged a click. A form submit, a filter dropdown and a
+page link all sat there looking idle while the server worked, and the only cure
+people have for that is to click again.
+
+`static/js/loading.js` binds three delegated listeners and owns every busy state:
+
+- **submit** — the button that submitted gets `.is-busy`, which spins a ring
+  built from `currentColor` so it works on every button variant, and the form is
+  flagged `aria-busy`. A second submit while the first is in flight is dropped.
+- **change** — a `select` inside `form[data-auto-submit]` is dimmed and a
+  `.control-spinner` is inserted next to it, because a dropdown that reloads the
+  page is the one control here with no other way to show it heard you.
+- **click** — links marked `data-loading` (the analytics *Recalculate now*
+  link, for one) go busy the same way.
+
+All three start a `.route-progress` sweep across the top of the window, which is
+the only signal that survives a slow server response.
+
+**The busy button is never `disabled`.** Setting `disabled` inside a submit
+handler drops that button's name and value out of the POST, and several views
+here branch on exactly that. `.is-busy` takes `pointer-events: none` instead and
+a flag on the form blocks a keyboard re-submit. There is a test that greps
+`loading.js` for `disabled = true` so this cannot creep back.
+
+Everything is released on `pageshow`, so a back-button restore from the bfcache
+does not land on a page frozen mid-spin, and a 20-second failsafe clears it if a
+navigation is abandoned.
+
+---
+
+## The furniture that makes a site feel finished
+
+Audited against a list of twenty. Seven were already here — dark mode, the
+sticky header, the mobile drawer, hover states, confirmation modals, real
+branded error pages and the per-table filters. What was missing:
+
+**Skip-to-content**, **scroll progress**, **back to top**, **copy to
+clipboard** and the **password eye** are in `static/js/chrome.js`. The password
+toggle is not wired per-field: it finds every `input[type=password]` on the page,
+wraps it and adds the button, with a MutationObserver for fields that appear
+later. Thirteen password inputs across nine templates got the control without any
+of those templates changing, and the next one will too.
+
+**Search** is one declarative helper, `static/js/search.js`: an input carrying
+`data-search="<selector>"` filters whatever that selector matches, hides
+`[data-search-section]` wrappers that empty out, and fills a count and a
+no-results line. It drives the scholarship-card search on the landing page and
+the *Find a page* box over the sidebar, which is worth having now the SDSO nav
+runs to eleven entries. `/` focuses the first one.
+
+**The cookie notice** says what is true: session and CSRF cookies only, nothing
+to opt out of, so it is an acknowledgement and not a consent gate. Dismissal is
+remembered in `localStorage`, not in a cookie.
+
+**UTM tracking** is captured by `static/js/consent.js` into `sessionStorage`,
+stripped back out of the visible URL with `replaceState`, and stamped into any
+`form[data-utm]` as a hidden `utm_payload`. The server reads it on the alerts
+signup and on registration and writes a `SignupSource` row, so where an applicant
+came from is a queryable record rather than a number in somebody else's
+dashboard. The payload is dropped if it is over 2 KB or not a JSON object.
+
+**The FAQ and the floating contact button** are on the landing page. The contact
+button opens `mailto:` only when `SUPPORT_EMAIL` is set in the environment;
+with nothing configured it links to the FAQ rather than inventing an address.
+The FAQ answers what the code actually does — confirm your email, wait for SDSO
+verification, external programmes are decided by their agency — and nothing about
+any programme's policy.
+
+**Scholarship alerts** replace the usual newsletter box with something the office
+can act on: an email address, kept in `SignupSource` with `kind='alert'`, for
+people who want to be told when a window opens but are not ready to register. It
+posts to `/` — no new route, no new tab — and is readable in Django admin.
+
+**The print stylesheet** strips the sidebar, the header chrome, every toggle and
+both floating buttons, flattens cards and tables to rules, and prints the target
+of an external link after it. A page of the archive now prints as a document
+instead of as a screenshot of an app.
+
+**Last-updated stamps.** `Scholarship.updated_at` is new; the landing page footer
+carries it, and the analytics page says when its figures were worked out and
+whether they came from cache.
+
+---
+
+## Caching, and the one page that needed it
+
+`_analytics_context` reads rollover workbooks out of storage — in production that
+is a round trip to S3 per programme per semester, on every filter change. It is
+now cached under a key that includes the selected semester and programme *and* a
+data version built from four counts and the newest import timestamp, so an
+approval or a fresh upload invalidates it without anyone remembering to. A
+**Recalculate now** link forces a rebuild, and the page says which it is showing.
+
+The landing catalogue is cached the same way, keyed on the row count and the
+newest `updated_at`, so editing or retiring a programme shows up on the next
+request.
+
+The backend is Redis when `REDIS_URL` is set and per-process LocMem otherwise.
+**Under the test runner it is `DummyCache`** — the cache is keyed on data, but
+two tests can still build data that hashes the same way, and thirteen analytics
+tests failed exactly like that before the bypass went in.
+
+`ConditionalGetMiddleware` was added for ETag/304 handling on top.
+
+---
+
+## Analytics figures are drawn the way the thesis draws them
+
+The charts were a modern dashboard — rounded bars, a blue-violet palette,
+gridlines both ways. The figures in the thesis document are Excel's, so a
+screenshot of this page never sat right next to them.
+
+`static/js/excel-charts.js` is a Chart.js plugin plus an options builder that
+reproduces the spreadsheet look: the Office series palette (#4472C4, #ED7D31,
+#A5A5A5, #FFC000 …), square bars at 74% category width, horizontal gridlines
+only, round axis ticks, a centred grey title and the legend on the right.
+
+The part that matters is the **data table under the plot, with legend keys** —
+the colour swatch, the series name and one column of values per category, drawn
+inside the canvas so it aligns exactly with the bars and so **the PNG export
+carries it**. That export is the point: these figures are meant to be dropped
+into the document. Columns come from the x scale, and the label column reserves
+its width from the measured series names, so nothing is cut to "Univ…".
+
+The table is skipped where it would be nonsense or unreadable: pie and doughnut,
+horizontal bars, more than fourteen categories, more than seven series, or
+columns narrower than 34px.
+
+**The figure plate stays white in dark mode.** A figure exported from a dark page
+would be light text on the white background `downloadChart` paints behind it.
+`.xl-figure` is a white plate in both themes, which also reads as what it is — a
+document figure sitting on the page. Captions are numbered *Figure 1…n* in
+document order by script, since which cards render depends on the data.
+
+---
+
+## The Dashboard sits at the top of every sidebar
+
+The office nav was alphabetical, which put **Account Verification** first and buried
+the Dashboard in fifth place — the one page every session starts on. Dashboard is
+now the first entry in `vpsea/_nav.html` and `nsu_staff/_nav.html`; `partner/_nav.html`
+already had it there and the student portal has no dashboard to move (its home is
+My Applications). The rest of each list keeps its alphabetical order.
+
+A test walks every `_nav.html` that has a home link and fails if it is not the first
+`sidebar-link` in the file, plus a second one that lists the eleven office pages so
+moving a line can never quietly drop one.
+
+---
+
+## Analytics can be asked for a whole year instead of a semester
+
+The period dropdown only ever offered single terms — `2025-2026 — 1st Semester`,
+`2025-2026 — 2nd Semester` — with no way to ask "how did 2025-2026 go". It is now
+grouped by academic year, and any year with **both** semesters on record gains a
+**Whole academic year** row above them. A year with only one term on file does not
+get the option, because there it would be the same figure twice over.
+
+The synthetic term reads `<yy>-Y` (`25-Y`). It is deliberately **not** something
+`SystemSettings.parse_label` understands — no such term exists, nothing is ever
+saved against it, and it never reaches the trend chart, which still walks the real
+semesters one by one.
+
+**A whole year is not the two semesters added up.** A scholar enrolled in both would
+be counted twice, and that number would be wrong in the direction that flatters the
+office. `_scholar_details(stype, label)` returns `{identity: {course, gwa}}` keyed on
+student number (falling back to the name when there is no number), and a whole year
+is the **union of those keys** across its terms. Head counts, the course chart and
+the GWA bands are all built from that one merged set, so they agree with each other.
+Where a scholar's course changed between semesters the later row wins.
+
+`_scholars_in`, which `year_dist` already used, is now `set(_scholar_details(...))` —
+same identities, read once. Single-semester figures go down exactly the code path
+they always did; the whole-year branch is additive and only runs when a `-Y` term is
+selected. Ten tests cover it, including the one that matters: the same student on
+both semesters is one scholar, not two.
+
+---
+
+## Every chart carries its numbers, whatever shape it is
+
+The data table only knew how to draw one layout — categories as columns under an
+upright bar chart. So **Scholars by Course**, which is sideways, had no table at all,
+and neither did any chart toggled to pie or doughnut. The plugin now picks a layout
+from the chart rather than refusing:
+
+- **`columns`** — upright bars and lines, unchanged: a row per series, a column per
+  category, aligned to the bars.
+- **`rows`** — sideways bars. The table sits in the left margin with one row per
+  category, each **aligned to its own bar**, headed `Course | Scholars`. Long course
+  names get the room they need, capped at a third of the chart width.
+- **`list`** — pie and doughnut. A table under the plot: swatch, label, count and
+  **share of the total**, which is the number a pie is actually being read for.
+
+Scholars by Course moved out of the two-column grid to full width, because a sideways
+chart with a table beside it has no business in half a card.
+
+**Pies are no longer forced square.** Chart.js defaults a pie to `aspectRatio: 1`, so
+adding a table under one made the figure enormous — 891px tall for a 520px canvas.
+Pies now take `aspectRatio: 1.6` and the table fits inside the canvas, which is what
+makes it come out in the PNG.
+
+---
+
+## The chart tabs are coloured
+
+The Bar / Line / Pie / Doughnut toggles were four identical grey outlines. They are
+now a rounded pill strip where each tab owns a colour — violet, teal, pink, orange —
+carried in its text at rest and filled solid when active, with a soft shadow in its
+own hue. Dark mode lightens the ink rather than leaving it unreadable on the dark
+panel.
+
+**The chart series themselves were left on the Office palette.** #4472C4 and #ED7D31
+are what make these figures match the ones already in the document; brightening them
+would undo the thing they were matched to on purpose.
+
+---
+
+## The analytics cache key is hashed
+
+The key was assembled from the selected term and programme verbatim, so
+`Governor's Award` put a space and an apostrophe into it and Django warned that the
+key would break under memcached. It is a SHA-1 of the same seed now. Nothing about
+what invalidates the cache changed.
+
+---
+
+## The SDSO can change its own sign-in email
+
+My Profile showed the office's own address in a grey box under a note sending
+the reader to Account Verification, which could not do it: that page prints
+every email as plain text. A student's address can be retyped on the student
+edit form and a partner's by the SDSO, but nobody sits above the SDSO to retype
+theirs. Asked for directly — "the profile in sdso they should be all editable" —
+so the box is now a field like the two beside it.
+
+`vpsea_profile` runs the new address through `email_verify.address_error`, the
+same check registration uses, and refuses one another account already signs in
+with. It writes **both `email` and `username`**: `username` is the column with
+the unique index behind it, and leaving it on the old address is how an account
+ends up signing in with an address its profile no longer shows. Over 150
+characters is refused because that is what `username` holds — Postgres raises on
+that write where the local SQLite quietly accepts it. The change goes into
+`ActivityLog` with the address it was before.
+
+**A refused address saves nothing else either**, name or password. The address
+is checked before `_change_own_password` is called, because that helper does not
+report on a password change, it performs one — call it first and a rejected
+email leaves a changed password behind it.
+
+Changing the address does not sign anyone out, here or in another tab: Django
+builds the session hash from the password, which this does not touch. The green
+notice names the new address, since that is what the next sign-in asks for.
+
+**The Office row is still fixed.** "Student Development and Services Office" is
+written into the template, and into the verification emails, the login page and
+the landing page besides. Making that box typable means a stored office name and
+all four of those reading it — a different request, and available on request.
+
+See `api/test_own_password.py`, `TheSDSOProfileTest`.
+
+---
+
+## The analytics filters stopped filtering, and why
+
+For one session the Period and Program dropdowns on `/vpsea/analytics/` did nothing.
+The spinner appeared, the bar at the top swept, and the figures never changed.
+
+The selects used to carry `onchange="this.form.submit()"`. That was taken out — it is
+an inline handler, and the loading spinner needs to see the change before the page
+goes — and replaced with `data-auto-submit` on the form. But `data-auto-submit` is
+only a marker: **`static/js/auto-submit.js` was the thing that read it, and the
+analytics page never loaded that script.** `partner/archives.html` was the only
+template that did. So the new `loading.js` dutifully marked the dropdown busy and
+started the progress bar, and nothing ever submitted the form.
+
+`loading.js` now owns the whole gesture: it marks the control busy **and submits the
+form**. `auto-submit.js` is deleted and its `<script>` tag is gone from
+`partner/archives.html`, because two scripts reading the same attribute on one page
+send the request twice.
+
+Three things it has to keep straight, all of them tested:
+
+- **`form.submit()`, not `requestSubmit()`** — the programmatic call does not fire a
+  `submit` event, so the submit handler in the same file cannot re-enter.
+- **An inline `onchange` still submits itself.** The profile photo pickers in all four
+  portals and the term select on Reports still carry `onchange="this.form.submit()"`.
+  For those `loading.js` shows the busy state and stops; if it submitted them too they
+  would fire twice.
+- **A second change while the first is in flight is dropped**, guarded by
+  `form.dataset.busy`, so a fast double-change on a slow page does not queue two loads.
+
+**The test that let this through asserted the marker, not the behaviour.** It checked
+that `data-auto-submit` was in the HTML and that the old inline handler was gone —
+both true of a page whose filters were dead. `api/test_filters_actually_filter.py`
+asserts the thing that actually matters: that the page loads a script which contains
+`form.submit()`, that exactly one script in `static/js/` submits these forms, and —
+server side — that asking for a different semester or programme comes back with
+different counts and a different course list.
+
+---
+
+## Scholars Over Time breaks a programme into its own award levels
+
+One bar per programme hid the split the office actually reports on. The trend now
+names each series by programme **and award level**:
+
+- **Academic** splits on GWA through `constants.academic_classification` —
+  `Academic — University Scholar` (≤ 1.29) and `Academic — College Scholar` (≤ 1.50).
+  Those are the same two lines the thesis figure carries.
+- **CHED** splits on the award tier — `CHED — Full Merit` and `CHED — Half Merit`,
+  read from `ImportedScholar.award_tier`, from an application's
+  `form_data['scholar_type']`, or from the scholarship name, in that order.
+- Anything with no level stays one series under its own name, and a scholar with no
+  GWA on file stays under plain `Academic` rather than being guessed into a band.
+
+The counts come from `_scholar_details` now instead of a bare `.count()`, so they are
+**de-duplicated by student** the same way the whole-year figures are, and the two
+charts finally agree. The sheet `scholar_count` is still the fallback when a rollover
+sheet has no names or numbers to identify anyone by.
+
+---
+
+## Scholars Over Time follows the period you picked
+
+It ignored the Period dropdown entirely — every semester on record, always. It now
+shows **the semesters of the selected academic year**, whether you picked the whole
+year or one of its terms. A year with only one semester on file has no trend to draw,
+so it falls back to the full history; `trend_scoped` in the context says which of the
+two you are looking at.
+
+**Scholars per Academic Year still walks every year**, because narrowing that one to
+a single year would leave a chart with one bar. It reads from the full label list
+rather than from `trend_data`, which is why the two can now disagree on range.
+
+---
+
+## Every chart keeps its numbers, and the legend stopped being cut
+
+Three separate complaints, one cause: long labels.
+
+- **The legend is gone wherever the data table is drawn.** The table already carries
+  the swatch, the full name and the value — a legend beside it was the same
+  information, cut to fit. `Academic — University Scholar` and
+  `Bachelor of Science in Hotel and Restaurant Management Technology` both read in
+  full now. Where the table cannot be drawn the legend comes back, at the **bottom**
+  rather than the right, so it wraps instead of truncating.
+- **Scholars by Course keeps its table however long the list.** The row cap went from
+  16 to 30 bands, and the canvas height is worked out in the view —
+  `course_chart_height`, 150px plus 34px a course — so the bands never squeeze below
+  the minimum that makes the table legible.
+- **Course names are no longer shortened** before they reach the chart. `legendText`
+  clipped them to 26 characters for a legend that no longer exists.
+
+---
+
+## A colour per bar, and the dark blue is gone
+
+Every single-series chart painted all its bars `#4472C4`, so *Scholars per Scholarship
+Program* was seven identical dark blue columns. `ExcelChart.bars` now gives a
+single-series chart **one colour per category**, and the data table draws a matching
+chip beside each category name so the colour still means something.
+
+The palette was replaced outright — `#E8602C`, `#1FA07A`, `#7A5AF8`, `#F5B301`,
+`#E0407B`, `#22A7D0` and on — twelve distinct hues with no dark blue and no grey
+(grey reads as "no data"). **This is a deliberate step away from the Office palette**
+the figures were matched to earlier: keeping #4472C4 was incompatible with "not that
+blue". The geometry, gridlines, title and data table are unchanged, so the figures
+still read as spreadsheet figures — they are just no longer the same blue as the ones
+already in the document.
+
+---
+
+## Line charts are gone
+
+`Line` is off every toggle, and `ExcelChart.lines` is deleted rather than left as
+dead code. Scholars Over Time had only Bar and Line, so it now has one choice and its
+toggle hides itself — `makeToggle` bails below two options, because one lonely tab
+reads as a broken control.
+
+---
+
+## Scholars Over Time asks you which range you want
+
+The previous turn made the trend follow the Period dropdown automatically, falling
+back to the full history when the chosen year had only one semester on record. Two
+behaviours behind one control, and no way to ask for the other one.
+
+It is a **toggle on the chart** now — **This academic year** / **All academic years**
+— sitting where the chart-type tabs sit on the other cards. It opens on *This
+academic year*, because that is what the Period dropdown was just asked for.
+
+It switches **without reloading**. The server sends every semester it has, plus
+`trend_year_labels` marking which of them belong to the selected year, and the toggle
+slices that. Nothing is recomputed, so the two ranges cannot disagree, and the
+Period dropdown stays the one control that decides *which* year is "this" one.
+
+Series that are all zero inside the shown range are dropped, unless that would empty
+the chart — a programme you picked on purpose still draws at zero.
+
+**Scholars per Academic Year is deliberately not part of this.** It reads from the
+full label list either way; narrowing it to one year would leave a chart with one bar.
+
+---
+
+## A programme's unlevelled scholars are named, not left bare
+
+Splitting Academic by GWA left a third bucket: scholars with no GWA on file. That
+bucket was called `Academic`, which sat in the legend beside `Academic — University
+Scholar` and `Academic — College Scholar` reading like a total rather than a third
+group. It is `Academic — Level not recorded` now, and the same for CHED. A programme
+with **no** levelled scholars at all keeps its plain name — the rename only happens
+where a split actually exists, so TDP is still `TDP`.
+
+The columns data table now takes up to twelve series rather than seven, and the
+trend canvas height is worked out in the view from the series count, so the split
+series do not push the table past the bottom of the figure.
+
+---
+
+## Two charts that had become duplicates were removed
+
+**Number of Scholars per Academic Year is gone.** Once Scholars Over Time gained its
+*All academic years* range, the page answered "how many scholars per year" twice on
+the same screen, and the office read it as the same chart drawn twice.
+
+What actually went with it is worth knowing, because it was not the same number:
+that card counted **each scholar once per academic year**, de-duplicated across both
+semesters and every programme, while the trend shows **per-semester** rows split by
+programme and award level. A scholar enrolled in both semesters of 2025-2026 counted
+once there and appears in two bars here. Nothing on the page shows the de-duplicated
+per-year head count any more. The two-column tally table under the chart, which was
+where that number was readable, went with the card. Ask for it back if that figure
+matters — the identity logic it was built on (`_scholar_details`) is still there and
+still used by the whole-year period.
+
+Removing it also removed the most expensive thing the page did: a loop over every
+term × every programme resolving each scholar's identity, just to size one chart.
+
+**Scholars by Course no longer renders twice.** With a programme selected, the second
+card titled *&lt;Programme&gt; — Scholar Distribution by Course* and the last card
+titled *Scholars by Course* drew the same `course_dist` — one as a narrow pie, one as
+the full-width sideways chart. The programme card now only appears when **no**
+programme is filtered, where it shows something genuinely different (scholars per
+scholarship programme), and the course card takes the
+*&lt;Programme&gt; — Scholar Distribution by Course* title when one is.
+
+So the page is four cards with All Programs — Over Time, per Programme, GWA, by
+Course — and three with a programme selected, none of them repeating another.
+
+`api/test_analytics_year.py` was deleted with the feature. `show_years`, `year_dist`
+and the `_scholars_in` helper are gone from the context, and `.year-tally` is gone
+from the stylesheet, so nothing is left behind half-wired.
+
+---
+
+## Scholars Over Time is now Scholars by Semester, and says which one
+
+"Over Time" described a line chart that no longer exists and never said what the x
+axis was. The card is **Scholars by Semester**, and the name carries the period it is
+actually drawing:
+
+- Card heading — `Scholars by Semester — 2025-2026`, switching to
+  `Scholars by Semester — All academic years` the moment the range toggle does.
+- Chart title inside the canvas — the same, with the **programme** in front of it when
+  one is filtered: `TDP Scholars by Semester — 2025-2026`. The heading on screen
+  leaves the programme out because the Program dropdown is two inches above it; the
+  exported PNG has to carry it, because it travels on its own into a document.
+- PNG filename — `scholars-by-semester`.
+
+The year comes from the Period dropdown at the top, so the two never disagree.
+
+Note for anyone grepping: `{{ selected_academic_year|escapejs }}` writes the hyphen as
+`-`, so the page source reads `'2025-2026'`. That is correct JavaScript and
+renders as `2025-2026`; a test that looks for the year verbatim in the HTML will not
+find it. Assert the context value instead.
+
+---
+
+## The data table could collapse the chart it belonged to
+
+Reserving room for the table is done in `beforeLayout` as a share of the canvas —
+measured from the series labels for the columns table, from the category names for the
+sideways one. With long series names like `Academic — University Scholar` that came to
+about 186px, which is fine against a 900px canvas and fatal against a narrow one: the
+reserved padding exceeded the canvas, the plot area collapsed to zero width, and
+Chart.js's responsive pass shrank the canvas to 58×27 and left the figure blank.
+
+It only showed up **after a window resize**, which is why it survived the earlier
+checks — the first paint sizes the canvas from its own width and height attributes and
+has room to spare.
+
+The reservation is now clamped: never more than 40% of the width or 50% of the height
+(55% of the width for the sideways table, which is mostly table by design), and
+skipped entirely while the canvas still measures zero. When the clamp bites, the table
+simply is not drawn — the existing `MIN_COLUMN` / `MIN_BAND` guards in `afterDraw`
+already handle that — and the chart keeps its plot.

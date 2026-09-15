@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -61,6 +62,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.http.ConditionalGetMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -272,6 +274,37 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', '').strip() or (
 )
 
 SITE_URL = os.environ.get('SITE_URL', '').strip().rstrip('/')
+
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', '').strip()
+
+_RUNNING_TESTS = 'test' in sys.argv or 'pytest' in sys.modules
+
+_REDIS_URL = os.environ.get('REDIS_URL', '').strip()
+
+if _RUNNING_TESTS:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}}
+elif _REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _REDIS_URL,
+            'KEY_PREFIX': 'srms',
+            'TIMEOUT': 300,
+        },
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'srms-default',
+            'KEY_PREFIX': 'srms',
+            'TIMEOUT': 300,
+            'OPTIONS': {'MAX_ENTRIES': 1000, 'CULL_FREQUENCY': 4},
+        },
+    }
+
+CATALOGUE_CACHE_SECONDS = int(os.environ.get('CATALOGUE_CACHE_SECONDS', '300'))
+ANALYTICS_CACHE_SECONDS = int(os.environ.get('ANALYTICS_CACHE_SECONDS', '600'))
 
 
 CORS_ALLOWED_ORIGINS = _env_list(

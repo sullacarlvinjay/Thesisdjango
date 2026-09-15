@@ -87,7 +87,7 @@ class AnalyticsScriptParsesTest(TestCase):
     def test_a_programme_name_with_an_apostrophe_survives_the_round_trip(self):
         self.award(1, "Governor's Award")
         html = self.c.get('/vpsea/analytics/').content.decode()
-        self.assertIn('programChart', html)
+        self.assertIn("Governor&#x27;s Award", html)
         self.assertParses()
 
 

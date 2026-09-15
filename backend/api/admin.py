@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User, StudentProfile, StaffProfile, Scholarship, Application, ApplicationDocument,
     Notification, Announcement, ImportedScholar,
-    ActivityLog, SystemSettings,
+    ActivityLog, SystemSettings, SignupSource,
     AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, ScholarListImport,
     AffirmativeEligibility, EducationalBackground, EnrollmentData, FamilyBackground,
     PersonalInformation, SocioEconomicProfile, TESEligibility,
@@ -65,6 +65,14 @@ class AffirmativeStaffApplicationAdmin(admin.ModelAdmin):
     list_filter = ('qualified_for', 'status')
     search_fields = ('full_name', 'email')
     inlines = detail_inlines(STAFF_APPLICATION_DETAIL_MODELS)
+
+@admin.register(SignupSource)
+class SignupSourceAdmin(admin.ModelAdmin):
+    list_display = ('email', 'kind', 'campaign_label', 'is_active', 'created_at')
+    list_filter = ('kind', 'is_active', 'utm_source', 'utm_medium')
+    search_fields = ('email', 'utm_campaign', 'utm_source')
+    readonly_fields = ('created_at', 'updated_at')
+
 
 admin.site.register(AcademicRenewal)
 admin.site.register(ScholarshipLinkRequest)

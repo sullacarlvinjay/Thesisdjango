@@ -10,13 +10,19 @@
   {% load static %}
   {% load srms_text %}
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=55" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
   
   <script src="{% static 'js/theme.js' %}"></script>
   <script src="{% static 'js/skeleton.js' %}"></script>
   <script src="{% static 'js/landing.js' %}?v=4" defer></script>
+  <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
+  <script src="{% static 'js/consent.js' %}?v=1" defer></script>
+  <script src="{% static 'js/search.js' %}?v=1" defer></script>
+  <script src="{% static 'js/loading.js' %}?v=2" defer></script>
 </head>
 <body data-portal="student">
+<a href="#mainContent" class="skip-link">Skip to main content</a>
+<div class="scroll-progress" aria-hidden="true"></div>
 <div class="page-skeleton" aria-hidden="true">
   <div class="skeleton-nav">
     <div class="skeleton-nav-inner">
@@ -61,6 +67,10 @@
       {% endif %}
     </nav>
     {% endif %}
+    <button type="button" class="landing-theme" data-theme-toggle aria-pressed="false" aria-label="Switch to dark mode">
+      <svg data-theme-moon xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+      <svg data-theme-sun xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" hidden><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+    </button>
   </div>
 </nav>
 <div class="hero hero-facade hero-landing">
@@ -74,9 +84,26 @@
     </div>
   </div>
 </div>
-<div class="section-photo pt-6 pb-16">
+<main id="mainContent" class="section-photo pt-6 pb-16">
+{% if scholarships %}
+<div class="max-w-6xl mx-auto px-6 pt-10">
+  <div class="landing-toolbar" data-search-host>
+    <div class="search-box">
+      <svg class="search-box__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+      <input type="search" id="catalogueSearch" placeholder="Search scholarships by name, type or requirement" autocomplete="off"
+             aria-label="Search scholarship programs"
+             data-search="[data-scholarship]"
+             data-search-section="[data-search-section]"
+             data-search-empty="#catalogueEmpty"
+             data-search-count="#catalogueCount" />
+      <button type="button" class="search-clear" data-search-clear aria-label="Clear search" hidden>&#10005;</button>
+    </div>
+    <p id="catalogueCount" class="search-count" role="status"></p>
+  </div>
+</div>
+{% endif %}
 {% if internal %}
-<div id="internal" class="landing-section max-w-6xl mx-auto px-6 pt-12 pb-2">
+<div id="internal" class="landing-section max-w-6xl mx-auto px-6 pt-12 pb-2" data-search-section>
   <h2 class="text-2xl font-bold mb-1">Internal Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Scholarships offered directly by Biliran Province State University.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -107,7 +134,7 @@
 </div>
 {% endif %}
 {% if institutional %}
-<div class="max-w-6xl mx-auto px-6 pt-10 pb-12">
+<div class="max-w-6xl mx-auto px-6 pt-10 pb-12" data-search-section>
   <h2 class="text-2xl font-bold mb-1">Institutional Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Scholarships for BiPSU faculty, staff, and their dependents.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -138,7 +165,7 @@
 </div>
 {% endif %}
 {% if external %}
-<div id="external" class="landing-section max-w-6xl mx-auto px-6 pt-10 pb-2">
+<div id="external" class="landing-section max-w-6xl mx-auto px-6 pt-10 pb-2" data-search-section>
   <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Government and agency-funded scholarships processed externally.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -174,10 +201,94 @@
   <p class="text-sm">Please check back later.</p>
 </div>
 {% endif %}
+<div id="catalogueEmpty" class="max-w-6xl mx-auto px-6 py-14 text-center landing-empty" hidden>
+  <p class="text-lg font-medium mb-2">No scholarship matches &ldquo;<span data-search-term></span>&rdquo;.</p>
+  <p class="text-sm">Try a shorter word, or clear the search to see every program.</p>
 </div>
+<div id="help" class="max-w-4xl mx-auto px-6 pt-14 pb-2">
+  <h2 class="text-2xl font-bold mb-1">Frequently asked questions</h2>
+  <p class="text-sm mb-6 section-sub">How registration and scholarship records work in this portal.</p>
+  <div class="faq-list">
+    <details class="faq-item">
+      <summary>Who can register for an account?</summary>
+      <p class="faq-answer">BiPSU students and BiPSU faculty or staff. Students register with
+        their student ID; staff register with their employee ID and unit. Each account belongs to
+        one person and one email address.</p>
+    </details>
+    <details class="faq-item">
+      <summary>I registered. Why can I not sign in yet?</summary>
+      <p class="faq-answer">Two things have to happen first. Open the confirmation link sent to
+        the email address you registered with, then wait for the Student Development and Services
+        Office to verify the account. You will be emailed once it is approved. Until then the sign-in
+        page will tell you the account is still waiting.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Do I apply for a scholarship on this site?</summary>
+      <p class="faq-answer">For internal and institutional programs, yes — apply from your portal
+        once your account is approved. External programs are funded and decided by the agency that
+        runs them; this portal keeps the BiPSU record of who holds them.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How do I know when applications are open?</summary>
+      <p class="faq-answer">Each program has its own application window, and a closed program will
+        say so when you try to apply. Put your email in the alerts box below and you will be written
+        to when a window opens.</p>
+    </details>
+    <details class="faq-item">
+      <summary>I already hold a scholarship. Do I still register?</summary>
+      <p class="faq-answer">Yes. Declare it while registering — there is a scholarship section on
+        the form for the program, the awarding agency and your certificate. The office checks the
+        declaration and links the record to your account.</p>
+    </details>
+    <details class="faq-item">
+      <summary>What happens to the information I enter?</summary>
+      <p class="faq-answer">It becomes the scholarship record the office keeps, and it may be shared
+        with the agency funding a scholarship you are awarded. The full Terms of Use and Data Privacy
+        Notice is on the <a href="/register/">registration form</a> and you have to accept it before
+        an account is created.</p>
+    </details>
+  </div>
+</div>
+<div class="max-w-4xl mx-auto px-6 pt-10 pb-2">
+  <form class="newsletter" method="post" action="/" data-utm>
+    {% csrf_token %}
+    <p class="newsletter__title">Scholarship alerts</p>
+    <p class="newsletter__sub">Not ready to register? Leave an email address and we will write to
+      you when a scholarship program opens for applications. No other mail, and you can ask the
+      office to take you off the list at any time.</p>
+    <div class="newsletter__row">
+      <input type="email" name="alert_email" placeholder="you@example.com" required
+             autocomplete="email" aria-label="Email address for scholarship alerts"
+             value="{{ alert_email|default:'' }}" />
+      <button type="submit" class="btn btn-primary" data-busy-text="Adding you…">Notify me</button>
+    </div>
+    {% if alert_ok %}
+    <p class="newsletter__note newsletter__note--ok" role="status">{{ alert_ok }}</p>
+    {% elif alert_error %}
+    <p class="newsletter__note newsletter__note--bad" role="alert">{{ alert_error }}</p>
+    {% else %}
+    <p class="newsletter__note">We only use this address for scholarship announcements.</p>
+    {% endif %}
+  </form>
+</div>
+</main>
 <footer class="text-center py-8 text-xs site-footer">
-  © 2026 Biliran Province State University · Scholarship Records Management System
+  <p>© 2026 Biliran Province State University · Scholarship Records Management System</p>
+  {% if catalogue_updated %}
+  <p class="stamp mt-2">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    Program details last updated <time datetime="{{ catalogue_updated|date:'c' }}">{{ catalogue_updated|date:'j F Y' }}</time>
+  </p>
+  {% endif %}
 </footer>
+<button type="button" class="to-top" aria-label="Back to top">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+</button>
+<a class="fab-contact" href="{% if support_email %}mailto:{{ support_email }}?subject=SRMS%20enquiry{% else %}#help{% endif %}" title="Questions about a scholarship">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+  <span class="fab-contact__label">Need help?</span>
+</a>
+{% include '_cookie_banner.html' %}
 {% for s in scholarships %}
 <div class="modal-overlay" id="modal-{{ s.pk }}" data-modal="{{ s.pk }}">
   <div class="modal modal-sheet">

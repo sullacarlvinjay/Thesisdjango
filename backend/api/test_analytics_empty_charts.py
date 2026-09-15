@@ -47,17 +47,23 @@ class EmptyChartsTest(TestCase):
 
     def test_the_cards_are_still_there_and_say_why_they_are_empty(self):
         html = self.page().content.decode()
-        self.assertIn('Scholars per Scholarship Program', html)
-        self.assertIn('No scholars on record for this selection.', html)
+        self.assertIn('Scholars by Semester', html)
+        self.assertIn('Scholars by Course', html)
+        self.assertIn('No rollover data available for this selection.', html)
+        self.assertNotIn('Scholars per Scholarship Program', html,
+                         'that card was retired; its numbers are in the by-semester '
+                         'chart, one series per programme')
 
     def test_no_png_button_is_offered_for_a_chart_that_was_not_drawn(self):
         self.assertNotIn('data-png=', self.page().content.decode())
 
-    def test_one_scholar_is_enough_to_draw_the_programme_chart(self):
+    def test_one_scholar_is_enough_to_count_as_programme_data(self):
         self.award(1)
         r = self.page()
         self.assertTrue(r.context['show_program'])
-        self.assertIn('programChart', r.content.decode())
+        self.assertTrue(any(r.context['rollover_counts'].values()))
+        self.assertNotIn('programChart', r.content.decode(),
+                         'the per-programme chart was retired as a duplicate')
 
     def test_the_gwa_chart_waits_for_an_academic_scholar(self):
         self.award(1, 'TDP')
@@ -78,7 +84,7 @@ class EmptyChartsTest(TestCase):
                        {'stype': 'CHED'}):
             self.award(hash(str(params)) % 9000 + 100, 'Academic')
             html = self.page(**params).content.decode()
-            for canvas in ('programChart', 'gwaChart',
+            for canvas in ('gwaChart',
                            'courseChart', 'trendChart'):
                 drawn = f'id="{canvas}"' in html
                 built = f"getElementById('{canvas}')" in html

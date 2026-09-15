@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=55" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -30,7 +30,7 @@
     </div>
     {% endif %}
     
-    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm">
+    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm" data-utm>
       {% csrf_token %}
       <div class="auth-card mb-4">
         <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:var(--text-soft);">I am registering as</p>
@@ -540,7 +540,7 @@
         <p class="terms-meta">Version {{ terms_version }} · {{ terms_effective }}</p>
       </div>
       <button type="submit" id="submit-btn"
-              class="btn btn-auth">
+              class="btn btn-auth" data-busy-text="Creating your account…">
         Create Account
       </button>
     </form>
@@ -654,5 +654,8 @@ function selectType(type) {
   selectType(t === 'nsu_staff' ? 'nsu_staff' : 'student');
 })();
 </script>
+<script src="{% static 'js/chrome.js' %}?v=1" defer></script>
+<script src="{% static 'js/consent.js' %}?v=1" defer></script>
+<script src="{% static 'js/loading.js' %}?v=2" defer></script>
 </body>
 </html>

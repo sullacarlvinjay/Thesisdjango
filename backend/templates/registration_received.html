@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=55" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -63,7 +63,8 @@
         <div>
           <p class="font-semibold" style="color:var(--text);">Registration received</p>
           {% if email %}
-          <p class="text-sm mt-0.5" style="color:var(--text-muted);">Registered as <span class="font-medium" style="color:var(--text-soft);">{{ email }}</span></p>
+          <p class="text-sm mt-0.5" style="color:var(--text-muted);">Registered as <span class="font-medium" id="registeredEmail" style="color:var(--text-soft);">{{ email }}</span>
+          <button type="button" class="copy-btn" data-copy-target="#registeredEmail" aria-label="Copy the registered email address"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span data-copy-label>Copy</span></button></p>
           {% endif %}
         </div>
       </div>
@@ -138,5 +139,7 @@
     <p class="auth-footnote">Something wrong in your details? Contact the SDSO office.</p>
     <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Main Page</a></p>
   </div>
+<script src="{% static 'js/chrome.js' %}?v=1" defer></script>
+<script src="{% static 'js/loading.js' %}?v=2" defer></script>
 </body>
 </html>

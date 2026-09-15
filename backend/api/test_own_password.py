@@ -1,6 +1,7 @@
 from django.test import Client, TestCase
 
-from api.models import PartnerOffice, Scholarship, SystemSettings, User
+from api.models import (ActivityLog, PartnerOffice, Scholarship,
+                        SystemSettings, User)
 
 
 class OwnPasswordTestMixin:
@@ -96,15 +97,62 @@ class TheSDSOProfileTest(OwnPasswordTestMixin, TestCase):
     def test_the_nav_offers_it(self):
         self.assertContains(self.c.get('/vpsea/'), '/vpsea/profile/')
 
-    def test_the_email_is_shown_but_not_editable(self):
+    def test_the_email_is_shown_and_editable(self):
         page = self.c.get(self.url)
         self.assertContains(page, self.email)
-        self.assertNotContains(page, 'name="email"')
+        self.assertContains(page, 'name="email"')
 
-    def test_the_email_cannot_be_changed_by_posting_one(self):
-        self._post(email='someone-else@bipsu.edu.ph')
+    def test_the_new_address_is_the_one_that_signs_in(self):
+        self._post(email='new-sdso@bipsu.edu.ph')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'new-sdso@bipsu.edu.ph')
+        self.assertEqual(self.user.username, 'new-sdso@bipsu.edu.ph')
+        self.assertTrue(Client().login(email='new-sdso@bipsu.edu.ph',
+                                       password='oldpassword1'))
+        self.assertFalse(self._signs_in_with('oldpassword1'))
+
+    def test_and_the_page_says_which_address_that_is(self):
+        page = self._post(email='new-sdso@bipsu.edu.ph')
+        self.assertContains(page, 'You sign in with new-sdso@bipsu.edu.ph')
+
+    def test_the_tab_it_was_changed_in_stays_signed_in(self):
+        self._post(email='new-sdso@bipsu.edu.ph')
+        self.assertEqual(self.c.get(self.url).status_code, 200)
+
+    def test_leaving_the_address_alone_still_saves_the_name(self):
+        self._post(first_name='Renamed', email=self.email)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Renamed')
+        self.assertEqual(self.user.email, self.email)
+
+    def test_an_address_another_account_signs_in_with_is_refused(self):
+        User.objects.create_user(username='taken@bipsu.edu.ph',
+                                 email='taken@bipsu.edu.ph',
+                                 password='pw', role='student')
+        page = self._post(email='taken@bipsu.edu.ph')
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, self.email)
+        self.assertContains(page, 'already signs another account in')
+
+    def test_an_address_that_is_not_one_is_refused_with_its_reason(self):
+        page = self._post(email='not-an-address')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, self.email)
+        self.assertContains(page, 'not a valid email address')
+
+    def test_a_refused_address_leaves_the_password_and_the_name_alone(self):
+        self._post(first_name='Renamed', email='not-an-address',
+                   current_password='oldpassword1',
+                   new_password='fresh-Passphrase-9',
+                   new_password_confirm='fresh-Passphrase-9')
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.first_name, 'Renamed')
+        self.assertTrue(self._signs_in_with('oldpassword1'))
+
+    def test_the_change_is_written_to_the_activity_log(self):
+        self._post(email='new-sdso@bipsu.edu.ph')
+        self.assertTrue(ActivityLog.objects.filter(
+            user=self.user, action__contains='new-sdso@bipsu.edu.ph').exists())
 
 
 class ThePartnerProfileTest(OwnPasswordTestMixin, TestCase):

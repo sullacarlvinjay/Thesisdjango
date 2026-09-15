@@ -36,13 +36,15 @@
     document.getElementById('themeColor').setAttribute('content', srmsDark ? '#171c2e' : '#ffffff');
   </script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=55" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
   
   <script src="{% static 'js/skeleton.js' %}?v=2"></script>
   {% block extra_head %}{% endblock %}
 </head>
 
 <body data-portal="{% if user.role == 'vpsea' %}vpsea{% elif user.role == 'nsu_staff' %}staff{% else %}student{% endif %}">
+<a href="#mainContent" class="skip-link">Skip to main content</a>
+<div class="scroll-progress" aria-hidden="true"></div>
 <div class="page-skeleton" aria-hidden="true">
   <div class="skeleton-app">
     <div class="skeleton-app-side">
@@ -92,8 +94,19 @@
         <p class="sidebar-brand-sub text-xs uppercase tracking-wider">{% block brand %}Portal{% endblock %}</p>
       </div>
     </div>
+    <div class="sidebar-search px-3 pt-3">
+      <div class="search-box">
+        <svg class="search-box__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+        <input type="search" id="navSearch" placeholder="Find a page" autocomplete="off"
+               aria-label="Find a page in this portal"
+               data-search=".sidebar-nav .sidebar-link"
+               data-search-empty="#navSearchEmpty" />
+        <button type="button" class="search-clear" data-search-clear aria-label="Clear search" hidden>&#10005;</button>
+      </div>
+    </div>
     <nav class="sidebar-nav flex-1 min-h-0 overflow-y-auto p-3 space-y-0.5">
       {% block nav %}{% endblock %}
+      <p id="navSearchEmpty" class="sidebar-search__empty" hidden>No page matches &ldquo;<span data-search-term></span>&rdquo;.</p>
     </nav>
     <div class="sidebar-foot p-3 shrink-0">
       <a href="/logout" class="sidebar-link">
@@ -166,7 +179,7 @@
         </a>
       </div>
     </header>
-    <main class="app-main flex-1 px-4 lg:px-8 py-6">
+    <main id="mainContent" class="app-main flex-1 px-4 lg:px-8 py-6">
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -281,5 +294,20 @@
   });
 })();
 </script>
+<button type="button" class="to-top" aria-label="Back to top">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+</button>
+{% if user.role != 'vpsea' %}
+<a class="fab-contact" href="{% if support_email %}mailto:{{ support_email }}?subject=SRMS%20support{% else %}/#help{% endif %}"
+   {% if support_email %}data-print-hide{% endif %} title="Contact the SDSO office">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+  <span class="fab-contact__label">Need help?</span>
+</a>
+{% endif %}
+{% include '_cookie_banner.html' %}
+<script src="{% static 'js/loading.js' %}?v=2" defer></script>
+<script src="{% static 'js/chrome.js' %}?v=1" defer></script>
+<script src="{% static 'js/consent.js' %}?v=1" defer></script>
+<script src="{% static 'js/search.js' %}?v=1" defer></script>
 </body>
 </html>
