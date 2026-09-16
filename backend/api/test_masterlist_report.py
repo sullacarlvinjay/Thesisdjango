@@ -7,7 +7,7 @@ from django.test import Client, TestCase
 from api import doc_convert, masterlist_report
 from api.test_support import pdf_text
 from api.models import (
-    AffirmativeStaffApplication, Application, Scholarship, StudentProfile,
+    ApplicantRecord, Application, Scholarship, StudentProfile,
     SystemSettings, User,
 )
 
@@ -55,7 +55,7 @@ class MasterlistFixtures:
         )
 
     def _staff(self, full_name, gender='F', sid='EMP-01'):
-        return AffirmativeStaffApplication.objects.create(
+        return ApplicantRecord.objects.create(
             full_name=full_name, email=f'{sid}@bipsu.edu.ph',
             contact_number='09171234567', date_of_birth='1990-01-01',
             gender=gender, course='BSIT', year_level=2, student_id=sid,
@@ -502,7 +502,7 @@ class MasterlistColumnShapeTest(MasterlistFixtures, TestCase):
 
 class StaffNameSplitTest(TestCase):
     def _app(self, full_name):
-        return AffirmativeStaffApplication(
+        return ApplicantRecord(
             full_name=full_name, email='x@bipsu.edu.ph', contact_number='09',
             date_of_birth='1990-01-01', gender='F', course='BSIT', year_level=1,
             qualified_for='Staff', status='Approved', is_nsu_staff=True,

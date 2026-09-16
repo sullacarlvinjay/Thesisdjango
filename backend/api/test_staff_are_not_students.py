@@ -1,7 +1,7 @@
 from django.test import Client, TestCase
 
 from api.models import (
-    AffirmativeStaffApplication, Application, Scholarship, StudentProfile,
+    ApplicantRecord, Application, Scholarship, StudentProfile,
     SystemSettings, User,
 )
 from api.student_views import _tes_ranking_data
@@ -22,7 +22,7 @@ class ApprovingAStaffScholarshipMakesNoStudentTest(TestCase):
         self.c = Client()
         self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
 
-        self.application = AffirmativeStaffApplication.objects.create(
+        self.application = ApplicantRecord.objects.create(
             full_name='Norma Duallo', email='norma@bipsu.edu.ph',
             qualified_for='Staff', status='Pending Validation',
             course='MAEd', year_level=1, is_nsu_staff=True,
@@ -114,7 +114,7 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
             name='Staff Scholarship', type='Staff', category='application',
             description='x', eligibility='x', requirements=[])
 
-        self.award = AffirmativeStaffApplication.objects.create(
+        self.award = ApplicantRecord.objects.create(
             full_name='Norma Duallo', email='norma@bipsu.edu.ph',
             qualified_for='Staff', status='Approved', is_nsu_staff=True)
         phantom = User.objects.create_user(
@@ -153,7 +153,7 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
         self.award.refresh_from_db()
         self.assertEqual(self.award.status, 'Approved')
         self.assertEqual(
-            AffirmativeStaffApplication.objects.filter(qualified_for='Staff').count(), 1)
+            ApplicantRecord.objects.filter(qualified_for='Staff').count(), 1)
 
     def test_a_real_student_is_never_touched(self):
         self.run_command('--delete')
@@ -166,7 +166,7 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
             first_name='Kid', last_name='Duallo', role='student')
         dependent = StudentProfile.objects.create(
             user=user, student_id='2026-0002', course='BSIT')
-        AffirmativeStaffApplication.objects.create(
+        ApplicantRecord.objects.create(
             full_name='Kid Duallo', email='kid@bipsu.edu.ph',
             qualified_for='Staff', status='Pending Validation',
             is_nsu_dependent=True)
@@ -192,7 +192,7 @@ class PruningWhatTheOldBranchLeftBehindTest(TestCase):
             first_name='Rosa', last_name='Mendoza', role='student')
         scholar = StudentProfile.objects.create(
             user=user, student_id='AFF-99', course='BSED')
-        AffirmativeStaffApplication.objects.create(
+        ApplicantRecord.objects.create(
             full_name='Rosa Mendoza', email='aff@bipsu.edu.ph',
             qualified_for='Affirmative', status='Approved')
 
@@ -216,7 +216,7 @@ class AnAffirmativeScholarStillGetsTheirStudentRecordTest(TestCase):
         self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
 
     def approve(self, qualified_for):
-        application = AffirmativeStaffApplication.objects.create(
+        application = ApplicantRecord.objects.create(
             full_name='Juan Dela Cruz', email=f'{qualified_for.lower()}@bipsu.edu.ph',
             qualified_for=qualified_for, status='Pending Validation',
             course='BSIT', year_level=1)

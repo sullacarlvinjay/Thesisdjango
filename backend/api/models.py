@@ -24,9 +24,10 @@ __all__ = [
     'CHED_TIER_CHOICES', 'SCHOLARSHIP_TYPE_CHOICES',
     'ched_tier', 'split_ched', 'states_a_disability', 'suc_exam_percent',
     'AcademicRenewal', 'ActivityLog', 'AffirmativeEligibility',
-    'AffirmativeRecommendation', 'AffirmativeStaffApplication', 'Announcement',
+    'AffirmativeRecommendation', 'Announcement',
     'ApplicantAffirmativeEligibility', 'ApplicantEmployment',
-    'ApplicantEnrollment', 'ApplicantInformation', 'ApplicantStaffEligibility',
+    'ApplicantEnrollment', 'ApplicantInformation', 'ApplicantRecord',
+    'ApplicantStaffEligibility',
     'Application', 'ApplicationDocument', 'EducationalBackground',
     'EnrollmentData', 'FamilyBackground', 'ImportedScholar', 'Notification',
     'PersonalInformation', 'Scholarship', 'ScholarListImport',
@@ -1000,7 +1001,7 @@ class ImportedScholar(PhilippineAddress):
         return f'{self.full_name} — {self.scholarship_type}'
 
 
-class AffirmativeStaffApplication(PhilippineAddress, DetailRows, TermStamped):
+class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
     DETAIL_RELATIONS = (
         'applicant', 'enrollment', 'staff_eligibility', 'employment',
         'affirmative_eligibility',
@@ -1099,7 +1100,7 @@ class AffirmativeStaffApplication(PhilippineAddress, DetailRows, TermStamped):
         return False
 
 
-STAFF_APPLICATION_DETAILS = AffirmativeStaffApplication.DETAIL_RELATIONS
+STAFF_APPLICATION_DETAILS = ApplicantRecord.DETAIL_RELATIONS
 
 
 class StaffApplicationDetail(models.Model):
@@ -1111,7 +1112,7 @@ class StaffApplicationDetail(models.Model):
 
 
 class ApplicantInformation(StaffApplicationDetail):
-    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+    application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='applicant')
     contact_number = models.CharField(max_length=20, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
@@ -1123,7 +1124,7 @@ class ApplicantInformation(StaffApplicationDetail):
 
 
 class ApplicantEnrollment(StaffApplicationDetail):
-    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+    application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='enrollment')
     school = models.CharField(max_length=100, blank=True)
     course = models.CharField(max_length=100, blank=True)
@@ -1136,7 +1137,7 @@ class ApplicantEnrollment(StaffApplicationDetail):
 
 
 class ApplicantStaffEligibility(StaffApplicationDetail):
-    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+    application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='staff_eligibility')
     is_nsu_staff = models.BooleanField(default=False)
     is_nsu_dependent = models.BooleanField(default=False)
@@ -1151,7 +1152,7 @@ class ApplicantStaffEligibility(StaffApplicationDetail):
 
 
 class ApplicantEmployment(StaffApplicationDetail):
-    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+    application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='employment')
     employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
     designation = models.CharField(max_length=30, choices=DESIGNATIONS, blank=True)
@@ -1167,7 +1168,7 @@ class ApplicantEmployment(StaffApplicationDetail):
 
 
 class ApplicantAffirmativeEligibility(StaffApplicationDetail):
-    application = models.OneToOneField(AffirmativeStaffApplication, on_delete=models.CASCADE,
+    application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='affirmative_eligibility')
     shs_gpa = models.FloatField(null=True, blank=True)
     shs_certificate = models.FileField(upload_to='affirmative/shs/', null=True, blank=True, validators=validate_document)
@@ -1273,7 +1274,7 @@ class StaffScholarshipDeclaration(TermStamped):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     linked_application = models.ForeignKey(
-        'AffirmativeStaffApplication', on_delete=models.SET_NULL,
+        'ApplicantRecord', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='+',
     )
 

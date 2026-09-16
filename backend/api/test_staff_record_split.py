@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
 from api.models import (
-    AffirmativeStaffApplication, ApplicantAffirmativeEligibility,
+    ApplicantRecord, ApplicantAffirmativeEligibility,
     ApplicantEmployment, ApplicantEnrollment, ApplicantInformation,
     ApplicantStaffEligibility, StaffEducation, StaffEmployment,
     StaffPersonalInformation, StaffProfile, StudentProfile, SystemSettings, User,
@@ -27,7 +27,7 @@ class StaffFactoryMixin:
         fields.setdefault('full_name', 'Maria Santos')
         fields.setdefault('email', 'maria@bipsu.edu.ph')
         fields.setdefault('qualified_for', 'Staff')
-        return AffirmativeStaffApplication.objects.create(**fields)
+        return ApplicantRecord.objects.create(**fields)
 
 
 class StaffProfileColumnsStillReadOffTheProfileTest(StaffFactoryMixin, TestCase):
@@ -170,7 +170,7 @@ class ApplicationColumnsStillReadOffTheApplicationTest(StaffFactoryMixin, TestCa
 
     def test_reading_a_moved_column_off_the_application_gives_the_same_value(self):
         self.make_application(course='BS Biology', student_id='2022-00111')
-        app = AffirmativeStaffApplication.objects.get(email='maria@bipsu.edu.ph')
+        app = ApplicantRecord.objects.get(email='maria@bipsu.edu.ph')
         self.assertEqual(app.course, 'BS Biology')
         self.assertEqual(app.student_id, '2022-00111')
 
@@ -180,7 +180,7 @@ class ApplicationColumnsStillReadOffTheApplicationTest(StaffFactoryMixin, TestCa
         app.suc_exam_score = 42.0
         app.save()
 
-        app = AffirmativeStaffApplication.objects.get(pk=app.pk)
+        app = ApplicantRecord.objects.get(pk=app.pk)
         self.assertEqual(app.employment.designation, 'Faculty')
         self.assertEqual(app.affirmative_eligibility.suc_exam_score, 42.0)
 
@@ -251,10 +251,10 @@ class OneTableTwoProgrammesTest(StaffFactoryMixin, TestCase):
         self.make_application(email='juan@bipsu.edu.ph', full_name='Juan Dela Cruz',
                               qualified_for='Affirmative', status='Approved')
         self.assertEqual(
-            AffirmativeStaffApplication.objects.filter(
+            ApplicantRecord.objects.filter(
                 status='Approved', qualified_for='Staff').count(), 1)
         self.assertEqual(
-            AffirmativeStaffApplication.objects.filter(
+            ApplicantRecord.objects.filter(
                 status='Approved', qualified_for='Affirmative').count(), 1)
 
 
@@ -265,7 +265,7 @@ class QuerysetsNameTheRelationTest(StaffFactoryMixin, TestCase):
         self.make_application(email='juan@bipsu.edu.ph', full_name='Juan Dela Cruz',
                               qualified_for='Staff', status='Approved',
                               course='MA Education')
-        rows = AffirmativeStaffApplication.objects.filter(
+        rows = ApplicantRecord.objects.filter(
             status='Approved', qualified_for='Staff'
         ).values('enrollment__course')
         self.assertEqual([r['enrollment__course'] for r in rows],
@@ -274,7 +274,7 @@ class QuerysetsNameTheRelationTest(StaffFactoryMixin, TestCase):
     def test_analytics_still_groups_scholars_by_school(self):
         self.make_application(qualified_for='Staff', status='Approved',
                               school='College of Education', course='MA Education')
-        rows = AffirmativeStaffApplication.objects.filter(
+        rows = ApplicantRecord.objects.filter(
             status='Approved', qualified_for='Staff'
         ).values('enrollment__school', 'enrollment__course')
         self.assertEqual(list(rows), [{'enrollment__school': 'College of Education',
@@ -289,7 +289,7 @@ class QuerysetsNameTheRelationTest(StaffFactoryMixin, TestCase):
     def test_with_details_fetches_the_rows_in_one_query(self):
         self.make_application(course='MA Education', gender='Female')
         with self.assertNumQueries(1):
-            app = AffirmativeStaffApplication.with_details().get(email='maria@bipsu.edu.ph')
+            app = ApplicantRecord.with_details().get(email='maria@bipsu.edu.ph')
             self.assertEqual(app.course, 'MA Education')
             self.assertEqual(app.gender, 'Female')
 
@@ -343,7 +343,7 @@ class UploadedDocumentsStillResolveToTheirOwnerTest(TestCase):
         self.assertTrue(_may_read(user, staff.appointment_paper.name))
 
     def test_an_applicant_may_read_the_certificate_on_their_application(self):
-        app = AffirmativeStaffApplication.objects.create(
+        app = ApplicantRecord.objects.create(
             full_name='Juan Dela Cruz', email='juan@bipsu.edu.ph',
             qualified_for='Affirmative')
         app.shs_certificate = a_document('shs.pdf')

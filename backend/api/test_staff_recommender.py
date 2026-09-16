@@ -2,7 +2,7 @@ from django.test import Client, TestCase
 
 from api import staff_ranking
 from api.models import (
-    AffirmativeStaffApplication, StaffProfile, SystemSettings, User,
+    ApplicantRecord, StaffProfile, SystemSettings, User,
 )
 
 
@@ -14,7 +14,7 @@ def an_application(**overrides):
         'date_of_birth': '2000-01-01',
     }
     data.update(overrides)
-    return AffirmativeStaffApplication.objects.create(**data)
+    return ApplicantRecord.objects.create(**data)
 
 
 def an_employee(employee_id='32-1-000001', status='Regular', name='Maria Santos'):
@@ -168,18 +168,18 @@ class RankingOrderTest(TestCase):
         an_application(full_name='Ben Refused', email='b@bipsu.edu.ph',
                        is_nsu_staff=True, employment_status='Job Order')
         order = [e.applicant_name for e in
-                 staff_ranking.rank(AffirmativeStaffApplication.objects.all())]
+                 staff_ranking.rank(ApplicantRecord.objects.all())]
         self.assertEqual(order, ['Ana Qualified', 'Zoe Unknown', 'Ben Refused'])
 
     def test_everyone_appears_including_the_undecidable(self):
         an_application(full_name='Zoe Unknown', email='z@bipsu.edu.ph')
         self.assertEqual(
-            len(staff_ranking.rank(AffirmativeStaffApplication.objects.all())), 1)
+            len(staff_ranking.rank(ApplicantRecord.objects.all())), 1)
 
     def test_nothing_is_written_by_evaluating(self):
         application = an_application(is_nsu_staff=True, employment_status='Regular')
         before = application.updated_at
-        staff_ranking.rank(AffirmativeStaffApplication.objects.all())
+        staff_ranking.rank(ApplicantRecord.objects.all())
         application.refresh_from_db()
         self.assertEqual(application.updated_at, before)
 

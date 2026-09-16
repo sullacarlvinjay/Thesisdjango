@@ -3,7 +3,7 @@ import datetime
 from django.test import Client, TestCase
 
 from api.models import (
-    AffirmativeStaffApplication, Application, Notification, Scholarship,
+    ApplicantRecord, Application, Notification, Scholarship,
     StudentProfile, SystemSettings, User,
 )
 
@@ -44,7 +44,7 @@ class SDSODecidesOnceTest(TestCase):
         })
 
     def _affirmative(self, status='Pending Validation', qualified_for='Affirmative'):
-        return AffirmativeStaffApplication.objects.create(
+        return ApplicantRecord.objects.create(
             full_name='Juan Dela Cruz', email='juan@bipsu.edu.ph',
             contact_number='09171234567', date_of_birth=datetime.date(2004, 5, 1),
             course='BSIT', qualified_for=qualified_for, status=status,

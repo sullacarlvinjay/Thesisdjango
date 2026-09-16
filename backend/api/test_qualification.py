@@ -1,7 +1,7 @@
 from django.test import Client, TestCase
 
 from api.models import (
-    AffirmativeStaffApplication, AffirmativeRecommendation, StudentProfile,
+    ApplicantRecord, AffirmativeRecommendation, StudentProfile,
     SystemSettings, User,
 )
 
@@ -15,7 +15,7 @@ class StaffQualificationTest(TestCase):
             qualified_for='Staff', status='Pending Validation',
         )
         defaults.update(kw)
-        return AffirmativeStaffApplication(**defaults)
+        return ApplicantRecord(**defaults)
 
     def test_a_regular_employee_qualifies(self):
         app = self._application(is_nsu_staff=True, employment_status='Regular')
@@ -113,4 +113,4 @@ class AffirmativeQualificationTest(TestCase):
         self.assertEqual(AffirmativeRecommendation.objects.get().status, 'Disqualified')
 
     def test_the_application_model_no_longer_decides_affirmative(self):
-        self.assertFalse(hasattr(AffirmativeStaffApplication, 'determine_qualification'))
+        self.assertFalse(hasattr(ApplicantRecord, 'determine_qualification'))

@@ -4,7 +4,7 @@ from .models import (
     User, StudentProfile, StaffProfile, Scholarship, Application, ApplicationDocument,
     Notification, Announcement, ImportedScholar,
     ActivityLog, SystemSettings, SignupSource,
-    AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, ScholarListImport,
+    ApplicantRecord, AcademicRenewal, ScholarshipLinkRequest, ScholarListImport,
     AffirmativeEligibility, EducationalBackground, EnrollmentData, FamilyBackground,
     PersonalInformation, SocioEconomicProfile, TESEligibility,
     StaffEducation, StaffEmployment, StaffPersonalInformation,
@@ -59,8 +59,8 @@ admin.site.register(Announcement)
 admin.site.register(ImportedScholar)
 admin.site.register(ActivityLog)
 admin.site.register(SystemSettings)
-@admin.register(AffirmativeStaffApplication)
-class AffirmativeStaffApplicationAdmin(admin.ModelAdmin):
+@admin.register(ApplicantRecord)
+class ApplicantRecordAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'qualified_for', 'status', 'term_label')
     list_filter = ('qualified_for', 'status')
     search_fields = ('full_name', 'email')

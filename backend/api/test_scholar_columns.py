@@ -2,7 +2,7 @@ from django.test import Client, TestCase
 
 from api import scholar_columns
 from api.models import (
-    AffirmativeStaffApplication, Application, ImportedScholar, Scholarship,
+    ApplicantRecord, Application, ImportedScholar, Scholarship,
     StudentProfile, SystemSettings, User,
 )
 
@@ -185,7 +185,7 @@ class ArchiveTableFollowsTheChoiceTest(ArchiveFixtureMixin, TestCase):
             Scholarship.objects.create(name=f'{stype} Scholarship', type=stype,
                                        category='application', description='x',
                                        eligibility='x', requirements=[])
-            AffirmativeStaffApplication.objects.create(
+            ApplicantRecord.objects.create(
                 full_name='Rosa Mendoza', contact_number='0918',
                 date_of_birth='1990-01-01', course='BSED', year_level=1,
                 status='Approved', qualified_for=stype, student_id='EMP-1')

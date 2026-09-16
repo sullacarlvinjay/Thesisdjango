@@ -3,7 +3,7 @@ from django.test import Client, TestCase
 
 from api.constants import DECLARABLE_SCHOLARSHIP_TYPES, SCHOLARSHIP_TYPE_CHOICES
 from api.models import (
-    AffirmativeStaffApplication, ScholarshipLinkRequest, StaffProfile,
+    ApplicantRecord, ScholarshipLinkRequest, StaffProfile,
     StaffScholarshipDeclaration, StudentProfile, SystemSettings, User,
 )
 from api.test_registration_payload import (
@@ -72,7 +72,7 @@ class StaffDeclareAtRegistrationTest(TestCase):
 
     def test_no_award_exists_until_the_office_says_so(self):
         register(Client(), has_staff_scholarship='on', staff_proof_document=a_pdf())
-        self.assertFalse(AffirmativeStaffApplication.objects.exists())
+        self.assertFalse(ApplicantRecord.objects.exists())
 
     def test_not_declaring_records_nothing(self):
         register(Client())
@@ -120,7 +120,7 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
 
     def test_approving_the_account_records_the_award(self):
         self._decide('approve')
-        app = AffirmativeStaffApplication.objects.get()
+        app = ApplicantRecord.objects.get()
         self.assertEqual(app.qualified_for, 'Staff')
         self.assertEqual(app.status, 'Approved')
         self.assertEqual(app.email, 'ernesto@bipsu.edu.ph')
@@ -128,13 +128,13 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
 
     def test_the_award_is_stamped_with_the_active_term(self):
         self._decide('approve')
-        app = AffirmativeStaffApplication.objects.get()
+        app = ApplicantRecord.objects.get()
         self.assertEqual(app.term_label, '26-1')
         self.assertEqual(app.semester, '1st Semester')
 
     def test_the_award_carries_the_details_off_the_staff_profile(self):
         self._decide('approve')
-        app = AffirmativeStaffApplication.objects.get()
+        app = ApplicantRecord.objects.get()
         self.assertEqual(app.staff_employee_id, 'EMP-0042')
         self.assertEqual(app.department, 'Civil Engineering')
         self.assertEqual(app.position, 'Instructor I')
@@ -147,11 +147,11 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
         self.assertEqual(decl.status, 'Approved')
         self.assertEqual(decl.reviewed_by.email, 'v@bipsu.edu.ph')
         self.assertIsNotNone(decl.reviewed_at)
-        self.assertEqual(decl.linked_application, AffirmativeStaffApplication.objects.get())
+        self.assertEqual(decl.linked_application, ApplicantRecord.objects.get())
 
     def test_rejecting_the_account_writes_no_award(self):
         self._decide('reject', 'We have no record of that award.')
-        self.assertFalse(AffirmativeStaffApplication.objects.exists())
+        self.assertFalse(ApplicantRecord.objects.exists())
         decl = StaffScholarshipDeclaration.objects.get()
         self.assertEqual(decl.status, 'Rejected')
         self.assertEqual(decl.remarks, 'We have no record of that award.')
@@ -160,7 +160,7 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
         self._decide('approve')
         StaffScholarshipDeclaration.objects.update(status='Pending')
         self._decide('approve', 'Corrected.')
-        self.assertEqual(AffirmativeStaffApplication.objects.count(), 1)
+        self.assertEqual(ApplicantRecord.objects.count(), 1)
 
     def test_an_approved_holder_is_not_asked_to_apply_again(self):
         self._decide('approve')
@@ -178,5 +178,5 @@ class TheOfficeDecidesItWithTheAccountTest(TestCase):
                     {'user_id': account.id, 'action': 'approve', 'message': 'ok'})
         account.refresh_from_db()
         self.assertEqual(account.verification_status, 'approved')
-        self.assertFalse(AffirmativeStaffApplication.objects.filter(
+        self.assertFalse(ApplicantRecord.objects.filter(
             email='rosa@bipsu.edu.ph').exists())

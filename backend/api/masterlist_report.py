@@ -203,9 +203,9 @@ def _imported_row(no, rec):
 
 
 def _row_for(no, record):
-    from .models import AffirmativeStaffApplication, ImportedScholar
+    from .models import ApplicantRecord, ImportedScholar
 
-    if isinstance(record, AffirmativeStaffApplication):
+    if isinstance(record, ApplicantRecord):
         return _affirmative_row(no, record)
     if isinstance(record, ImportedScholar):
         return _imported_row(no, record)
@@ -222,7 +222,7 @@ def _gender_of(record):
 
 def _sources(term_label=None):
     from .models import (STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, Application,
-                         AffirmativeStaffApplication, ImportedScholar,
+                         ApplicantRecord, ImportedScholar,
                          Scholarship, SystemSettings, split_ched)
 
     if term_label is None:
@@ -252,7 +252,7 @@ def _sources(term_label=None):
 
     def affirmative(qualified_for):
         return list(
-            AffirmativeStaffApplication.objects.filter(
+            ApplicantRecord.objects.filter(
                 status='Approved', qualified_for=qualified_for
             ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name')
         ) + imported(qualified_for)

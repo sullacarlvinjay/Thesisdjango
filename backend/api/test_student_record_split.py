@@ -2,7 +2,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
 from api.models import (
-    AcademicRenewal, AffirmativeStaffApplication, EnrollmentData,
+    AcademicRenewal, ApplicantRecord, EnrollmentData,
     FamilyBackground, PersonalInformation, Scholarship, ScholarshipLinkRequest,
     StaffProfile, StaffRenewal, StudentProfile, SystemSettings, User,
 )
@@ -169,7 +169,7 @@ class SubmissionsCarryTheirTermTest(StudentFactoryMixin, TestCase):
         self.assertEqual(renewal.term_label, '26-1')
 
     def test_a_staff_application_records_its_term(self):
-        app = AffirmativeStaffApplication.objects.create(
+        app = ApplicantRecord.objects.create(
             full_name='Staff Member', contact_number='09181234567',
             date_of_birth='1990-01-01', course='BSCS')
         self.assertEqual(app.term_label, '26-1')
@@ -243,7 +243,7 @@ class StaffRegistrationPicksASchoolTest(TestCase):
     def test_registering_does_not_pre_create_an_application(self):
         self._register()
         self.assertFalse(
-            AffirmativeStaffApplication.objects.filter(email='rosa@bipsu.edu.ph').exists(),
+            ApplicantRecord.objects.filter(email='rosa@bipsu.edu.ph').exists(),
             'registering is not applying')
 
     def test_a_rejected_signup_comes_back_with_the_unit_still_filled_in(self):

@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from api.models import (
-    AcademicRenewal, AffirmativeStaffApplication, Application,
+    AcademicRenewal, ApplicantRecord, Application,
     ScholarshipLinkRequest, StudentProfile,
 )
 
@@ -37,7 +37,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         own_claim, other_claim = set(), set()
-        for application in (AffirmativeStaffApplication.objects
+        for application in (ApplicantRecord.objects
                             .filter(qualified_for='Staff').exclude(email='')):
             address = application.email.lower()
             (own_claim if application.is_nsu_staff else other_claim).add(address)
@@ -80,7 +80,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'\nRemoved {removed} invented student record(s). '
             f'The Staff awards themselves are untouched — they live on '
-            f'AffirmativeStaffApplication.'))
+            f'ApplicantRecord.'))
 
     def _report(self, heading, entries):
         self.stdout.write(f'\n{heading}: {len(entries)}')

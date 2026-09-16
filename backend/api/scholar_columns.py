@@ -276,11 +276,11 @@ def set_extra_values(record, values):
 
 
 def kind_of(record):
-    from .models import AffirmativeStaffApplication, ImportedScholar
+    from .models import ApplicantRecord, ImportedScholar
 
     if isinstance(record, ImportedScholar):
         return 'imported'
-    if isinstance(record, AffirmativeStaffApplication):
+    if isinstance(record, ApplicantRecord):
         return 'staff'
     return 'award'
 

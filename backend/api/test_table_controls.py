@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
 from api.models import (
-    AcademicRenewal, AffirmativeStaffApplication, Application, Scholarship,
+    AcademicRenewal, ApplicantRecord, Application, Scholarship,
     StudentProfile, SystemSettings, User,
 )
 
@@ -85,7 +85,7 @@ class TableControlsTest(TestCase):
         self.assertNotIn('filterTable()', html)
 
     def test_the_staff_table_groups_course_by_school_too(self):
-        AffirmativeStaffApplication.objects.create(
+        ApplicantRecord.objects.create(
             full_name='Rey Cruz', contact_number='09171234567',
             date_of_birth=date(2000, 1, 1), course='BSN',
             qualified_for='Staff', is_nsu_staff=True)
@@ -101,13 +101,13 @@ class TableControlsTest(TestCase):
 
 class ProgramGroupingTest(TestCase):
     def test_a_staff_applicant_course_names_its_own_school(self):
-        app = AffirmativeStaffApplication(
+        app = ApplicantRecord(
             full_name='Rey Cruz', contact_number='09171234567',
             date_of_birth=date(2000, 1, 1), course='BSCrim')
         self.assertEqual(app.course_school, 'School of Criminal Justice Education')
 
     def test_a_recorded_staff_school_is_believed_over_the_course(self):
-        app = AffirmativeStaffApplication(
+        app = ApplicantRecord(
             full_name='Rey Cruz', contact_number='09171234567',
             date_of_birth=date(2000, 1, 1), course='BSCrim',
             school='School of Engineering')

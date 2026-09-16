@@ -7,6 +7,34 @@ several of them removed something that used to work.
 
 ---
 
+## `AffirmativeStaffApplication` is now `ApplicantRecord`
+
+The old name read as "an application from affirmative staff". It was two
+programme names glued together — Affirmative Action and the BiPSU Staff
+Scholarship — and it said "Application" for a table that has no apply route on
+the Affirmative side at all: those rows are added by the office, or the award is
+decided off the student's own profile by `AffirmativeRecommendation`.
+
+`ApplicantRecord` finishes the naming its own detail rows already started.
+`ApplicantInformation`, `ApplicantEnrollment`, `ApplicantEmployment`,
+`ApplicantStaffEligibility` and `ApplicantAffirmativeEligibility` all hang off
+it, and the parent was the only member of that family not named for the
+applicant. It also stops enumerating programmes, so a third one landing in this
+table would not break the name again.
+
+**The migration is hand-written, and must stay that way.** `makemigrations`
+detects a rename only by asking "was `AffirmativeStaffApplication` renamed to
+`ApplicantRecord`?" at the prompt. Answered no — or run with `--no-input`, which
+is what a deploy does — it emits `DeleteModel` plus `CreateModel` instead, and
+that drops the table with every staff and Affirmative award in it. Migration
+`0089_applicant_record` is a bare `RenameModel`; do not regenerate it.
+
+Two references do not move with a symbol rename and had to be found by hand: the
+model name is a string in `media_views._EMAIL_OWNED`, which reaches it through
+`apps.get_model`, and the FK on `StaffScholarshipDeclaration.linked_application`
+is declared lazily as `'ApplicantRecord'`. `STAFF_APPLICATION_DETAILS` keeps its
+name and now reads off `ApplicantRecord.DETAIL_RELATIONS`.
+
 ## The BiPSU seal is the browser-tab icon
 
 Every page showed the browser's blank-page globe in its tab. A portal open

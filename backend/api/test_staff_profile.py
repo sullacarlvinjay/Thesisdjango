@@ -2,7 +2,7 @@ from datetime import date
 
 from django.test import TestCase, Client
 
-from api.models import AffirmativeStaffApplication, StaffProfile, User
+from api.models import ApplicantRecord, StaffProfile, User
 
 
 class StaffProfileEmploymentFieldsTest(TestCase):
@@ -11,7 +11,7 @@ class StaffProfileEmploymentFieldsTest(TestCase):
             username='staff@bipsu.edu.ph', email='staff@bipsu.edu.ph', password='pw',
             first_name='Maria', last_name='Santos', role='nsu_staff',
         )
-        self.app = AffirmativeStaffApplication.objects.create(
+        self.app = ApplicantRecord.objects.create(
             full_name='Maria Santos', email='staff@bipsu.edu.ph',
             date_of_birth='1990-01-01', course='—', year_level=1,
             qualified_for='Staff', status='Approved', is_nsu_staff=True,
@@ -127,7 +127,7 @@ class StaffProfileVisibilityTest(TestCase):
         self.assertTrue(self.c.login(email='staff2@bipsu.edu.ph', password='pw'))
 
     def _record(self, status):
-        return AffirmativeStaffApplication.objects.create(
+        return ApplicantRecord.objects.create(
             full_name='Jose Reyes', email='staff2@bipsu.edu.ph',
             date_of_birth='1985-03-02', course='—', year_level=1,
             qualified_for='Staff', status=status, is_nsu_staff=True,

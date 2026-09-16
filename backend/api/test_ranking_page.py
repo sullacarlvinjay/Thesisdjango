@@ -1,7 +1,7 @@
 from django.test import Client, TestCase
 
 from api.models import (
-    AffirmativeRecommendation, AffirmativeStaffApplication, StudentProfile, User,
+    AffirmativeRecommendation, ApplicantRecord, StudentProfile, User,
 )
 
 
@@ -31,7 +31,7 @@ class RankingPageTest(TestCase):
         self.assertIn('Rule-Based Recommendation', page)
 
     def test_an_affirmative_application_is_not_ranked_here(self):
-        AffirmativeStaffApplication.objects.create(
+        ApplicantRecord.objects.create(
             full_name='Juan Dela Cruz', email='juan@bipsu.edu.ph',
             qualified_for='Affirmative', status='Pending Validation',
             course='BS Biology', shs_gpa=95.0)

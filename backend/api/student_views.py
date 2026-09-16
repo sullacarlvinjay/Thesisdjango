@@ -3,7 +3,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
 from . import scholar_columns
-from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, Notification, Announcement, User, AffirmativeStaffApplication, AcademicRenewal, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
+from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, Notification, Announcement, User, ApplicantRecord, AcademicRenewal, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.db import transaction
@@ -1472,7 +1472,7 @@ def _save_window(request, programme, kind, back):
 @_vpsea_required
 def vpsea_affirmative_applications(request):
     from .constants import DECIDED_APPLICATION_STATUSES
-    from .models import AffirmativeStaffApplication, Application
+    from .models import ApplicantRecord, Application
     from urllib.parse import quote
     if request.method == 'POST':
         app_id = request.POST.get('app_id')
@@ -1506,7 +1506,7 @@ def vpsea_affirmative_applications(request):
             return redirect('/vpsea/affirmative/?tab=academic')
         else:
             try:
-                aff_app = AffirmativeStaffApplication.objects.get(id=app_id)
+                aff_app = ApplicantRecord.objects.get(id=app_id)
                 if aff_app.status in DECIDED_APPLICATION_STATUSES:
                     return redirect(f'/vpsea/affirmative/?tab={tab}&error=' + quote(
                         f'{aff_app.full_name} was already decided '
@@ -1556,7 +1556,7 @@ def vpsea_affirmative_applications(request):
                             remarks=remarks,
                             form_data={},
                         )
-            except AffirmativeStaffApplication.DoesNotExist:
+            except ApplicantRecord.DoesNotExist:
                 pass
             return redirect(f'/vpsea/affirmative/?tab={tab}')
 
@@ -1570,7 +1570,7 @@ def vpsea_affirmative_applications(request):
         .exclude(scholarship__type__in=['Staff'])
         .order_by('-submitted_at')
     )
-    staff_apps = AffirmativeStaffApplication.objects.filter(
+    staff_apps = ApplicantRecord.objects.filter(
         qualified_for='Staff').select_related(*STAFF_APPLICATION_DETAILS).order_by('-submitted_at')
     return render(request, 'vpsea/affirmative.html', {
         'academic_apps': academic_apps,
@@ -1586,7 +1586,7 @@ def vpsea_affirmative_applications(request):
 
 @_vpsea_required
 def vpsea_dashboard(request):
-    from .models import Application, AcademicRenewal, AffirmativeStaffApplication, SystemSettings
+    from .models import Application, AcademicRenewal, ApplicantRecord, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
     active_sy = parsed['sy']
@@ -1598,8 +1598,8 @@ def vpsea_dashboard(request):
         'rejected': apps.filter(status='Rejected').count(),
         'pending': apps.filter(status='Pending Validation').count(),
         'renewals': AcademicRenewal.objects.filter(status='Pending').count(),
-        'pending_staff': AffirmativeStaffApplication.objects.filter(qualified_for='Staff', status='Pending Validation').count(),
-        'pending_affirmative': AffirmativeStaffApplication.objects.filter(qualified_for='Affirmative', status='Pending Validation').count(),
+        'pending_staff': ApplicantRecord.objects.filter(qualified_for='Staff', status='Pending Validation').count(),
+        'pending_affirmative': ApplicantRecord.objects.filter(qualified_for='Affirmative', status='Pending Validation').count(),
         'active_sy_display': f"{active_sy} — {active_semester}",
     }
     return render(request, 'vpsea/dashboard.html', ctx)
@@ -1840,7 +1840,7 @@ def declared_staff_scholarship(user):
 
 def approve_declared_staff_scholarship(decl, reviewer, remarks=''):
     from django.utils import timezone
-    from .models import (ActivityLog, AffirmativeStaffApplication, StaffProfile,
+    from .models import (ActivityLog, ApplicantRecord, StaffProfile,
                          SystemSettings)
 
     user = decl.staff_user
@@ -1852,12 +1852,12 @@ def approve_declared_staff_scholarship(decl, reviewer, remarks=''):
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
 
-    app = AffirmativeStaffApplication.objects.filter(
+    app = ApplicantRecord.objects.filter(
         email=user.email, qualified_for='Staff',
         school_year=parsed['sy'], semester=parsed['semester'],
     ).first()
     if app is None:
-        app = AffirmativeStaffApplication(email=user.email)
+        app = ApplicantRecord(email=user.email)
 
     app.full_name = user.get_full_name()
     app.qualified_for = 'Staff'
@@ -2039,7 +2039,7 @@ def _archive_records(stype, term_label, tier=None):
     ).order_by('last_name', 'first_name'))
 
     if stype in ('Affirmative', 'Staff'):
-        scholars = list(AffirmativeStaffApplication.objects.filter(
+        scholars = list(ApplicantRecord.objects.filter(
             status='Approved', qualified_for=stype
         ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
         return [(None, scholars + imported_rows,
@@ -2161,7 +2161,7 @@ def vpsea_archives(request):
 @_vpsea_required
 def vpsea_archive_add(request):
     from .models import (Application, Scholarship, StudentProfile, User,
-                         AffirmativeStaffApplication, SystemSettings,
+                         ApplicantRecord, SystemSettings,
                          ApplicationDocument, CHED_TIER_CHOICES)
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
@@ -2232,10 +2232,10 @@ def vpsea_archive_add(request):
             email = f"{p.get('student_id','').strip() or full_name.replace(' ','_').lower()}_{stype.lower()}@bipsu.edu.ph"
             base = email
             counter = 1
-            while AffirmativeStaffApplication.objects.filter(email=email).exists():
+            while ApplicantRecord.objects.filter(email=email).exists():
                 email = f"{base.split('@')[0]}_{counter}@bipsu.edu.ph"
                 counter += 1
-        AffirmativeStaffApplication.objects.create(
+        ApplicantRecord.objects.create(
             full_name=full_name,
             email=email,
             contact_number=p.get('contact_number', ''),
@@ -2450,7 +2450,7 @@ def vpsea_student_record_delete(request, pk):
 
 @_vpsea_required
 def vpsea_archive_edit(request, pk):
-    from .models import Application, AffirmativeStaffApplication
+    from .models import Application, ApplicantRecord
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     p = request.POST
@@ -2460,8 +2460,8 @@ def vpsea_archive_edit(request, pk):
 
     if is_aff:
         try:
-            obj = AffirmativeStaffApplication.objects.get(pk=pk)
-        except AffirmativeStaffApplication.DoesNotExist:
+            obj = ApplicantRecord.objects.get(pk=pk)
+        except ApplicantRecord.DoesNotExist:
             return redirect(back)
         obj.full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
         obj.gender = p.get('gender', obj.gender)
@@ -2509,13 +2509,13 @@ def vpsea_archive_edit(request, pk):
 
 @_vpsea_required
 def vpsea_archive_delete(request, pk):
-    from .models import Application, AffirmativeStaffApplication
+    from .models import Application, ApplicantRecord
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     stype = request.POST.get('scholarship_type', 'Academic')
     back = _archive_back(stype, request.POST.get('tier', ''))
     if stype in ('Affirmative', 'Staff'):
-        AffirmativeStaffApplication.objects.filter(pk=pk).delete()
+        ApplicantRecord.objects.filter(pk=pk).delete()
     else:
         Application.objects.filter(pk=pk).delete()
     return redirect(f'{back}&deleted=1')
@@ -2525,7 +2525,7 @@ def vpsea_archive_delete(request, pk):
 def vpsea_new_semester(request):
     from .models import (
         SystemSettings, ScholarListImport, ActivityLog, Application,
-        AffirmativeStaffApplication, ImportedScholar,
+        ApplicantRecord, ImportedScholar,
     )
     from django.core.files.base import ContentFile
     import openpyxl
@@ -2556,7 +2556,7 @@ def vpsea_new_semester(request):
         header = [h.strip() for h in hint.split('|')]
 
         if scholarship_type in ('Affirmative', 'Staff'):
-            qs = AffirmativeStaffApplication.objects.filter(
+            qs = ApplicantRecord.objects.filter(
                 status='Approved', qualified_for=scholarship_type
             ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name')
         else:
@@ -2687,7 +2687,7 @@ def _rollover_fields(record, programme_name=''):
             'scholarship_program': programme_name,
         }
 
-    if isinstance(record, AffirmativeStaffApplication):
+    if isinstance(record, ApplicantRecord):
         pct = '100' if record.is_nsu_staff else '75'
         name = ('BiPSU Staff Scholarship' if record.is_nsu_staff
                 else 'Affirmative Action Scholarship')
@@ -3137,8 +3137,8 @@ def _build_analytics_context(request, all_types, include_gwa=True):
     for t in ALL_TYPES:
         if selected_label == active_label:
             if t in ('Affirmative', 'Staff'):
-                from .models import AffirmativeStaffApplication
-                counted = AffirmativeStaffApplication.objects.filter(
+                from .models import ApplicantRecord
+                counted = ApplicantRecord.objects.filter(
                     status='Approved', qualified_for=t
                 ).count()
             else:
@@ -3179,8 +3179,8 @@ def _build_analytics_context(request, all_types, include_gwa=True):
         if selected_label == active_label:
             from django.db.models import Count as DCount
             if stype in ('Affirmative', 'Staff'):
-                from .models import AffirmativeStaffApplication
-                qs = AffirmativeStaffApplication.objects.filter(
+                from .models import ApplicantRecord
+                qs = ApplicantRecord.objects.filter(
                     status='Approved', qualified_for=stype
                 ).values('enrollment__course').annotate(n=DCount('id'))
                 for r in qs:
@@ -3341,8 +3341,8 @@ def _build_analytics_context(request, all_types, include_gwa=True):
 
         if label == active_label:
             if stype in ('Affirmative', 'Staff'):
-                from .models import AffirmativeStaffApplication
-                for r in AffirmativeStaffApplication.objects.filter(
+                from .models import ApplicantRecord
+                for r in ApplicantRecord.objects.filter(
                     status='Approved', qualified_for=stype
                 ).values('enrollment__student_id', 'full_name',
                          'enrollment__course'):
@@ -3553,7 +3553,7 @@ def _analytics_data_version():
     sheets = ScholarListImport.objects.aggregate(n=Count('id'), last=Max('created_at'))
     scholars = ImportedScholar.objects.aggregate(n=Count('id'))
     approved = Application.objects.filter(status='Approved').count()
-    staff = AffirmativeStaffApplication.objects.filter(status='Approved').count()
+    staff = ApplicantRecord.objects.filter(status='Approved').count()
     marker = sheets['last'].timestamp() if sheets['last'] else 0
     return f"{sheets['n']}:{marker}:{scholars['n']}:{approved}:{staff}"
 
@@ -3733,7 +3733,7 @@ def vpsea_report_download_excel(request):
     from openpyxl.utils import get_column_letter
     from io import BytesIO
     from django.http import HttpResponse
-    from .models import Application, AffirmativeStaffApplication
+    from .models import Application, ApplicantRecord
 
     term, parsed, _display = _report_term(request)
     semester = parsed['semester']
@@ -3862,7 +3862,7 @@ def vpsea_report_download_excel(request):
     write_rows(acad_rows(males_a))
     blank_row()
 
-    staff = list(AffirmativeStaffApplication.objects.filter(
+    staff = list(ApplicantRecord.objects.filter(
         status='Approved', qualified_for='Staff'
     ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
     headers_staff = ['NO.', 'LAST NAME', 'FIRST NAME', 'M.I.', 'SEX', 'COURSE', 'YEAR LEVEL', 'STUDENT NUMBER', '%', 'SCHOLARSHIP PROGRAM']
@@ -3876,7 +3876,7 @@ def vpsea_report_download_excel(request):
     write_rows(staff_rows)
     blank_row()
 
-    affirmative = list(AffirmativeStaffApplication.objects.filter(
+    affirmative = list(ApplicantRecord.objects.filter(
         status='Approved', qualified_for='Affirmative'
     ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
     aff_females = [a for a in affirmative if a.gender and a.gender.upper() in ('F', 'FEMALE')]
@@ -4348,8 +4348,8 @@ def vpsea_students(request):
 
     if stype:
         if stype in ('Affirmative', 'Staff'):
-            from .models import AffirmativeStaffApplication
-            aff_emails = AffirmativeStaffApplication.objects.filter(
+            from .models import ApplicantRecord
+            aff_emails = ApplicantRecord.objects.filter(
                 qualified_for=stype, status='Approved'
             ).values_list('email', flat=True)
             students = students.filter(user__email__in=aff_emails)
@@ -4673,7 +4673,7 @@ def _enrollment_fields(p, profile=None):
 def _save_column_values(request, base_url, portal='vpsea'):
     from urllib.parse import urlencode
 
-    from .models import AffirmativeStaffApplication, Application, ImportedScholar
+    from .models import ApplicantRecord, Application, ImportedScholar
 
     stype = request.POST.get('type', '')
     query = {k: v for k, v in (('type', stype), ('tier', request.POST.get('tier', '')),
@@ -4692,7 +4692,7 @@ def _save_column_values(request, base_url, portal='vpsea'):
     models_by_kind = {
         'award': Application,
         'imported': ImportedScholar,
-        'staff': AffirmativeStaffApplication,
+        'staff': ApplicantRecord,
     }
     edits, refused = {}, 0
     for field, value in request.POST.items():
@@ -4939,9 +4939,9 @@ RANKING_TABS = [
 
 def _staff_ranking_data():
     from . import staff_ranking
-    from .models import AffirmativeStaffApplication
+    from .models import ApplicantRecord
 
-    applications = (AffirmativeStaffApplication.objects
+    applications = (ApplicantRecord.objects
                     .filter(qualified_for='Staff')
                     .select_related(*STAFF_APPLICATION_DETAILS))
 
@@ -5188,17 +5188,17 @@ def _pick_date(application, staff, field):
 
 
 def _nsu_staff_enrolled(user):
-    from .models import AffirmativeStaffApplication
-    return AffirmativeStaffApplication.objects.filter(
+    from .models import ApplicantRecord
+    return ApplicantRecord.objects.filter(
         email=user.email,
     ).exclude(status='Rejected').exists()
 
 
 @_nsu_staff_required
 def nsu_staff_dashboard(request):
-    from .models import StaffRenewal, Notification, Announcement, AffirmativeStaffApplication
+    from .models import StaffRenewal, Notification, Announcement, ApplicantRecord
     user = request.user
-    aff_app = AffirmativeStaffApplication.objects.filter(
+    aff_app = ApplicantRecord.objects.filter(
         email=user.email, qualified_for='Staff'
     ).exclude(status='Rejected').first()
     renewals = StaffRenewal.objects.filter(staff_user=user).order_by('-submitted_at')
@@ -5219,12 +5219,12 @@ def nsu_staff_dashboard(request):
 
 @_nsu_staff_required
 def nsu_staff_profile(request):
-    from .models import AffirmativeStaffApplication, StaffProfile
+    from .models import ApplicantRecord, StaffProfile
     from .constants import (BIPSU_STAFF_UNIT_GROUPS, CIVIL_STATUSES,
                             DESIGNATIONS, EMPLOYMENT_STATUSES)
     user = request.user
     staff = _staff_profile(user)
-    aff_app = AffirmativeStaffApplication.objects.filter(
+    aff_app = ApplicantRecord.objects.filter(
         email=user.email, qualified_for='Staff'
     ).order_by('-submitted_at').first()
     saved = False
@@ -5319,9 +5319,9 @@ def nsu_staff_notifications(request):
 
 @_nsu_staff_required
 def nsu_staff_applications(request):
-    from .models import AffirmativeStaffApplication, StaffRenewal
+    from .models import ApplicantRecord, StaffRenewal
     user = request.user
-    applications = AffirmativeStaffApplication.objects.filter(
+    applications = ApplicantRecord.objects.filter(
         email=user.email
     ).select_related(*STAFF_APPLICATION_DETAILS).order_by('-submitted_at')
     renewals = StaffRenewal.objects.filter(staff_user=user).order_by('-submitted_at')
@@ -5359,11 +5359,11 @@ def nsu_staff_renewal(request):
 
 @_nsu_staff_required
 def nsu_staff_apply(request):
-    from .models import AffirmativeStaffApplication
+    from .models import ApplicantRecord
     user = request.user
     staff = _staff_profile(user)
 
-    existing = AffirmativeStaffApplication.objects.filter(
+    existing = ApplicantRecord.objects.filter(
         email=user.email, qualified_for='Staff'
     ).exclude(status='Rejected').first()
 
@@ -5448,7 +5448,7 @@ def nsu_staff_apply(request):
                     existing.appointment_paper = f.get('appointment_paper')
                 existing.save()
             else:
-                existing = AffirmativeStaffApplication.objects.create(
+                existing = ApplicantRecord.objects.create(
                     full_name=full_name,
                     email=user.email,
                     contact_number=p.get('contact_number', ''),

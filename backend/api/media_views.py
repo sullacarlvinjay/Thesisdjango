@@ -33,8 +33,8 @@ _OWNER_RESOLVERS = {
 _OFFICE_ONLY_PREFIXES = ('rollovers/', 'masterlist/')
 
 _EMAIL_OWNED = {
-    'affirmative/shs/': ('AffirmativeStaffApplication', 'affirmative_eligibility__shs_certificate'),
-    'affirmative/suc/': ('AffirmativeStaffApplication', 'affirmative_eligibility__suc_exam_certificate'),
+    'affirmative/shs/': ('ApplicantRecord', 'affirmative_eligibility__shs_certificate'),
+    'affirmative/suc/': ('ApplicantRecord', 'affirmative_eligibility__suc_exam_certificate'),
 }
 
 

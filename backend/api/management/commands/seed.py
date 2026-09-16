@@ -4,7 +4,7 @@ from api.models import (
     StudentProfile, Scholarship, Application, Notification,
     Announcement,
     ActivityLog, SystemSettings,
-    AffirmativeStaffApplication,
+    ApplicantRecord,
 )
 from api.catalogue import ensure_scholarships
 from rest_framework.authtoken.models import Token
@@ -154,8 +154,8 @@ class Command(BaseCommand):
             },
         ]
         for data in aff_test:
-            if not AffirmativeStaffApplication.objects.filter(email=data['email']).exists():
-                AffirmativeStaffApplication.objects.create(**data)
+            if not ApplicantRecord.objects.filter(email=data['email']).exists():
+                ApplicantRecord.objects.create(**data)
 
         self.stdout.write(self.style.SUCCESS('Database seeded successfully!'))
         self.stdout.write('\nLogin credentials:')

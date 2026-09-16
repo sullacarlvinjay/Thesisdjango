@@ -5,7 +5,7 @@ from django.test import Client, TestCase
 from openpyxl import load_workbook
 
 from api.models import (
-    AffirmativeRecommendation, AffirmativeStaffApplication, StudentProfile,
+    AffirmativeRecommendation, ApplicantRecord, StudentProfile,
     SystemSettings, User,
 )
 
@@ -196,7 +196,7 @@ class TheStaffListTest(RankingDownloadFixtures, TestCase):
         fields.setdefault('qualified_for', 'Staff')
         fields.setdefault('status', 'Pending Validation')
         fields.setdefault('course', 'BSIT')
-        return AffirmativeStaffApplication.objects.create(**fields)
+        return ApplicantRecord.objects.create(**fields)
 
     def test_a_qualified_applicant_is_on_it_with_their_verdict(self):
         self.an_application(is_nsu_staff=True, employment_status='Regular',
