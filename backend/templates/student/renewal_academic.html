@@ -8,23 +8,23 @@
 {% block content %}
 <div class="space-y-6">
   {% if submitted %}
-  <div class="card p-5 flex items-center gap-3" style="border-color:#2f9e44;background:#f0fdf4;">
-    <svg class="h-5 w-5 shrink-0" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <p class="text-sm font-medium" style="color:#2f9e44;">Renewal documents submitted successfully. We'll review them shortly.</p>
+  <div class="card p-5 flex items-center gap-3" style="border-color:#0000c4;background:#e8f0ff;">
+    <svg class="h-5 w-5 shrink-0" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p class="text-sm font-medium" style="color:#0000c4;">Renewal documents submitted successfully. We'll review them shortly.</p>
   </div>
   {% endif %}
   {% if errors %}
-  <div class="card p-5" style="border-color:#e03131;background:#fff5f5;">
+  <div class="card p-5" style="border-color:var(--danger);background:var(--danger-bg);">
     {% for e in errors %}
-    <p class="text-sm" style="color:#e03131;">{{ e }}</p>
+    <p class="text-sm" style="color:var(--danger);">{{ e }}</p>
     {% endfor %}
   </div>
   {% endif %}
   {% if blocked %}
-  <div class="card p-5 flex items-center gap-3" style="border-color:#e03131;background:#fff5f5;">
-    <svg class="h-5 w-5 shrink-0" style="color:#e03131;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+  <div class="card p-5 flex items-center gap-3" style="border-color:var(--danger);background:var(--danger-bg);">
+    <svg class="h-5 w-5 shrink-0" style="color:var(--danger);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
     <div>
-      <p class="text-sm font-semibold" style="color:#e03131;">Renewals Are Closed</p>
+      <p class="text-sm font-semibold" style="color:var(--danger);">Renewals Are Closed</p>
       <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
     </div>
   </div>
@@ -40,14 +40,14 @@
   <div class="card p-6">
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
       <h3 class="font-semibold">{% if replacing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h3>
-      <span class="badge" style="background:#edf2ff;color:#3b5bdb;">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
+      <span class="badge" style="background:var(--brand-soft);color:var(--brand);">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
     </div>
     <p class="text-xs mb-5" style="color:#6b7a99;">Upload the required documents to renew your scholarship for the next semester.</p>
     <form method="post" enctype="multipart/form-data" class="space-y-5">
       {% csrf_token %}
       {% if multiple %}
       <div class="space-y-1.5">
-        <label class="block text-sm font-medium mb-1" style="color:#374151;">Which scholarship are you renewing? <span style="color:#e03131;">*</span></label>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Which scholarship are you renewing? <span style="color:var(--danger);">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">You hold more than one. Each is renewed separately, with its own documents — submit this form again for the other.</p>
         <select name="scholarship_type" required>
           <option value="">— Select scholarship —</option>
@@ -73,14 +73,14 @@
       {% endfor %}
       {% endif %}
       <div>
-        <label class="block text-sm font-medium mb-1" style="color:#374151;">Certificate of Enrollment <span style="color:#e03131;">*</span></label>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Certificate of Enrollment <span style="color:var(--danger);">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">Official Certificate of Enrollment from the Registrar's Office for the current semester.</p>
         <input type="file" name="certificate_of_enrollment" accept=".pdf,.jpg,.jpeg,.png"
           class="block w-full text-sm" required />
         <p class="text-xs mt-1" style="color:#6b7a99;">Accepted: PDF, JPG, PNG</p>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1" style="color:#374151;">Certificate of Grades <span style="color:#e03131;">*</span></label>
+        <label class="block text-sm font-medium mb-1" style="color:#374151;">Certificate of Grades <span style="color:var(--danger);">*</span></label>
         <p class="text-xs mb-2" style="color:#6b7a99;">Official Certificate of Grades from the Registrar's Office for the previous semester.</p>
         <input type="file" name="certificate_of_grades" accept=".pdf,.jpg,.jpeg,.png"
           class="block w-full text-sm" required />

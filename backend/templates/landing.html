@@ -10,14 +10,13 @@
   {% load static %}
   {% load srms_text %}
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=61" />
   
   <script src="{% static 'js/theme.js' %}"></script>
   <script src="{% static 'js/skeleton.js' %}"></script>
   <script src="{% static 'js/landing.js' %}?v=4" defer></script>
   <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
   <script src="{% static 'js/consent.js' %}?v=1" defer></script>
-  <script src="{% static 'js/search.js' %}?v=1" defer></script>
   <script src="{% static 'js/loading.js' %}?v=2" defer></script>
 </head>
 <body data-portal="student">
@@ -86,7 +85,7 @@
 </div>
 <main id="mainContent" class="section-photo pt-6 pb-16">
 {% if internal %}
-<div id="internal" class="landing-section max-w-6xl mx-auto px-6 pt-12 pb-2" data-search-section>
+<div id="internal" class="landing-section max-w-6xl mx-auto px-6 pt-12 pb-2">
   <h2 class="text-2xl font-bold mb-1">Internal Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Scholarships offered directly by Biliran Province State University.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -117,7 +116,7 @@
 </div>
 {% endif %}
 {% if institutional %}
-<div class="max-w-6xl mx-auto px-6 pt-10 pb-12" data-search-section>
+<div class="max-w-6xl mx-auto px-6 pt-10 pb-12">
   <h2 class="text-2xl font-bold mb-1">Institutional Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Scholarships for BiPSU faculty, staff, and their dependents.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -148,7 +147,7 @@
 </div>
 {% endif %}
 {% if external %}
-<div id="external" class="landing-section max-w-6xl mx-auto px-6 pt-10 pb-2" data-search-section>
+<div id="external" class="landing-section max-w-6xl mx-auto px-6 pt-10 pb-2">
   <h2 class="text-2xl font-bold mb-1">External Scholarships</h2>
   <p class="text-sm mb-6 section-sub">Government and agency-funded scholarships processed externally.</p>
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -184,10 +183,6 @@
   <p class="text-sm">Please check back later.</p>
 </div>
 {% endif %}
-<div id="catalogueEmpty" class="max-w-6xl mx-auto px-6 py-14 text-center landing-empty" hidden>
-  <p class="text-lg font-medium mb-2">No scholarship matches &ldquo;<span data-search-term></span>&rdquo;.</p>
-  <p class="text-sm">Try a shorter word, or clear the search to see every program.</p>
-</div>
 <div id="help" class="max-w-4xl mx-auto px-6 pt-14 pb-2">
   <h2 class="text-2xl font-bold mb-1">Frequently asked questions</h2>
   <p class="text-sm mb-6 section-sub">How registration and scholarship records work in this portal.</p>

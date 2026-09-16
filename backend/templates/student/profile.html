@@ -37,12 +37,12 @@
   </div>
 </div>
 {% if errors %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fff5f5;color:#e03131;border:1px solid #fecaca;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid #fecaca;">
   {% for e in errors %}<p>{{ e }}</p>{% endfor %}
 </div>
 {% endif %}
 {% if saved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
   ✓ Profile saved. Your applications will now be pre-filled with this information.
   {% if declared_count %}
   The {% if declared_count > 1 %}{{ declared_count }} scholarships you added are{% else %}scholarship you added is{% endif %}
@@ -435,7 +435,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>SHS GPA Certificate <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>
         {% if profile.shs_gpa_cert %}
-        <p class="text-xs" style="color:#2f9e44;">✓ File uploaded — <a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:var(--brand);">view</a></p>
+        <p class="text-xs" style="color:#0000c4;">✓ File uploaded — <a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:var(--brand);">view</a></p>
         {% endif %}
         <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>
@@ -462,7 +462,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>SUC Exam Certificate <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>
         {% if profile.suc_exam_cert %}
-        <p class="text-xs" style="color:#2f9e44;">✓ File uploaded — <a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:var(--brand);">view</a></p>
+        <p class="text-xs" style="color:#0000c4;">✓ File uploaded — <a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:var(--brand);">view</a></p>
         {% endif %}
         <input name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>

@@ -17,7 +17,7 @@
      class="btn {% if active_tab == 'academic' %}btn-primary{% else %}btn-outline{% endif %}">
     Academic
     <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5"
-          style="background:{% if active_tab == 'academic' %}rgba(255,255,255,0.25){% else %}#edf2ff{% endif %};color:{% if active_tab == 'academic' %}#fff{% else %}#3b5bdb{% endif %};">
+          style="background:{% if active_tab == 'academic' %}rgba(255,255,255,0.25){% else %}var(--brand-soft){% endif %};color:{% if active_tab == 'academic' %}#fff{% else %}var(--brand){% endif %};">
       {{ academic_apps|length }}
     </span>
   </a>
@@ -25,7 +25,7 @@
      class="btn {% if active_tab == 'staff' %}btn-primary{% else %}btn-outline{% endif %}">
     BiPSU Staff
     <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5"
-          style="background:{% if active_tab == 'staff' %}rgba(255,255,255,0.25){% else %}#ebfbee{% endif %};color:{% if active_tab == 'staff' %}#fff{% else %}#2f9e44{% endif %};">
+          style="background:{% if active_tab == 'staff' %}rgba(255,255,255,0.25){% else %}var(--brand-soft){% endif %};color:{% if active_tab == 'staff' %}#fff{% else %}var(--brand){% endif %};">
       {{ staff_apps|length }}
     </span>
   </a>
@@ -78,7 +78,7 @@
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">APP-{{ app.id|stringformat:"07d" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#3b5bdb;">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--brand);">
                 {{ app.student.user.first_name|first }}{{ app.student.user.last_name|first }}
               </div>
               <div>
@@ -149,7 +149,7 @@
           <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">STF-{{ app.id|stringformat:"05d" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#2f9e44;">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#0000c4;">
                 {{ app.full_name|first }}
               </div>
               <div>
@@ -193,20 +193,20 @@
       <button onclick="closeAcadModal()" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Personal Information</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Personal Information</p>
     <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalPersonal"></div>
     <div id="acadModalEduSection">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Educational Background</p>
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Educational Background</p>
       <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalEdu"></div>
     </div>
     <div id="acadModalFamSection">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Family Background</p>
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Family Background</p>
       <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalFam"></div>
     </div>
-    <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Academic Information</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Academic Information</p>
     <div class="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalAcad"></div>
     <div id="acadModalDocsSection">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:#3b5bdb;">Submitted Documents</p>
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Submitted Documents</p>
       <div id="acadModalDocs" class="space-y-2 mb-4"></div>
     </div>
     </div>
@@ -238,7 +238,7 @@
     <div class="modal-sheet-body">
       <div class="grid grid-cols-2 gap-3 text-sm" id="affModalDetails"></div>
       <div id="affModalDocSection" style="display:none;margin-top:1rem;">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Appointment Paper</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Appointment Paper</p>
         <div id="affModalDoc"></div>
       </div>
     </div>
@@ -308,7 +308,7 @@ function openAcademicModal(row) {
   if (d.docs) {
     docsEl.innerHTML = d.docs.split('||').map(p => {
       const [name, url] = p.split('::');
-      return '<a href="' + url + '" data-doc="' + name + '" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#1971c2;text-decoration:none;">' +
+      return '<a href="' + url + '" data-doc="' + name + '" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#3a57af;text-decoration:none;">' +
         '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
         name + '</a>';
     }).join('');
@@ -350,7 +350,7 @@ function openStaffModal(row) {
   const docSec = document.getElementById('affModalDocSection');
   const docEl  = document.getElementById('affModalDoc');
   if (d.docurl) {
-    docEl.innerHTML = '<a href="' + d.docurl + '" data-doc="Appointment Paper" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#1971c2;text-decoration:none;">' +
+    docEl.innerHTML = '<a href="' + d.docurl + '" data-doc="Appointment Paper" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#3a57af;text-decoration:none;">' +
       '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
       'View Appointment Paper</a>';
     docSec.style.display = '';

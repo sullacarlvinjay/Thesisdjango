@@ -8,21 +8,21 @@
 {% block content %}
 <div class="grid sm:grid-cols-3 gap-4 mb-6">
   <div class="card p-5 flex items-center gap-4">
-    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#f0fdf4;">
-      <svg class="h-5 w-5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#e8f0ff;">
+      <svg class="h-5 w-5" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     </div>
     <div>
       <p class="text-xs" style="color:#6b7a99;">Scholarship Status</p>
       {% if aff_app %}
-        <p class="font-semibold text-sm" style="color:#2f9e44;">Approved — BiPSU Staff</p>
+        <p class="font-semibold text-sm" style="color:#0000c4;">Approved — BiPSU Staff</p>
       {% else %}
-        <p class="font-semibold text-sm" style="color:#f59f00;">No active scholarship</p>
+        <p class="font-semibold text-sm" style="color:#6b5600;">No active scholarship</p>
       {% endif %}
     </div>
   </div>
   <div class="card p-5 flex items-center gap-4">
-    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#edf2ff;">
-      <svg class="h-5 w-5" style="color:#3b5bdb;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:var(--brand-soft);">
+      <svg class="h-5 w-5" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
     </div>
     <div>
       <p class="text-xs" style="color:#6b7a99;">Renewals Submitted</p>
@@ -30,8 +30,8 @@
     </div>
   </div>
   <div class="card p-5 flex items-center gap-4">
-    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#fffbeb;">
-      <svg class="h-5 w-5" style="color:#f59f00;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+    <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:#fffbe0;">
+      <svg class="h-5 w-5" style="color:#6b5600;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
     </div>
     <div>
       <p class="text-xs" style="color:#6b7a99;">Unread Notifications</p>
@@ -43,7 +43,7 @@
   <div class="card p-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold">Recent Renewals</h3>
-      <a href="/nsu-staff/renewal/" class="text-xs" style="color:#3b5bdb;">View all →</a>
+      <a href="/nsu-staff/renewal/" class="text-xs" style="color:var(--brand);">View all →</a>
     </div>
     {% if renewals %}
     <div class="space-y-2">
@@ -60,7 +60,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:#3b5bdb;">Submit one →</a></p>
+    <p class="text-sm" style="color:#6b7a99;">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:var(--brand);">Submit one →</a></p>
     {% endif %}
   </div>
   <div class="card p-6">

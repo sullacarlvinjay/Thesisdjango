@@ -44,10 +44,15 @@ class SignedOutPagesCarryTheChromeTest(TestCase):
         self.assertIn('class="cookie-banner"', html)
         self.assertIn('class="fab-contact"', html)
 
-    def test_it_offers_a_search_over_the_scholarship_cards(self):
+    def test_the_card_search_is_either_wired_up_or_fully_removed(self):
         html = self.landing()
-        self.assertIn('data-search="[data-scholarship]"', html)
-        self.assertIn('id="catalogueEmpty"', html)
+        if 'data-search="[data-scholarship]"' in html:
+            self.assertIn('id="catalogueEmpty"', html)
+            self.assertIn('js/search', html)
+        else:
+            self.assertNotIn('id="catalogueEmpty"', html,
+                             'the search input is gone but its empty-state and '
+                             'section markers were left behind')
 
     def test_it_answers_the_questions_people_actually_ask(self):
         html = self.landing()
@@ -512,13 +517,15 @@ class TheChartTabsAreColouredTest(SimpleTestCase):
         self.assertIn('.chart-tabs {', self.css)
         self.assertIn('.chart-tabs .chart-toggle-btn.active', self.css)
 
-    def test_each_tab_gets_its_own_colour(self):
-        tints = re.findall(r'\.chart-tabs \.chart-toggle-btn:nth-child\(\d\) \{ --tab-solid: (#[0-9a-f]{6})',
-                           self.css)
-        self.assertGreaterEqual(len(tints), 4, 'the tabs all look the same')
-        self.assertEqual(len(set(tints)), len(tints), f'two tabs share a colour: {tints}')
+    def test_a_selected_tab_is_the_brand_not_a_colour_of_its_own(self):
+        self.assertNotIn('--tab-solid', self.css,
+                         'tabs were given their own palette once; the brand replaced it')
+        rule = re.search(r'\.chart-tabs \.chart-toggle-btn\.active \{(.*?)\}',
+                         self.css, re.S)
+        self.assertIsNotNone(rule)
+        self.assertIn('background: var(--brand)', rule.group(1))
 
-    def test_dark_mode_lightens_the_tab_ink_rather_than_leaving_it_unreadable(self):
+    def test_dark_mode_still_gives_the_strip_its_own_ground(self):
         self.assertIn('html.dark .chart-tabs', self.css)
 
 

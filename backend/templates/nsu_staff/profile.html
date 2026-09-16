@@ -7,7 +7,7 @@
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
 {% block content %}
 {% if saved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
   ✓ Profile saved successfully.
 </div>
 {% endif %}
@@ -191,7 +191,7 @@
       <div class="space-y-1.5">
         <label>Appointment Paper</label>
         {% if staff.appointment_paper %}
-        <p class="text-xs mb-1"><a href="{{ staff.appointment_paper.url }}" target="_blank" style="color:#3b5bdb;">View the document on file →</a></p>
+        <p class="text-xs mb-1"><a href="{{ staff.appointment_paper.url }}" target="_blank" style="color:var(--brand);">View the document on file →</a></p>
         {% endif %}
         <input name="appointment_paper" type="file" />
       </div>
@@ -252,14 +252,14 @@
     </div>
   </div>
   {% else %}
-  <div class="card p-6" style="background:#fffbeb;border-color:#fde68a;">
-    <p class="text-sm font-medium" style="color:#92400e;">You have not applied for the BiPSU Staff Scholarship yet.</p>
-    <p class="text-xs mt-1 mb-3" style="color:#92400e;">
+  <div class="card p-6" style="background:#fffbe0;border-color:#fdea2b;">
+    <p class="text-sm font-medium" style="color:#6b5600;">You have not applied for the BiPSU Staff Scholarship yet.</p>
+    <p class="text-xs mt-1 mb-3" style="color:#6b5600;">
       Your employment details above are saved either way — the apply form reads them,
       so you only have to fill them in once.
     </p>
     <a href="/nsu-staff/apply/" class="btn btn-primary" style="display:inline-flex;">Apply for the Staff Scholarship</a>
-    <p class="text-xs mt-3" style="color:#92400e;">If you believe a record already exists, contact the SDSO — it may be filed under a different email address.</p>
+    <p class="text-xs mt-3" style="color:#6b5600;">If you believe a record already exists, contact the SDSO — it may be filed under a different email address.</p>
   </div>
   {% endif %}
   <div class="flex justify-end">

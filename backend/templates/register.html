@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=61" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -48,7 +48,7 @@
           <div class="type-card {% if post.account_type == 'nsu_staff' %}selected-staff{% endif %}"
                id="card-staff" onclick="selectType('nsu_staff')">
             <div class="flex items-center gap-2 mb-1">
-              <svg class="h-5 w-5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="h-5 w-5" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
               <span class="text-sm font-semibold" style="color:var(--text);">BiPSU Staff</span>
@@ -448,7 +448,7 @@
       </div>
       <div data-staff-only class="card mb-4" style="padding:1.5rem;"
            {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Employment Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#0000c4;">Employment Information</p>
         <p class="text-xs mb-4" style="color:var(--text-muted);">Saved to your staff profile. You can correct any of it later under My Profile.</p>
         <div class="space-y-3">
           <div class="space-y-1.5">
@@ -476,7 +476,7 @@
       
       <div data-staff-only class="card mb-4" style="padding:1.5rem;"
            {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#2f9e44;">Scholarship Data</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#0000c4;">Scholarship Data</p>
         <p class="text-xs mb-4" style="color:var(--text-muted);">
           The SDSO verifies this against their records when they verify your account. Once
           approved it is recorded as your award and you will not need to apply for it again.
@@ -638,9 +638,9 @@ function selectType(type) {
   } else {
     cardStaff.className   = 'type-card selected-staff';
     cardStudent.className = 'type-card';
-    btn.style.background = '#2f9e44';
+    btn.style.background = '#0000c4';
     btn.style.color      = '#fff';
-    title.style.color    = '#2f9e44';
+    title.style.color    = '#0000c4';
   }
 }
 </script>

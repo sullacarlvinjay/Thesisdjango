@@ -28,12 +28,12 @@
     <div><span style="color:#6b7a99;">SHS GPA</span><br />{{ p.shs_gpa|default:"—" }}</div>
     <div>
       <span style="color:#6b7a99;">SHS Certificate</span><br />
-      {% if p.shs_gpa_cert %}<a href="{{ p.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:#3b5bdb;">View</a>{% else %}—{% endif %}
+      {% if p.shs_gpa_cert %}<a href="{{ p.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:var(--brand);">View</a>{% else %}—{% endif %}
     </div>
     <div><span style="color:#6b7a99;">SUC Exam</span><br />{{ p.suc_exam_display|default:"—" }}</div>
     <div>
       <span style="color:#6b7a99;">SUC Certificate</span><br />
-      {% if p.suc_exam_cert %}<a href="{{ p.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:#3b5bdb;">View</a>{% else %}—{% endif %}
+      {% if p.suc_exam_cert %}<a href="{{ p.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:var(--brand);">View</a>{% else %}—{% endif %}
     </div>
     <div><span style="color:#6b7a99;">Current TES beneficiary</span><br />{% if p.is_tes_beneficiary %}Yes{% else %}No{% endif %}</div>
   </div>
@@ -61,7 +61,7 @@
   <div><span style="color:#6b7a99;">Contact</span><br />{{ account.employee_profile.contact_number|default:"—" }}</div>
 </div>
 {% else %}
-<div class="mb-3 text-xs" style="color:#92400e;">No profile was created with this account{% if deciding %} — worth asking why before verifying it{% endif %}.</div>
+<div class="mb-3 text-xs" style="color:#6b5600;">No profile was created with this account{% if deciding %} — worth asking why before verifying it{% endif %}.</div>
 {% endif %}
 {% endwith %}
 <div class="record-consent">

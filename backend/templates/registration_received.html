@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=61" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -57,8 +57,8 @@
       </a>
       {% else %}
       <div class="flex items-start gap-3 mb-4">
-        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style="background:#f0fdf4;">
-          <svg class="h-5 w-5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style="background:#e8f0ff;">
+          <svg class="h-5 w-5" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
           <p class="font-semibold" style="color:var(--text);">Registration received</p>
@@ -74,19 +74,19 @@
       </div>
       {% endif %}
       {% if confirmed %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+      <div class="p-3 rounded-lg text-sm mb-4" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
         <span class="font-semibold">Email address confirmed.</span>
         The office can reach you at this address now. Your registration is still waiting on their review.
       </div>
       {% endif %}
       {% if resent %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">
+      <div class="p-3 rounded-lg text-sm mb-4" style="background:#eef1fb;color:#1d4ed8;border:1px solid #b8c3e8;">
         A new confirmation link is on its way to {{ email }}. It can take a minute to arrive.
       </div>
       {% endif %}
       
       {% if confirm_email %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">
+      <div class="p-3 rounded-lg text-sm mb-4" style="background:#eef1fb;color:#1d4ed8;border:1px solid #b8c3e8;">
         <p class="font-semibold">Confirm your email address</p>
         <p class="mt-1">
           We sent a link to <span class="font-medium">{{ email }}</span>. Opening it is how we know the
@@ -102,8 +102,8 @@
       </div>
       {% endif %}
       {% if waiting %}
-      <div class="p-3 rounded-lg text-sm mb-4 flex items-start gap-2" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
-        <span class="waiting-dot h-2 w-2 rounded-full shrink-0 mt-1.5" style="background:#f59f00;"></span>
+      <div class="p-3 rounded-lg text-sm mb-4 flex items-start gap-2" style="background:#fffbe0;color:#6b5600;border:1px solid #fdea2b;">
+        <span class="waiting-dot h-2 w-2 rounded-full shrink-0 mt-1.5" style="background:#fdea2b;"></span>
         <span>
           <span class="font-semibold">Waiting for the Student Development and Services Office (SDSO) to verify your account.</span><br />
           Keep this page open — it checks every few seconds and takes you straight into your
@@ -126,7 +126,7 @@
         </li>
       </ol>
       {% else %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+      <div class="p-3 rounded-lg text-sm mb-4" style="background:#fffbe0;color:#6b5600;border:1px solid #fdea2b;">
         We could not find a registration on this browser. Sign in with the email and
         password you registered with — that page will tell you where your account stands.
       </div>

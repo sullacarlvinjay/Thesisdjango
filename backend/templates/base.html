@@ -16,9 +16,9 @@
           colors: {
             primary: { DEFAULT: 'var(--brand)', soft: 'var(--brand-soft)', foreground: 'var(--on-brand)' },
             accent:  { DEFAULT: 'var(--accent)', foreground: 'var(--on-accent)' },
-            success: { DEFAULT: '#2f9e44', foreground: '#ffffff' },
-            warning: { DEFAULT: '#f59f00', foreground: '#1a1a1a' },
-            info: { DEFAULT: '#1971c2', foreground: '#ffffff' },
+            success: { DEFAULT: 'var(--ok)', foreground: '#ffffff' },
+            warning: { DEFAULT: 'var(--accent)', foreground: '#1a1a1a' },
+            info: { DEFAULT: 'var(--info)', foreground: '#ffffff' },
             sidebar: { DEFAULT: 'var(--sidebar-bg)', foreground: 'var(--sidebar-text)', accent: 'var(--sidebar-hover)', border: 'var(--sidebar-border)' },
             muted: { DEFAULT: 'var(--surface-2)', foreground: 'var(--text-muted)' },
             border: 'var(--border)',
@@ -36,7 +36,7 @@
     document.getElementById('themeColor').setAttribute('content', srmsDark ? '#171c2e' : '#ffffff');
   </script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=59" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=61" />
   
   <script src="{% static 'js/skeleton.js' %}?v=2"></script>
   {% block extra_head %}{% endblock %}

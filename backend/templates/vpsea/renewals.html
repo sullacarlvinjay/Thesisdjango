@@ -14,9 +14,9 @@
 {% endif %}
 {% include "vpsea/_window_card.html" %}
 <div class="grid sm:grid-cols-3 gap-4 mb-6">
-  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Total</p><p class="text-3xl font-bold mt-2" style="color:#3b5bdb;">{{ renewals|length }}</p></div>
-  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Approved</p><p class="text-3xl font-bold mt-2" style="color:#2f9e44;">{{ approved_count }}</p></div>
-  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Pending</p><p class="text-3xl font-bold mt-2" style="color:#f59f00;">{{ pending_count }}</p></div>
+  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Total</p><p class="text-3xl font-bold mt-2" style="color:var(--brand);">{{ renewals|length }}</p></div>
+  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Approved</p><p class="text-3xl font-bold mt-2" style="color:#0000c4;">{{ approved_count }}</p></div>
+  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Pending</p><p class="text-3xl font-bold mt-2" style="color:#6b5600;">{{ pending_count }}</p></div>
 </div>
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>

@@ -14,13 +14,13 @@
   </div>
 </div>
 {% if request.GET.edited %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Student details updated.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">Student details updated.</div>
 {% endif %}
 {% if request.GET.deleted %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Student record deleted.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">Student record deleted.</div>
 {% endif %}
 {% if request.GET.error %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">{{ request.GET.error }}</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:var(--danger);border:1px solid #fecaca;">{{ request.GET.error }}</div>
 {% endif %}
 <div class="space-y-4">
   <div class="card p-6">
@@ -29,7 +29,7 @@
         <div class="flex items-center gap-2">
           <h3 class="font-semibold">Students Without a Scholarship</h3>
           <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type|urlencode }}&sy='+this.value"
-            style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#1971c2;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">
+            style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#3a57af;background:#eef1fb;border:1px solid #b8c3e8;border-radius:6px;">
             {% for lbl, display in all_sy_display %}
             <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ lbl }}</option>
             {% endfor %}
@@ -73,7 +73,7 @@
             </td>
             <td style="padding:0.55rem 0.75rem;font-size:0.8rem;">
               {% if row.classification and row.classification != 'Not Eligible' %}
-              <span style="color:#2f9e44;font-weight:600;">{{ row.classification }}</span>
+              <span style="color:#0000c4;font-weight:600;">{{ row.classification }}</span>
               {% else %}<span style="color:#6b7a99;">—</span>{% endif %}
             </td>
             <td style="padding:0.55rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ row.profile.contact_number|default:"—" }}</td>
@@ -82,10 +82,10 @@
                 <span style="color:#6b7a99;">Never applied</span>
                 <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
               {% elif row.state == 'rejected' %}
-                <span style="color:#e03131;font-weight:600;">Rejected</span>
+                <span style="color:var(--danger);font-weight:600;">Rejected</span>
                 <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
               {% else %}
-                <span style="color:#1971c2;font-weight:600;">{{ row.latest.status }}</span>
+                <span style="color:#3a57af;font-weight:600;">{{ row.latest.status }}</span>
                 <span style="color:#6b7a99;"> · {{ row.latest.scholarship.name }}</span>
               {% endif %}
             </td>
@@ -204,7 +204,7 @@
           <div><input id="sePassword" name="new_password" type="password" placeholder="New password" /></div>
           <div><input id="sePasswordConfirm" type="password" placeholder="Confirm password" /></div>
         </div>
-        <p id="sePasswordError" style="display:none;color:#e03131;font-size:0.75rem;margin-top:0.35rem;">Passwords do not match.</p>
+        <p id="sePasswordError" style="display:none;color:var(--danger);font-size:0.75rem;margin-top:0.35rem;">Passwords do not match.</p>
       </div>
       <div class="mt-4 pt-4" style="border-top:1px solid #e8ecf0;">
         <p class="text-xs font-semibold mb-1" style="color:#6b7a99;">Student-locked details</p>

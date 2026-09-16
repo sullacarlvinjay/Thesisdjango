@@ -15,7 +15,7 @@
   </div>
   <div class="card p-5">
     <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Approved</p>
-    <p class="text-3xl font-bold mt-2" style="color:#2f9e44;">{{ approved }}</p>
+    <p class="text-3xl font-bold mt-2" style="color:#0000c4;">{{ approved }}</p>
   </div>
   <div class="card p-5">
     <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Rejected</p>
@@ -23,12 +23,12 @@
   </div>
   <div class="card p-5">
     <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Pending</p>
-    <p class="text-3xl font-bold mt-2" style="color:#f59f00;">{{ pending }}</p>
+    <p class="text-3xl font-bold mt-2" style="color:#6b5600;">{{ pending }}</p>
     <p class="text-xs mt-1" style="color:#6b7a99;">Awaiting validation</p>
   </div>
   <div class="card p-5">
     <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Renewals</p>
-    <p class="text-3xl font-bold mt-2" style="color:#1971c2;">{{ renewals }}</p>
+    <p class="text-3xl font-bold mt-2" style="color:#3a57af;">{{ renewals }}</p>
     <p class="text-xs mt-1" style="color:#6b7a99;">Awaiting review</p>
   </div>
 </div>
@@ -59,15 +59,15 @@
     <div class="space-y-3">
       {% with total=total_applicants %}
       <div>
-        <div class="flex justify-between text-sm mb-1"><span>Approved</span><span style="color:#2f9e44;">{{ approved }}</span></div>
+        <div class="flex justify-between text-sm mb-1"><span>Approved</span><span style="color:#0000c4;">{{ approved }}</span></div>
         <div class="w-full rounded-full h-2" style="background:#e8ecf0;">
-          <div class="h-2 rounded-full" style="background:#2f9e44;width:{% if total %}{% widthratio approved total 100 %}{% else %}0{% endif %}%;"></div>
+          <div class="h-2 rounded-full" style="background:#0000c4;width:{% if total %}{% widthratio approved total 100 %}{% else %}0{% endif %}%;"></div>
         </div>
       </div>
       <div>
-        <div class="flex justify-between text-sm mb-1"><span>Pending</span><span style="color:#f59f00;">{{ pending }}</span></div>
+        <div class="flex justify-between text-sm mb-1"><span>Pending</span><span style="color:#6b5600;">{{ pending }}</span></div>
         <div class="w-full rounded-full h-2" style="background:#e8ecf0;">
-          <div class="h-2 rounded-full" style="background:#f59f00;width:{% if total %}{% widthratio pending total 100 %}{% else %}0{% endif %}%;"></div>
+          <div class="h-2 rounded-full" style="background:#fdea2b;width:{% if total %}{% widthratio pending total 100 %}{% else %}0{% endif %}%;"></div>
         </div>
       </div>
       <div>

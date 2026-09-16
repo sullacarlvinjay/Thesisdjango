@@ -7,13 +7,13 @@
 {% block content %}
 
 {% if approved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
   ✓ Account verified. They can sign in now.
   {% if emailed == '1' and email_enabled %}They have been emailed.{% endif %}
 </div>
 {% endif %}
 {% if rejected %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fffbe0;color:#6b5600;border:1px solid #fdea2b;">
   Account rejected. Your reason is what they will read when they try to sign in.
   {% if emailed == '1' and email_enabled %}They have been emailed the same words.{% endif %}
 </div>
@@ -37,7 +37,7 @@
 </div>
 {% endif %}
 {% if tested == '1' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
   ✓ Test message accepted for delivery to {{ tested_to }}. If it does not arrive, it left
   this server and the problem is beyond it — check the spam folder, then the provider's own log.
 </div>
@@ -113,7 +113,7 @@
 <div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ error }}</div>
 {% endif %}
 <div class="card p-6 mb-6">
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#3b5bdb;">Waiting for you</p>
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Waiting for you</p>
   <p class="text-xs mb-4" style="color:#6b7a99;">
     Someone who registers on the public form cannot sign in until you decide here. Check what they entered
     against your records — an unverified account is the only thing standing between a stranger and a student portal.
@@ -133,14 +133,14 @@
             <button type="button" class="copy-btn" data-copy="{{ account.email }}" aria-label="Copy this email address"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span data-copy-label>Copy</span></button></p>
           
           {% if account.email_verified %}
-          <p class="text-xs mt-1" style="color:#2f9e44;">✓ Email address confirmed by them</p>
+          <p class="text-xs mt-1" style="color:#0000c4;">✓ Email address confirmed by them</p>
           {% elif account.awaiting_email_confirmation %}
-          <p class="text-xs mt-1" style="color:#92400e;">
+          <p class="text-xs mt-1" style="color:#6b5600;">
             ⚠ Email address not confirmed — the link sent {{ account.email_confirmation_sent_at|timesince }} ago
             has not been opened. Anything you write to this address may reach nobody.
           </p>
           {% else %}
-          <p class="text-xs mt-1" style="color:#92400e;">⚠ Email address not confirmed — no link was ever sent.</p>
+          <p class="text-xs mt-1" style="color:#6b5600;">⚠ Email address not confirmed — no link was ever sent.</p>
           {% endif %}
         </div>
       </div>
@@ -151,8 +151,8 @@
         <input type="hidden" name="user_id" value="{{ account.id }}" />
         
         {% if account.staff_declared %}
-        <div class="p-4 rounded-xl" style="background:#fffbeb;border:1px solid #fde68a;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#92400e;">BiPSU Staff Scholarship declared at registration</p>
+        <div class="p-4 rounded-xl" style="background:#fffbe0;border:1px solid #fdea2b;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b5600;">BiPSU Staff Scholarship declared at registration</p>
           <p class="text-xs mb-3" style="color:#374151;">
             Verifying this account records the award for {{ active_label }} and they will
             not need to apply for it. Rejecting turns the declaration down in the same
@@ -164,7 +164,7 @@
             <div>
               <span style="color:#6b7a99;">Proof</span><br />
               {% if account.staff_declared.proof_document %}
-              <a href="{{ account.staff_declared.proof_document.url }}" data-doc="BiPSU Staff Scholarship — proof" style="color:#3b5bdb;">View document</a>
+              <a href="{{ account.staff_declared.proof_document.url }}" data-doc="BiPSU Staff Scholarship — proof" style="color:var(--brand);">View document</a>
               {% else %}&mdash;{% endif %}
             </div>
           </div>
@@ -174,14 +174,14 @@
         </div>
         {% endif %}
         {% if account.declarations|length > 1 %}
-        <p class="text-xs font-semibold" style="color:#92400e;">
+        <p class="text-xs font-semibold" style="color:#6b5600;">
           This registration declared {{ account.declarations|length }} scholarships.
           Read every card — verifying the account records all of them.
         </p>
         {% endif %}
         {% for declared in account.declarations %}
-        <div class="p-4 rounded-xl" style="background:#fffbeb;border:1px solid #fde68a;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#92400e;">
+        <div class="p-4 rounded-xl" style="background:#fffbe0;border:1px solid #fdea2b;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b5600;">
             Scholarship declared at registration{% if account.declarations|length > 1 %} · {{ forloop.counter }} of {{ account.declarations|length }}{% endif %}
           </p>
           <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:#374151;">
@@ -190,7 +190,7 @@
             <div>
               <span style="color:#6b7a99;">Proof</span><br />
               {% if declared.proof_document %}
-              <a href="{{ declared.proof_document.url }}" data-doc="{{ declared.get_scholarship_type_display }} — proof" style="color:#3b5bdb;">View document</a>
+              <a href="{{ declared.proof_document.url }}" data-doc="{{ declared.get_scholarship_type_display }} — proof" style="color:var(--brand);">View document</a>
               {% else %}—{% endif %}
             </div>
           </div>
@@ -200,7 +200,7 @@
           {% if declared.scholarship_type == 'CHED' %}
           <div class="space-y-1.5 mb-3">
             <label>CHED Award Tier</label>
-            <p class="text-xs" style="color:#92400e;">
+            <p class="text-xs" style="color:#6b5600;">
               The student declared
               <strong>{{ declared.get_award_tier_display|default:"nothing" }}</strong>.
               Correct it here if the proof says otherwise — the masterlists report the two tiers separately.
@@ -224,7 +224,7 @@
             </select>
           </div>
           {% else %}
-          <p class="text-xs" style="color:#92400e;">No row in this term's {{ declared.get_scholarship_type_display }} import ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
+          <p class="text-xs" style="color:#6b5600;">No row in this term's {{ declared.get_scholarship_type_display }} import ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
           {% endif %}
           {% if declared.other_semester_rows %}
           <p class="text-xs mt-2" style="color:#6b7a99;">
@@ -253,7 +253,7 @@
 
 {% if added_scholarships %}
 <div class="card p-6 mb-4">
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#92400e;">Scholarships added by verified students</p>
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#6b5600;">Scholarships added by verified students</p>
   <p class="text-xs mb-4" style="color:#6b7a99;">
     A student who registered before they won something adds it from their own portal. These accounts
     are already verified, so each scholarship is a decision on its own. Verifying one records the
@@ -354,7 +354,7 @@
 
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#3b5bdb;">Recently decided</p>
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Recently decided</p>
   <p class="text-xs mb-4" style="color:#6b7a99;">The last 25 decisions. <strong>View record</strong> reopens everything the decision was made on — what they registered with, and what became of any scholarship they declared. Verifying a rejected account here lets them straight in.</p>
   {% if decided %}
   <div style="overflow-x:auto;">

@@ -15,7 +15,7 @@
           <p class="text-3xl font-bold mt-2">{{ dashboard.recommended_count|default:"0" }}</p>
           <p class="text-xs mt-1" style="color:#6b7a99;">Matched scholarships</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#edf2ff;color:#3b5bdb;">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:var(--brand-soft);color:var(--brand);">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
         </div>
       </div>
@@ -27,7 +27,7 @@
           <p class="text-3xl font-bold mt-2">{{ dashboard.pending_count|default:"0" }}</p>
           <p class="text-xs mt-1" style="color:#6b7a99;">Under review</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#fffbeb;color:#92400e;">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#fffbe0;color:#6b5600;">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         </div>
       </div>
@@ -39,7 +39,7 @@
           <p class="text-3xl font-bold mt-2">{{ dashboard.approved_count|default:"0" }}</p>
           <p class="text-xs mt-1" style="color:#6b7a99;">Active scholar status</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#f0fdf4;color:#2f9e44;">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#e8f0ff;color:#0000c4;">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
       </div>
@@ -51,7 +51,7 @@
           <p class="text-3xl font-bold mt-2">{{ dashboard.notification_count|default:"0" }}</p>
           <p class="text-xs mt-1" style="color:#6b7a99;">Check notifications</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#eff6ff;color:#1971c2;">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:#eef1fb;color:#3a57af;">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
         </div>
       </div>
@@ -72,7 +72,7 @@
             <span class="badge badge-info shrink-0">{{ s.match|default:"—" }}% Match</span>
           </div>
           <div class="w-full rounded-full h-1.5 mt-3" style="background:#e8ecf0;">
-            <div class="h-1.5 rounded-full" style="background:#3b5bdb;width:{{ s.match|default:0 }}%;"></div>
+            <div class="h-1.5 rounded-full" style="background:var(--brand);width:{{ s.match|default:0 }}%;"></div>
           </div>
         </div>
         {% empty %}
@@ -87,7 +87,7 @@
         <div class="relative flex items-center justify-center" style="width:120px;height:120px;">
           <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg);">
             <circle cx="60" cy="60" r="50" fill="none" stroke="#e8ecf0" stroke-width="10"/>
-            <circle cx="60" cy="60" r="50" fill="none" stroke="#3b5bdb" stroke-width="10" stroke-dasharray="314" stroke-dashoffset="{{ top_match_offset|default:'157' }}" stroke-linecap="round"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--brand)" stroke-width="10" stroke-dasharray="314" stroke-dashoffset="{{ top_match_offset|default:'157' }}" stroke-linecap="round"/>
           </svg>
           <div class="absolute text-center">
             <p class="text-2xl font-bold">{{ top_match|default:"0" }}%</p>

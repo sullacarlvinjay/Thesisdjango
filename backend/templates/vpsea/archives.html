@@ -33,26 +33,26 @@
       <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       New Semester
     </button>
-    <button onclick="document.getElementById('undoSemModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;color:#f59f00;border-color:#f59f00;">
+    <button onclick="document.getElementById('undoSemModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;color:#6b5600;border-color:#6b5600;">
       <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
       Undo Semester
     </button>
   </div>
 </div>
 {% if request.GET.added %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Scholar added successfully.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">Scholar added successfully.</div>
 {% endif %}
 {% if request.GET.edited %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">Scholar updated successfully.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eef1fb;color:#3a57af;border:1px solid #b8c3e8;">Scholar updated successfully.</div>
 {% endif %}
 {% if request.GET.deleted %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">Scholar deleted.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:var(--danger);border:1px solid #fecaca;">Scholar deleted.</div>
 {% endif %}
 {% if request.GET.columns_saved %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eff6ff;color:#1971c2;border:1px solid #bfdbfe;">Column values saved for {{ request.GET.columns_saved }} scholar{{ request.GET.columns_saved|pluralize }}.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#eef1fb;color:#3a57af;border:1px solid #b8c3e8;">Column values saved for {{ request.GET.columns_saved }} scholar{{ request.GET.columns_saved|pluralize }}.</div>
 {% endif %}
 {% if request.GET.columns_bad %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:#e03131;border:1px solid #fecaca;">{{ request.GET.columns_bad }} value{{ request.GET.columns_bad|pluralize }} did not match the kind of data its column holds and {{ request.GET.columns_bad|pluralize:"was,were" }} not saved. Those cells still show what they held before.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:var(--danger);border:1px solid #fecaca;">{{ request.GET.columns_bad }} value{{ request.GET.columns_bad|pluralize }} did not match the kind of data its column holds and {{ request.GET.columns_bad|pluralize:"was,were" }} not saved. Those cells still show what they held before.</div>
 {% endif %}
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:38rem;">
@@ -67,7 +67,7 @@
       <input type="hidden" name="tier" value="{{ active_tier }}">
       {% if active_type == 'Academic' %}
       <div class="space-y-4">
-        <p class="text-xs font-semibold uppercase tracking-wider" style="color:#3b5bdb;">Personal Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider" style="color:var(--brand);">Personal Information</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
           <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
@@ -108,13 +108,13 @@
             </select>
           </div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Educational Background</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Educational Background</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>Elementary School</label><input name="elementary" style="margin-top:0.25rem;" /></div>
           <div><label>High School</label><input name="highschool" style="margin-top:0.25rem;" /></div>
           <div class="col-span-2"><label>Last School Attended</label><input name="last_school" style="margin-top:0.25rem;" /></div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Family Background</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Family Background</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label>Father's Last Name</label><input name="father_last_name" style="margin-top:0.25rem;" /></div>
           <div><label>Father's Given Name</label><input name="father_first_name" style="margin-top:0.25rem;" /></div>
@@ -125,19 +125,19 @@
           <div><label>Mother's Middle Name</label><input name="mother_middle_name" style="margin-top:0.25rem;" /></div>
           <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Academic Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Academic Information</p>
         <div class="grid grid-cols-3 gap-3">
           <div><label>GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" required style="margin-top:0.25rem;" /></div>
           <div><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
           <div><label>School Year</label><input name="school_year" value="{{ active_sy }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:#3b5bdb;">Document Upload <span style="color:#6b7a99;font-weight:400;text-transform:none;letter-spacing:0;">PDF, JPG, PNG · Max 5MB each</span></p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Document Upload <span style="color:#6b7a99;font-weight:400;text-transform:none;letter-spacing:0;">PDF, JPG, PNG · Max 5MB each</span></p>
         <div class="space-y-3">
           {% for num, label, hint, fname in add_docs %}
           <div class="rounded-xl border p-3" style="border-color:#e8ecf0;">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:#edf2ff;color:#3b5bdb;">{{ num }}</span>
-              <label class="text-sm font-medium" style="color:#374151;">{{ label }} <span style="color:#e03131;">*</span></label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">{{ num }}</span>
+              <label class="text-sm font-medium" style="color:#374151;">{{ label }} <span style="color:var(--danger);">*</span></label>
             </div>
             <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">{{ hint }}</p>
             <input type="file" name="{{ fname }}" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
@@ -194,7 +194,7 @@
         {% endif %}
         <div class="col-span-2">
           <div class="rounded-xl border p-3 mt-1" style="border-color:#e8ecf0;">
-            <label class="text-sm font-medium" style="color:#374151;">Proof of Enrollment / Program Membership <span style="color:#e03131;">*</span></label>
+            <label class="text-sm font-medium" style="color:#374151;">Proof of Enrollment / Program Membership <span style="color:var(--danger);">*</span></label>
             <p class="text-xs mt-1 mb-2" style="color:#6b7a99;">Upload any document proving the scholar is enrolled in this program (e.g. award letter, COE, endorsement). PDF, JPG, PNG.</p>
             <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
           </div>
@@ -230,7 +230,7 @@
     </div>
     <div class="modal-sheet-body">
     {% if import_message %}
-    <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">✓ {{ import_message }}</div>
+    <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">✓ {{ import_message }}</div>
     {% endif %}
     {% if import_error %}
     <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;">✗ {{ import_error }}</div>
@@ -240,16 +240,16 @@
       <input type="hidden" name="type" value="{{ active_type }}">
       <div class="space-y-3">
         <div>
-          <label class="text-sm font-medium">Excel File <span style="color:#e03131;">*</span></label>
+          <label class="text-sm font-medium">Excel File <span style="color:var(--danger);">*</span></label>
           <input type="file" name="file" accept=".xlsx" required style="margin-top:0.25rem;width:100%;" />
         </div>
         <div>
-          <label class="text-sm font-medium">Rollover Name <span style="color:#e03131;">*</span> <span style="color:#6b7a99;font-weight:400;">(e.g. 26-1)</span></label>
+          <label class="text-sm font-medium">Rollover Name <span style="color:var(--danger);">*</span> <span style="color:#6b7a99;font-weight:400;">(e.g. 26-1)</span></label>
           <input name="rollover_label" placeholder="e.g. 26-1" required style="margin-top:0.25rem;width:100%;" />
           <p class="text-xs mt-1" style="color:#6b7a99;">This names the rollover list saved in the Download Excel history.</p>
         </div>
         <div class="p-3 rounded-lg" style="background:#f0f4ff;border:1px solid #c7d2fe;">
-          <p class="text-xs font-semibold mb-1" style="color:#3b5bdb;">Expected columns for {{ active_type }}:</p>
+          <p class="text-xs font-semibold mb-1" style="color:var(--brand);">Expected columns for {{ active_type }}:</p>
           <p class="text-xs font-mono" style="color:#374151;">{{ col_hint }}</p>
         </div>
       </div>
@@ -292,7 +292,7 @@
       <input type="hidden" name="prev_label" value="{{ prev_sy }}">
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('undoSemModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn" style="background:#f59f00;color:#fff;border:none;">Confirm Undo</button>
+        <button type="submit" class="btn" style="background:#fdea2b;color:#fff;border:none;">Confirm Undo</button>
       </div>
     </form>
   </div>
@@ -305,7 +305,7 @@
           <div class="flex items-center gap-2">
             <h3 class="font-semibold">{{ active_tab_label }} Scholars</h3>
             <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type }}{% if active_tier %}&amp;tier={{ active_tier }}{% endif %}&sy='+this.value"
-              style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#1971c2;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">
+              style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#3a57af;background:#eef1fb;border:1px solid #b8c3e8;border-radius:6px;">
               {% for lbl, display in all_sy_display %}
               <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ lbl }}</option>
               {% endfor %}
@@ -328,7 +328,7 @@
             <div id="dlMenu" class="dl-menu">
               <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">The table on screen</div>
               <a href="/vpsea/archives/download/?type={{ active_type|urlencode }}{% if active_tier %}&amp;tier={{ active_tier|urlencode }}{% endif %}&amp;sy={{ selected_sy|urlencode }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
-                <svg class="h-3.5 w-3.5" style="color:#2f9e44;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <svg class="h-3.5 w-3.5" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 {{ selected_sy_display }}
               </a>
               <div style="padding:0 0.75rem 0.35rem;font-size:0.7rem;color:#6b7a99;">Same columns, same scholars, same term as the table below.</div>
@@ -348,7 +348,7 @@
                       data-confirm-tone="danger" data-confirm-label="Delete">
                   {% csrf_token %}
                   <input type="hidden" name="type" value="{{ active_type }}">
-                  <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:#e03131;padding:0.2rem;line-height:1;">✕</button>
+                  <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:0.2rem;line-height:1;">✕</button>
                 </form>
               </div>
               {% endfor %}
@@ -574,7 +574,7 @@ function openDelete(pk, name) {
           <input id="editProvince" name="province" style="margin-top:0.25rem;" />
         </div>
         <div class="col-span-2" style="border-top:1px solid #e8ecf0;padding-top:0.75rem;margin-top:0.25rem;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#3b5bdb;">Reset Password</p>
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Reset Password</p>
           <p class="text-xs mb-2" style="color:#6b7a99;">Leave blank to keep the current password unchanged.</p>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -666,7 +666,7 @@ function openDelete(pk, name) {
       <input type="hidden" name="pk" id="deletePk">
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn" style="background:#e03131;color:#fff;border:none;">Delete</button>
+        <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">Delete</button>
       </div>
     </form>
   </div>

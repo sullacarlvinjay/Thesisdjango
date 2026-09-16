@@ -6,8 +6,8 @@
 {% block page_subtitle %}Manage programs shown on the public landing page{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="scholarships" %}{% endblock %}
 {% block content %}
-{% if added %}<div class="mb-4 p-3 rounded-lg text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Scholarship added successfully.</div>{% endif %}
-{% if saved %}<div class="mb-4 p-3 rounded-lg text-sm font-medium" style="background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;">Changes saved successfully.</div>{% endif %}
+{% if added %}<div class="mb-4 p-3 rounded-lg text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">Scholarship added successfully.</div>{% endif %}
+{% if saved %}<div class="mb-4 p-3 rounded-lg text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">Changes saved successfully.</div>{% endif %}
 <div class="flex items-center justify-between mb-5">
   <p class="text-sm" style="color:#6b7a99;">{{ scholarships|length }} program{{ scholarships|length|pluralize }} total</p>
   <a href="/vpsea/scholarships/add/" class="btn btn-primary" style="gap:0.4rem;">
@@ -32,12 +32,12 @@
         <tr style="border-bottom:1px solid #f1f3f9;">
           <td style="padding:0.65rem 0.75rem;font-weight:600;">{{ s.name }}</td>
           <td style="padding:0.65rem 0.75rem;">
-            <span class="badge" style="background:#edf2ff;color:#3b5bdb;">{{ s.type }}</span>
+            <span class="badge" style="background:var(--brand-soft);color:var(--brand);">{{ s.type }}</span>
           </td>
           <td style="padding:0.65rem 0.75rem;color:#6b7a99;font-size:0.8rem;max-width:22rem;">{{ s.description|truncatechars:80 }}</td>
           <td style="padding:0.65rem 0.75rem;">
             {% if s.is_active %}
-            <span class="badge" style="background:#f0fdf4;color:#2f9e44;">Active</span>
+            <span class="badge" style="background:#e8f0ff;color:#0000c4;">Active</span>
             {% else %}
             <span class="badge" style="background:#fef2f2;color:#dc2626;">Inactive</span>
             {% endif %}
@@ -47,7 +47,7 @@
               <a href="/vpsea/scholarships/{{ s.pk }}/edit/" class="btn btn-outline" style="padding:0.3rem 0.7rem;font-size:0.75rem;">Edit</a>
               <form method="post" action="/vpsea/scholarships/{{ s.pk }}/toggle/" style="margin:0;">
                 {% csrf_token %}
-                <button type="submit" class="btn" style="padding:0.3rem 0.7rem;font-size:0.75rem;{% if s.is_active %}background:#fef2f2;color:#dc2626;border:1px solid #fecaca;{% else %}background:#f0fdf4;color:#2f9e44;border:1px solid #bbf7d0;{% endif %}">
+                <button type="submit" class="btn" style="padding:0.3rem 0.7rem;font-size:0.75rem;{% if s.is_active %}background:#fef2f2;color:#dc2626;border:1px solid #fecaca;{% else %}background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;{% endif %}">
                   {% if s.is_active %}Deactivate{% else %}Activate{% endif %}
                 </button>
               </form>
@@ -55,7 +55,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="padding:3rem;text-align:center;color:#6b7a99;">No scholarship programs yet. <a href="/vpsea/scholarships/add/" style="color:#3b5bdb;">Add one</a>.</td></tr>
+        <tr><td colspan="5" style="padding:3rem;text-align:center;color:#6b7a99;">No scholarship programs yet. <a href="/vpsea/scholarships/add/" style="color:var(--brand);">Add one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -3606,3 +3606,54 @@ does. It is **not applied here**: which side is wrong — the tests, or a produc
 that made the certificates mandatory — is a decision for whoever changed the required
 set, and `api/test_own_password.py` is sitting modified in the working tree, so
 somebody is mid-change in this area.
+
+---
+
+## The interface is blue and yellow everywhere, landing page to logout
+
+ISO 25010 measures consistency, and the system was not consistent: a green tick here,
+an amber pill there, and four differently coloured chart tabs — violet, teal, pink,
+orange — that I had put in a few days earlier. Asked to bring the whole interface onto
+BiPSU's two colours, for every role.
+
+**The rule now is: blue, yellow, grey — and red only for danger.**
+
+The status tokens moved rather than each use being patched, so everything built on them
+followed in one step, in both themes:
+
+| token | was | is |
+|---|---|---|
+| `--ok` | `#2f9e44` green | `#0000c4` brand blue (`#a9baff` dark) |
+| `--warn` | `#92400e` amber | `#6b5600` dark gold on `#fffbe0` (`#fdea2b` dark) |
+| `--info` | `#1971c2` | `#3a57af` sidebar blue |
+| `--danger` | `#dc2626` | **unchanged** |
+
+**Red stays, deliberately.** Green and orange were named; red was not, and it is the one
+colour convention people read without thinking. An error that is not red is an error
+that gets missed, which costs more usability than it buys consistency. Approved is now
+blue, pending yellow, rejected red — still three distinguishable states, two of them
+on brand.
+
+**The chart tabs lost their own palette.** `--tab-solid` / `--tab-ink` are gone; a
+selected tab is `var(--brand)` with `var(--on-brand)`, hover is `var(--brand-soft)`,
+and the rest is muted text. Selected means blue, the same as it does in the sidebar.
+
+**41 inline `color:#2f9e44`, 20 `background:#f0fdf4` and the rest were repainted in the
+templates** rather than patched in CSS with another `!important` override — 24 files.
+The `.dark [style*="…"]` patches that dragged those inline colours into dark mode were
+re-pointed at the new values rather than left aiming at colours nothing uses. Two
+`btn.style.background = '#2f9e44'` assignments in page scripts went too; a property-based
+sweep does not catch `=`, only `:`.
+
+**The landing page needed nothing beyond this.** Its card strips, badges, jump dots and
+buttons were already written against the tokens; the green institutional strip
+(`#2f9e44 → #51cf66`) was the only literal, and it is now the two brand colours together,
+`#fdea2b → #0000d4`, which also keeps the three groups apart without a third hue.
+
+**Charts keep their own palette**, as asked — twelve hues in `excel-charts.js` so series
+can be told apart. The restriction is on the interface, not on data.
+
+`api/test_brand_colours.py` converts every hex in the stylesheet and every template to
+HSL and fails on anything that is not blue (200–265°), yellow (40–68°), red (340–14°) or
+flat enough to be a neutral. It also asserts the danger token is still red in both
+themes, and that the chart series palette is left alone.

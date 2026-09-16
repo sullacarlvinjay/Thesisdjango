@@ -7,13 +7,13 @@
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
 {% block content %}
 {% if request.GET.added %}
-<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#2f9e44;font-size:0.875rem;">
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#e8f0ff;border:1px solid #b3ceff;color:#0000c4;font-size:0.875rem;">
   <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
   Student added successfully.
 </div>
 {% endif %}
 {% if request.GET.edited %}
-<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1971c2;font-size:0.875rem;">
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:#eef1fb;border:1px solid #b8c3e8;color:#3a57af;font-size:0.875rem;">
   <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
   Student updated successfully.
 </div>
@@ -32,7 +32,7 @@
          class="tab-btn {% if tab != 'no_scholarship' %}active{% endif %}">
         With Scholarship
         <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
-              style="background:{% if tab != 'no_scholarship' %}#3b5bdb{% else %}#e8ecf0{% endif %};color:{% if tab != 'no_scholarship' %}#fff{% else %}#6b7a99{% endif %};">
+              style="background:{% if tab != 'no_scholarship' %}var(--brand){% else %}#e8ecf0{% endif %};color:{% if tab != 'no_scholarship' %}#fff{% else %}#6b7a99{% endif %};">
           {{ students|length }}
         </span>
       </a>
@@ -40,7 +40,7 @@
          class="tab-btn {% if tab == 'no_scholarship' %}active{% endif %}">
         No Scholarship
         <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
-              style="background:{% if tab == 'no_scholarship' %}#f59f00{% else %}#e8ecf0{% endif %};color:{% if tab == 'no_scholarship' %}#fff{% else %}#6b7a99{% endif %};">
+              style="background:{% if tab == 'no_scholarship' %}var(--accent){% else %}#e8ecf0{% endif %};color:{% if tab == 'no_scholarship' %}var(--on-accent){% else %}#6b7a99{% endif %};">
           {{ no_scholarship_students|length }}
         </span>
       </a>
@@ -104,7 +104,7 @@
           <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ forloop.counter }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#3b5bdb;">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--brand);">
                 {{ s.user.first_name|first }}{{ s.user.last_name|first }}
               </div>
               <span class="font-medium">{{ s.user.get_full_name }}</span>

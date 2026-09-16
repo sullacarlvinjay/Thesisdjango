@@ -60,7 +60,7 @@
   {% for a in applications %}
   <div id="app-{{ a.id }}">
     {% if a.remarks %}
-    <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:#fff7ed;border:1px solid #fed7aa;color:#92400e;">
+    <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:#fffbe0;border:1px solid #fdea2b;color:#6b5600;">
       <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
     </div>
     {% endif %}
@@ -112,7 +112,7 @@
       {% for doc in a.documents.all %}
       <div class="detail-field">
         <label>{{ doc.name }}</label>
-        <span><a href="{{ doc.file.url }}" data-doc="{{ doc.name }}" style="color:#3b5bdb;text-decoration:underline;">View file</a></span>
+        <span><a href="{{ doc.file.url }}" data-doc="{{ doc.name }}" style="color:var(--brand);text-decoration:underline;">View file</a></span>
       </div>
       {% endfor %}
     </div>
