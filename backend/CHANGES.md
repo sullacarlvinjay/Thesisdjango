@@ -3657,3 +3657,86 @@ can be told apart. The restriction is on the interface, not on data.
 HSL and fails on anything that is not blue (200–265°), yellow (40–68°), red (340–14°) or
 flat enough to be a neutral. It also asserts the danger token is still red in both
 themes, and that the chart series palette is left alone.
+
+---
+
+## Why dark mode looked purple, and the fix
+
+Not a stray colour — a hue. `#0000d4`, the seal blue, sits at **240°**, which is "pure
+blue" only in the sense that red and green are zero. Dark and saturated it reads navy;
+**tint it toward white and 240° reads lavender**, which is exactly what dark mode does.
+
+The two dark blocks had drifted apart: the global one already tinted at ~229°, while
+the portal-scoped one (`.dark [data-portal=…]`, which is what every signed-in page
+actually uses) tinted at a flat 240° — `#8c8cff`, `#a5a5ff`. That is why dark mode read
+purple inside the system.
+
+Every dark tint was rotated to **219°**, keeping its lightness and saturation so only
+the hue moved:
+
+| token | was | is |
+|---|---|---|
+| dark `--brand` (portal) | `#8c8cff` 240° | `#8cb4ff` 219° |
+| dark `--brand-strong` | `#a5a5ff` 240° | `#a5c4ff` 219° |
+| dark `--brand` (global) | `#8fa4ff` 229° | `#8fb6ff` 219° |
+| dark `--sidebar-bg` | `#0c0b7a` 240° | `#0b327a` 219° |
+| dark `--sidebar-bg-2` | `#06054a` 241° | `#051d4a` 219° |
+| `--brand-soft` (light) | `#e7e7fb` 240° | `#e7eefb` 219° |
+
+`--brand-soft` was rotated in light mode too: a 95%-light tint of 240° is lavender
+wherever it lands, which is every badge ground and hover state.
+
+**The saturated light-mode values were left at 240° on purpose.** `#0000d4` is
+`--seal-blue` — the actual BiPSU colour — and at that lightness it reads blue. Rotating
+it would change the brand rather than correct a tint. If it reads purple on your screen
+too, say so and it rotates the same way in one edit.
+
+---
+
+## The photo wash is at 50%
+
+`--wash-strong` and `--wash-soft` drive the blue over the campus photograph on the
+landing hero, the section background, and the login and registration pages. They were
+`0.86` and `0.68`; both are `0.50` now, so the building shows through.
+
+**Dark mode is unchanged and will look the same as before.** `.dark .hero::before` and
+`.dark .section-photo::before` lay a near-opaque `0.95`–`0.99` sheet over the same
+photo, so the wash underneath it does nothing. That is deliberate — dark mode hides the
+photograph rather than dimming it. Say the word if you want the photo to show in dark
+mode as well; it is those two rules, not the wash.
+
+One thing to watch: the hero and auth headings are white on the photograph. At 50% the
+contrast is thinner than it was, and a brighter crop of the image would push it further.
+It reads cleanly on the current backgrounds.
+
+---
+
+## The landing card search was half-removed
+
+The search input above the scholarship cards had been taken out of `landing.html`, but
+`#catalogueEmpty`, the `data-search-section` markers on all three groups, and the
+`search.js` include were left behind — markup and a script with nothing to drive them.
+The removal is finished now rather than reverted. `search.js` still ships for the
+sidebar *Find a page* box in the portal, which is untouched.
+
+The test for it no longer demands the feature exists; it asserts the search is either
+wired up **or** fully gone, and fails on the half-state.
+
+---
+
+## Dark mode shows the photograph too
+
+The 50% wash only reached light mode. Dark mode laid two further sheets over the same
+image — `.dark .hero::before` at `0.95`/`0.72` and `.dark .section-photo::before` at
+`0.96`/`0.99` — plus its own `--wash-*` at `0.94`/`0.72` for the sign-in and
+registration pages. Between them the photograph was invisible, so the two themes did
+not match however low the wash went.
+
+All six values are `0.50` now. Landing, sign-in and registration read the same way in
+either theme: the campus at half strength under a blue, or a navy, cast.
+
+**The hero and section headings gained a text shadow** rather than the wash being put
+back up. White type on a photograph at 50% is thin — the sub-heading sits over a
+sunlit wall — and `0 1px 2px` plus `0 2px 14px` of black restores the edge without
+touching the transparency that was asked for. `.hero-sub` also went from 86% to 95%
+white for the same reason.

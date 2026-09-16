@@ -422,7 +422,16 @@ tr:hover td      { background: var(--surface-sunken); }
   text-transform: uppercase;
   font-weight: 600;
 }
-.hero .hero-sub { color: rgba(255, 255, 255, 0.86); }
+.hero .hero-sub { color: rgba(255, 255, 255, 0.95); }
+
+.hero h1,
+.hero h2,
+.hero .hero-eyebrow,
+.hero .hero-sub,
+.section-photo h2,
+.section-photo .section-sub {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 2px 14px rgba(0, 0, 0, 0.40);
+}
 
 .section-photo {
   position: relative;
@@ -860,8 +869,8 @@ body { overflow-x: hidden; }
   --accent-strong:#f2d900;
   --on-accent:    #050c1a;
   --ring:         rgba(140, 180, 255, 0.30);
-  --wash-strong:  rgba(0, 0, 160, 0.94);
-  --wash-soft:    rgba(0, 0, 90, 0.72);
+  --wash-strong:  rgba(0, 0, 160, 0.50);
+  --wash-soft:    rgba(0, 0, 90, 0.50);
 }
 
 .dark body, html.dark body { background: var(--bg); color: var(--text); }
@@ -869,8 +878,8 @@ body { overflow-x: hidden; }
 .dark header { background: color-mix(in srgb, var(--surface) 88%, transparent) !important;
                border-color: var(--border) !important; }
 .dark .doc-viewer-backdrop { background: rgba(0, 0, 0, 0.66); }
-.dark .hero::before        { background: linear-gradient(135deg, rgba(6, 12, 32, 0.95), rgba(10, 17, 40, 0.72)); }
-.dark .section-photo::before { background: linear-gradient(180deg, rgba(6, 12, 32, 0.96), rgba(6, 12, 32, 0.99)); }
+.dark .hero::before        { background: linear-gradient(135deg, rgba(6, 12, 32, 0.50), rgba(10, 17, 40, 0.50)); }
+.dark .section-photo::before { background: linear-gradient(180deg, rgba(6, 12, 32, 0.50), rgba(6, 12, 32, 0.50)); }
 .dark .doc-viewer-body iframe { background: var(--surface-2); }
 .dark .report-preview-frame { background: var(--surface-2); }
 .dark .report-error { background: #2a1414; border-color: #7f1d1d; color: #fca5a5; }
