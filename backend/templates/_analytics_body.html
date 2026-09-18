@@ -84,17 +84,17 @@
   {% endif %}
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-      <h3 class="font-semibold">{% if selected_type %}{{ selected_type }} — Scholar Distribution by Course{% else %}Scholars by Course{% endif %}</h3>
+      <h3 class="font-semibold">{% if selected_type %}{{ selected_type }} — Scholar Distribution by Program{% else %}Scholars by Program{% endif %}</h3>
       <div class="flex items-center gap-2">
         {% if course_dist %}<div class="chart-tabs" id="courseChartToggle"></div>{% endif %}
-        {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-course">&#8681; PNG</button>{% endif %}
+        {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-program">&#8681; PNG</button>{% endif %}
       </div>
     </div>
     <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
     {% if course_dist %}
     <figure class="xl-figure">
       <canvas id="courseChart" width="900" height="{{ course_chart_height }}"></canvas>
-      <figcaption class="xl-figure__caption" data-figure>Scholars by course{% if selected_type %}, {{ selected_type }} program{% endif %} — {{ selected_sy_display }}</figcaption>
+      <figcaption class="xl-figure__caption" data-figure>Scholars by program{% if selected_type %}, {{ selected_type }} program{% endif %} — {{ selected_sy_display }}</figcaption>
     </figure>
     {% else %}
     <p class="chart-empty">No rollover data available for this selection.</p>
