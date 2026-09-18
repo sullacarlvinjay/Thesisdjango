@@ -548,6 +548,9 @@ SCHOLARSHIPS = [   {   'name': 'Academic Scholarship',
         'is_active': True}]
 
 
+OFFICE_OWNED_FIELDS = frozenset({'is_active'})
+
+
 def ensure_scholarships():
     from .models import Scholarship
 
@@ -559,7 +562,8 @@ def ensure_scholarships():
         if created:
             added.append(row['name'])
             continue
-        changed = [k for k, v in fields.items() if getattr(obj, k) != v]
+        changed = [k for k, v in fields.items()
+                   if k not in OFFICE_OWNED_FIELDS and getattr(obj, k) != v]
         if changed:
             for k in changed:
                 setattr(obj, k, fields[k])

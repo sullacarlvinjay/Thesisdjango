@@ -125,8 +125,13 @@ class AddScholarshipFromMyProfileTest(TestCase):
     def test_the_office_is_told_it_arrived(self):
         self.add()
         self.assertTrue(ActivityLog.objects.filter(
-            action__contains='added a scholarship: DOST S&T Undergraduate '
-                             'Scholarship').exists())
+            action__contains='added a scholarship: DOST Scholarship').exists())
+
+    def test_the_office_is_told_the_name_the_catalogue_carries(self):
+        Scholarship.objects.filter(type='DOST').update(name='DOST Merit Track')
+        self.add()
+        self.assertTrue(ActivityLog.objects.filter(
+            action__contains='added a scholarship: DOST Merit Track').exists())
 
     def test_what_they_hold_is_listed_above_the_question(self):
         self.add()

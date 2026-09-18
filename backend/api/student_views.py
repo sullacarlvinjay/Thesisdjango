@@ -280,8 +280,7 @@ def _declaration_slots(post=None):
 def _register_context(post=None):
     import json
     from . import terms
-    from .constants import (CIVIL_STATUSES, DECLARABLE_SCHOLARSHIP_TYPES,
-                            GENDERS, STAFF_DECLARABLE_LABEL)
+    from .constants import CIVIL_STATUSES, GENDERS, STAFF_DECLARABLE_LABEL
     from .models import CHED_TIER_CHOICES, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     return {
@@ -289,7 +288,7 @@ def _register_context(post=None):
         'bipsu_courses_json': json.dumps(BIPSU_COURSES),
         'civil_statuses': CIVIL_STATUSES,
         'genders': GENDERS,
-        'scholarship_types': DECLARABLE_SCHOLARSHIP_TYPES,
+        'scholarship_types': declarable_types(),
         'staff_scholarship_label': STAFF_DECLARABLE_LABEL,
         'ched_tiers': CHED_TIER_CHOICES,
         'max_upload_mb': settings_obj.max_file_size_mb or 5,
@@ -369,7 +368,7 @@ DECLARATION_SLOTS = ('', '_2', '_3')
 
 
 def _declared_scholarship(p, files, slot=''):
-    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+    from .constants import declarable_type_values
     from .models import CHED_TIER_CHOICES, SystemSettings
     if f'has_scholarship{slot}' not in p:
         return None, []
@@ -381,7 +380,7 @@ def _declared_scholarship(p, files, slot=''):
     where = f' (scholarship {DECLARATION_SLOTS.index(slot) + 1})' if slot else ''
 
     errors = []
-    if stype not in [t for t, _ in DECLARABLE_SCHOLARSHIP_TYPES]:
+    if stype not in declarable_type_values():
         errors.append(f'Say which scholarship you already hold{where}, or clear the '
                       '"I already hold a scholarship" box.')
     elif stype == 'CHED' and tier not in [t for t, _ in CHED_TIER_CHOICES]:
@@ -411,8 +410,8 @@ def _declared_scholarships(p, files):
         if not declared:
             continue
         if declared['scholarship_type'] in seen:
-            from .constants import DECLARABLE_SCHOLARSHIP_TYPES
-            label = dict(DECLARABLE_SCHOLARSHIP_TYPES).get(
+            from .constants import scholarship_type_labels
+            label = scholarship_type_labels().get(
                 declared['scholarship_type'], declared['scholarship_type'])
             errors.append(f'You named the {label} twice. Declare each scholarship '
                           'once — the office verifies them one at a time.')
@@ -867,8 +866,8 @@ def scholarship_block_reason(profile, wanted, label):
         return ''
     if wanted in held:
         return f'You already hold the {label}. There is nothing to apply for.'
-    from .models import SCHOLARSHIP_TYPE_CHOICES
-    display = dict(SCHOLARSHIP_TYPE_CHOICES)
+    from .constants import scholarship_type_labels
+    display = scholarship_type_labels()
     names = ', '.join(sorted(display.get(t, t) for t in held))
     return (f'You are already enrolled in {names}. Each programme is held on '
             'its own — a scholar may not be on two at once.')
@@ -1021,10 +1020,12 @@ def pending_declarations():
             .order_by('submitted_at', 'pk'))
 
 
-def declarable_types(profile):
-    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+def declarable_types(profile=None):
+    from .constants import live_declarable_types, scholarship_type_labels
     held = held_scholarship_types(profile) if profile else set()
-    return [(value, label) for value, label in DECLARABLE_SCHOLARSHIP_TYPES
+    labels = scholarship_type_labels()
+    return [(value, labels.get(value, value))
+            for value in live_declarable_types()
             if can_hold_alongside(held, value)]
 
 
@@ -1045,8 +1046,8 @@ def declaration_blocked_reason(profile):
                 'twice puts one thing in front of them twice.')
 
     if not declarable_types(profile):
-        from .models import SCHOLARSHIP_TYPE_CHOICES
-        labels = dict(SCHOLARSHIP_TYPE_CHOICES)
+        from .constants import scholarship_type_labels
+        labels = scholarship_type_labels()
         named = ', '.join(sorted(labels.get(t, t)
                                  for t in held_scholarship_types(profile)))
         return (f'This account already holds the {named}. Every programme here '
@@ -1064,8 +1065,8 @@ def student_notifications(request):
 
 
 def _renewable_programmes(profile):
-    from .models import SCHOLARSHIP_TYPE_CHOICES
-    labels = dict(SCHOLARSHIP_TYPE_CHOICES)
+    from .constants import scholarship_type_labels
+    labels = scholarship_type_labels()
     programmes = []
     for stype in sorted(held_scholarship_types(profile)):
         shut = renewal_window_reason(stype)
@@ -1246,11 +1247,11 @@ def student_profile(request):
             declarations, declaration_errors = _declared_scholarships(
                 p, request.FILES)
             errors.extend(declaration_errors)
-            allowed = dict(declarable_types(profile))
+            held = held_scholarship_types(profile)
             for declared in declarations:
-                if declared['scholarship_type'] not in allowed:
-                    from .models import SCHOLARSHIP_TYPE_CHOICES
-                    label = dict(SCHOLARSHIP_TYPE_CHOICES).get(
+                if not can_hold_alongside(held, declared['scholarship_type']):
+                    from .constants import scholarship_type_labels
+                    label = scholarship_type_labels().get(
                         declared['scholarship_type'], declared['scholarship_type'])
                     errors.append(f'The {label} cannot be added alongside what '
                                   'this account already holds. Reload this page '

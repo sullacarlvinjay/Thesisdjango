@@ -3,10 +3,11 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import Client, TestCase
 
-from .catalogue import SCHOLARSHIPS
+from .catalogue import SCHOLARSHIPS, ensure_scholarships
 from .models import Scholarship, SystemSettings
+from .student_views import declarable_types
 
 User = get_user_model()
 
@@ -131,6 +132,57 @@ class CatalogueTest(TestCase):
 
         self.assertEqual(Scholarship.objects.filter(type='TDP').count(), 1)
         self.assertEqual(Scholarship.objects.count(), len(SCHOLARSHIPS))
+
+    def test_a_programme_the_office_switched_off_stays_off_across_a_deploy(self):
+        run()
+        Scholarship.objects.filter(type='TES').update(is_active=False)
+
+        run()
+
+        self.assertFalse(Scholarship.objects.get(type='TES').is_active)
+
+    def test_it_stays_off_the_students_dropdown_across_a_deploy(self):
+        run()
+        Scholarship.objects.filter(type='TES').update(is_active=False)
+
+        run()
+
+        self.assertNotIn('TES', dict(declarable_types()))
+
+    def test_the_office_can_switch_it_back_on_afterwards(self):
+        run()
+        programme = Scholarship.objects.get(type='TES')
+        Scholarship.objects.filter(pk=programme.pk).update(is_active=False)
+        run()
+
+        client = Client()
+        client.force_login(User.objects.get(email='sdso@bipsu.edu.ph'))
+        client.post(f'/vpsea/scholarships/{programme.pk}/toggle/')
+
+        self.assertTrue(Scholarship.objects.get(type='TES').is_active)
+        self.assertIn('TES', dict(declarable_types()))
+
+    def test_leaving_the_switch_alone_does_not_stop_the_rest_being_corrected(self):
+        run()
+        Scholarship.objects.filter(type='TES').update(
+            is_active=False, name='Something An Office Typed', eligibility_list=[])
+
+        run()
+
+        fixed = Scholarship.objects.get(type='TES')
+        self.assertEqual(fixed.name, 'Tertiary Education Subsidy')
+        self.assertTrue(fixed.eligibility_list)
+        self.assertFalse(fixed.is_active)
+
+    def test_a_programme_that_is_still_switched_off_is_not_reported_as_changed(self):
+        run()
+        Scholarship.objects.filter(type='TES').update(is_active=False)
+
+        self.assertEqual(ensure_scholarships(), ([], []))
+
+    def test_a_programme_arriving_for_the_first_time_is_active(self):
+        run()
+        self.assertTrue(Scholarship.objects.get(type='TES').is_active)
 
     def test_the_types_the_approval_routes_look_up_all_exist(self):
         run()

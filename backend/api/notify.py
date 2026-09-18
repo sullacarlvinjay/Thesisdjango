@@ -139,9 +139,9 @@ def office(subject, body, actor=None):
 
 
 def multiple_declarations(profile, declarations):
-    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+    from .constants import scholarship_type_labels
 
-    labels = dict(DECLARABLE_SCHOLARSHIP_TYPES)
+    labels = scholarship_type_labels()
     named = ', '.join(labels.get(d['scholarship_type'], d['scholarship_type'])
                       for d in declarations)
     student = profile.user.get_full_name() or profile.user.email
@@ -162,9 +162,9 @@ def multiple_declarations(profile, declarations):
 
 
 def scholarship_added(profile, declarations):
-    from .constants import DECLARABLE_SCHOLARSHIP_TYPES
+    from .constants import scholarship_type_labels
 
-    labels = dict(DECLARABLE_SCHOLARSHIP_TYPES)
+    labels = scholarship_type_labels()
     named = ', '.join(labels.get(d['scholarship_type'], d['scholarship_type'])
                       for d in declarations)
     student = profile.user.get_full_name() or profile.user.email

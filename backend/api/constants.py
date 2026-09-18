@@ -55,6 +55,7 @@ SCHOLARSHIP_TYPE_CHOICES = [
     ('Academic', 'Academic Scholarship'),
     ('TDP', 'TDP Scholarship'),
     ('SUC-TDP', 'SUC-TDP Scholarship'),
+    ('TES', 'Tertiary Education Subsidy'),
     ('DOST', 'DOST S&T Undergraduate Scholarship'),
     ('JLSS', 'DOST Junior Level Science Scholarship'),
     ('CHED', 'CHED Scholarship'),
@@ -65,7 +66,7 @@ SCHOLARSHIP_TYPE_CHOICES = [
     ('Staff', 'BiPSU Staff Scholarship'),
 ]
 
-STUDENT_UNDECLARABLE_TYPES = frozenset({'Staff', 'Affirmative'})
+STUDENT_UNDECLARABLE_TYPES = frozenset({'Staff', 'Affirmative', 'FHE'})
 
 DECLARABLE_SCHOLARSHIP_TYPES = [
     (value, label) for value, label in SCHOLARSHIP_TYPE_CHOICES
@@ -74,6 +75,34 @@ DECLARABLE_SCHOLARSHIP_TYPES = [
 
 STAFF_DECLARABLE_TYPE = 'Staff'
 STAFF_DECLARABLE_LABEL = dict(SCHOLARSHIP_TYPE_CHOICES)[STAFF_DECLARABLE_TYPE]
+
+
+def scholarship_type_labels():
+    from .models import Scholarship
+
+    labels = dict(SCHOLARSHIP_TYPE_CHOICES)
+    labels.update(Scholarship.objects.values_list('type', 'name'))
+    return labels
+
+
+def live_declarable_types():
+    from .models import Scholarship
+
+    live = {t for t in Scholarship.objects.filter(is_active=True)
+            .values_list('type', flat=True)
+            if t and t not in STUDENT_UNDECLARABLE_TYPES}
+    spine = [value for value, _ in DECLARABLE_SCHOLARSHIP_TYPES]
+    if not live:
+        return spine
+    return [t for t in spine if t in live] + sorted(live.difference(spine))
+
+
+def declarable_type_values():
+    from .models import Scholarship
+
+    values = {value for value, _ in DECLARABLE_SCHOLARSHIP_TYPES}
+    values |= {t for t in Scholarship.objects.values_list('type', flat=True) if t}
+    return values.difference(STUDENT_UNDECLARABLE_TYPES)
 
 
 CHED_TIER_CHOICES = [
