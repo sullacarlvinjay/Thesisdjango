@@ -5359,6 +5359,7 @@ def nsu_staff_renewal(request):
 
 @_nsu_staff_required
 def nsu_staff_apply(request):
+    from .constants import EMPLOYMENT_STATUSES
     from .models import ApplicantRecord
     user = request.user
     staff = _staff_profile(user)
@@ -5499,6 +5500,7 @@ def nsu_staff_apply(request):
         'user': user,
         'bipsu_courses': BIPSU_COURSES,
         'bipsu_schools': BIPSU_SCHOOLS,
+        'employment_statuses': EMPLOYMENT_STATUSES,
         'enrolled': _nsu_staff_enrolled(user),
         'prefill': {
             'first_name':   existing.full_name.split()[0] if existing and existing.full_name else user.first_name,

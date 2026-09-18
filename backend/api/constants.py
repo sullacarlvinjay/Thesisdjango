@@ -164,8 +164,9 @@ CIVIL_STATUSES = [
 
 EMPLOYMENT_STATUSES = [
     ('Regular', 'Regular'),
-    ('Contractual', 'Contractual'),
-    ('Part-time', 'Part-time'),
+    ('Contract of Service', 'Contract of Service'),
+    ('Part Time', 'Part Time'),
+    ('Job Order', 'Job Order'),
 ]
 
 DESIGNATIONS = [

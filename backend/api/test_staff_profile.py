@@ -1,8 +1,10 @@
+import re
 from datetime import date
 
 from django.test import TestCase, Client
 
-from api.models import ApplicantRecord, StaffProfile, User
+from api.constants import EMPLOYMENT_STATUSES
+from api.models import ApplicantRecord, StaffProfile, SystemSettings, User
 
 
 class StaffProfileEmploymentFieldsTest(TestCase):
@@ -131,7 +133,7 @@ class StaffProfileVisibilityTest(TestCase):
             full_name='Jose Reyes', email='staff2@bipsu.edu.ph',
             date_of_birth='1985-03-02', course='—', year_level=1,
             qualified_for='Staff', status=status, is_nsu_staff=True,
-            employment_status='Contractual', designation='Non-Teaching',
+            employment_status='Contract of Service', designation='Non-Teaching',
         )
 
     def test_employment_details_are_editable_before_any_application(self):
@@ -159,3 +161,29 @@ class StaffProfileVisibilityTest(TestCase):
         })
         self.assertContains(r, 'Profile saved successfully')
         self.assertEqual(StaffProfile.objects.get(user=self.user).employment_status, 'Regular')
+
+
+class TheAppointmentTypesOnOfferTest(TestCase):
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        User.objects.create_user(
+            username='staff@bipsu.edu.ph', email='staff@bipsu.edu.ph', password='pw',
+            first_name='Maria', last_name='Santos', role='nsu_staff',
+        )
+        self.c = Client()
+        self.assertTrue(self.c.login(email='staff@bipsu.edu.ph', password='pw'))
+
+    def _offered(self, url):
+        html = self.c.get(url).content.decode()
+        select = re.search(r'name="employment_status"[^>]*>(.*?)</select>', html, re.S)
+        self.assertIsNotNone(select, f'{url} has no appointment field')
+        return [v for v in re.findall(r'value="([^"]*)"', select.group(1)) if v]
+
+    def test_the_profile_form_offers_the_offices_list_and_nothing_else(self):
+        self.assertEqual(self._offered('/nsu-staff/profile/'),
+                         [value for value, _ in EMPLOYMENT_STATUSES])
+
+    def test_the_apply_form_offers_the_same_list(self):
+        self.assertEqual(self._offered('/nsu-staff/apply/'),
+                         [value for value, _ in EMPLOYMENT_STATUSES])

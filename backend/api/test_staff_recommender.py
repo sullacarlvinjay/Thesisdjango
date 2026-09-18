@@ -41,9 +41,9 @@ class QualificationATest(TestCase):
                                                   employment_status='Permanent'))
         self.assertEqual(e.status, staff_ranking.QUALIFIED)
 
-    def test_a_contractual_employee_does_not(self):
+    def test_an_employee_on_contract_of_service_does_not(self):
         e = staff_ranking.evaluate(an_application(is_nsu_staff=True,
-                                                  employment_status='Contractual'))
+                                                  employment_status='Contract of Service'))
         self.assertEqual(e.status, staff_ranking.NOT_QUALIFIED)
         self.assertEqual(e.rule('permanent').verdict, staff_ranking.FAIL)
 
@@ -90,8 +90,8 @@ class QualificationBTest(TestCase):
         self.assertIn('Maria Santos', e.rule('permanent').detail)
         self.assertEqual(e.rule('permanent').source, 'StaffProfile.employment_status')
 
-    def test_the_dependent_of_a_contractual_employee_does_not(self):
-        self.employee.employment_status = 'Contractual'
+    def test_the_dependent_of_an_employee_on_contract_of_service_does_not(self):
+        self.employee.employment_status = 'Contract of Service'
         self.employee.save()
         e = self._dependent()
         self.assertEqual(e.status, staff_ranking.NOT_QUALIFIED)

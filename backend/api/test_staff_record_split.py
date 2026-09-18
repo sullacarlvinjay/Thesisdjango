@@ -117,7 +117,7 @@ class StaffProfileDerivedValuesTest(StaffFactoryMixin, TestCase):
         self.assertTrue(self.make_staff(employment_status='Regular').is_regular)
 
     def test_is_regular_is_false_for_any_other_appointment(self):
-        staff = self.make_staff(employee_id='32-1-000002', employment_status='Contractual')
+        staff = self.make_staff(employee_id='32-1-000002', employment_status='Contract of Service')
         self.assertFalse(staff.is_regular)
 
     def test_full_name_still_spans_the_user_row_and_the_personal_row(self):
@@ -212,7 +212,7 @@ class ApplicationColumnsStillReadOffTheApplicationTest(StaffFactoryMixin, TestCa
         self.assertTrue(staff_row.is_regular_staff)
 
     def test_is_regular_staff_refuses_a_non_regular_appointment(self):
-        app = self.make_application(is_nsu_staff=True, employment_status='Contractual')
+        app = self.make_application(is_nsu_staff=True, employment_status='Contract of Service')
         self.assertFalse(app.is_regular_staff)
 
     def test_a_dependent_qualifies_on_the_sponsoring_employee_id(self):

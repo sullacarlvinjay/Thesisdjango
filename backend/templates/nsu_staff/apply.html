@@ -116,9 +116,9 @@
             <label>Employment Status <span style="color:var(--danger);">*</span></label>
             <select name="employment_status" required>
               <option value="">— Select —</option>
-              <option value="Regular"      {% if prefill.employment_status == 'Regular' %}selected{% endif %}>Regular</option>
-              <option value="Contractual"  {% if prefill.employment_status == 'Contractual' %}selected{% endif %}>Contractual</option>
-              <option value="Part-time"    {% if prefill.employment_status == 'Part-time' %}selected{% endif %}>Part-time</option>
+              {% for value, label in employment_statuses %}
+              <option value="{{ value }}" {% if prefill.employment_status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="space-y-1.5">

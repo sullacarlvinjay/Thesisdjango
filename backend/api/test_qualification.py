@@ -21,8 +21,8 @@ class StaffQualificationTest(TestCase):
         app = self._application(is_nsu_staff=True, employment_status='Regular')
         self.assertTrue(app.is_regular_staff)
 
-    def test_contractual_and_part_time_do_not(self):
-        for status in ('Contractual', 'Part-time', ''):
+    def test_no_other_appointment_does(self):
+        for status in ('Contract of Service', 'Part Time', 'Job Order', ''):
             app = self._application(is_nsu_staff=True, employment_status=status)
             self.assertFalse(app.is_regular_staff, status or 'blank')
 
@@ -64,14 +64,15 @@ class StaffApplyFormTest(TestCase):
         })
 
     def test_a_non_regular_appointment_is_turned_away_with_a_reason(self):
-        r = self._post('Contractual')
+        r = self._post('Contract of Service')
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'open to regular employees')
-        self.assertContains(r, 'Contractual')
+        self.assertContains(r, 'Contract of Service')
 
-    def test_part_time_is_turned_away_too(self):
-        r = self._post('Part-time')
-        self.assertContains(r, 'open to regular employees')
+    def test_part_time_and_job_order_are_turned_away_too(self):
+        for status in ('Part Time', 'Job Order'):
+            r = self._post(status)
+            self.assertContains(r, 'open to regular employees')
 
     def test_a_regular_employee_is_not_blocked_by_the_rule(self):
         r = self._post('Regular')

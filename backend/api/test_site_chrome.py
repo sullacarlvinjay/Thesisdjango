@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 from django.conf import settings
+from django.template.loader import render_to_string
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from api.models import Scholarship, SignupSource, SystemSettings, User
@@ -506,6 +507,35 @@ class TheDashboardComesFirstTest(TestCase):
                      '/vpsea/scholarships/', '/vpsea/ranking/'):
             self.assertIn(f'href="{page}"', source,
                           f'{page} fell out when the dashboard was moved')
+
+
+class TheSidebarLinksDoNotNestTest(SimpleTestCase):
+
+    NAVS = ('vpsea/_nav.html', 'nsu_staff/_nav.html', 'partner/_nav.html',
+            'student/_nav.html')
+
+    def _anchor_depths(self, html):
+        depth = 0
+        depths = []
+        for tag in re.findall(r'</?a\b', html):
+            depth += 1 if tag == '<a' else -1
+            depths.append(depth)
+        return depths
+
+    def test_every_link_closes_before_the_next_one_opens(self):
+        for nav in self.NAVS:
+            for enrolled in (True, False):
+                with self.subTest(nav=nav, enrolled=enrolled):
+                    html = render_to_string(nav, {'enrolled': enrolled,
+                                                  'can_apply_academic': True})
+                    depths = self._anchor_depths(html)
+                    self.assertTrue(depths, f'{nav} renders no links at all')
+                    self.assertEqual(
+                        max(depths), 1,
+                        f'a link in {nav} opens inside another one, and the '
+                        'browser ends the outer link early when it does')
+                    self.assertEqual(depths[-1], 0,
+                                     f'a link in {nav} is never closed')
 
 
 class TheChartTabsAreColouredTest(SimpleTestCase):
