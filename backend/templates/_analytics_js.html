@@ -102,8 +102,8 @@ function buildCourseChart(type) {
   const pie = type === 'pie' || type === 'doughnut';
   return excelChart(document.getElementById('courseChart'), type, cLabels,
     [{ name: 'Scholars', data: cData }], {
-      title: 'Scholars by Course',
-      categoryTitle: 'Course',
+      title: 'Scholars by Program',
+      categoryTitle: 'Program',
       indexAxis: pie ? 'x' : 'y',
       generateLabels: shortLegendLabels,
     });

@@ -4,49 +4,43 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiPSU SRMS — Scholarship Portal</title>
+  <meta name="description" content="Apply for and track scholarships at Biliran Province State University. BiPSU SRMS lists the CHED, UniFAST and external grants open to students and staff." />
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}" />{% endif %}
   {% include '_favicon.html' %}
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#171c2e" media="(prefers-color-scheme: dark)" />
   {% load static %}
   {% load srms_text %}
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=64" />
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=76" />
   
   <script src="{% static 'js/theme.js' %}"></script>
-  <script src="{% static 'js/skeleton.js' %}"></script>
+  <script src="{% static 'js/skeleton.js' %}?v=4"></script>
   <script src="{% static 'js/landing.js' %}?v=4" defer></script>
   <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
-  <script src="{% static 'js/consent.js' %}?v=1" defer></script>
+  <script src="{% static 'js/consent.js' %}?v=3" defer></script>
   <script src="{% static 'js/loading.js' %}?v=2" defer></script>
+  <script src="{% static 'js/dl-menu.js' %}?v=1" defer></script>
+  {% if canonical_url %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "name": "Biliran Province State University",
+    "alternateName": "BiPSU",
+    "url": "{{ canonical_url }}"
+  }
+  </script>
+  {% endif %}
 </head>
 <body data-portal="student">
 <a href="#mainContent" class="skip-link">Skip to main content</a>
 <div class="scroll-progress" aria-hidden="true"></div>
-<div class="page-skeleton" aria-hidden="true">
-  <div class="skeleton-nav">
-    <div class="skeleton-nav-inner">
-      <div class="skeleton skeleton-avatar"></div>
-      <div class="skeleton-stack">
-        <div class="skeleton skeleton-brand-name"></div>
-        <div class="skeleton skeleton-brand-sub"></div>
-      </div>
-    </div>
-  </div>
-  <div class="skeleton-hero">
-    <div class="skeleton skeleton-on-photo skeleton-eyebrow"></div>
-    <div class="skeleton skeleton-on-photo skeleton-title"></div>
-    <div class="skeleton skeleton-on-photo skeleton-sub"></div>
-    <div class="skeleton skeleton-on-photo skeleton-sub skeleton-sub-short"></div>
-    <div class="skeleton-actions">
-      <div class="skeleton skeleton-on-photo skeleton-btn"></div>
-      <div class="skeleton skeleton-on-photo skeleton-btn"></div>
-    </div>
-  </div>
-</div>
+{% include '_page_loader.html' %}
 <nav class="landing-nav">
   <div class="landing-nav-row h-16 flex items-center justify-between">
     <div class="landing-nav-brand flex items-center gap-3">
-      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="landing-nav-logo" />
+      <img src="/media/logos/BiPSU.png?v=2" alt="BiPSU" class="landing-nav-logo" />
       <div>
         <p class="text-sm font-bold landing-nav-name">BiPSU SRMS</p>
         <p class="text-xs landing-nav-sub">Scholarship Portal</p>
@@ -95,7 +89,7 @@
       <div class="card-strip card-strip-internal"></div>
       <div class="p-6 card-body">
         <div class="flex items-center gap-3 mb-3">
-          <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
+          <img src="{{ s.logo_url }}?v=2" alt="{{ s.type }}" class="card-logo" loading="lazy" decoding="async" />
           <span class="badge badge-accent">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
@@ -126,7 +120,7 @@
       <div class="card-strip card-strip-institutional"></div>
       <div class="p-6 card-body">
         <div class="flex items-center gap-3 mb-3">
-          <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
+          <img src="{{ s.logo_url }}?v=2" alt="{{ s.type }}" class="card-logo" loading="lazy" decoding="async" />
           <span class="badge badge-success">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
@@ -157,7 +151,7 @@
       <div class="card-strip card-strip-external"></div>
       <div class="p-6 card-body">
         <div class="flex items-center gap-3 mb-3">
-          <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="card-logo" />
+          <img src="{{ s.logo_url }}?v=2" alt="{{ s.type }}" class="card-logo" loading="lazy" decoding="async" />
           <span class="badge badge-brand badge-strong">{{ s.type }}</span>
         </div>
         <h3 class="font-bold text-lg mb-2 card-title">{{ s.name }}</h3>
@@ -227,28 +221,6 @@
     </details>
   </div>
 </div>
-<div class="max-w-4xl mx-auto px-6 pt-10 pb-2">
-  <form class="newsletter" method="post" action="/" data-utm>
-    {% csrf_token %}
-    <p class="newsletter__title">Scholarship alerts</p>
-    <p class="newsletter__sub">Not ready to register? Leave an email address and we will write to
-      you when a scholarship program opens for applications. No other mail, and you can ask the
-      office to take you off the list at any time.</p>
-    <div class="newsletter__row">
-      <input type="email" name="alert_email" placeholder="you@example.com" required
-             autocomplete="email" aria-label="Email address for scholarship alerts"
-             value="{{ alert_email|default:'' }}" />
-      <button type="submit" class="btn btn-primary" data-busy-text="Adding you…">Notify me</button>
-    </div>
-    {% if alert_ok %}
-    <p class="newsletter__note newsletter__note--ok" role="status">{{ alert_ok }}</p>
-    {% elif alert_error %}
-    <p class="newsletter__note newsletter__note--bad" role="alert">{{ alert_error }}</p>
-    {% else %}
-    <p class="newsletter__note">We only use this address for scholarship announcements.</p>
-    {% endif %}
-  </form>
-</div>
 </main>
 <footer class="text-center py-8 text-xs site-footer">
   <p>© 2026 Biliran Province State University · Scholarship Records Management System</p>
@@ -262,10 +234,12 @@
 <button type="button" class="to-top" aria-label="Back to top">
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
 </button>
-<a class="fab-contact" href="{% if support_email %}mailto:{{ support_email }}?subject=SRMS%20enquiry{% else %}#help{% endif %}" title="Questions about a scholarship">
+<button type="button" class="fab-contact" data-dl-menu="helpMenu" aria-haspopup="dialog"
+        title="Questions about a scholarship">
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
   <span class="fab-contact__label">Need help?</span>
-</a>
+</button>
+{% include '_help_overlay.html' %}
 {% include '_cookie_banner.html' %}
 {% for s in scholarships %}
 <div class="modal-overlay" id="modal-{{ s.pk }}" data-modal="{{ s.pk }}">
@@ -273,7 +247,7 @@
     <div class="card-strip {% if s.group == 'external' %}card-strip-external{% elif s.group == 'institutional' %}card-strip-institutional{% else %}card-strip-internal{% endif %}"></div>
     <div class="modal-sheet-head">
       <div class="flex items-center gap-3">
-        <img src="{{ s.logo_url }}" alt="{{ s.type }}" class="modal-logo" />
+        <img src="{{ s.logo_url }}?v=2" alt="{{ s.type }}" class="modal-logo" loading="lazy" decoding="async" />
         <div>
           <span class="badge badge-accent badge-block mb-1">{{ s.type }}</span>
           <h2 class="text-xl font-bold modal-title">{{ s.name }}</h2>

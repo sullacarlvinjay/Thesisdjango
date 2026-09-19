@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — BiPSU Staff Portal{% endblock %}
-{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}
 {% block brand %}BiPSU Staff{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}Welcome back, {{ user.get_full_name|default:user.email }}{% endblock %}
@@ -42,7 +42,7 @@
 <div class="grid lg:grid-cols-2 gap-6">
   <div class="card p-6">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold">Recent Renewals</h3>
+      <h2 class="font-semibold">Recent Renewals</h2>
       <a href="/nsu-staff/renewal/" class="text-xs" style="color:var(--brand);">View all →</a>
     </div>
     {% if renewals %}
@@ -64,7 +64,7 @@
     {% endif %}
   </div>
   <div class="card p-6">
-    <h3 class="font-semibold mb-4">Announcements</h3>
+    <h2 class="font-semibold mb-4">Announcements</h2>
     {% if announcements %}
     <div class="space-y-3">
       {% for ann in announcements %}

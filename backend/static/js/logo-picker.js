@@ -9,6 +9,6 @@
 
   picker.addEventListener('change', function () {
     preview.setAttribute(
-      'src', picker.value ? '/media/logos/' + picker.value : fallback);
+      'src', picker.value ? '/media/logos/' + picker.value + '?v=2' : fallback);
   });
 })();

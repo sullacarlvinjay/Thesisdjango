@@ -71,7 +71,7 @@ class RegistrationOffersEveryLiveProgrammeTest(TestCase):
         self.assertFalse(ScholarshipLinkRequest.objects.exists())
 
     def test_the_programmes_students_may_not_declare_cannot_be_posted_either(self):
-        for stype in ('Staff', 'Affirmative', 'FHE'):
+        for stype in ('Affirmative', 'FHE'):
             with self.subTest(type=stype):
                 r = Client().post('/register/', a_declared_scholar(
                     scholarship_type=stype, proof_document=a_proof()))
@@ -81,16 +81,18 @@ class RegistrationOffersEveryLiveProgrammeTest(TestCase):
 
     def test_the_programmes_students_may_not_declare_stay_off(self):
         offered = self.offered()
-        self.assertNotIn('Staff', offered)
         self.assertNotIn('Affirmative', offered)
         self.assertNotIn('FHE', offered)
+
+    def test_the_staff_scholarship_is_offered_for_dependents(self):
+        self.assertIn('Staff', self.offered())
 
     def test_each_option_is_named_the_way_the_catalogue_names_it(self):
         Scholarship.objects.filter(type='TES').update(name='TES (UniFAST)')
         self.assertEqual(self.offered()['TES'], 'TES (UniFAST)')
 
     def test_nothing_the_catalogue_does_not_carry_is_offered(self):
-        self.assertEqual(set(self.offered()), {'Academic', 'TES'})
+        self.assertEqual(set(self.offered()), {'Academic', 'TES', 'Staff'})
 
 
 class AnEmptyCatalogueStillLetsSomeoneRegisterTest(TestCase):
@@ -102,7 +104,7 @@ class AnEmptyCatalogueStillLetsSomeoneRegisterTest(TestCase):
         offered = dict(Client().get('/register/').context['scholarship_types'])
         self.assertIn('Academic', offered)
         self.assertIn('TES', offered)
-        self.assertNotIn('Staff', offered)
+        self.assertNotIn('Affirmative', offered)
 
     def test_a_declaration_is_still_accepted(self):
         r = Client().post('/register/', a_declared_scholar(

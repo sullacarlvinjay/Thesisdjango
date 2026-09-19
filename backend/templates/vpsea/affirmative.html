@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Applications — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Applications{% endblock %}
 {% block page_subtitle %}Validate and manage all scholarship applications{% endblock %}
@@ -189,22 +189,22 @@
 <div id="academicModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:44rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title" id="acadModalTitle">Application Review</h3>
+      <h2 class="modal-sheet-title" id="acadModalTitle">Application Review</h2>
       <button onclick="closeAcadModal()" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
     <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Personal Information</p>
-    <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalPersonal"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalPersonal"></div>
     <div id="acadModalEduSection">
       <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Educational Background</p>
-      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalEdu"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalEdu"></div>
     </div>
     <div id="acadModalFamSection">
       <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Family Background</p>
-      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalFam"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalFam"></div>
     </div>
     <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Academic Information</p>
-    <div class="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalAcad"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalAcad"></div>
     <div id="acadModalDocsSection">
       <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Submitted Documents</p>
       <div id="acadModalDocs" class="space-y-2 mb-4"></div>
@@ -232,11 +232,11 @@
 <div id="affModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:38rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title" id="affModalTitle">Application Review</h3>
+      <h2 class="modal-sheet-title" id="affModalTitle">Application Review</h2>
       <button onclick="closeAffModal()" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
-      <div class="grid grid-cols-2 gap-3 text-sm" id="affModalDetails"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm" id="affModalDetails"></div>
       <div id="affModalDocSection" style="display:none;margin-top:1rem;">
         <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Appointment Paper</p>
         <div id="affModalDoc"></div>
@@ -264,7 +264,7 @@
 {% endblock %}
 {% block extra_js %}
 {% load static %}
-<script src="{% static 'js/table-filter.js' %}?v=2"></script>
+<script src="{% static 'js/table-filter.js' %}?v=3"></script>
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script src="{% static 'js/decision-lock.js' %}?v=1"></script>
 <script>

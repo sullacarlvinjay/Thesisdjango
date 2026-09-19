@@ -19,10 +19,27 @@ def register(client, **overrides):
     return client.post('/register/', a_staff_member(**overrides))
 
 
-class StudentsCannotDeclareTheStaffScholarshipTest(TestCase):
-    def test_the_staff_scholarship_is_not_on_the_student_dropdown(self):
+def a_dependent(**overrides):
+    return a_declared_scholar(**dict(
+        dict(first_name='Kid', last_name='Duallo',
+             email='kid@bipsu.edu.ph', student_id='2026-00111',
+             scholarship_type='Staff', proof_document=a_pdf(),
+             staff_name='Ernesto Dela Pena',
+             staff_employee_id='EMP-0042',
+             relationship_to_staff='Son'),
+        **overrides))
+
+
+class StudentsDeclareTheStaffScholarshipAsADependentTest(TestCase):
+    def setUp(self):
+        SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
+
+    def test_the_staff_scholarship_is_on_the_student_dropdown(self):
         offered = [t for t, _ in DECLARABLE_SCHOLARSHIP_TYPES]
-        self.assertNotIn('Staff', offered)
+        self.assertIn('Staff', offered)
+
+    def test_affirmative_is_still_off_it(self):
+        offered = [t for t, _ in DECLARABLE_SCHOLARSHIP_TYPES]
         self.assertNotIn('Affirmative', offered)
 
     def test_the_programmes_a_student_can_actually_hold_are_all_still_there(self):
@@ -34,21 +51,110 @@ class StudentsCannotDeclareTheStaffScholarshipTest(TestCase):
     def test_the_canonical_type_list_is_left_alone(self):
         self.assertIn('Staff', [t for t, _ in SCHOLARSHIP_TYPE_CHOICES])
 
-    def test_the_registration_page_does_not_offer_it(self):
+    def test_the_registration_page_offers_it(self):
         html = Client().get('/register/').content.decode()
         self.assertIn('value="Academic"', html)
-        self.assertNotIn('value="Staff"', html)
+        self.assertIn('value="Staff"', html)
 
-    def test_a_posted_staff_declaration_is_refused_rather_than_stored(self):
-        SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
-        r = Client().post('/register/', a_declared_scholar(
-            first_name='Ana', last_name='Lim',
-            email='ana@bipsu.edu.ph', student_id='2022-00111',
-            scholarship_type='Staff', proof_document=a_pdf(),
-        ))
-        self.assertContains(r, 'Say which scholarship you already hold')
+    def test_the_page_asks_who_the_employee_is(self):
+        html = Client().get('/register/').content.decode()
+        self.assertIn('name="staff_name"', html)
+        self.assertIn('name="staff_employee_id"', html)
+        self.assertIn('name="relationship_to_staff"', html)
+
+    def test_a_dependent_declaration_is_stored(self):
+        Client().post('/register/', a_dependent())
+        req = ScholarshipLinkRequest.objects.get(scholarship_type='Staff')
+        self.assertEqual(req.staff_name, 'Ernesto Dela Pena')
+        self.assertEqual(req.staff_employee_id, 'EMP-0042')
+        self.assertEqual(req.relationship_to_staff, 'Son')
+
+    def test_it_is_refused_without_the_employee_it_hangs_off(self):
+        r = Client().post('/register/', a_dependent(staff_employee_id=''))
+        self.assertContains(r, 'checks the appointment against it')
         self.assertFalse(ScholarshipLinkRequest.objects.exists())
-        self.assertFalse(User.objects.filter(email='ana@bipsu.edu.ph').exists())
+        self.assertFalse(User.objects.filter(email='kid@bipsu.edu.ph').exists())
+
+    def test_it_is_refused_without_a_relationship(self):
+        r = Client().post('/register/', a_dependent(relationship_to_staff=''))
+        self.assertContains(r, 'how you are related')
+        self.assertFalse(ScholarshipLinkRequest.objects.exists())
+
+    def test_an_invented_relationship_is_refused(self):
+        r = Client().post('/register/', a_dependent(relationship_to_staff='Cousin'))
+        self.assertContains(r, 'how you are related')
+        self.assertFalse(ScholarshipLinkRequest.objects.exists())
+
+    def test_another_programme_is_not_asked_for_an_employee(self):
+        Client().post('/register/', a_dependent(
+            scholarship_type='DOST', staff_name='', staff_employee_id='',
+            relationship_to_staff=''))
+        req = ScholarshipLinkRequest.objects.get(scholarship_type='DOST')
+        self.assertEqual(req.staff_employee_id, '')
+
+    def test_employee_details_sent_for_another_programme_are_dropped(self):
+        Client().post('/register/', a_dependent(scholarship_type='DOST'))
+        req = ScholarshipLinkRequest.objects.get(scholarship_type='DOST')
+        self.assertEqual(req.staff_name, '')
+        self.assertEqual(req.relationship_to_staff, '')
+
+
+class ApprovingADependentWritesTheStaffLedgerTest(TestCase):
+    def setUp(self):
+        SystemSettings.objects.update_or_create(pk=1, defaults={'academic_year': '26-1'})
+        self.reviewer = User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            role='vpsea')
+        Client().post('/register/', a_dependent())
+        self.req = ScholarshipLinkRequest.objects.get(scholarship_type='Staff')
+
+    def _approve(self):
+        from api.student_views import approve_declared_scholarship
+        return approve_declared_scholarship(self.req, self.reviewer)
+
+    def test_the_award_lands_in_the_applicant_record_not_an_application(self):
+        from api.models import Application
+        award, error = self._approve()
+        self.assertEqual(error, '')
+        self.assertIsInstance(award, ApplicantRecord)
+        self.assertEqual(award.qualified_for, 'Staff')
+        self.assertEqual(award.status, 'Approved')
+        self.assertFalse(Application.objects.filter(
+            scholarship__type='Staff').exists())
+
+    def test_the_award_is_marked_as_a_dependents(self):
+        award, _ = self._approve()
+        self.assertTrue(award.is_nsu_dependent)
+        self.assertFalse(award.is_nsu_staff)
+
+    def test_the_employee_it_hangs_off_is_carried_across(self):
+        award, _ = self._approve()
+        self.assertEqual(award.staff_name, 'Ernesto Dela Pena')
+        self.assertEqual(award.staff_employee_id, 'EMP-0042')
+        self.assertEqual(award.relationship_to_staff, 'Son')
+
+    def test_the_students_own_details_are_carried_across(self):
+        award, _ = self._approve()
+        self.assertEqual(award.student_id, '2026-00111')
+
+    def test_the_declaration_points_at_what_it_became(self):
+        award, _ = self._approve()
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'Approved')
+        self.assertEqual(self.req.linked_applicant_record_id, award.pk)
+        self.assertIsNone(self.req.linked_application)
+
+    def test_approving_twice_does_not_write_two_awards(self):
+        self._approve()
+        self._approve()
+        self.assertEqual(ApplicantRecord.objects.filter(
+            qualified_for='Staff').count(), 1)
+
+    def test_the_ranking_now_sees_a_dependent(self):
+        from api.staff_ranking import _standing_rule
+        award, _ = self._approve()
+        standing, rule = _standing_rule(award)
+        self.assertIn('dependent', rule.detail.lower())
 
 
 class StaffDeclareAtRegistrationTest(TestCase):

@@ -1,6 +1,14 @@
 (function () {
   'use strict';
 
+  function debounce(fn, wait) {
+    var timer = null;
+    return function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fn, wait);
+    };
+  }
+
   function normalise(text) {
     return String(text || '')
       .toLowerCase()
@@ -67,7 +75,7 @@
       if (clear) clear.hidden = !input.value;
     }
 
-    input.addEventListener('input', apply);
+    input.addEventListener('input', debounce(apply, 150));
     input.addEventListener('search', apply);
     if (clear) {
       clear.addEventListener('click', function () {

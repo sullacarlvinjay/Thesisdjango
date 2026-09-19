@@ -35,7 +35,7 @@
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
       <div>
-        <h3 class="font-semibold">Scholars by Semester <span data-trend-scope>&mdash; {% if whole_year %}{{ selected_academic_year }}{% else %}{{ selected_term_display }}{% endif %}</span></h3>
+        <h2 class="font-semibold">Scholars by Semester <span data-trend-scope>&mdash; {% if whole_year %}{{ selected_academic_year }}{% else %}{{ selected_term_display }}{% endif %}</span></h2>
         <p class="text-xs mt-0.5" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one bar per scholarship program and award level{% endif %}</p>
       </div>
       <div class="flex items-center gap-2">
@@ -69,7 +69,7 @@
   {% if show_gwa %}
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-      <h3 class="font-semibold">GWA Distribution</h3>
+      <h2 class="font-semibold">GWA Distribution</h2>
       <div class="flex items-center gap-2">
         <div class="chart-tabs" id="gwaChartToggle"></div>
         <button type="button" class="chart-toggle-btn chart-png-btn" data-png="gwaChart" data-png-name="gwa-distribution">&#8681; PNG</button>
@@ -84,7 +84,7 @@
   {% endif %}
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-      <h3 class="font-semibold">{% if selected_type %}{{ selected_type }} — Scholar Distribution by Program{% else %}Scholars by Program{% endif %}</h3>
+      <h2 class="font-semibold">{% if selected_type %}{{ selected_type }} — Scholar Distribution by Program{% else %}Scholars by Program{% endif %}</h2>
       <div class="flex items-center gap-2">
         {% if course_dist %}<div class="chart-tabs" id="courseChartToggle"></div>{% endif %}
         {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-program">&#8681; PNG</button>{% endif %}

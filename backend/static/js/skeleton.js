@@ -16,9 +16,9 @@
     root.classList.remove('is-loading');
 
     setTimeout(function () {
-      var el = document.querySelector('.page-skeleton');
+      var el = document.querySelector('.page-loader, .page-skeleton');
       if (el && el.parentNode) el.parentNode.removeChild(el);
-    }, 400);
+    }, 600);
   }
 
   function revealWhenSeen() {

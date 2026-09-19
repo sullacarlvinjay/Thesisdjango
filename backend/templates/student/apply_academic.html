@@ -35,7 +35,7 @@
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5"><label>Student Number</label><input name="student_number" value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" /></div>
           <div class="space-y-1.5"><label class="is-required">Course</label><input name="course" value="{{ form.course }}" required /></div>
@@ -48,7 +48,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Educational Background</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Educational Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5"><label class="is-required">Elementary School</label><input name="elementary" value="{{ form.elementary }}" required /></div>
           <div class="space-y-1.5"><label class="is-required">High School</label><input name="highschool" value="{{ form.highschool }}" required /></div>
@@ -56,7 +56,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Family Background</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Family Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5"><label class="is-required">Father's Name</label><input name="father_name" value="{{ form.father_name }}" required /></div>
           <div class="space-y-1.5"><label class="is-required">Father's Occupation</label><input name="father_occupation" value="{{ form.father_occupation }}" required /></div>
@@ -65,7 +65,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Academic Information</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Academic Information</h2>
         <div class="grid sm:grid-cols-3 gap-4 mb-4">
           <div class="space-y-1.5"><label class="is-required">GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" value="{{ form.gwa }}" id="gwaInput" placeholder="e.g. 1.25" required oninput="validateGWA(this.value)" /></div>
           <div class="space-y-1.5"><label class="is-required">Semester</label><input name="semester" value="{{ form.semester }}" readonly required /></div>
@@ -73,7 +73,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h3>
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h2>
         <p class="text-xs mb-5" style="color:#6b7a99;">All documents are required. Accepted formats: PDF, JPG, PNG · Max 5MB each.</p>
         <div class="space-y-4">
           <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
@@ -123,7 +123,7 @@
       <div class="card p-6 sticky top-24">
         <div class="flex items-center gap-2 mb-3">
           <svg class="h-4 w-4" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-          <h3 class="font-semibold">Auto-Validation</h3>
+          <h2 class="font-semibold">Auto-Validation</h2>
         </div>
         <p class="text-xs mb-4" style="color:#6b7a99;">Real-time eligibility evaluation based on submitted data.</p>
         

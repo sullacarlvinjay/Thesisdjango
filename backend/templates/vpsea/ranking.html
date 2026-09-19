@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Student Ranking — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Student Ranking{% endblock %}
 {% block page_subtitle %}Rule-based eligibility ranking, with the reason behind every result{% endblock %}
@@ -34,7 +34,7 @@
 </div>
 <div class="card p-6">
   <div class="flex flex-wrap items-start justify-between gap-3 mb-1">
-    <h3 class="font-semibold">Affirmative Action — Rule-Based Recommendation</h3>
+    <h2 class="font-semibold">Affirmative Action — Rule-Based Recommendation</h2>
     <div class="rec-actions">
       <input id="recSearch" class="rec-search" placeholder="Search name or student ID…"
              oninput="filterTable('recSearch','recTable','data-name')" />

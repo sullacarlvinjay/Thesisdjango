@@ -1,10 +1,12 @@
 from django.urls import path
 from . import views
 from . import student_views
+from . import seo
 from django.shortcuts import redirect
 
 urlpatterns = [
     path('', student_views.landing_view),
+    path('robots.txt', seo.robots_txt),
 
     path('login/', student_views.login_view),
     path('logout/', student_views.logout_view),

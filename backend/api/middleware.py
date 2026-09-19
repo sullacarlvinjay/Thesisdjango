@@ -1,7 +1,32 @@
 from datetime import timedelta
 
 from django.contrib.auth import login
+from django.middleware.gzip import GZipMiddleware
 from django.utils import timezone
+
+ALREADY_COMPRESSED = frozenset({
+    'application/pdf',
+    'application/zip',
+    'application/gzip',
+    'application/x-7z-compressed',
+    'application/vnd.rar',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+})
+
+COMPRESSIBLE_MEDIA = frozenset({'image/svg+xml', 'image/bmp', 'image/x-icon'})
+
+
+class SelectiveGZipMiddleware(GZipMiddleware):
+    def process_response(self, request, response):
+        content_type = (response.get('Content-Type') or '').split(';')[0].strip().lower()
+        if content_type not in COMPRESSIBLE_MEDIA:
+            if content_type in ALREADY_COMPRESSED:
+                return response
+            if content_type.startswith(('image/', 'video/', 'audio/', 'font/')):
+                return response
+        return super().process_response(request, response)
 
 PENDING_EMAIL = 'awaiting_verification_email'
 PENDING_SINCE = 'awaiting_verification_since'
@@ -22,6 +47,23 @@ def _registered_within_window(request):
 def _forget(session):
     session.pop(PENDING_EMAIL, None)
     session.pop(PENDING_SINCE, None)
+
+
+class ApiCacheHeadersMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if not request.path.startswith('/api/'):
+            return response
+        if response.has_header('Cache-Control'):
+            return response
+        if request.method in ('GET', 'HEAD') and response.status_code < 400:
+            response['Cache-Control'] = 'private, no-cache'
+        else:
+            response['Cache-Control'] = 'private, no-store'
+        return response
 
 
 class ReleaseVerifiedAccountMiddleware:

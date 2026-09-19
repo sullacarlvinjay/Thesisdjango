@@ -280,14 +280,19 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
     def test_the_applications_tab_offers_the_application_window(self):
         r = self.c.get(self.APPLICATIONS)
         self.assertContains(r, 'name="applications_open_on"')
-        self.assertContains(r, 'name="applications_open_days"')
-        self.assertContains(r, 'name="accepting_applications"')
+        self.assertContains(r, 'name="applications_close_on"')
+        self.assertContains(r, 'name="set_accepting"')
 
     def test_the_renewals_tab_offers_the_renewal_window(self):
         r = self.c.get(self.RENEWALS)
         self.assertContains(r, 'name="renewals_open_on"')
-        self.assertContains(r, 'name="renewals_open_days"')
-        self.assertContains(r, 'name="accepting_renewals"')
+        self.assertContains(r, 'name="renewals_close_on"')
+        self.assertContains(r, 'name="set_accepting"')
+
+    def test_the_card_asks_for_a_closing_date_not_a_day_count(self):
+        r = self.c.get(self.APPLICATIONS)
+        self.assertNotContains(r, 'name="applications_open_days"')
+        self.assertNotContains(r, 'Days open')
 
     def test_neither_is_on_the_programme_form_any_more(self):
         r = self.c.get(f'/vpsea/scholarships/{self.s.pk}/edit/')
@@ -373,3 +378,136 @@ class WindowIsSetOnTheQueueItGovernsTest(TestCase):
                                         'status': 'Approved'})
         self.s.refresh_from_db()
         self.assertTrue(self.s.accepting_applications)
+
+
+class TheWindowCardClosesInOneClickTest(TestCase):
+    APPLICATIONS = '/vpsea/affirmative/'
+    RENEWALS = '/vpsea/renewals/'
+
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            role='vpsea')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
+        self.s = Scholarship.objects.create(
+            name='Academic Scholarship', type='Academic', category='application',
+            description='x', eligibility='x', requirements=[])
+
+    def _click(self, value, tab='academic'):
+        return self.c.post(self.APPLICATIONS, {
+            'window': 'applications', 'tab': tab, 'set_accepting': value})
+
+    def test_one_post_closes_applications_with_no_other_field(self):
+        self._click('0')
+        self.s.refresh_from_db()
+        self.assertFalse(self.s.accepting_applications)
+        self.assertFalse(self.s.accepts_applications_on(timezone.localdate()))
+
+    def test_one_post_reopens_them(self):
+        Scholarship.objects.filter(pk=self.s.pk).update(accepting_applications=False)
+        self._click('1')
+        self.s.refresh_from_db()
+        self.assertTrue(self.s.accepts_applications_on(timezone.localdate()))
+
+    def test_closing_by_button_leaves_the_schedule_alone(self):
+        Scholarship.objects.filter(pk=self.s.pk).update(
+            applications_open_on=date(2026, 9, 3), applications_open_days=14)
+        self._click('0')
+        self.s.refresh_from_db()
+        self.assertEqual(self.s.applications_open_on, date(2026, 9, 3))
+        self.assertEqual(self.s.applications_open_days, 14)
+
+    def test_saving_a_schedule_does_not_close_an_open_programme(self):
+        self.c.post(self.APPLICATIONS, {
+            'window': 'applications', 'tab': 'academic',
+            'accepting_applications': 'on',
+            'applications_open_on': '2026-09-03',
+            'applications_close_on': '2026-09-16'})
+        self.s.refresh_from_db()
+        self.assertTrue(self.s.accepting_applications)
+
+    def test_the_renewal_card_closes_in_one_click_too(self):
+        self.c.post(self.RENEWALS, {'window': 'renewals', 'set_accepting': '0'})
+        self.s.refresh_from_db()
+        self.assertFalse(self.s.accepting_renewals)
+        self.assertTrue(self.s.accepting_applications)
+
+
+class AClosingDateReplacesTheDayCountTest(TestCase):
+    APPLICATIONS = '/vpsea/affirmative/'
+    RENEWALS = '/vpsea/renewals/'
+
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            role='vpsea')
+        self.c = Client()
+        self.assertTrue(self.c.login(email='v@bipsu.edu.ph', password='pw'))
+        self.s = Scholarship.objects.create(
+            name='Academic Scholarship', type='Academic', category='application',
+            description='x', eligibility='x', requirements=[])
+
+    def _post(self, **extra):
+        data = {'window': 'applications', 'tab': 'academic',
+                'accepting_applications': 'on'}
+        data.update(extra)
+        return self.c.post(self.APPLICATIONS, data)
+
+    def test_the_office_picks_the_day_it_closes(self):
+        self._post(applications_open_on='2026-09-03',
+                   applications_close_on='2026-09-16')
+        self.s.refresh_from_db()
+        self.assertEqual(self.s.applications_close_on, date(2026, 9, 16))
+
+    def test_both_ends_still_count_so_one_day_is_the_opening_day(self):
+        self._post(applications_open_on='2026-09-03',
+                   applications_close_on='2026-09-03')
+        self.s.refresh_from_db()
+        self.assertEqual(self.s.applications_open_days, 1)
+        self.assertTrue(self.s.accepts_applications_on(date(2026, 9, 3)))
+        self.assertFalse(self.s.accepts_applications_on(date(2026, 9, 4)))
+
+    def test_a_closing_date_before_the_opening_date_is_refused(self):
+        from urllib.parse import unquote
+        r = self._post(applications_open_on='2026-09-16',
+                       applications_close_on='2026-09-03')
+        self.assertIn('cannot be before', unquote(r['Location']))
+        self.s.refresh_from_db()
+        self.assertIsNone(self.s.applications_open_days)
+
+    def test_a_closing_date_with_no_opening_date_is_refused(self):
+        from urllib.parse import unquote
+        r = self._post(applications_close_on='2026-09-16')
+        self.assertIn('needs an opening date', unquote(r['Location']))
+        self.s.refresh_from_db()
+        self.assertIsNone(self.s.applications_open_days)
+
+    def test_a_closing_date_that_is_not_a_date_is_refused(self):
+        from urllib.parse import unquote
+        r = self._post(applications_open_on='2026-09-03',
+                       applications_close_on='next Friday')
+        self.assertIn('must be a real date', unquote(r['Location']))
+        self.s.refresh_from_db()
+        self.assertIsNone(self.s.applications_open_days)
+
+    def test_clearing_the_dates_still_leaves_it_open_with_no_end(self):
+        Scholarship.objects.filter(pk=self.s.pk).update(
+            applications_open_on=date(2026, 9, 3), applications_open_days=14)
+        self._post(applications_open_on='', applications_close_on='')
+        self.s.refresh_from_db()
+        self.assertIsNone(self.s.applications_open_on)
+        self.assertIsNone(self.s.applications_open_days)
+        self.assertTrue(self.s.accepts_applications_on(date(2099, 1, 1)))
+
+    def test_the_renewal_card_takes_a_closing_date_too(self):
+        self.c.post(self.RENEWALS, {
+            'window': 'renewals', 'accepting_renewals': 'on',
+            'renewals_open_on': '2026-09-03',
+            'renewals_close_on': '2026-09-16'})
+        self.s.refresh_from_db()
+        self.assertEqual(self.s.renewals_close_on, date(2026, 9, 16))

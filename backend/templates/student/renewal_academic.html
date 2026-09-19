@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Renewal — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}
 {% block brand %}Student{% endblock %}
 {% block page_title %}Scholarship Renewal{% endblock %}
 {% block page_subtitle %}Submit your documents to renew your scholarship{% endblock %}
@@ -39,7 +39,7 @@
   {% else %}
   <div class="card p-6">
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
-      <h3 class="font-semibold">{% if replacing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h3>
+      <h2 class="font-semibold">{% if replacing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h2>
       <span class="badge" style="background:var(--brand-soft);color:var(--brand);">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
     </div>
     <p class="text-xs mb-5" style="color:#6b7a99;">Upload the required documents to renew your scholarship for the next semester.</p>
@@ -109,7 +109,7 @@
   {% endif %}
   {% if renewals %}
   <div class="card p-6">
-    <h3 class="font-semibold mb-4">Previous Submissions</h3>
+    <h2 class="font-semibold mb-4">Previous Submissions</h2>
     <div class="space-y-3">
       {% for r in renewals %}
       <div class="flex items-center justify-between p-4 rounded-xl" style="background:#f6f8fc;">

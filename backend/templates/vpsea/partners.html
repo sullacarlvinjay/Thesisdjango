@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}External Partners — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}External Partners{% endblock %}
 {% block page_subtitle %}Outside funders with an account here, and what each one can see{% endblock %}
@@ -20,7 +20,7 @@
   <div class="page-alert page-alert-error">{{ error }}</div>
   {% endif %}
   <div class="card p-6">
-    <h3 class="report-gen-title mb-1">Add a partner</h3>
+    <h2 class="report-gen-title mb-1">Add a partner</h2>
     <p class="text-xs mb-4" style="color:#6b7a99;">
       This creates the office and the account that signs in as it, together — an office
       nobody can log into is not something the SDSO ever wants.
@@ -42,7 +42,7 @@
         </div>
         <div class="space-y-1.5">
           <label for="partnerEmail">Sign-in email</label>
-          <input type="email" name="email" id="partnerEmail" required placeholder="dost@bipsu.edu.ph" />
+          <input type="email" name="email" id="partnerEmail" required placeholder="scholarships@dost.gov.ph" />
         </div>
         <div class="space-y-1.5">
           <label for="partnerPassword">Password</label>
@@ -70,10 +70,10 @@
   <div class="card p-6">
     <div class="report-gen-head mb-4">
       <div>
-        <h3 class="report-gen-title">
+        <h2 class="report-gen-title">
           {{ office.name }}
           {% if not office.is_active %}<span class="badge badge-destructive">Suspended</span>{% endif %}
-        </h3>
+        </h2>
         <p class="text-xs mt-1" style="color:#6b7a99;">
           {% for a in office.accounts.all %}{{ a.email }}{% if not forloop.last %}, {% endif %}{% empty %}
           No account signs in as this partner.{% endfor %}

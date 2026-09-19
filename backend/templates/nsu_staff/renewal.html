@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Renewal — BiPSU Staff Portal{% endblock %}
-{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}
 {% block brand %}BiPSU Staff{% endblock %}
 {% block page_title %}Scholarship Renewal{% endblock %}
 {% block page_subtitle %}{{ semester }} — SY {{ academic_year }}{% endblock %}
@@ -16,7 +16,7 @@
 {% endfor %}
 <div class="grid lg:grid-cols-2 gap-6">
   <div class="card p-6">
-    <h3 class="font-semibold mb-1">Submit Renewal Documents</h3>
+    <h2 class="font-semibold mb-1">Submit Renewal Documents</h2>
     <p class="text-xs mb-5" style="color:#6b7a99;">Upload your documents for {{ semester }} SY {{ academic_year }}. All documents must be certified official copies.</p>
     <form method="post" enctype="multipart/form-data" class="space-y-4">
       {% csrf_token %}
@@ -31,7 +31,7 @@
     </form>
   </div>
   <div class="card p-6">
-    <h3 class="font-semibold mb-4">Renewal History</h3>
+    <h2 class="font-semibold mb-4">Renewal History</h2>
     {% if renewals %}
     <div class="space-y-0" style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">

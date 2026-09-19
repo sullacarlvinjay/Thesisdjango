@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ action }} Student — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}{{ action }} Student{% endblock %}
 {% block page_subtitle %}{% if action == 'Add' %}Create a new student account and application{% else %}Update student information and application{% endif %}{% endblock %}
@@ -16,7 +16,7 @@
   <div class="grid {% if action == 'Edit' %}xl:grid-cols-4 lg:grid-cols-3{% else %}lg:grid-cols-3{% endif %} gap-6">
     <div class="{% if action == 'Edit' %}xl:col-span-3 lg:col-span-2{% else %}lg:col-span-2{% endif %} space-y-6">
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Account Credentials</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Account Credentials</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
             <label>First Name <span style="color:var(--danger);">*</span></label>
@@ -36,7 +36,7 @@
           </div>
           <div class="space-y-1.5">
             <label>Email <span style="color:var(--danger);">*</span></label>
-            <input name="email" type="email" required value="{{ v_email }}" placeholder="student@bipsu.edu.ph" />
+            <input name="email" type="email" required value="{{ v_email }}" placeholder="student@gmail.com" />
           </div>
           <div class="space-y-1.5">
             <label>Password {% if action == 'Edit' %}<span style="color:#6b7a99;font-weight:400;">(blank = keep current)</span>{% else %}<span style="color:var(--danger);">*</span>{% endif %}</label>
@@ -45,7 +45,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
             <label>Student Number <span style="color:var(--danger);">*</span></label>
@@ -103,7 +103,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Enrollment Data</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Enrollment Data</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
             <label>School <span style="color:var(--danger);">*</span></label>
@@ -171,7 +171,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Educational Background</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Educational Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
             <label>Elementary School</label>
@@ -188,7 +188,7 @@
         </div>
       </div>
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Family Background</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Family Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
             <label>Father's Name</label>
@@ -210,7 +210,7 @@
       </div>
       {% if show_application_fields %}
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Academic Information</h3>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Academic Information</h2>
         <div class="grid sm:grid-cols-3 gap-4">
           <div class="space-y-1.5">
             <label>GWA</label>
@@ -230,7 +230,7 @@
       {% endif %}
       {% if show_application_fields %}
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h3>
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h2>
         <p class="text-xs mb-5" style="color:#6b7a99;">
           {% if action == 'Edit' %}Upload a new file to replace the existing one. Leave blank to keep the current file.{% else %}All documents are required. Accepted: PDF, JPG, PNG · Max 5MB each.{% endif %}
         </p>
@@ -261,7 +261,7 @@
     <div class="space-y-6">
       {% if action == 'Edit' %}
       <div class="card p-6">
-        <h3 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#6b7a99;">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h3>
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#6b7a99;">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h2>
         <p class="text-xs mb-4" style="color:#6b7a99;">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
         <div class="space-y-3">
           <div class="section-title" style="margin-top:0;">Identity &amp; Status</div>
@@ -314,7 +314,7 @@
         {% if show_application_fields %}
         <div class="flex items-center gap-2 mb-3">
           <svg class="h-4 w-4" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-          <h3 class="font-semibold">Auto-Validation</h3>
+          <h2 class="font-semibold">Auto-Validation</h2>
         </div>
         <p class="text-xs mb-4" style="color:#6b7a99;">Real-time eligibility based on GWA.</p>
         <div id="validationResult" class="p-4 rounded-xl" style="background:#f1f3f9;">

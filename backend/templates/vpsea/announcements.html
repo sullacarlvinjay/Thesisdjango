@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Announcements — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Announcements{% endblock %}
 {% block page_subtitle %}Broadcast updates to students{% endblock %}
@@ -8,7 +8,7 @@
 {% block content %}
 <div class="grid lg:grid-cols-3 gap-6">
   <div class="lg:col-span-2 space-y-3">
-    <h3 class="font-semibold mb-2">Published</h3>
+    <h2 class="font-semibold mb-2">Published</h2>
     {% for a in announcements %}
     <div class="card p-4">
       <div class="flex items-center gap-2 text-xs mb-1" style="color:#6b7a99;">
@@ -23,7 +23,7 @@
     {% endfor %}
   </div>
   <div class="card p-6">
-    <h3 class="font-semibold mb-4">New Announcement</h3>
+    <h2 class="font-semibold mb-4">New Announcement</h2>
     <form method="post" class="space-y-3">
       {% csrf_token %}
       <div class="space-y-1.5">

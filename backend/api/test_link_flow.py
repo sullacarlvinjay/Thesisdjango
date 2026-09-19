@@ -236,10 +236,16 @@ class RegisterWithAScholarshipTest(TestCase):
             description='x', eligibility='x', requirements=[],
         )
 
-        for posted in ('NSU Staff', 'Staff'):
-            r = self._register(scholarship_type=posted)
-            self.assertContains(r, 'Say which scholarship you already hold', msg_prefix=posted)
+        r = self._register(scholarship_type='NSU Staff')
+        self.assertContains(r, 'Say which scholarship you already hold')
         self.assertFalse(ScholarshipLinkRequest.objects.exists())
+
+        self.assertEqual(self._register(
+            scholarship_type='Staff', staff_name='Ernesto Dela Pena',
+            staff_employee_id='EMP-0042', relationship_to_staff='Son',
+        ).status_code, 302)
+        self.assertEqual(
+            ScholarshipLinkRequest.objects.get().scholarship_type, 'Staff')
 
     def test_a_declaration_the_student_may_make_still_goes_all_the_way(self):
         self.assertEqual(self._register(scholarship_type='Academic').status_code, 302)

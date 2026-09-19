@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ office.name }} — BiPSU SRMS{% endblock %}
-{% block logo_src %}{{ office.logo_url }}{% endblock %}
+{% block logo_src %}{{ office.logo_url }}?v=2{% endblock %}
 {% block brand %}{{ office.name }}{% endblock %}
 {% block page_title %}{{ office.name }}{% endblock %}
 {% block page_subtitle %}The scholars BiPSU holds under your programmes{% endblock %}
@@ -35,7 +35,7 @@
     </div>
   </div>
   <div class="card p-6">
-    <h3 class="report-gen-title mb-1">Your programmes</h3>
+    <h2 class="report-gen-title mb-1">Your programmes</h2>
     <p class="text-xs mb-4" style="color:#6b7a99;">
       Counted across every term on record, not only the active one.
     </p>

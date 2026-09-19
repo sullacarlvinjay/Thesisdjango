@@ -9,8 +9,17 @@ def system_settings(request):
     ctx['pending_accounts'] = _pending_accounts(request)
     ctx['profile_photo_url'] = _profile_photo_url(request)
     ctx['support_email'] = _support_email()
+    ctx['canonical_url'] = _canonical_url(request)
     ctx.update(_scholarship_standing(request))
     return ctx
+
+
+def _canonical_url(request):
+    from .seo import canonical_url
+    try:
+        return canonical_url(request)
+    except Exception:
+        return ''
 
 
 def _support_email():

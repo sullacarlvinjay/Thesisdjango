@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}
 {% block brand %}Student{% endblock %}
 {% block page_title %}Welcome back, {{ profile.user.get_full_name|default:"Student" }}{% endblock %}
 {% block page_subtitle %}Here's an overview of your scholarship journey{% endblock %}
@@ -59,7 +59,7 @@
   </div>
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="card p-6 lg:col-span-2">
-      <h3 class="font-semibold mb-1">Recommended Scholarships</h3>
+      <h2 class="font-semibold mb-1">Recommended Scholarships</h2>
       <p class="text-xs mb-4" style="color:#6b7a99;">AI-matched based on your profile</p>
       <div class="space-y-3">
         {% for s in scholarships|slice:":3" %}
@@ -81,7 +81,7 @@
       </div>
     </div>
     <div class="card p-6">
-      <h3 class="font-semibold mb-1">Profile Strength</h3>
+      <h2 class="font-semibold mb-1">Profile Strength</h2>
       <p class="text-xs mb-4" style="color:#6b7a99;">Top match: Academic Scholarship</p>
       <div class="flex items-center justify-center my-6">
         <div class="relative flex items-center justify-center" style="width:120px;height:120px;">
@@ -104,7 +104,7 @@
   </div>
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="card p-6 lg:col-span-2">
-      <h3 class="font-semibold mb-4">Recent Announcements</h3>
+      <h2 class="font-semibold mb-4">Recent Announcements</h2>
       <div class="grid md:grid-cols-3 gap-4">
         {% for a in announcements|slice:":3" %}
         <div class="p-4 rounded-xl" style="background:#f6f8fc;">
@@ -118,10 +118,10 @@
       </div>
     </div>
     <div class="card p-6">
-      <h3 class="font-semibold mb-4 flex items-center gap-2">
+      <h2 class="font-semibold mb-4 flex items-center gap-2">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         Application Timeline
-      </h3>
+      </h2>
       <div class="space-y-4">
         {% for e in timeline %}
         <div class="flex gap-3">

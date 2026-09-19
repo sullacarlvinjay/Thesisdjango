@@ -386,3 +386,33 @@ class CatalogueProseTest(TestCase):
                   for t, k, text in self.strings()
                   if re.search(r'\s{2,}', text) or text != text.strip()]
         self.assertEqual(faults, [], 'stray whitespace: ' + '; '.join(faults))
+
+
+class WhichScholarshipsCanBeHeldTogetherTest(TestCase):
+    def test_a_student_holding_nothing_may_take_anything(self):
+        for wanted in ('TES', 'TDP', 'CHED', 'Academic', 'DOST'):
+            self.assertTrue(can_hold_alongside(set(), wanted), wanted)
+
+    def test_a_tes_grantee_cannot_also_take_tdp(self):
+        self.assertFalse(can_hold_alongside({'TES'}, 'TDP'))
+
+    def test_a_tdp_grantee_cannot_also_take_tes(self):
+        self.assertFalse(can_hold_alongside({'TDP'}, 'TES'))
+
+    def test_a_ched_grantee_cannot_take_a_second_scholarship(self):
+        for wanted in ('TES', 'TDP', 'Academic', 'DOST', 'Sports'):
+            self.assertFalse(can_hold_alongside({'CHED'}, wanted), wanted)
+
+    def test_free_higher_education_sits_alongside_a_stipend(self):
+        self.assertTrue(can_hold_alongside({'TES'}, 'FHE'))
+        self.assertTrue(can_hold_alongside({'CHED'}, 'FHE'))
+
+    def test_holding_only_free_higher_education_blocks_nothing(self):
+        self.assertTrue(can_hold_alongside({'FHE'}, 'TES'))
+        self.assertTrue(can_hold_alongside({'FHE'}, 'TDP'))
+
+    def test_free_higher_education_does_not_excuse_a_second_stipend(self):
+        self.assertFalse(can_hold_alongside({'FHE', 'TES'}, 'TDP'))
+
+    def test_an_empty_string_in_the_held_set_is_not_a_scholarship(self):
+        self.assertTrue(can_hold_alongside({''}, 'TES'))

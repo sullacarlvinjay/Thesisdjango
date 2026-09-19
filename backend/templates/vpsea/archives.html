@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Scholarship Archives — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
 {% block page_subtitle %}Approved scholars by programme and term — {{ active_tab_label }}{% endblock %}
@@ -57,7 +57,7 @@
 <div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:38rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title">Add Scholar — {{ active_tab_label }}</h3>
+      <h2 class="modal-sheet-title">Add Scholar — {{ active_tab_label }}</h2>
       <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
@@ -68,7 +68,7 @@
       {% if active_type == 'Academic' %}
       <div class="space-y-4">
         <p class="text-xs font-semibold uppercase tracking-wider" style="color:var(--brand);">Personal Information</p>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
           <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
           <div><label>Middle Name</label><input name="middle_name" style="margin-top:0.25rem;" /></div>
@@ -109,13 +109,13 @@
           </div>
         </div>
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Educational Background</p>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label>Elementary School</label><input name="elementary" style="margin-top:0.25rem;" /></div>
           <div><label>High School</label><input name="highschool" style="margin-top:0.25rem;" /></div>
           <div class="col-span-2"><label>Last School Attended</label><input name="last_school" style="margin-top:0.25rem;" /></div>
         </div>
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Family Background</p>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label>Father's Last Name</label><input name="father_last_name" style="margin-top:0.25rem;" /></div>
           <div><label>Father's Given Name</label><input name="father_first_name" style="margin-top:0.25rem;" /></div>
           <div><label>Father's Middle Name</label><input name="father_middle_name" style="margin-top:0.25rem;" /></div>
@@ -126,7 +126,7 @@
           <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
         </div>
         <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Academic Information</p>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label>GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" required style="margin-top:0.25rem;" /></div>
           <div><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
           <div><label>School Year</label><input name="school_year" value="{{ active_sy }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:#6b7a99;" /></div>
@@ -146,7 +146,7 @@
         </div>
       </div>
       {% else %}
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
         <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
         <div><label>Middle Name</label><input name="middle_name" style="margin-top:0.25rem;" /></div>
@@ -225,7 +225,7 @@
 <div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card modal-sheet" style="max-width:30rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title">Upload Excel — {{ active_type }}</h3>
+      <h2 class="modal-sheet-title">Upload Excel — {{ active_type }}</h2>
       <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
@@ -266,7 +266,7 @@
 </div>
 <div id="newSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
-    <h3 class="font-semibold mb-4">Start New Semester</h3>
+    <h2 class="font-semibold mb-4">Start New Semester</h2>
     <form method="post" action="/vpsea/archives/new-semester/">
       {% csrf_token %}
       <input type="hidden" name="type" value="{{ active_type }}">
@@ -284,7 +284,7 @@
 </div>
 <div id="undoSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:26rem;">
-    <h3 class="font-semibold mb-2">Undo to Previous Semester</h3>
+    <h2 class="font-semibold mb-2">Undo to Previous Semester</h2>
     <p class="text-sm mb-4" style="color:#6b7a99;">Current active semester: <strong>{{ active_sy_display }}</strong><br>This will switch the active semester back to <strong>{{ prev_sy_display }}</strong>. No data will be deleted.</p>
     <form method="post" action="/vpsea/archives/undo-semester/">
       {% csrf_token %}
@@ -303,7 +303,7 @@
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <div class="flex items-center gap-2">
-            <h3 class="font-semibold">{{ active_tab_label }} Scholars</h3>
+            <h2 class="font-semibold">{{ active_tab_label }} Scholars</h2>
             <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type }}{% if active_tier %}&amp;tier={{ active_tier }}{% endif %}&sy='+this.value"
               style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#3a57af;background:#eef1fb;border:1px solid #b8c3e8;border-radius:6px;">
               {% for lbl, display in all_sy_display %}
@@ -381,7 +381,7 @@
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
-<script src="{% static 'js/table-filter.js' %}?v=2"></script>
+<script src="{% static 'js/table-filter.js' %}?v=3"></script>
 <script src="{% static 'js/dl-menu.js' %}?v=1"></script>
 <script>
   var ARCH_COURSES = {{ bipsu_courses_json|safe }};
@@ -489,7 +489,7 @@ function openDelete(pk, name) {
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:32rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title">Edit Scholar</h3>
+      <h2 class="modal-sheet-title">Edit Scholar</h2>
       <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
@@ -498,7 +498,7 @@ function openDelete(pk, name) {
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
       <input type="hidden" name="tier" value="{{ active_tier }}">
       <input type="hidden" name="pk" id="editPk">
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label>First Name</label>
           <input id="editFirst" name="first_name" required style="margin-top:0.25rem;" />
@@ -576,7 +576,7 @@ function openDelete(pk, name) {
         <div class="col-span-2" style="border-top:1px solid #e8ecf0;padding-top:0.75rem;margin-top:0.25rem;">
           <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Reset Password</p>
           <p class="text-xs mb-2" style="color:#6b7a99;">Leave blank to keep the current password unchanged.</p>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label>New Password</label>
               <input id="editPassword" name="new_password" type="password" autocomplete="new-password"
@@ -657,7 +657,7 @@ function openDelete(pk, name) {
 </div>
 <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
   <div class="card p-6" style="width:100%;max-width:24rem;">
-    <h3 class="font-semibold mb-2">Delete Scholar</h3>
+    <h2 class="font-semibold mb-2">Delete Scholar</h2>
     <p class="text-sm mb-4" style="color:#6b7a99;">Remove <strong id="deleteNameLabel"></strong> from the archives? This cannot be undone.</p>
     <form method="post" action=""  id="deleteForm">
       {% csrf_token %}

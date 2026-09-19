@@ -135,7 +135,7 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
 
     verification_status = models.CharField(
-        max_length=10, choices=VERIFICATION_STATUSES, default='approved',
+        max_length=10, choices=VERIFICATION_STATUSES, default='approved', db_index=True,
     )
     verification_note = models.TextField(blank=True)
     verified_by = models.ForeignKey(
@@ -695,7 +695,7 @@ class StaffEducation(StaffDetail):
 
 class Scholarship(models.Model):
     name = models.CharField(max_length=100)
-    type = models.CharField(max_length=50)
+    type = models.CharField(max_length=50, db_index=True)
     category = models.CharField(max_length=20, choices=SCHOLARSHIP_CATEGORIES)
     group = models.CharField(max_length=20, choices=SCHOLARSHIP_GROUPS, default='internal')
     description = models.TextField()
@@ -1045,8 +1045,8 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
 
     extra_data = models.JSONField(default=dict, blank=True)
 
-    qualified_for = models.CharField(max_length=20, choices=QUALIFICATION_CHOICES, default='None')
-    status = models.CharField(max_length=30, choices=APPLICATION_STATUSES, default='Pending Validation')
+    qualified_for = models.CharField(max_length=20, choices=QUALIFICATION_CHOICES, default='None', db_index=True)
+    status = models.CharField(max_length=30, choices=APPLICATION_STATUSES, default='Pending Validation', db_index=True)
     remarks = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1200,6 +1200,7 @@ class AcademicRenewal(TermStamped):
 
     class Meta:
         ordering = ['-submitted_at']
+        indexes = [models.Index(fields=['status', 'term_label'])]
 
     def __str__(self):
         return f"{self.student} — Renewal {self.term_label} ({self.status})"
@@ -1228,7 +1229,7 @@ class ScholarshipLinkRequest(TermStamped):
     scholarship_type = models.CharField(max_length=50, choices=SCHOLARSHIP_TYPE_CHOICES)
     proof_document = models.FileField(upload_to='link_requests/', validators=validate_document)
     notes = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
+    status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending', db_index=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     award_number = models.CharField(max_length=50, blank=True)
     award_tier = models.CharField(max_length=10, choices=CHED_TIER_CHOICES, blank=True)
@@ -1236,6 +1237,16 @@ class ScholarshipLinkRequest(TermStamped):
         default=False,
         help_text='Declared from the student portal rather than on the '
                   'registration form.')
+
+    staff_name = models.CharField(
+        max_length=200, blank=True,
+        help_text='Staff Scholarship only: the employee this student depends on.')
+    staff_employee_id = models.CharField(
+        max_length=50, blank=True,
+        help_text="Staff Scholarship only: that employee's number.")
+    relationship_to_staff = models.CharField(
+        max_length=50, blank=True,
+        help_text='Staff Scholarship only: how the student is related to them.')
 
     remarks = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(
@@ -1249,6 +1260,10 @@ class ScholarshipLinkRequest(TermStamped):
     )
     linked_application = models.ForeignKey(
         Application, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+',
+    )
+    linked_applicant_record = models.ForeignKey(
+        'ApplicantRecord', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='+',
     )
 
@@ -1296,6 +1311,7 @@ class ScholarListImport(TermStamped):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [models.Index(fields=['scholarship_type', 'term_label'])]
 
     def __str__(self):
         return (f'{self.scholarship_type} — {self.term_label or self.school_year} '

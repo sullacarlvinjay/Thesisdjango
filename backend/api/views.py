@@ -275,7 +275,20 @@ def _approval_trend():
 
 class VPSEAAnalyticsView(APIView):
     permission_classes = [IsOfficeStaff]
+    CACHE_KEY = 'api-vpsea-analytics'
+
     def get(self, request):
+        from django.conf import settings as django_settings
+        from django.core.cache import cache
+
+        payload = cache.get(self.CACHE_KEY)
+        if payload is None:
+            payload = self._payload()
+            cache.set(self.CACHE_KEY, payload,
+                      django_settings.ANALYTICS_CACHE_SECONDS)
+        return Response(payload)
+
+    def _payload(self):
         course_dist = [
             {'course': row['enrollment__course'], 'scholars': row['scholars']}
             for row in StudentProfile.objects.filter(applications__status='Approved')
@@ -296,12 +309,12 @@ class VPSEAAnalyticsView(APIView):
             Application.objects.filter(status='Approved')
             .values('scholarship__type').annotate(value=Count('id'))
         )
-        return Response({
+        return {
             'course_distribution': list(course_dist),
             'gpa_distribution': gpa_ranges,
             'scholarship_distribution': [{'name': s['scholarship__type'], 'value': s['value']} for s in scholarship_dist],
             'approval_trend': _approval_trend(),
-        })
+        }
 
 
 class VPSEAAnnouncementListCreateView(generics.ListCreateAPIView):

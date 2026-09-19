@@ -13,7 +13,9 @@ pillow==12.2.0
 psycopg[binary]==3.3.4
 python-docx==1.2.0
 python-dotenv==1.2.3
+rcssmin==1.2.2
 reportlab==5.0.1
+rjsmin==1.2.5
 sqlparse==0.5.5
 tzdata==2026.2
 whitenoise==6.12.0

@@ -45,32 +45,11 @@ def _active_catalogue():
     return rows, stamp['last']
 
 
-def _alert_signup(request):
-    from django.core.exceptions import ValidationError
-    from django.core.validators import validate_email
-
-    from .models import SignupSource
-
-    email = (request.POST.get('alert_email') or '').strip()
-    if not email:
-        return {'alert_error': 'Enter the email address we should write to.'}
-    try:
-        validate_email(email)
-    except ValidationError:
-        return {'alert_error': 'That does not look like an email address.',
-                'alert_email': email}
-
-    try:
-        SignupSource.record(email, 'alert', _utm_payload(request))
-    except Exception:
-        logger.exception('alerts: could not record a signup for %s', email)
-        return {'alert_error': 'Something went wrong saving that. Please try again.',
-                'alert_email': email}
-    return {'alert_ok': 'You are on the list. We will write to ' + email
-                        + ' when a scholarship opens for applications.'}
-
-
 def landing_view(request):
+    if request.user.is_authenticated:
+        portal = _portal_for(request.user)
+        if portal != '/':
+            return redirect(portal)
     rows, catalogue_updated = _active_catalogue()
     context = {
         'scholarships': rows,
@@ -79,8 +58,6 @@ def landing_view(request):
         'institutional': [s for s in rows if s.group == 'institutional'],
         'catalogue_updated': catalogue_updated,
     }
-    if request.method == 'POST':
-        context.update(_alert_signup(request))
     return render(request, 'landing.html', context)
 
 
@@ -273,6 +250,9 @@ def _declaration_slots(post=None):
             'tier': post.get(f'award_tier{suffix}', ''),
             'award_number': post.get(f'award_number{suffix}', ''),
             'notes': post.get(f'notes{suffix}', ''),
+            'staff_name': post.get(f'staff_name{suffix}', ''),
+            'staff_employee_id': post.get(f'staff_employee_id{suffix}', ''),
+            'relationship_to_staff': post.get(f'relationship_to_staff{suffix}', ''),
         })
     return slots
 
@@ -280,7 +260,9 @@ def _declaration_slots(post=None):
 def _register_context(post=None):
     import json
     from . import terms
-    from .constants import CIVIL_STATUSES, GENDERS, STAFF_DECLARABLE_LABEL
+    from .constants import (CIVIL_STATUSES, GENDERS,
+                            RELATIONSHIP_TO_STAFF_CHOICES,
+                            STAFF_DECLARABLE_LABEL)
     from .models import CHED_TIER_CHOICES, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     return {
@@ -288,6 +270,7 @@ def _register_context(post=None):
         'bipsu_courses_json': json.dumps(BIPSU_COURSES),
         'civil_statuses': CIVIL_STATUSES,
         'genders': GENDERS,
+        'staff_relationships': RELATIONSHIP_TO_STAFF_CHOICES,
         'scholarship_types': declarable_types(),
         'staff_scholarship_label': STAFF_DECLARABLE_LABEL,
         'ched_tiers': CHED_TIER_CHOICES,
@@ -379,6 +362,13 @@ def _declared_scholarship(p, files, slot=''):
     proof = files.get(f'proof_document{slot}')
     where = f' (scholarship {DECLARATION_SLOTS.index(slot) + 1})' if slot else ''
 
+    from .constants import (DEPENDENT_DECLARABLE_TYPE,
+                            RELATIONSHIP_TO_STAFF_CHOICES)
+
+    staff_name = p.get(f'staff_name{slot}', '').strip()
+    staff_employee_id = p.get(f'staff_employee_id{slot}', '').strip()
+    relationship = p.get(f'relationship_to_staff{slot}', '').strip()
+
     errors = []
     if stype not in declarable_type_values():
         errors.append(f'Say which scholarship you already hold{where}, or clear the '
@@ -387,10 +377,23 @@ def _declared_scholarship(p, files, slot=''):
         errors.append(f'Please choose whether your CHED award{where} is Full Merit / '
                       'Full Scholar or Half Merit / Partial Scholar — your award '
                       'letter says which.')
+    elif stype == DEPENDENT_DECLARABLE_TYPE:
+        if not staff_name:
+            errors.append('Name the BiPSU employee you depend on'
+                          f'{where} — the Staff Scholarship is held through them.')
+        if not staff_employee_id:
+            errors.append(f"Give that employee's number{where}. The office checks "
+                          'the appointment against it.')
+        if relationship not in [r for r, _ in RELATIONSHIP_TO_STAFF_CHOICES]:
+            errors.append('Say how you are related to that employee'
+                          f'{where} — son, daughter, spouse or legal ward.')
     errors += [f'{problem}{where}' if where else problem
                for problem in _validate_proof(proof, settings_obj)]
     if errors:
         return None, errors
+
+    if stype != DEPENDENT_DECLARABLE_TYPE:
+        staff_name = staff_employee_id = relationship = ''
 
     return dict(
         scholarship_type=stype,
@@ -399,6 +402,9 @@ def _declared_scholarship(p, files, slot=''):
         award_tier=tier,
         notes=p.get(f'notes{slot}', ''),
         term_label=settings_obj.academic_year,
+        staff_name=staff_name,
+        staff_employee_id=staff_employee_id,
+        relationship_to_staff=relationship,
     ), []
 
 
@@ -838,7 +844,11 @@ def held_scholarship_types(profile):
 
 
 def can_hold_alongside(held, wanted):
-    return not set(held)
+    from .constants import ALWAYS_HOLDABLE_TYPES
+
+    if wanted in ALWAYS_HOLDABLE_TYPES:
+        return True
+    return not ({t for t in held if t} - ALWAYS_HOLDABLE_TYPES)
 
 
 def application_window_reason(stype):
@@ -1445,6 +1455,17 @@ def _save_window(request, programme, kind, back):
             f'No programme is configured to set {label.lower()} for. '
             'Add it under Scholarship Programs first.'))
 
+    desired = request.POST.get('set_accepting')
+    if desired is not None:
+        accepting = desired == '1'
+        setattr(programme, switch, accepting)
+        programme.save(update_fields=[switch])
+        ActivityLog.objects.create(
+            user=request.user,
+            action=f'{label} for {programme.name}: '
+                   f'{"reopened" if accepting else "closed"} by hand')
+        return redirect(f'{back}{joiner}saved=window')
+
     errors = []
     opens, days = _posted_window(request.POST, errors, kind)
     if errors:
@@ -1698,10 +1719,80 @@ def declared_scholarships(profile):
                 .order_by('submitted_at', 'pk'))
 
 
+def _approve_dependent_staff_declaration(req, reviewer, remarks=''):
+    from .models import (ActivityLog, ApplicantRecord, Notification,
+                         SystemSettings)
+    from django.utils import timezone
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    parsed = SystemSettings.parse_label(settings_obj.academic_year)
+    profile = req.student
+    user = profile.user
+
+    app = ApplicantRecord.objects.filter(
+        email=user.email, qualified_for='Staff',
+        school_year=parsed['sy'], semester=parsed['semester'],
+    ).first()
+    if app is None:
+        app = ApplicantRecord(email=user.email)
+
+    app.full_name = user.get_full_name()
+    app.qualified_for = 'Staff'
+    app.status = 'Approved'
+    app.remarks = remarks
+    app.school_year = parsed['sy']
+    app.semester = parsed['semester']
+    app.term_label = settings_obj.academic_year
+    app.barangay = profile.barangay
+    app.municipality = profile.municipality
+    app.province = profile.province
+    app.save()
+
+    app.contact_number = profile.contact_number
+    app.date_of_birth = profile.date_of_birth
+    app.gender = profile.gender
+    app.course = profile.course
+    app.year_level = profile.year_level
+    app.student_id = profile.student_id
+    app.is_nsu_staff = False
+    app.is_nsu_dependent = True
+    app.staff_name = req.staff_name
+    app.staff_employee_id = req.staff_employee_id
+    app.relationship_to_staff = req.relationship_to_staff
+    app.save()
+
+    req.status = 'Approved'
+    req.remarks = remarks
+    req.reviewed_by = reviewer
+    req.reviewed_at = timezone.now()
+    req.linked_applicant_record = app
+    req.save()
+
+    label = req.get_scholarship_type_display()
+    Notification.objects.create(
+        student=profile, type='success',
+        title=f'{label} linked to your account',
+        body=(f'Your {label} has been verified for '
+              f"{parsed['sy']} {parsed['semester']}, held as a dependent of "
+              f'{req.staff_name}.'),
+    )
+    ActivityLog.objects.create(
+        user=reviewer,
+        action=(f'Verified the BiPSU Staff Scholarship declared by '
+                f'{profile.student_id} as a dependent of {req.staff_name} '
+                f'({req.staff_employee_id})'),
+    )
+    return app, ''
+
+
 def approve_declared_scholarship(req, reviewer, archive=None, remarks='', tier=''):
+    from .constants import DEPENDENT_DECLARABLE_TYPE
     from .models import (CHED_TIER_CHOICES, Notification, ActivityLog,
                          SystemSettings)
     from django.utils import timezone
+
+    if req.scholarship_type == DEPENDENT_DECLARABLE_TYPE:
+        return _approve_dependent_staff_declaration(req, reviewer, remarks)
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
@@ -4829,6 +4920,7 @@ def _posted_window(p, errors, kind='applications'):
     from datetime import date as _date
 
     raw_opens = (p.get(f'{kind}_open_on') or '').strip()
+    raw_closes = (p.get(f'{kind}_close_on') or '').strip()
     raw_days = (p.get(f'{kind}_open_days') or '').strip()
 
     opens = None
@@ -4837,6 +4929,22 @@ def _posted_window(p, errors, kind='applications'):
             opens = _date.fromisoformat(raw_opens)
         except ValueError:
             errors.append('The opening date must be a real date, as YYYY-MM-DD.')
+
+    if raw_closes:
+        closes = None
+        try:
+            closes = _date.fromisoformat(raw_closes)
+        except ValueError:
+            errors.append('The closing date must be a real date, as YYYY-MM-DD.')
+        if closes is None:
+            return opens, None
+        if not opens:
+            errors.append('A closing date needs an opening date to count from.')
+            return opens, None
+        if closes < opens:
+            errors.append('The closing date cannot be before the opening date.')
+            return opens, None
+        return opens, (closes - opens).days + 1
 
     days = None
     if raw_days:

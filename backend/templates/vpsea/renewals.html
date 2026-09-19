@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Renewal Applications — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Renewal Applications{% endblock %}
 {% block page_subtitle %}Review continuing scholar renewals{% endblock %}
@@ -20,7 +20,7 @@
 </div>
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>
-  <h3 class="font-semibold mb-4">Renewal Submissions</h3>
+  <h2 class="font-semibold mb-4">Renewal Submissions</h2>
   <div style="overflow-x:auto;">
     <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
       <thead>
@@ -69,7 +69,7 @@
 <div id="renModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
   <div class="card" style="width:100%;max-width:32rem;padding:1.5rem;margin:1rem;">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold" id="renModalTitle">Renewal Review</h3>
+      <h2 class="font-semibold" id="renModalTitle">Renewal Review</h2>
       <button onclick="document.getElementById('renModal').style.display='none'" style="background:none;border:none;cursor:pointer;color:#6b7a99;">✕</button>
     </div>
     <form method="post" action="/vpsea/renewals/">
@@ -89,7 +89,7 @@
 {% endblock %}
 {% block extra_js %}
 {% load static %}
-<script src="{% static 'js/table-filter.js' %}?v=2"></script>
+<script src="{% static 'js/table-filter.js' %}?v=3"></script>
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
 <script>
 function openRenModal(id, name) {

@@ -49,3 +49,7 @@ tmp.txt
 tmp_lines.txt
 result.txt
 q-dev-chat-*.html
+
+# Tailwind toolchain. The generated static/css/tailwind.css IS committed, so
+# Render never needs Node at build time.
+node_modules/

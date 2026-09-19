@@ -4,12 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register — BiPSU SRMS</title>
+  <meta name="description" content="Create a BiPSU SRMS account to apply for scholarships at Biliran Province State University. Students and staff register with their school details." />
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}" />{% endif %}
   {% include '_favicon.html' %}
   <meta name="theme-color" content="#1a2168" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
-  <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=64" />
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=76" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -20,7 +22,7 @@
 <body data-portal="student" class="auth-page auth-page--tall">
   <div class="auth-shell auth-shell--wide">
     <div class="auth-brand">
-      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
+      <img src="/media/logos/BiPSU.png?v=2" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
       <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
       <p class="text-sm mt-1">Create your account</p>
     </div>
@@ -34,7 +36,7 @@
       {% csrf_token %}
       <div class="auth-card mb-4">
         <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:var(--text-soft);">I am registering as</p>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="type-card {% if not post.account_type or post.account_type == 'student' %}selected-student{% endif %}"
                id="card-student" onclick="selectType('student')">
             <div class="flex items-center gap-2 mb-1">
@@ -63,7 +65,7 @@
         <p class="text-xs font-semibold uppercase tracking-wider mb-4" id="section-title"
            style="color:var(--brand);">Personal Information</p>
         <div class="space-y-3">
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>First Name</label>
               <input name="first_name" value="{{ post.first_name }}" placeholder="Juan" required />
@@ -73,7 +75,7 @@
               <input name="last_name" value="{{ post.last_name }}" placeholder="Dela Cruz" required />
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Middle Name</label>
               <input name="middle_name" value="{{ post.middle_name }}" placeholder="Ramirez" required />
@@ -85,7 +87,7 @@
           </div>
           <div class="space-y-1.5">
             <label>Email</label>
-            <input type="email" name="email" value="{{ post.email }}" placeholder="you@bipsu.edu.ph" required autocomplete="email" />
+            <input type="email" name="email" value="{{ post.email }}" placeholder="you@gmail.com" required autocomplete="email" />
           </div>
           <div class="space-y-1.5">
             <label>Contact Number</label>
@@ -94,7 +96,7 @@
           
           <div data-student-only class="space-y-3"
                {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1.5">
                 <label>Date of Birth</label>
                 <input type="date" name="date_of_birth" value="{{ post.date_of_birth }}" required />
@@ -109,7 +111,7 @@
                 </select>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1.5">
                 <label>Birth Place</label>
                 <input name="birth_place" value="{{ post.birth_place }}" placeholder="e.g. Naval, Biliran" required />
@@ -142,7 +144,7 @@
               <input name="disability_type_other" value="{{ disability_other }}" maxlength="100"
                      placeholder="Type the disability as you would write it on a form" />
             </div>
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div class="space-y-1.5">
                 <label>Barangay / Street</label>
                 <input name="barangay" value="{{ post.barangay }}" placeholder="e.g. Brgy. Larrazabal" required />
@@ -177,7 +179,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Course</label>
               <select name="course" id="courseSelect" required>
@@ -228,7 +230,7 @@
            {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
         <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Socioeconomic Information</p>
         <div class="space-y-3">
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Annual Family Income (₱)</label>
               <input name="family_income" type="number" step="0.01" min="0"
@@ -315,6 +317,33 @@
               {% endfor %}
             </select>
           </div>
+          <div class="space-y-3" data-staff-dependent {% if slot.type != 'Staff' %}hidden{% endif %}>
+            <p class="text-xs" style="color:var(--text-muted);">
+              The BiPSU Staff Scholarship is held through a BiPSU employee. Tell the
+              office whose appointment it rests on and how you are related to them.
+            </p>
+            <div class="space-y-1.5">
+              <label>Employee's Full Name</label>
+              <input name="staff_name{{ slot.suffix }}" value="{{ slot.staff_name }}"
+                     placeholder="e.g. Ernesto Dela Pena" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1.5">
+                <label>Employee Number</label>
+                <input name="staff_employee_id{{ slot.suffix }}" value="{{ slot.staff_employee_id }}"
+                       placeholder="e.g. EMP-0042" class="font-mono" />
+              </div>
+              <div class="space-y-1.5">
+                <label>Your Relationship</label>
+                <select name="relationship_to_staff{{ slot.suffix }}">
+                  <option value="">— Select —</option>
+                  {% for value, label in staff_relationships %}
+                  <option value="{{ value }}" {% if slot.relationship_to_staff == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
           <div class="space-y-1.5">
             <label>Award / Scholar Number <span class="label-optional">Optional</span></label>
             <input name="award_number{{ slot.suffix }}" value="{{ slot.award_number }}" placeholder="e.g. 2026-DOST-00194"
@@ -344,7 +373,7 @@
         <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
         <p class="text-xs mb-4" style="color:var(--text-muted);">Used for scholarship matching. All of it has to be answered, and the certified documents uploaded as proof, before the form will send.</p>
         <div class="space-y-3">
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>SHS Grade Point Average (%)</label>
               <input name="shs_gpa" type="number" step="0.01" min="0" max="100"
@@ -388,7 +417,7 @@
           nothing here decides your place on its own.
         </p>
         <div class="space-y-3">
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Citizenship</label>
               <select name="citizenship" required>
@@ -461,7 +490,7 @@
                    placeholder="e.g. School of Engineering" autocomplete="off" required />
             <p class="text-xs" style="color:var(--text-muted);">Type the office, college or unit you are assigned to, in full.</p>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label>Department</label>
               <input name="department" value="{{ post.department }}" placeholder="e.g. Computer Science Department" required />
@@ -644,7 +673,7 @@ function selectType(type) {
   }
 }
 </script>
-<script src="{% static 'js/register-scholarship.js' %}?v=4"></script>
+<script src="{% static 'js/register-scholarship.js' %}?v=9"></script>
 <script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
 <script src="{% static 'js/modal-open.js' %}?v=2"></script>
 <script src="{% static 'js/terms-agree.js' %}?v=1"></script>
@@ -655,7 +684,7 @@ function selectType(type) {
 })();
 </script>
 <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
-<script src="{% static 'js/consent.js' %}?v=1" defer></script>
+<script src="{% static 'js/consent.js' %}?v=3" defer></script>
 <script src="{% static 'js/loading.js' %}?v=2" defer></script>
 </body>
 </html>

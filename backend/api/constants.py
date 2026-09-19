@@ -66,7 +66,18 @@ SCHOLARSHIP_TYPE_CHOICES = [
     ('Staff', 'BiPSU Staff Scholarship'),
 ]
 
-STUDENT_UNDECLARABLE_TYPES = frozenset({'Staff', 'Affirmative', 'FHE'})
+STUDENT_UNDECLARABLE_TYPES = frozenset({'Affirmative', 'FHE'})
+
+ALWAYS_HOLDABLE_TYPES = frozenset({'FHE'})
+
+DEPENDENT_DECLARABLE_TYPE = 'Staff'
+
+RELATIONSHIP_TO_STAFF_CHOICES = [
+    ('Son', 'Son'),
+    ('Daughter', 'Daughter'),
+    ('Spouse', 'Spouse'),
+    ('Ward', 'Legal ward'),
+]
 
 DECLARABLE_SCHOLARSHIP_TYPES = [
     (value, label) for value, label in SCHOLARSHIP_TYPE_CHOICES

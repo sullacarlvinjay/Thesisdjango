@@ -2,6 +2,14 @@
   var tables = document.querySelectorAll('table[data-filterable]');
   if (!tables.length) return;
 
+  function debounce(fn, wait) {
+    var timer = null;
+    return function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fn, wait);
+    };
+  }
+
   function textOf(cell) {
     return (cell.innerText || '').trim().replace(/\s+/g, ' ');
   }
@@ -157,7 +165,7 @@
     }
 
     selects.forEach(function (select) { select.addEventListener('change', apply); });
-    if (search) search.addEventListener('input', apply);
+    if (search) search.addEventListener('input', debounce(apply, 150));
     clear.addEventListener('click', function () {
       selects.forEach(function (select) { select.value = ''; });
       syncs.forEach(function (sync) { sync(); });

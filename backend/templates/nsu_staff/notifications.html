@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Notifications — BiPSU Staff Portal{% endblock %}
-{% block logo_src %}/media/logos/BiPSU.png{% endblock %}
+{% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}
 {% block brand %}BiPSU Staff{% endblock %}
 {% block page_title %}Notifications{% endblock %}
 {% block page_subtitle %}Updates from the SDSO scholarship office{% endblock %}
@@ -35,7 +35,7 @@
         <span class="h-2 w-2 rounded-full shrink-0" style="background:var(--brand);"></span>
         {% endif %}
       </div>
-      <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ n.body }}</p>
+      <p class="text-xs mt-0.5 notif-body" style="color:#6b7a99;">{{ n.body }}</p>
       <p class="text-xs mt-1" style="color:#aaa;">{{ n.created_at|timesince }} ago</p>
     </div>
   </div>

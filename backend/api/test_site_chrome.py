@@ -140,83 +140,45 @@ class LoadingStatesReachTheMarkupTest(TestCase):
                          'from the request Django then reads')
 
 
-class TheAlertsListTest(TestCase):
-
-    def setUp(self):
-        SystemSettings.objects.get_or_create(pk=1)
-        Scholarship.objects.create(
-            name='Academic Scholarship', type='Academic', category='application',
-            group='internal', description='x', eligibility='x', requirements=[])
-        self.c = Client()
-
-    def test_the_landing_page_offers_the_signup(self):
-        html = self.c.get('/').content.decode()
-        self.assertIn('name="alert_email"', html)
-        self.assertIn('class="newsletter"', html)
-
-    def test_an_address_is_written_down(self):
-        response = self.c.post('/', {'alert_email': 'maria@example.com'})
-        self.assertEqual(response.status_code, 200)
-        row = SignupSource.objects.get(email='maria@example.com')
-        self.assertEqual(row.kind, 'alert')
-        self.assertTrue(row.is_active)
-        self.assertIn('on the list', response.content.decode())
-
-    def test_signing_up_twice_does_not_make_two_rows(self):
-        self.c.post('/', {'alert_email': 'maria@example.com'})
-        self.c.post('/', {'alert_email': 'Maria@example.com'})
-        self.assertEqual(SignupSource.objects.filter(kind='alert').count(), 1)
-
-    def test_something_that_is_not_an_address_is_refused(self):
-        response = self.c.post('/', {'alert_email': 'not-an-address'})
-        self.assertFalse(SignupSource.objects.exists())
-        self.assertIn('does not look like an email address',
-                      response.content.decode())
-
-    def test_an_empty_box_says_so_rather_than_saving_a_blank(self):
-        response = self.c.post('/', {'alert_email': '   '})
-        self.assertFalse(SignupSource.objects.exists())
-        self.assertIn('Enter the email address', response.content.decode())
-
-
 class CampaignAttributionTest(TestCase):
 
     def setUp(self):
         SystemSettings.objects.get_or_create(pk=1)
         self.c = Client()
 
-    def test_the_form_asks_the_script_to_stamp_it(self):
-        Scholarship.objects.create(
-            name='Academic Scholarship', type='Academic', category='application',
-            group='internal', description='x', eligibility='x', requirements=[])
-        self.assertIn('data-utm', self.c.get('/').content.decode())
-
     def test_a_campaign_is_kept_against_the_address(self):
+        from api.test_registration_payload import a_student
+
         payload = json.dumps({
             'utm_source': 'facebook', 'utm_medium': 'post',
             'utm_campaign': 'academic-2026', 'landed_on': '/',
         })
-        self.c.post('/', {'alert_email': 'jose@example.com', 'utm_payload': payload})
-        row = SignupSource.objects.get(email='jose@example.com')
+        self.c.post('/register/', a_student(email='jose@bipsu.edu.ph',
+                                            utm_payload=payload))
+        row = SignupSource.objects.get(email='jose@bipsu.edu.ph')
         self.assertEqual(row.utm_source, 'facebook')
         self.assertEqual(row.utm_campaign, 'academic-2026')
         self.assertEqual(row.campaign_label, 'facebook / post / academic-2026')
 
-    def test_someone_arriving_with_no_campaign_reads_as_direct(self):
-        self.c.post('/', {'alert_email': 'ana@example.com'})
+    def test_a_row_carrying_no_campaign_reads_as_direct(self):
         self.assertEqual(
-            SignupSource.objects.get(email='ana@example.com').campaign_label, 'direct')
+            SignupSource(email='ana@example.com').campaign_label, 'direct')
 
     def test_rubbish_in_the_hidden_field_is_ignored_not_crashed_on(self):
-        response = self.c.post('/', {'alert_email': 'ana@example.com',
-                                     'utm_payload': '{not json at all'})
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(SignupSource.objects.filter(email='ana@example.com').exists())
+        from api.test_registration_payload import a_student
+
+        response = self.c.post('/register/', a_student(
+            email='ana@bipsu.edu.ph', utm_payload='{not json at all'))
+        self.assertIn(response.status_code, (200, 302))
 
     def test_an_overlong_payload_is_dropped_rather_than_stored(self):
-        self.c.post('/', {'alert_email': 'ana@example.com',
-                          'utm_payload': json.dumps({'utm_source': 'x' * 4000})})
-        self.assertEqual(SignupSource.objects.get(email='ana@example.com').utm_source, '')
+        from api.test_registration_payload import a_student
+
+        self.c.post('/register/', a_student(
+            email='ana@bipsu.edu.ph',
+            utm_payload=json.dumps({'utm_source': 'x' * 4000})))
+        self.assertFalse(
+            SignupSource.objects.filter(utm_source__startswith='x').exists())
 
     def test_the_registration_form_is_stamped_too(self):
         html = self.c.get('/register/').content.decode()
@@ -568,7 +530,7 @@ class TheStylesheetCarriesTheNewFurnitureTest(SimpleTestCase):
         for selector in ('.skip-link', '.scroll-progress', '.route-progress',
                          '.to-top', '.control-spinner', '.pw-field', '.pw-toggle',
                          '.cookie-banner', '.fab-contact', '.search-box',
-                         '.faq-item', '.newsletter', '.copy-btn', '.pill-btn',
+                         '.faq-item', '.copy-btn', '.pill-btn',
                          '.xl-figure', '.stamp'):
             self.assertIn(selector, self.css, f'{selector} is used but never styled')
 

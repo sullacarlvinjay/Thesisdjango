@@ -55,6 +55,17 @@ function syncScholarshipData() {
         if (!isChed) select.value = '';
       }
     }
+
+    var dependent = card.querySelector('[data-staff-dependent]');
+    if (dependent) {
+      var isStaff = open && type && type.value === 'Staff';
+      dependent.hidden = !isStaff;
+      dependent.querySelectorAll('input, select').forEach(function (field) {
+        field.disabled = !isStaff;
+        field.required = isStaff;
+        if (!isStaff) field.value = '';
+      });
+    }
   });
 
   var row = document.getElementById('addScholarshipRow');

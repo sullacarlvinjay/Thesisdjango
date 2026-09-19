@@ -3768,3 +3768,71 @@ back up. White type on a photograph at 50% is thin — the sub-heading sits over
 sunlit wall — and `0 1px 2px` plus `0 2px 14px` of black restores the edge without
 touching the transparency that was asked for. `.hero-sub` also went from 86% to 95%
 white for the same reason.
+
+---
+
+## Reversed: a student can declare the Staff Scholarship again, as a dependent
+
+"Changed: a declaration has to land in the ledger its programme keeps" took
+`Staff` off the student dropdown. The reason given there was sound and is worth
+repeating, because this entry does not throw it away:
+
+> A student's award is an `Application`, which hangs off a `StudentProfile`. The
+> BiPSU Staff Scholarship's award is an `ApplicantRecord`, which does not. So a
+> student declaring **Staff** left the office holding a claim it could approve
+> into the wrong ledger, or not at all.
+
+That was never an argument that students cannot hold the programme. The
+catalogue has always said the Staff Scholarship is open to "a permanent BiPSU
+employee, **or a legitimate dependent of one**", and a dependent is a student.
+It was an argument that the approval had nowhere valid to write.
+
+**So the ledger was fixed rather than the dropdown left broken.**
+`approve_declared_scholarship` now branches: a declared `Staff` goes to
+`_approve_dependent_staff_declaration`, which writes an **`ApplicantRecord`**
+with `qualified_for='Staff'` and `is_nsu_dependent=True` — the ledger that
+programme actually keeps — instead of an `Application`. The declaration records
+which one it became in `linked_applicant_record`, beside the
+`linked_application` every other type still uses.
+
+### The declaration asks who the scholarship hangs off
+
+A Staff declaration is the one that is not about the student alone, so the card
+reveals three more fields when `Staff` is picked, the same way the CHED tier
+appears for `CHED`: the employee's **full name**, their **employee number**, and
+the student's **relationship** to them (son, daughter, spouse, legal ward). All
+three are required for `Staff` and refused for anything else — and stripped, not
+merely ignored, if a hand-made POST sends them with another type.
+
+They are on `ScholarshipLinkRequest` rather than in the notes because
+`staff_ranking` reads them. `is_regular_staff` judges a dependent by
+`bool(staff_employee_id)`, so a dependent with no employee number recorded would
+have failed a check nobody could see.
+
+### What this makes reachable
+
+`is_nsu_dependent` had **one** write in the whole application before this, and
+it was `= False`. The flag was the tail end of a path that was never connected
+at the front: the staff apply form never asked the question, the SDSO's own
+forms never touched it, and no import wrote it. Only Django admin could set it.
+
+Three things downstream were already built and waiting:
+
+* `staff_ranking._standing_rule` judges a dependent on their parent's
+  appointment rather than their own, and has a contradiction case for a record
+  marked both employee and dependent. Neither branch could run.
+* `nsu_staff/applications.html` renders a **BiPSU Staff Dependent** type.
+* `nsu_staff/profile.html` has its own dependent branch.
+
+All three are live now.
+
+**`Affirmative` and `FHE` stay off the student dropdown.** Affirmative for the
+reason the earlier entry gives — nobody applies for it, so nobody can hold one
+this system has not itself decided. FHE because nothing yet awards it.
+
+**The staff half of the form is untouched.** An employee registering still gets
+the *I already hold the BiPSU Staff Scholarship* checkbox and
+`approve_declared_staff_scholarship`. Two routes now reach the same ledger: the
+employee declaring their own, and the dependent declaring the one they hold
+through a parent. They are different claims about different people and the
+office verifies them separately.

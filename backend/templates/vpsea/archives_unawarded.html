@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Students Without a Scholarship — BiPSU SRMS{% endblock %}
-{% block logo_src %}/media/logos/SDSO.png{% endblock %}
+{% block logo_src %}/media/logos/SDSO.png?v=2{% endblock %}
 {% block brand %}SDSO{% endblock %}
 {% block page_title %}Scholarship Archives{% endblock %}
 {% block page_subtitle %}Students holding no award this term{% endblock %}
@@ -27,7 +27,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div>
         <div class="flex items-center gap-2">
-          <h3 class="font-semibold">Students Without a Scholarship</h3>
+          <h2 class="font-semibold">Students Without a Scholarship</h2>
           <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type|urlencode }}&sy='+this.value"
             style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:#3a57af;background:#eef1fb;border:1px solid #b8c3e8;border-radius:6px;">
             {% for lbl, display in all_sy_display %}
@@ -153,7 +153,7 @@
 <div id="studentEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
   <div class="card modal-sheet" style="max-width:32rem;">
     <div class="modal-sheet-head">
-      <h3 class="modal-sheet-title">Edit Student</h3>
+      <h2 class="modal-sheet-title">Edit Student</h2>
       <button type="button" onclick="document.getElementById('studentEditModal').style.display='none'" class="modal-sheet-close" aria-label="Close">&#10005;</button>
     </div>
     <div class="modal-sheet-body">

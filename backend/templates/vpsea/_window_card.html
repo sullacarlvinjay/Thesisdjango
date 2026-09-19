@@ -1,21 +1,16 @@
 <div class="card p-6 mb-5">
-  <form method="post" class="app-window">
-    {% csrf_token %}
-    <input type="hidden" name="window" value="{{ kind }}" />
-    {% if tab %}<input type="hidden" name="tab" value="{{ tab }}" />{% endif %}
+  <div class="app-window">
     <div class="app-window__head">
-      <div>
-        <label class="text-sm font-medium block">{{ title }}</label>
-        <p class="app-window__hint">
-          {% if programme %}
-            For the <strong>{{ programme.name }}</strong>. Untick to close the form now;
-            leave both dates blank to keep it open with no end. A window counts both
-            ends, so 1 day means the opening day only.
-          {% else %}
-            No programme is configured for this tab yet — add it under Scholarship
-            Programs and this card will set its window.
-          {% endif %}
+      <div class="app-window__heading">
+        <p class="app-window__title">{{ title }}</p>
+        {% if programme %}
+        <p class="app-window__sub">{{ programme.name }}</p>
+        {% else %}
+        <p class="app-window__sub">
+          No programme is configured for this tab yet — add it under Scholarship
+          Programs and this card will set its window.
         </p>
+        {% endif %}
       </div>
       {% if programme %}
       <span class="badge {% if is_open_now %}badge-success{% else %}badge-destructive{% endif %}">
@@ -23,36 +18,59 @@
       </span>
       {% endif %}
     </div>
+
     {% if programme %}
-    {% if not is_open_now %}
-    <p class="app-window__closes" style="margin-bottom:0.75rem;">{{ closed_reason }}</p>
-    {% endif %}
-    <label class="flex items-center gap-2 cursor-pointer text-sm mb-3" style="font-weight:600;">
-      <input type="checkbox" name="accepting_{{ kind }}" {% if accepting %}checked{% endif %}
-             style="width:auto;" />
-      Accepting {{ noun|lower }}
-    </label>
-    <div class="app-window__row">
-      <div>
-        <label class="text-xs font-medium block mb-1" for="{{ kind }}OpensOn">Opens on</label>
-        <input type="date" name="{{ kind }}_open_on" id="{{ kind }}OpensOn"
-               value="{% if open_on %}{{ open_on|date:'Y-m-d' }}{% endif %}" />
-      </div>
-      <div>
-        <label class="text-xs font-medium block mb-1" for="{{ kind }}OpenDays">Days open</label>
-        <input type="number" name="{{ kind }}_open_days" id="{{ kind }}OpenDays" min="1"
-               placeholder="e.g. 14" value="{{ open_days|default_if_none:'' }}" />
-      </div>
-      <div>
-        <button type="submit" class="btn btn-primary">Save</button>
-      </div>
-      {% if closes_on %}
-      <p class="app-window__closes">
-        Currently closes <strong>{{ closes_on|date:'F d, Y' }}</strong>
-        — the last day counts, so 1 day means the opening day only.
-      </p>
+    <p class="app-window__state">
+      {% if not is_open_now %}
+        {{ closed_reason }}
+      {% elif closes_on %}
+        Open until <strong>{{ closes_on|date:'F j, Y' }}</strong>, the last day included.
+      {% else %}
+        Open with no closing date.
       {% endif %}
-    </div>
+    </p>
+
+    <form method="post" class="app-window__switch">
+      {% csrf_token %}
+      <input type="hidden" name="window" value="{{ kind }}" />
+      {% if tab %}<input type="hidden" name="tab" value="{{ tab }}" />{% endif %}
+      <input type="hidden" name="set_accepting" value="{% if accepting %}0{% else %}1{% endif %}" />
+      <button type="submit" class="btn {% if accepting %}btn-danger-soft{% else %}btn-primary{% endif %}">
+        {% if accepting %}Close {{ noun|lower }} now{% else %}Reopen {{ noun|lower }}{% endif %}
+      </button>
+      <p class="app-window__note">
+        {% if accepting %}
+          Shuts the form straight away, whatever the schedule below says.
+        {% else %}
+          {{ noun }} are closed by hand. Reopening puts the schedule back in charge.
+        {% endif %}
+      </p>
+    </form>
+
+    <div class="app-window__divider"><span>or set a schedule</span></div>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="window" value="{{ kind }}" />
+      {% if tab %}<input type="hidden" name="tab" value="{{ tab }}" />{% endif %}
+      {% if accepting %}<input type="hidden" name="accepting_{{ kind }}" value="on" />{% endif %}
+      <div class="app-window__row">
+        <div class="app-window__field">
+          <label for="{{ kind }}OpensOn">Opens on</label>
+          <input type="date" name="{{ kind }}_open_on" id="{{ kind }}OpensOn"
+                 value="{% if open_on %}{{ open_on|date:'Y-m-d' }}{% endif %}" />
+        </div>
+        <div class="app-window__field">
+          <label for="{{ kind }}ClosesOn">Closes on</label>
+          <input type="date" name="{{ kind }}_close_on" id="{{ kind }}ClosesOn"
+                 value="{% if closes_on %}{{ closes_on|date:'Y-m-d' }}{% endif %}" />
+        </div>
+        <button type="submit" class="btn btn-outline">Save schedule</button>
+      </div>
+      <p class="app-window__note">
+        Both days count. Leave both blank to stay open with no closing date.
+      </p>
+    </form>
     {% endif %}
-  </form>
+  </div>
 </div>

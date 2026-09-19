@@ -4,12 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign In — BiPSU SRMS</title>
+  <meta name="description" content="Sign in to the BiPSU Scholarship Records Management System to apply for a scholarship, submit a renewal, or check the status of an application." />
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}" />{% endif %}
   {% include '_favicon.html' %}
   <meta name="theme-color" content="#1a2168" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
-  <script src="https://cdn.tailwindcss.com"></script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=64" />
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=76" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -20,7 +22,7 @@
 <body data-portal="student" class="auth-page">
   <div class="auth-shell">
     <div class="auth-brand">
-      <img src="/media/logos/BiPSU.png" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
+      <img src="/media/logos/BiPSU.png?v=2" alt="BiPSU" class="h-16 w-16 object-contain mx-auto mb-3" />
       <h1 class="text-2xl font-bold">BiPSU SRMS</h1>
       <p class="text-sm mt-1">Scholarship Records Management System</p>
     </div>
@@ -56,7 +58,7 @@
         <div class="space-y-4">
           <div class="space-y-1.5">
             <label>Email</label>
-            <input type="email" name="email" value="{{ email|default:'' }}" placeholder="you@bipsu.edu.ph" required autocomplete="email" autofocus />
+            <input type="email" name="email" value="{{ email|default:'' }}" placeholder="you@gmail.com" required autocomplete="email" autofocus />
           </div>
           <div class="space-y-1.5">
             <label>Password</label>

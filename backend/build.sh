@@ -9,7 +9,15 @@ set -o errexit
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Gather CSS/JS into STATIC_ROOT for WhiteNoise to serve.
+# Gather CSS/JS into STATIC_ROOT for WhiteNoise to serve, minifying every .css
+# and .js on the way through — see api/storage.py.
+#
+# There is deliberately no npm step here. Tailwind used to be the CDN script
+# that compiles in the browser; it is a real stylesheet now, but the generated
+# static/css/tailwind.css is COMMITTED, so this build stays pure Python and
+# Render never needs Node. Regenerate it locally with `npm run build:css` after
+# changing a template's classes, and commit the result — nothing on the server
+# will do it for you.
 python manage.py collectstatic --no-input
 
 # Safe to run on every deploy; Django skips migrations already applied.

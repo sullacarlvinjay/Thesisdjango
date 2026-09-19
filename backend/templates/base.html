@@ -5,30 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{% block title %}BiPSU SRMS{% endblock %}</title>
   {% include '_favicon.html' %}
+  {% include '_noindex.html' %}
   <meta name="theme-color" id="themeColor" content="#ffffff" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: { sans: ['var(--font-sans)'] },
-          colors: {
-            primary: { DEFAULT: 'var(--brand)', soft: 'var(--brand-soft)', foreground: 'var(--on-brand)' },
-            accent:  { DEFAULT: 'var(--accent)', foreground: 'var(--on-accent)' },
-            success: { DEFAULT: 'var(--ok)', foreground: '#ffffff' },
-            warning: { DEFAULT: 'var(--accent)', foreground: '#1a1a1a' },
-            info: { DEFAULT: 'var(--info)', foreground: '#ffffff' },
-            sidebar: { DEFAULT: 'var(--sidebar-bg)', foreground: 'var(--sidebar-text)', accent: 'var(--sidebar-hover)', border: 'var(--sidebar-border)' },
-            muted: { DEFAULT: 'var(--surface-2)', foreground: 'var(--text-muted)' },
-            border: 'var(--border)',
-            card: 'var(--surface)',
-          },
-          borderRadius: { lg: '0.75rem', xl: '1rem', '2xl': '1.25rem' },
-        }
-      }
-    }
-  </script>
   <script>
     var srmsDark = localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -36,9 +14,10 @@
     document.getElementById('themeColor').setAttribute('content', srmsDark ? '#171c2e' : '#ffffff');
   </script>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=64" />
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=76" />
   
-  <script src="{% static 'js/skeleton.js' %}?v=2"></script>
+  <script src="{% static 'js/skeleton.js' %}?v=4"></script>
   {% block extra_head %}{% endblock %}
 </head>
 
@@ -87,7 +66,7 @@
                 -translate-x-full lg:translate-x-0 transition-transform duration-200">
     <div class="sidebar-head flex items-center gap-2 px-6 py-5">
       <div class="sidebar-logo h-9 w-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
-        <img src="{% block logo_src %}/media/logos/BiPSU.png{% endblock %}" alt="" class="h-9 w-9 object-contain" />
+        <img src="{% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}" alt="" class="h-9 w-9 object-contain" />
       </div>
       <div>
         <p class="sidebar-brand text-sm font-semibold">{% block brand_name %}BiPSU SRMS{% endblock %}</p>
@@ -109,7 +88,7 @@
       <p id="navSearchEmpty" class="sidebar-search__empty" hidden>No page matches &ldquo;<span data-search-term></span>&rdquo;.</p>
     </nav>
     <div class="sidebar-foot p-3 shrink-0">
-      <a href="/logout" class="sidebar-link">
+      <a href="/logout/" class="sidebar-link">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
         Sign out
       </a>
@@ -200,7 +179,7 @@
   paintTheme(document.documentElement.classList.contains('dark'));
 </script>
 <div id="sidebarBackdrop" class="sidebar-backdrop lg:hidden" hidden></div>
-<script src="{% static 'js/mobile-nav.js' %}?v=1"></script>
+<script src="{% static 'js/mobile-nav.js' %}?v=1" defer></script>
 <div id="confirmDialog" class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
   <div class="confirm-backdrop"></div>
   <div class="confirm-panel">
@@ -212,7 +191,7 @@
     </div>
   </div>
 </div>
-<script src="{% static 'js/confirm-dialog.js' %}?v=1"></script>
+<script src="{% static 'js/confirm-dialog.js' %}?v=1" defer></script>
 <div id="docViewer" class="doc-viewer" role="dialog" aria-modal="true" aria-labelledby="docViewerTitle" hidden>
   <div class="doc-viewer-backdrop" data-doc-close></div>
   <div class="doc-viewer-panel">
@@ -298,16 +277,18 @@
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
 </button>
 {% if user.role != 'vpsea' %}
-<a class="fab-contact" href="{% if support_email %}mailto:{{ support_email }}?subject=SRMS%20support{% else %}/#help{% endif %}"
-   {% if support_email %}data-print-hide{% endif %} title="Contact the SDSO office">
+<button type="button" class="fab-contact" data-dl-menu="helpMenu" aria-haspopup="dialog"
+        data-print-hide title="Contact the SDSO office">
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
   <span class="fab-contact__label">Need help?</span>
-</a>
+</button>
+{% include '_help_overlay.html' %}
 {% endif %}
 {% include '_cookie_banner.html' %}
 <script src="{% static 'js/loading.js' %}?v=2" defer></script>
 <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
-<script src="{% static 'js/consent.js' %}?v=1" defer></script>
-<script src="{% static 'js/search.js' %}?v=1" defer></script>
+<script src="{% static 'js/consent.js' %}?v=3" defer></script>
+<script src="{% static 'js/search.js' %}?v=2" defer></script>
+<script src="{% static 'js/dl-menu.js' %}?v=1" defer></script>
 </body>
 </html>
