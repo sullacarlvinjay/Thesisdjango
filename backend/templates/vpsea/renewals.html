@@ -14,74 +14,75 @@
 {% endif %}
 {% include "vpsea/_window_card.html" %}
 <div class="grid sm:grid-cols-3 gap-4 mb-6">
-  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Total</p><p class="text-3xl font-bold mt-2" style="color:var(--brand);">{{ renewals|length }}</p></div>
-  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Approved</p><p class="text-3xl font-bold mt-2" style="color:var(--ok);">{{ approved_count }}</p></div>
-  <div class="card p-5"><p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Pending</p><p class="text-3xl font-bold mt-2" style="color:var(--warn);">{{ pending_count }}</p></div>
+  <div class="card p-5"><p class="text-xs uppercase tracking-wider u-text-muted">Total</p><p class="text-3xl font-bold mt-2 u-text-brand">{{ renewals|length }}</p></div>
+  <div class="card p-5"><p class="text-xs uppercase tracking-wider u-text-muted">Approved</p><p class="text-3xl font-bold mt-2 u-text-ok">{{ approved_count }}</p></div>
+  <div class="card p-5"><p class="text-xs uppercase tracking-wider u-text-muted">Pending</p><p class="text-3xl font-bold mt-2 u-text-warn">{{ pending_count }}</p></div>
 </div>
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>
   <h2 class="font-semibold mb-4">Renewal Submissions</h2>
-  <div style="overflow-x:auto;">
-    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-875rem" data-filterable data-sortable>
       <thead>
-        <tr style="border-bottom:1px solid var(--border);">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Name</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Student ID</th>
-          <th data-filter="Programme" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Programme</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">COG</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">COE</th>
-          <th data-filter="Term" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Term</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Submitted</th>
-          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Status</th>
+        <tr class="u-bb-1px-solid-border">
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">ID</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">Name</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">Student ID</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Programme">Programme</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">COG</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">COE</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Term">Term</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">Submitted</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Status">Status</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for r in renewals %}
-        <tr style="border-bottom:1px solid var(--surface-2);">
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:var(--text-muted);">REN-{{ r.id|stringformat:"07d" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-weight:500;">{{ r.student.user.get_full_name }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ r.student.student_id }}</td>
-          <td style="padding:0.6rem 0.75rem;"><span class="badge badge-muted">{{ r.get_scholarship_type_display }}</span></td>
-          <td style="padding:0.6rem 0.75rem;">
-            {% if r.certificate_of_grades %}<a href="{{ r.certificate_of_grades.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Grades" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+        <tr class="u-bb-1px-solid-surface-2">
+          <td class="u-p-0-6rem-0-75rem u-mono u-fs-0-75rem u-text-muted">REN-{{ r.id|stringformat:"07d" }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fw-500">{{ r.student.user.get_full_name }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ r.student.student_id }}</td>
+          <td class="u-p-0-6rem-0-75rem"><span class="badge badge-muted">{{ r.get_scholarship_type_display }}</span></td>
+          <td class="u-p-0-6rem-0-75rem">
+            {% if r.certificate_of_grades %}<a href="{{ r.certificate_of_grades.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Grades" class="btn btn-outline u-p-0-25rem-0-6rem u-fs-0-75rem">View</a>{% else %}<span class="u-text-muted">—</span>{% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;">
-            {% if r.certificate_of_enrollment %}<a href="{{ r.certificate_of_enrollment.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Enrollment" class="btn btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;">View</a>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+          <td class="u-p-0-6rem-0-75rem">
+            {% if r.certificate_of_enrollment %}<a href="{{ r.certificate_of_enrollment.url }}" data-doc="{{ r.student.user.get_full_name }} — Certificate of Enrollment" class="btn btn-outline u-p-0-25rem-0-6rem u-fs-0-75rem">View</a>{% else %}<span class="u-text-muted">—</span>{% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ r.term_display|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ r.submitted_at|date:"M d, Y" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ r.term_display|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ r.submitted_at|date:"M d, Y" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <span class="badge {% if r.status == 'Approved' %}badge-success{% elif r.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %}">{{ r.status }}</span>
+            {% include "vpsea/_decided_by.html" with row=r %}
           </td>
-          <td style="padding:0.6rem 0.75rem;">
-            <button onclick="openRenModal({{ r.id }}, '{{ r.student.user.get_full_name }}')" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Review</button>
+          <td class="u-p-0-6rem-0-75rem">
+            <button onclick="openRenModal({{ r.id }}, '{{ r.student.user.get_full_name }}')" class="btn btn-outline u-p-0-3rem-0-6rem u-fs-0-75rem">Review</button>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="10" style="padding:2rem;text-align:center;color:var(--text-muted);">No renewal applications found.</td></tr>
+        <tr><td class="u-p-2rem u-ta-center u-text-muted" colspan="10">No renewal applications found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
-<div id="renModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
-  <div class="card" style="width:100%;max-width:32rem;padding:1.5rem;margin:1rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-50 u-ai-center u-jc-center" id="renModal">
+  <div class="card u-w-full u-maxw-32rem u-p-1-5rem u-m-1rem">
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-semibold" id="renModalTitle">Renewal Review</h2>
-      <button onclick="document.getElementById('renModal').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text-muted);">✕</button>
+      <button class="u-bg-none u-border-none u-cursor-pointer u-text-muted" onclick="document.getElementById('renModal').style.display='none'">✕</button>
     </div>
     <form method="post" action="/vpsea/renewals/">
       {% csrf_token %}
       <input type="hidden" name="renewal_id" id="renModalId" />
       <div class="space-y-1.5 mb-4">
-        <label>Remarks</label>
-        <textarea name="remarks" rows="3" placeholder="Add notes for the student…"></textarea>
+        <label for="f-remarks">Remarks</label>
+        <textarea id="f-remarks" name="remarks" rows="3" placeholder="Add notes for the student…"></textarea>
       </div>
       <div class="flex gap-2">
         <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
-        <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">✕ Reject</button>
+        <button type="submit" name="status" value="Rejected" class="btn u-flex-1 u-bg-danger u-text-danger u-border-1px-solid-danger-border">✕ Reject</button>
       </div>
     </form>
   </div>

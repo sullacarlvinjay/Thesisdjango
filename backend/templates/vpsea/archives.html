@@ -25,37 +25,37 @@
     </div>
   </div>
   <div class="flex gap-2">
-    <button onclick="document.getElementById('uploadExcelModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;">
+    <button onclick="document.getElementById('uploadExcelModal').style.display='flex'" class="btn btn-outline u-gap-0-4rem">
       <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
       Upload Excel
     </button>
-    <button onclick="document.getElementById('newSemModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;">
+    <button onclick="document.getElementById('newSemModal').style.display='flex'" class="btn btn-outline u-gap-0-4rem">
       <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       New Semester
     </button>
-    <button onclick="document.getElementById('undoSemModal').style.display='flex'" class="btn btn-outline" style="gap:0.4rem;color:var(--warn);border-color:var(--warn);">
+    <button onclick="document.getElementById('undoSemModal').style.display='flex'" class="btn btn-outline u-gap-0-4rem u-text-warn u-bc-warn">
       <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
       Undo Semester
     </button>
   </div>
 </div>
 {% if request.GET.added %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">Scholar added successfully.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">Scholar added successfully.</div>
 {% endif %}
 {% if request.GET.edited %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--info-bg);color:var(--info);border:1px solid var(--info-border);">Scholar updated successfully.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium u-bg-info u-text-info u-border-1px-solid-info-border">Scholar updated successfully.</div>
 {% endif %}
 {% if request.GET.deleted %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:var(--danger);border:1px solid var(--danger-border);">Scholar deleted.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium u-bg-hexfff1f2 u-text-danger u-border-1px-solid-danger-border">Scholar deleted.</div>
 {% endif %}
 {% if request.GET.columns_saved %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--info-bg);color:var(--info);border:1px solid var(--info-border);">Column values saved for {{ request.GET.columns_saved }} scholar{{ request.GET.columns_saved|pluralize }}.</div>
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium u-bg-info u-text-info u-border-1px-solid-info-border">Column values saved for {{ request.GET.columns_saved }} scholar{{ request.GET.columns_saved|pluralize }}.</div>
 {% endif %}
-{% if request.GET.columns_bad %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fff1f2;color:var(--danger);border:1px solid var(--danger-border);">{{ request.GET.columns_bad }} value{{ request.GET.columns_bad|pluralize }} did not match the kind of data its column holds and {{ request.GET.columns_bad|pluralize:"was,were" }} not saved. Those cells still show what they held before.</div>
+{% if columns_bad %}
+<div class="mb-4 rounded-lg px-4 py-3 text-sm font-medium u-bg-hexfff1f2 u-text-danger u-border-1px-solid-danger-border">{{ columns_bad }} value{{ columns_bad|pluralize }} did not match the kind of data its column holds and {{ columns_bad|pluralize:"was,were" }} not saved. Those cells still show what they held before.</div>
 {% endif %}
-<div id="addScholarModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
-  <div class="card modal-sheet" style="max-width:38rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-1000 u-ai-center u-jc-center u-p-1rem" id="addScholarModal">
+  <div class="card modal-sheet u-maxw-38rem">
     <div class="modal-sheet-head">
       <h2 class="modal-sheet-title">Add Scholar — {{ active_tab_label }}</h2>
       <button type="button" onclick="document.getElementById('addScholarModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
@@ -67,25 +67,25 @@
       <input type="hidden" name="tier" value="{{ active_tier }}">
       {% if active_type == 'Academic' %}
       <div class="space-y-4">
-        <p class="text-xs font-semibold uppercase tracking-wider" style="color:var(--brand);">Personal Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider u-text-brand">Personal Information</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
-          <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
-          <div><label>Middle Name</label><input name="middle_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Student Number</label><input name="student_id" style="margin-top:0.25rem;" /></div>
-          <div><label>Email</label><input name="email" type="email" style="margin-top:0.25rem;" /></div>
-          <div><label>Birth Date</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
-          <div><label>Gender</label>
-            <select name="gender" style="margin-top:0.25rem;">
+          <div><label for="f-first-name">First Name</label><input id="f-first-name" class="u-mt-0-25rem" name="first_name" required/></div>
+          <div><label for="f-last-name">Last Name</label><input id="f-last-name" class="u-mt-0-25rem" name="last_name" required/></div>
+          <div><label for="f-middle-name">Middle Name</label><input id="f-middle-name" class="u-mt-0-25rem" name="middle_name"/></div>
+          <div><label for="f-student-id">Student Number</label><input id="f-student-id" class="u-mt-0-25rem" name="student_id"/></div>
+          <div><label for="f-email">Email</label><input id="f-email" class="u-mt-0-25rem" name="email" type="email"/></div>
+          <div><label for="f-date-of-birth">Birth Date</label><input id="f-date-of-birth" class="u-mt-0-25rem" name="date_of_birth" type="date"/></div>
+          <div><label for="f-gender">Gender</label>
+            <select id="f-gender" class="u-mt-0-25rem" name="gender">
               <option value="">—</option><option value="Male">Male</option><option value="Female">Female</option>
             </select>
           </div>
-          <div><label>Contact Number</label><input name="contact_number" type="tel" style="margin-top:0.25rem;" /></div>
-          <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
-          <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
-          <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
-          <div><label>School</label>
-            <select name="school" id="addSchoolSelect" onchange="updateAddCourse()" style="margin-top:0.25rem;">
+          <div><label for="f-contact-number">Contact Number</label><input id="f-contact-number" class="u-mt-0-25rem" name="contact_number" type="tel"/></div>
+          <div class="col-span-2"><label for="f-barangay">Barangay / Street</label><input id="f-barangay" class="u-mt-0-25rem" name="barangay"/></div>
+          <div><label for="f-municipality">Municipality</label><input id="f-municipality" class="u-mt-0-25rem" name="municipality"/></div>
+          <div><label for="f-province">Province</label><input id="f-province" class="u-mt-0-25rem" name="province"/></div>
+          <div><label for="addSchoolSelect">School</label>
+            <select class="u-mt-0-25rem" name="school" id="addSchoolSelect" onchange="updateAddCourse()">
               <option value="">— Select School —</option>
               <option value="School of Technologies and Computer Studies">School of Technologies and Computer Studies</option>
               <option value="School of Engineering">School of Engineering</option>
@@ -97,81 +97,81 @@
               <option value="School of Business and Management">School of Business and Management</option>
             </select>
           </div>
-          <div><label>Course</label>
-            <select name="course" id="addCourseSelect" required style="margin-top:0.25rem;">
+          <div><label for="addCourseSelect">Course</label>
+            <select class="u-mt-0-25rem" name="course" id="addCourseSelect" required>
               <option value="">— Select Course —</option>
             </select>
           </div>
-          <div><label>Year Level</label>
-            <select name="year_level" style="margin-top:0.25rem;">
+          <div><label for="f-year-level">Year Level</label>
+            <select id="f-year-level" class="u-mt-0-25rem" name="year_level">
               {% for y in "1234" %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
             </select>
           </div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Educational Background</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2 u-text-brand">Educational Background</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label>Elementary School</label><input name="elementary" style="margin-top:0.25rem;" /></div>
-          <div><label>High School</label><input name="highschool" style="margin-top:0.25rem;" /></div>
-          <div class="col-span-2"><label>Last School Attended</label><input name="last_school" style="margin-top:0.25rem;" /></div>
+          <div><label for="f-elementary">Elementary School</label><input id="f-elementary" class="u-mt-0-25rem" name="elementary"/></div>
+          <div><label for="f-highschool">High School</label><input id="f-highschool" class="u-mt-0-25rem" name="highschool"/></div>
+          <div class="col-span-2"><label for="f-last-school">Last School Attended</label><input id="f-last-school" class="u-mt-0-25rem" name="last_school"/></div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Family Background</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2 u-text-brand">Family Background</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label>Father's Last Name</label><input name="father_last_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Father's Given Name</label><input name="father_first_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Father's Middle Name</label><input name="father_middle_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Father's Occupation</label><input name="father_occupation" style="margin-top:0.25rem;" /></div>
-          <div><label>Mother's Last Name</label><input name="mother_last_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Mother's Given Name</label><input name="mother_first_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Mother's Middle Name</label><input name="mother_middle_name" style="margin-top:0.25rem;" /></div>
-          <div><label>Mother's Occupation</label><input name="mother_occupation" style="margin-top:0.25rem;" /></div>
+          <div><label for="f-father-last-name">Father's Last Name</label><input id="f-father-last-name" class="u-mt-0-25rem" name="father_last_name"/></div>
+          <div><label for="f-father-first-name">Father's Given Name</label><input id="f-father-first-name" class="u-mt-0-25rem" name="father_first_name"/></div>
+          <div><label for="f-father-middle-name">Father's Middle Name</label><input id="f-father-middle-name" class="u-mt-0-25rem" name="father_middle_name"/></div>
+          <div><label for="f-father-occupation">Father's Occupation</label><input id="f-father-occupation" class="u-mt-0-25rem" name="father_occupation"/></div>
+          <div><label for="f-mother-last-name">Mother's Last Name</label><input id="f-mother-last-name" class="u-mt-0-25rem" name="mother_last_name"/></div>
+          <div><label for="f-mother-first-name">Mother's Given Name</label><input id="f-mother-first-name" class="u-mt-0-25rem" name="mother_first_name"/></div>
+          <div><label for="f-mother-middle-name">Mother's Middle Name</label><input id="f-mother-middle-name" class="u-mt-0-25rem" name="mother_middle_name"/></div>
+          <div><label for="f-mother-occupation">Mother's Occupation</label><input id="f-mother-occupation" class="u-mt-0-25rem" name="mother_occupation"/></div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Academic Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2 u-text-brand">Academic Information</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div><label>GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" required style="margin-top:0.25rem;" /></div>
-          <div><label>Semester</label><input name="semester" value="{{ active_semester }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:var(--text-muted);" /></div>
-          <div><label>School Year</label><input name="school_year" value="{{ active_sy }}" readonly style="margin-top:0.25rem;background:#f6f8fc;color:var(--text-muted);" /></div>
+          <div><label for="f-gwa">GWA</label><input id="f-gwa" class="u-mt-0-25rem" name="gwa" type="number" step="0.01" min="1" max="5" required/></div>
+          <div><label for="f-semester">Semester</label><input id="f-semester" class="u-mt-0-25rem u-bg-sunken u-text-muted" name="semester" value="{{ active_semester }}" readonly/></div>
+          <div><label for="f-school-year">School Year</label><input id="f-school-year" class="u-mt-0-25rem u-bg-sunken u-text-muted" name="school_year" value="{{ active_sy }}" readonly/></div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-wider mt-2" style="color:var(--brand);">Document Upload <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;">PDF, JPG, PNG · Max 5MB each</span></p>
+        <p class="text-xs font-semibold uppercase tracking-wider mt-2 u-text-brand">Document Upload <span class="u-text-muted u-fw-400 u-tt-none u-ls-0">PDF, JPG, PNG · Max 5MB each</span></p>
         <div class="space-y-3">
           {% for num, label, hint, fname in add_docs %}
-          <div class="rounded-xl border p-3" style="border-color:var(--border);">
+          <div class="rounded-xl border p-3 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">{{ num }}</span>
-              <label class="text-sm font-medium" style="color:var(--text-soft);">{{ label }} <span style="color:var(--danger);">*</span></label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">{{ num }}</span>
+              <label for="f-{{ fname }}" class="text-sm font-medium u-text-soft">{{ label }} <span class="u-text-danger">*</span></label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">{{ hint }}</p>
-            <input type="file" name="{{ fname }}" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+            <p class="text-xs mb-2 ml-7 u-text-muted">{{ hint }}</p>
+            <input id="f-{{ fname }}" class="u-w-full" type="file" name="{{ fname }}" accept=".pdf,.jpg,.jpeg,.png" required/>
           </div>
           {% endfor %}
         </div>
       </div>
       {% else %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div><label>First Name</label><input name="first_name" required style="margin-top:0.25rem;" /></div>
-        <div><label>Last Name</label><input name="last_name" required style="margin-top:0.25rem;" /></div>
-        <div><label>Middle Name</label><input name="middle_name" style="margin-top:0.25rem;" /></div>
-        <div><label>Student ID / School ID</label><input name="student_id" style="margin-top:0.25rem;" /></div>
-        <div><label>Email</label><input name="email" type="email" style="margin-top:0.25rem;" /></div>
-        <div><label>Gender</label>
-          <select name="gender" style="margin-top:0.25rem;">
+        <div><label for="f-first-name-1">First Name</label><input id="f-first-name-1" class="u-mt-0-25rem" name="first_name" required/></div>
+        <div><label for="f-last-name-1">Last Name</label><input id="f-last-name-1" class="u-mt-0-25rem" name="last_name" required/></div>
+        <div><label for="f-middle-name-1">Middle Name</label><input id="f-middle-name-1" class="u-mt-0-25rem" name="middle_name"/></div>
+        <div><label for="f-student-id-1">Student ID / School ID</label><input id="f-student-id-1" class="u-mt-0-25rem" name="student_id"/></div>
+        <div><label for="f-email-1">Email</label><input id="f-email-1" class="u-mt-0-25rem" name="email" type="email"/></div>
+        <div><label for="f-gender-1">Gender</label>
+          <select id="f-gender-1" class="u-mt-0-25rem" name="gender">
             <option value="">—</option><option value="Male">Male</option><option value="Female">Female</option>
           </select>
         </div>
-        <div><label>Course</label><input name="course" required style="margin-top:0.25rem;" /></div>
-        <div><label>Year Level</label>
-          <select name="year_level" style="margin-top:0.25rem;">
+        <div><label for="f-course">Course</label><input id="f-course" class="u-mt-0-25rem" name="course" required/></div>
+        <div><label for="f-year-level-1">Year Level</label>
+          <select id="f-year-level-1" class="u-mt-0-25rem" name="year_level">
             {% for y in "1234" %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
           </select>
         </div>
         {% if active_type in 'TDP DOST CHED Affirmative' %}
-        <div><label>Award Number</label><input name="award_number" style="margin-top:0.25rem;" /></div>
-        <div><label>Congress District</label><input name="congress_district" style="margin-top:0.25rem;" /></div>
+        <div><label for="f-award-number">Award Number</label><input id="f-award-number" class="u-mt-0-25rem" name="award_number"/></div>
+        <div><label for="f-congress-district">Congress District</label><input id="f-congress-district" class="u-mt-0-25rem" name="congress_district"/></div>
         {% endif %}
-        <div class="col-span-2"><label>Barangay / Street</label><input name="barangay" style="margin-top:0.25rem;" /></div>
-        <div><label>Municipality</label><input name="municipality" style="margin-top:0.25rem;" /></div>
-        <div><label>Province</label><input name="province" style="margin-top:0.25rem;" /></div>
-        <div class="col-span-2"><label>School</label>
-          <select name="school" id="addSchoolSelectOther" onchange="updateAddCourseOther()" style="margin-top:0.25rem;">
+        <div class="col-span-2"><label for="f-barangay-1">Barangay / Street</label><input id="f-barangay-1" class="u-mt-0-25rem" name="barangay"/></div>
+        <div><label for="f-municipality-1">Municipality</label><input id="f-municipality-1" class="u-mt-0-25rem" name="municipality"/></div>
+        <div><label for="f-province-1">Province</label><input id="f-province-1" class="u-mt-0-25rem" name="province"/></div>
+        <div class="col-span-2"><label for="addSchoolSelectOther">School</label>
+          <select class="u-mt-0-25rem" name="school" id="addSchoolSelectOther" onchange="updateAddCourseOther()">
             <option value="">— Select School —</option>
               <option value="School of Technologies and Computer Studies">School of Technologies and Computer Studies</option>
               <option value="School of Engineering">School of Engineering</option>
@@ -183,20 +183,20 @@
               <option value="School of Business and Management">School of Business and Management</option>
           </select>
         </div>
-        <div class="col-span-2"><label>Course</label>
-          <select name="course" id="addCourseSelectOther" required style="margin-top:0.25rem;">
+        <div class="col-span-2"><label for="addCourseSelectOther">Course</label>
+          <select class="u-mt-0-25rem" name="course" id="addCourseSelectOther" required>
             <option value="">— Select Course —</option>
           </select>
         </div>
         {% if active_type in 'Affirmative Staff' %}
-        <div><label>Date of Birth</label><input name="date_of_birth" type="date" style="margin-top:0.25rem;" /></div>
-        <div><label>Contact Number</label><input name="contact_number" type="tel" style="margin-top:0.25rem;" /></div>
+        <div><label for="f-date-of-birth-1">Date of Birth</label><input id="f-date-of-birth-1" class="u-mt-0-25rem" name="date_of_birth" type="date"/></div>
+        <div><label for="f-contact-number-1">Contact Number</label><input id="f-contact-number-1" class="u-mt-0-25rem" name="contact_number" type="tel"/></div>
         {% endif %}
         <div class="col-span-2">
-          <div class="rounded-xl border p-3 mt-1" style="border-color:var(--border);">
-            <label class="text-sm font-medium" style="color:var(--text-soft);">Proof of Enrollment / Program Membership <span style="color:var(--danger);">*</span></label>
-            <p class="text-xs mt-1 mb-2" style="color:var(--text-muted);">Upload any document proving the scholar is enrolled in this program (e.g. award letter, COE, endorsement). PDF, JPG, PNG.</p>
-            <input type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+          <div class="rounded-xl border p-3 mt-1 u-bc-border">
+            <label for="f-proof-document" class="text-sm font-medium u-text-soft">Proof of Enrollment / Program Membership <span class="u-text-danger">*</span></label>
+            <p class="text-xs mt-1 mb-2 u-text-muted">Upload any document proving the scholar is enrolled in this program (e.g. award letter, COE, endorsement). PDF, JPG, PNG.</p>
+            <input id="f-proof-document" class="u-w-full" type="file" name="proof_document" accept=".pdf,.jpg,.jpeg,.png" required/>
           </div>
         </div>
       </div>
@@ -222,40 +222,49 @@
     </div>
   </div>
 </div>
-<div id="uploadExcelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
-  <div class="card modal-sheet" style="max-width:30rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-1000 u-ai-center u-jc-center" id="uploadExcelModal">
+  <div class="card modal-sheet u-maxw-30rem">
     <div class="modal-sheet-head">
       <h2 class="modal-sheet-title">Upload Excel — {{ active_type }}</h2>
       <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
+    {% if import_job %}
+    <div id="importProgress" class="page-alert page-alert-info import-progress mb-3"
+         role="status" aria-live="polite"
+         data-status-url="/vpsea/archives/import/{{ import_job.pk }}/status/">
+      <span class="import-progress__spinner" aria-hidden="true"></span>
+      <span data-role="message">Reading the spreadsheet. This page updates itself
+        when it is done — you can leave it open.</span>
+    </div>
+    {% endif %}
     {% if import_message %}
-    <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">✓ {{ import_message }}</div>
+    <div class="mb-3 rounded-lg px-4 py-3 text-sm u-bg-ok u-text-ok u-border-1px-solid-ok-border">✓ {{ import_message }}</div>
     {% endif %}
     {% if import_error %}
-    <div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;">✗ {{ import_error }}</div>
+    <div class="mb-3 rounded-lg px-4 py-3 text-sm u-bg-hexfff1f2 u-text-hexe11d48 u-border-1px-solid-hexfecdd3">✗ {{ import_error }}</div>
     {% endif %}
     <form method="post" action="/vpsea/archives/import/" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="type" value="{{ active_type }}">
       <div class="space-y-3">
         <div>
-          <label class="text-sm font-medium">Excel File <span style="color:var(--danger);">*</span></label>
-          <input type="file" name="file" accept=".xlsx" required style="margin-top:0.25rem;width:100%;" />
+          <label for="f-file" class="text-sm font-medium">Excel File <span class="u-text-danger">*</span></label>
+          <input id="f-file" class="u-mt-0-25rem u-w-full" type="file" name="file" accept=".xlsx" required/>
         </div>
         <div>
-          <label class="text-sm font-medium">Rollover Name <span style="color:var(--danger);">*</span> <span style="color:var(--text-muted);font-weight:400;">(e.g. 26-1)</span></label>
-          <input name="rollover_label" placeholder="e.g. 26-1" required style="margin-top:0.25rem;width:100%;" />
-          <p class="text-xs mt-1" style="color:var(--text-muted);">This names the rollover list saved in the Download Excel history.</p>
+          <label for="f-rollover-label" class="text-sm font-medium">Rollover Name <span class="u-text-danger">*</span> <span class="u-text-muted u-fw-400">(e.g. 26-1)</span></label>
+          <input id="f-rollover-label" class="u-mt-0-25rem u-w-full" name="rollover_label" placeholder="e.g. 26-1" required/>
+          <p class="text-xs mt-1 u-text-muted">This names the rollover list saved in the Download Excel history.</p>
         </div>
-        <div class="p-3 rounded-lg" style="background:#f0f4ff;border:1px solid #c7d2fe;">
-          <p class="text-xs font-semibold mb-1" style="color:var(--brand);">Expected columns for {{ active_type }}:</p>
-          <p class="text-xs font-mono" style="color:var(--text-soft);">{{ col_hint }}</p>
+        <div class="p-3 rounded-lg u-bg-hexf0f4ff u-border-1px-solid-hexc7d2fe">
+          <p class="text-xs font-semibold mb-1 u-text-brand">Expected columns for {{ active_type }}:</p>
+          <p class="text-xs font-mono u-text-soft">{{ col_hint }}</p>
         </div>
       </div>
       <div class="flex gap-2 justify-end mt-5">
         <button type="button" onclick="document.getElementById('uploadExcelModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="gap:0.4rem;">
+        <button type="submit" class="btn btn-primary u-gap-0-4rem" data-confirm="Replace the {{ active_type }} list for this term?" data-confirm-detail="Every {{ active_type }} scholar imported for the rollover name you typed is deleted first, then the spreadsheet is read in its place." data-confirm-consequence="Scholars a student has already claimed are kept. Everything else for that programme and term is replaced — there is no undo, and the previous file is not restored." data-confirm-label="Replace the list" data-confirm-tone="danger">
           <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
           Import & Save Rollover
         </button>
@@ -264,35 +273,49 @@
     </div>
   </div>
 </div>
-<div id="newSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
-  <div class="card p-6" style="width:100%;max-width:26rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-1000 u-ai-center u-jc-center" id="newSemModal">
+  <div class="card p-6 u-w-full u-maxw-26rem">
     <h2 class="font-semibold mb-4">Start New Semester</h2>
     <form method="post" action="/vpsea/archives/new-semester/">
       {% csrf_token %}
       <input type="hidden" name="type" value="{{ active_type }}">
       <div class="mb-4">
-        <label class="text-sm font-medium">Semester Label <span style="color:var(--text-muted);font-weight:400;">(e.g. 26-1, 26-2)</span></label>
-        <input name="school_year" value="{{ next_sy }}" placeholder="e.g. 26-1" style="width:100%;margin-top:0.25rem;" required />
+        <label for="f-school-year-1" class="text-sm font-medium">Semester Label <span class="u-text-muted u-fw-400">(e.g. 26-1, 26-2)</span></label>
+        <input id="f-school-year-1" class="u-w-full u-mt-0-25rem" name="school_year" value="{{ next_sy }}" placeholder="e.g. 26-1" required/>
       </div>
-      <p class="text-xs mb-4" style="color:var(--text-muted);"></p>
+      <p class="text-xs mb-4 u-text-muted">
+        Every programme's current list is written to a spreadsheet first, so
+        {{ active_sy_display }} can still be reported on afterwards. That file
+        becomes the only record of it once the live tables move on.
+      </p>
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('newSemModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn btn-primary">Confirm</button>
+        <button type="submit" class="btn btn-primary"
+                data-confirm="Move the whole system to a new semester?"
+                data-confirm-detail="Everyone's active term changes, not just this page. Applications, renewals and every scholar list start again for the new semester."
+                data-confirm-consequence="{{ active_sy_display }} is filed to a spreadsheet and closed. Undo Semester steps the term back, but it does not undo anything filed or anything entered afterwards."
+                data-confirm-label="Start the new semester"
+                data-confirm-tone="danger">Confirm</button>
       </div>
     </form>
   </div>
 </div>
-<div id="undoSemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
-  <div class="card p-6" style="width:100%;max-width:26rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-1000 u-ai-center u-jc-center" id="undoSemModal">
+  <div class="card p-6 u-w-full u-maxw-26rem">
     <h2 class="font-semibold mb-2">Undo to Previous Semester</h2>
-    <p class="text-sm mb-4" style="color:var(--text-muted);">Current active semester: <strong>{{ active_sy_display }}</strong><br>This will switch the active semester back to <strong>{{ prev_sy_display }}</strong>. No data will be deleted.</p>
+    <p class="text-sm mb-4 u-text-muted">Current active semester: <strong>{{ active_sy_display }}</strong><br>This will switch the active semester back to <strong>{{ prev_sy_display }}</strong>. No data will be deleted.</p>
     <form method="post" action="/vpsea/archives/undo-semester/">
       {% csrf_token %}
       <input type="hidden" name="type" value="{{ active_type }}">
       <input type="hidden" name="prev_label" value="{{ prev_sy }}">
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('undoSemModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn" style="background:#fdea2b;color:#fff;border:none;">Confirm Undo</button>
+        <button type="submit" class="btn btn-warn-solid"
+                data-confirm="Step the whole system back a semester?"
+                data-confirm-detail="Everyone's active term moves back to {{ prev_sy }}. Anything entered against the current term stays where it is and will be out of term."
+                data-confirm-consequence="This is the way back from a rollover pressed by mistake. It is not a way to reopen a semester that ended normally."
+                data-confirm-label="Step the term back"
+                data-confirm-tone="danger">Confirm Undo</button>
       </div>
     </form>
   </div>
@@ -304,51 +327,49 @@
         <div>
           <div class="flex items-center gap-2">
             <h2 class="font-semibold">{{ active_tab_label }} Scholars</h2>
-            <select id="syFilter" onchange="location.href='/vpsea/archives/?type={{ active_type }}{% if active_tier %}&amp;tier={{ active_tier }}{% endif %}&sy='+this.value"
-              style="padding:0.15rem 0.5rem;font-size:0.75rem;font-weight:600;color:var(--info);background:var(--info-bg);border:1px solid var(--info-border);border-radius:6px;">
+            <select class="u-p-0-15rem-0-5rem u-fs-0-75rem u-fw-600 u-text-info u-bg-info u-border-1px-solid-info-border u-round-6px" id="syFilter" aria-label="School year and semester" onchange="location.href='/vpsea/archives/?type={{ active_type }}{% if active_tier %}&amp;tier={{ active_tier }}{% endif %}&sy='+this.value">
               {% for lbl, display in all_sy_display %}
               <option value="{{ lbl }}" {% if lbl == selected_sy %}selected{% endif %}>{{ lbl }}</option>
               {% endfor %}
             </select>
           </div>
-          <p class="text-xs mt-0.5" style="color:var(--text-muted);">{{ total }} active scholar{{ total|pluralize }} with Approved status</p>
+          <p class="text-xs mt-0.5 u-text-muted">{{ total }} active scholar{{ total|pluralize }} with Approved status</p>
         </div>
         <div class="card-toolbar">
-          <input placeholder="Search…" id="archSearch" oninput="filterArch()" class="card-toolbar-search" />
-          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary" style="gap:0.4rem;">
+          <input placeholder="Search…" id="archSearch" oninput="filterArch()" class="card-toolbar-search"
+                 aria-label="Search scholars by name or student number" />
+          <button onclick="document.getElementById('addScholarModal').style.display='flex'" class="btn btn-primary u-gap-0-4rem">
             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Add Scholar
           </button>
           <div class="card-toolbar-menu">
-            <button type="button" data-dl-menu="dlMenu" class="btn btn-outline" style="gap:0.4rem;">
+            <button type="button" data-dl-menu="dlMenu" class="btn btn-outline u-gap-0-4rem">
               <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               Download Excel
               <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div id="dlMenu" class="dl-menu">
-              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">The table on screen</div>
-              <a href="/vpsea/archives/download/?type={{ active_type|urlencode }}{% if active_tier %}&amp;tier={{ active_tier|urlencode }}{% endif %}&amp;sy={{ selected_sy|urlencode }}" class="flex items-center gap-2" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
-                <svg class="h-3.5 w-3.5" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              <div class="u-p-0-3rem-0-75rem-0-2rem u-fs-0-7rem u-text-muted u-fw-600 u-tt-uppercase u-ls-0-05em">The table on screen</div>
+              <a href="/vpsea/archives/download/?type={{ active_type|urlencode }}{% if active_tier %}&amp;tier={{ active_tier|urlencode }}{% endif %}&amp;sy={{ selected_sy|urlencode }}" class="flex items-center gap-2 u-p-0-45rem-0-75rem u-fs-0-82rem u-text-hex1a202c u-no-underline" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
+                <svg class="h-3.5 w-3.5 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 {{ selected_sy_display }}
               </a>
-              <div style="padding:0 0.75rem 0.35rem;font-size:0.7rem;color:var(--text-muted);">Same columns, same scholars, same term as the table below.</div>
+              <div class="u-p-0-0-75rem-0-35rem u-fs-0-7rem u-text-muted">Same columns, same scholars, same term as the table below.</div>
               {% if history %}
-              <div style="border-top:1px solid var(--border);margin:0.3rem 0;"></div>
-              <div style="padding:0.3rem 0.75rem 0.2rem;font-size:0.7rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Uploaded files</div>
-              <div style="padding:0 0.75rem 0.35rem;font-size:0.7rem;color:var(--text-muted);">The sheets as they were imported, not as this table reads.</div>
+              <div class="u-bt-1px-solid-border u-m-0-3rem-0"></div>
+              <div class="u-p-0-3rem-0-75rem-0-2rem u-fs-0-7rem u-text-muted u-fw-600 u-tt-uppercase u-ls-0-05em">Uploaded files</div>
+              <div class="u-p-0-0-75rem-0-35rem u-fs-0-7rem u-text-muted">The sheets as they were imported, not as this table reads.</div>
               {% for h in history %}
               <div class="flex items-center" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
-                <a href="{{ h.excel_file.url }}" download class="flex items-center gap-2 flex-1" style="padding:0.45rem 0.75rem;font-size:0.82rem;color:#1a202c;text-decoration:none;">
-                  <svg class="h-3.5 w-3.5 shrink-0" style="color:var(--text-muted);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <a href="{{ h.excel_file.url }}" download class="flex items-center gap-2 flex-1 u-p-0-45rem-0-75rem u-fs-0-82rem u-text-hex1a202c u-no-underline">
+                  <svg class="h-3.5 w-3.5 shrink-0 u-text-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                   {{ h.term_label|default:h.school_year }}
-                  <span style="font-size:0.72rem;color:var(--text-muted);">{{ h.scholar_count }} scholars</span>
+                  <span class="u-fs-0-72rem u-text-muted">{{ h.scholar_count }} scholars</span>
                 </a>
-                <form method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" style="margin:0;padding:0 0.4rem 0 0;" data-confirm="Delete the {{ h.term_label|default:h.school_year }} {{ active_type }} import?"
-                      data-confirm-detail="The scholars it added are removed with it. This cannot be undone."
-                      data-confirm-tone="danger" data-confirm-label="Delete">
+                <form class="u-m-0 u-p-0-0-4rem-0-0" method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" data-confirm="Delete the {{ h.term_label|default:h.school_year }} {{ active_type }} import?" data-confirm-detail="The scholars it added are removed with it. This cannot be undone." data-confirm-tone="danger" data-confirm-label="Delete">
                   {% csrf_token %}
                   <input type="hidden" name="type" value="{{ active_type }}">
-                  <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:0.2rem;line-height:1;">✕</button>
+                  <button class="u-bg-none u-border-none u-cursor-pointer u-text-danger u-p-0-2rem u-lh-1" type="submit" title="Delete">✕</button>
                 </form>
               </div>
               {% endfor %}
@@ -358,7 +379,7 @@
         </div>
       </div>
       <div class="filter-scheme mb-4" data-filter-bar></div>
-      <div style="overflow-x:auto;">
+      <div class="u-scroll-x">
         <form method="post" action="/vpsea/archives/columns/" id="archColumnForm">
           {% csrf_token %}
           <input type="hidden" name="type" value="{{ active_type }}" />
@@ -381,8 +402,8 @@
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/table-sort.js' %}?v=1"></script>
+<script src="{% static 'js/import-progress.js' %}?v=1" defer></script>
 <script src="{% static 'js/table-filter.js' %}?v=3"></script>
-<script src="{% static 'js/dl-menu.js' %}?v=1"></script>
 <script>
   var ARCH_COURSES = {{ bipsu_courses_json|safe }};
   function archFillCourses(schoolSelId, courseSelId, wanted) {
@@ -445,7 +466,7 @@ function filterArch() {
     row.style.display = (!q || row.dataset.name.includes(q) || row.dataset.id.includes(q)) ? '' : 'none';
   });
 }
-{% if import_message or import_error %}
+{% if import_message or import_error or import_job %}
 document.getElementById('uploadExcelModal').style.display = 'flex';
 {% endif %}
 function openEdit(pk, first, last, sid, gender, course, year, barangay, municipality, province, gwa, award, congress, contact, school) {
@@ -486,8 +507,8 @@ function openDelete(pk, name) {
   document.getElementById('deleteModal').style.display = 'flex';
 }
 </script>
-<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
-  <div class="card modal-sheet" style="max-width:32rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-1000 u-ai-center u-jc-center u-p-1rem" id="editModal">
+  <div class="card modal-sheet u-maxw-32rem">
     <div class="modal-sheet-head">
       <h2 class="modal-sheet-title">Edit Scholar</h2>
       <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="modal-sheet-close" aria-label="Close">✕</button>
@@ -500,29 +521,28 @@ function openDelete(pk, name) {
       <input type="hidden" name="pk" id="editPk">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label>First Name</label>
-          <input id="editFirst" name="first_name" required style="margin-top:0.25rem;" />
+          <label for="editFirst">First Name</label>
+          <input class="u-mt-0-25rem" id="editFirst" name="first_name" required/>
         </div>
         <div>
-          <label>Last Name</label>
-          <input id="editLast" name="last_name" required style="margin-top:0.25rem;" />
+          <label for="editLast">Last Name</label>
+          <input class="u-mt-0-25rem" id="editLast" name="last_name" required/>
         </div>
         <div>
-          <label>Student ID</label>
-          <input id="editSid" name="student_id" style="margin-top:0.25rem;" />
+          <label for="editSid">Student ID</label>
+          <input class="u-mt-0-25rem" id="editSid" name="student_id"/>
         </div>
         <div>
-          <label>Gender</label>
-          <select id="editGender" name="gender" style="margin-top:0.25rem;">
+          <label for="editGender">Gender</label>
+          <select class="u-mt-0-25rem" id="editGender" name="gender">
             <option value="">—</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>
         </div>
         <div>
-          <label>School</label>
-          <select id="editSchool" name="school" style="margin-top:0.25rem;"
-                  onchange="archFillCourses('editSchool','editCourse','')">
+          <label for="editSchool">School</label>
+          <select class="u-mt-0-25rem" id="editSchool" name="school" onchange="archFillCourses('editSchool','editCourse','')">
             <option value="">&#8212; Select School &#8212;</option>
             {% for val, label in bipsu_schools %}
             <option value="{{ val }}">{{ label }}</option>
@@ -530,120 +550,118 @@ function openDelete(pk, name) {
           </select>
         </div>
         <div>
-          <label>Course</label>
-          <select id="editCourse" name="course" required style="margin-top:0.25rem;">
+          <label for="editCourse">Course</label>
+          <select class="u-mt-0-25rem" id="editCourse" name="course" required>
             <option value="">&#8212; Select Course &#8212;</option>
           </select>
         </div>
         <div>
-          <label>Year Level</label>
-          <select id="editYear" name="year_level" style="margin-top:0.25rem;">
+          <label for="editYear">Year Level</label>
+          <select class="u-mt-0-25rem" id="editYear" name="year_level">
             <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
           </select>
         </div>
         <div>
-          <label>Contact Number</label>
-          <input id="editContact" name="contact_number" type="tel" style="margin-top:0.25rem;" />
+          <label for="editContact">Contact Number</label>
+          <input class="u-mt-0-25rem" id="editContact" name="contact_number" type="tel"/>
         </div>
         {% if active_type not in 'Affirmative Staff' %}
         <div>
-          <label>GWA</label>
-          <input id="editGwa" name="gwa" type="number" step="0.01" min="1" max="5" style="margin-top:0.25rem;" />
+          <label for="editGwa">GWA</label>
+          <input class="u-mt-0-25rem" id="editGwa" name="gwa" type="number" step="0.01" min="1" max="5"/>
         </div>
         {% endif %}
         {% if active_type in 'TDP DOST CHED' %}
         <div>
-          <label>Award Number</label>
-          <input id="editAward" name="award_number" style="margin-top:0.25rem;" />
+          <label for="editAward">Award Number</label>
+          <input class="u-mt-0-25rem" id="editAward" name="award_number"/>
         </div>
         <div>
-          <label>Congress District</label>
-          <input id="editCongress" name="congress_district" style="margin-top:0.25rem;" />
+          <label for="editCongress">Congress District</label>
+          <input class="u-mt-0-25rem" id="editCongress" name="congress_district"/>
         </div>
         {% endif %}
         <div>
-          <label>Barangay / Street</label>
-          <input id="editBarangay" name="barangay" style="margin-top:0.25rem;" />
+          <label for="editBarangay">Barangay / Street</label>
+          <input class="u-mt-0-25rem" id="editBarangay" name="barangay"/>
         </div>
         <div>
-          <label>Municipality</label>
-          <input id="editMunicipality" name="municipality" style="margin-top:0.25rem;" />
+          <label for="editMunicipality">Municipality</label>
+          <input class="u-mt-0-25rem" id="editMunicipality" name="municipality"/>
         </div>
         <div>
-          <label>Province</label>
-          <input id="editProvince" name="province" style="margin-top:0.25rem;" />
+          <label for="editProvince">Province</label>
+          <input class="u-mt-0-25rem" id="editProvince" name="province"/>
         </div>
-        <div class="col-span-2" style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.25rem;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Reset Password</p>
-          <p class="text-xs mb-2" style="color:var(--text-muted);">Leave blank to keep the current password unchanged.</p>
+        <div class="col-span-2 u-bt-1px-solid-border u-pt-0-75rem u-mt-0-25rem">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2 u-text-brand">Reset Password</p>
+          <p class="text-xs mb-2 u-text-muted">Leave blank to keep the current password unchanged.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label>New Password</label>
-              <input id="editPassword" name="new_password" type="password" autocomplete="new-password"
-                     placeholder="Enter new password" style="margin-top:0.25rem;" />
+              <label for="editPassword">New Password</label>
+              <input class="u-mt-0-25rem" id="editPassword" name="new_password" type="password" autocomplete="new-password" placeholder="Enter new password"/>
             </div>
             <div>
-              <label>Confirm Password</label>
-              <input id="editPasswordConfirm" name="new_password_confirm" type="password" autocomplete="new-password"
-                     placeholder="Confirm new password" style="margin-top:0.25rem;" />
+              <label for="editPasswordConfirm">Confirm Password</label>
+              <input class="u-mt-0-25rem" id="editPasswordConfirm" name="new_password_confirm" type="password" autocomplete="new-password" placeholder="Confirm new password"/>
             </div>
           </div>
-          <p id="editPasswordError" class="text-xs mt-1" style="color:var(--danger);display:none;">Passwords do not match.</p>
+          <p id="editPasswordError" class="text-xs mt-1 u-text-danger u-d-none">Passwords do not match.</p>
         </div>
       </div>
-      <div class="mt-4 pt-4" style="border-top:1px solid var(--border);">
-        <p class="text-xs font-semibold mb-1" style="color:var(--text-muted);">Student-locked details</p>
-        <p class="text-xs mb-3" style="color:var(--text-muted);font-weight:400;">
+      <div class="mt-4 pt-4 u-bt-1px-solid-border">
+        <p class="text-xs font-semibold mb-1 u-text-muted">Student-locked details</p>
+        <p class="text-xs mb-3 u-text-muted u-fw-400">
           The student can set these only once. Type over one to correct it; leave blank to keep current.
         </p>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Civil Status</label>
-            <input id="edit_civil_status" name="civil_status" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_civil_status" class="text-xs font-medium u-text-muted">Civil Status</label>
+            <input class="u-mt-0-25rem" id="edit_civil_status" name="civil_status" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Elementary School</label>
-            <input id="edit_elementary" name="elementary" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_elementary" class="text-xs font-medium u-text-muted">Elementary School</label>
+            <input class="u-mt-0-25rem" id="edit_elementary" name="elementary" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">High School</label>
-            <input id="edit_highschool" name="highschool" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_highschool" class="text-xs font-medium u-text-muted">High School</label>
+            <input class="u-mt-0-25rem" id="edit_highschool" name="highschool" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Last School Attended</label>
-            <input id="edit_last_school" name="last_school" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_last_school" class="text-xs font-medium u-text-muted">Last School Attended</label>
+            <input class="u-mt-0-25rem" id="edit_last_school" name="last_school" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Father's Last Name</label>
-            <input id="edit_father_last_name" name="father_last_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_father_last_name" class="text-xs font-medium u-text-muted">Father's Last Name</label>
+            <input class="u-mt-0-25rem" id="edit_father_last_name" name="father_last_name" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Father's Given Name</label>
-            <input id="edit_father_first_name" name="father_first_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_father_first_name" class="text-xs font-medium u-text-muted">Father's Given Name</label>
+            <input class="u-mt-0-25rem" id="edit_father_first_name" name="father_first_name" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Father's Middle Name</label>
-            <input id="edit_father_middle_name" name="father_middle_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_father_middle_name" class="text-xs font-medium u-text-muted">Father's Middle Name</label>
+            <input class="u-mt-0-25rem" id="edit_father_middle_name" name="father_middle_name" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Father's Occupation</label>
-            <input id="edit_father_occupation" name="father_occupation" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_father_occupation" class="text-xs font-medium u-text-muted">Father's Occupation</label>
+            <input class="u-mt-0-25rem" id="edit_father_occupation" name="father_occupation" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Mother's Last Name</label>
-            <input id="edit_mother_last_name" name="mother_last_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_mother_last_name" class="text-xs font-medium u-text-muted">Mother's Last Name</label>
+            <input class="u-mt-0-25rem" id="edit_mother_last_name" name="mother_last_name" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Mother's Given Name</label>
-            <input id="edit_mother_first_name" name="mother_first_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_mother_first_name" class="text-xs font-medium u-text-muted">Mother's Given Name</label>
+            <input class="u-mt-0-25rem" id="edit_mother_first_name" name="mother_first_name" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Mother's Middle Name</label>
-            <input id="edit_mother_middle_name" name="mother_middle_name" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_mother_middle_name" class="text-xs font-medium u-text-muted">Mother's Middle Name</label>
+            <input class="u-mt-0-25rem" id="edit_mother_middle_name" name="mother_middle_name" placeholder="leave blank to keep current"/>
           </div>
           <div>
-            <label class="text-xs font-medium" style="color:var(--text-muted);">Mother's Occupation</label>
-            <input id="edit_mother_occupation" name="mother_occupation" placeholder="leave blank to keep current" style="margin-top:0.25rem;" />
+            <label for="edit_mother_occupation" class="text-xs font-medium u-text-muted">Mother's Occupation</label>
+            <input class="u-mt-0-25rem" id="edit_mother_occupation" name="mother_occupation" placeholder="leave blank to keep current"/>
           </div>
         </div>
       </div>
@@ -655,10 +673,10 @@ function openDelete(pk, name) {
     </div>
   </div>
 </div>
-<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
-  <div class="card p-6" style="width:100%;max-width:24rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-1000 u-ai-center u-jc-center" id="deleteModal">
+  <div class="card p-6 u-w-full u-maxw-24rem">
     <h2 class="font-semibold mb-2">Delete Scholar</h2>
-    <p class="text-sm mb-4" style="color:var(--text-muted);">Remove <strong id="deleteNameLabel"></strong> from the archives? This cannot be undone.</p>
+    <p class="text-sm mb-4 u-text-muted">Remove <strong id="deleteNameLabel"></strong> from the archives? This cannot be undone.</p>
     <form method="post" action=""  id="deleteForm">
       {% csrf_token %}
       <input type="hidden" name="scholarship_type" value="{{ active_type }}">
@@ -666,7 +684,7 @@ function openDelete(pk, name) {
       <input type="hidden" name="pk" id="deletePk">
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn btn-outline">Cancel</button>
-        <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">Delete</button>
+        <button type="submit" class="btn u-bg-danger-solid u-text-white u-border-none">Delete</button>
       </div>
     </form>
   </div>

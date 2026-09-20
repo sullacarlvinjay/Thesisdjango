@@ -64,10 +64,23 @@ services:
         value: INFO
       - key: SECURE_SSL_REDIRECT
         value: "True"
+      # One year. An hour, where this started, is too short to protect
+      # anything: a browser that has not visited since lunchtime is back to
+      # trusting a plaintext first request.
       - key: SECURE_HSTS_SECONDS
-        value: "3600"
+        value: "31536000"
       - key: MAX_UPLOAD_SIZE_MB
         value: "10"
+
+      # Office accounts read Listahanan status, disability and household
+      # income. Two-step sign-in is available on every account; turning this
+      # on makes it compulsory for the roles in MFA_REQUIRED_ROLES.
+      #
+      # Left off here on purpose. Flipping it in a deploy would send whoever
+      # is signed in to their profile page to enrol, mid-task, with no
+      # warning. Enrol the office accounts first, then set this to True.
+      - key: MFA_ENFORCED
+        value: "False"
 
       # Applicants are told what the office decided by email as well as in the
       # portal, and every registration carries a confirmation link.

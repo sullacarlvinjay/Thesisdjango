@@ -51,6 +51,15 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
             'type': 'DOST', 'rollover_label': '26-1',
             'file': sheet(headings, values)})
 
+    def page(self, response):
+        """The archive page the office is sent to, banners and all.
+
+        The refused-cell count is no longer in the redirect: the import
+        runs on the background pool and the redirect carries the job id
+        instead. What the office is actually told is on the page.
+        """
+        return self.c.get(response['Location']).content.decode()
+
     def scholar(self):
         return ImportedScholar.objects.get(last_name='Santos')
 
@@ -110,7 +119,7 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
                           'type': 'number'})
         response = self.upload(['Stipend'], ['not a number'])
         self.assertEqual(self.scholar().extra_data, {})
-        self.assertIn('columns_bad=1', response['Location'])
+        self.assertIn('1 value did not match the kind of data', self.page(response))
 
     def test_a_date_column_takes_a_real_excel_date(self):
         self.add_columns({'key': 'extra_awarded', 'label': 'Awarded',
@@ -129,13 +138,13 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
                           'options': ['RA 7687', 'Merit']})
         response = self.upload(['Track'], ['Platinum'])
         self.assertEqual(self.scholar().extra_data, {})
-        self.assertIn('columns_bad=1', response['Location'])
+        self.assertIn('1 value did not match the kind of data', self.page(response))
 
     def test_a_blank_cell_is_left_blank_rather_than_refused(self):
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         response = self.upload(['Batch'], [None])
         self.assertEqual(self.scholar().extra_data, {})
-        self.assertNotIn('columns_bad', response['Location'])
+        self.assertNotIn('did not match the kind of data', self.page(response))
 
     def test_the_value_shows_on_the_archive_table(self):
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
@@ -151,5 +160,6 @@ class ImportFillsTheColumnsTheOfficeAddedTest(TestCase):
     def test_a_clean_import_says_nothing_about_refused_cells(self):
         self.add_columns({'key': 'extra_batch', 'label': 'Batch', 'type': 'text'})
         response = self.upload(['Batch'], ['2026-A'])
-        self.assertIn('import_ok=1', response['Location'])
-        self.assertNotIn('columns_bad', response['Location'])
+        html = self.page(response)
+        self.assertIn('Successfully imported 1 records.', html)
+        self.assertNotIn('did not match the kind of data', html)

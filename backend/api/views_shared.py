@@ -12,6 +12,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+IMPORT_FAILED = ('That spreadsheet could not be filed. Nothing was saved — check the '
+                 'file and try again, or ask IT to read the server log.')
+
+DUPLICATE_AWARD_NUMBERS = ('That spreadsheet records the same award number twice for '
+                           'this programme and term. Nothing was saved — an award '
+                           'number identifies one award, so the duplicate has to be '
+                           'settled before the list can be filed.')
+
+IMPORT_ABANDONED = ('That import was interrupted before it finished — the server '
+                    'restarted while it was reading. Nothing was saved. Upload '
+                    'the same file again.')
+
 
 def _declaration_slots(post=None):
     """The repeated declaration cards on the registration form."""
@@ -377,14 +389,64 @@ def _change_own_password(request, user):
         verb='update', request=request)
     return []
 
+MFA_SETUP_PATH = '/vpsea/profile/'
+
+DECISION_VERBS = {'Approved': 'approve', 'Rejected': 'reject'}
+
+
+def record_decision(request, row, status, remarks, what):
+    """Stamp an office verdict onto ``row`` and audit who reached it.
+
+    Every office decision goes through here so that none of them can record
+    the outcome without recording the officer. That mattered little while the
+    office was one person and a single login; it decides whether the audit
+    trail means anything once the office has more than one account, which is
+    the whole reason a second one can be created.
+
+    The row is saved, so the caller does not save it again.
+    """
+    from django.utils import timezone
+
+    from .models import ActivityLog
+
+    before = ActivityLog.snapshot(row, ['status', 'remarks'])
+    row.status = status
+    row.remarks = remarks
+    row.reviewed_by = request.user
+    row.reviewed_at = timezone.now()
+    row.save()
+    ActivityLog.record(
+        request.user, f'{status} {what}',
+        verb=DECISION_VERBS.get(status, 'update'),
+        target=row,
+        changes=ActivityLog.diff(
+            before, ActivityLog.snapshot(row, ['status', 'remarks']),
+            ['status', 'remarks']),
+        request=request)
+    return row
+
+
 def _vpsea_required(view_fn):
-    """Restrict a view to SDSO office accounts."""
+    """Restrict a view to SDSO office accounts.
+
+    Where MFA is enforced, an office account that has not enrolled is sent to
+    its own profile to do so. It is not signed out: these accounts read
+    Listahanan status, disability and household income, and locking the
+    office out of its own records is not a privacy improvement.
+    """
     from functools import wraps
+
     @wraps(view_fn)
     def wrapper(request, *args, **kwargs):
-        """Redirect anyone who is not an office account to sign in."""
+        """Redirect anyone who is not an enrolled office account."""
+        from django.conf import settings
+
         if not request.user.is_authenticated or request.user.role != 'vpsea':
             return redirect('/login/')
+        if (getattr(settings, 'MFA_ENFORCED', False)
+                and request.user.mfa_outstanding
+                and request.path != MFA_SETUP_PATH):
+            return redirect(f'{MFA_SETUP_PATH}?mfa=required')
         return view_fn(request, *args, **kwargs)
     return wrapper
 

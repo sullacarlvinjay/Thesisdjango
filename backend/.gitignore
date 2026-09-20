@@ -73,3 +73,9 @@ htmlcov/
 # because those are what a reviewer reads.
 docs/quality/coverage/html/
 docs/quality/coverage/coverage.json
+
+# Database dumps written by `manage.py backup`. These carry every scholar's
+# Listahanan status, household income and disability record in the clear, so
+# they belong wherever the office keeps its own records — never in git, and
+# never in a repository anyone else can clone.
+backups/

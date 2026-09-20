@@ -6,7 +6,7 @@ existing imports keep working.
 """
 
 from django.shortcuts import render, redirect
-from .models import STAFF_APPLICATION_DETAILS, BIPSU_SCHOOLS, BIPSU_COURSES
+from .models import STAFF_APPLICATION_DETAILS, ActivityLog, BIPSU_SCHOOLS, BIPSU_COURSES
 import logging
 from .views_shared import _active_term, _validate_proof, application_window_reason, renewal_window_reason
 
@@ -197,6 +197,10 @@ def nsu_staff_profile(request):
 
         staff.save()
         saved = not errors
+        if saved:
+            ActivityLog.record(
+                user, 'Updated their own staff profile',
+                verb='update', target=staff, request=request)
     return render(request, 'nsu_staff/profile.html', {
         'staff': staff,
         'aff_app': aff_app,
@@ -295,26 +299,205 @@ def nsu_staff_renewal(request):
             pending.supporting_document = document
             pending.save(update_fields=['supporting_document'])
         else:
-            StaffRenewal.objects.create(
+            renewal = StaffRenewal.objects.create(
                 staff_user=user, supporting_document=document)
+            ActivityLog.record(
+                user, f'Submitted a Staff Scholarship renewal for '
+                      f'{renewal.term_label}',
+                verb='create', target=renewal, request=request)
         return redirect('/nsu-staff/renewal/?submitted=1')
 
     return page()
+
+STAFF_APPLY_REQUIRED = {
+    'first_name': 'First name',
+    'last_name': 'Last name',
+    'date_of_birth': 'Date of birth',
+    'gender': 'Gender',
+    'course': 'Course',
+    'student_number': 'Student / Employee number',
+    'employment_status': 'Employment status',
+    'designation': 'Designation',
+    'years_of_service': 'Years of service',
+    'date_of_regularization': 'Date of regularization',
+}
+
+
+def _staff_apply_errors(posted, files, existing):
+    """Everything wrong with a submitted staff application."""
+    errors = [f'{label} is required.'
+              for field, label in STAFF_APPLY_REQUIRED.items()
+              if not posted.get(field, '').strip()]
+
+    employment = posted.get('employment_status', '').strip()
+    if employment and employment != 'Regular':
+        errors.append(
+            'The BiPSU Staff Scholarship is open to regular employees. '
+            f'Your appointment is recorded as {employment} — contact the '
+            'VPSEA office if that is out of date.'
+        )
+    if not files.get('appointment_paper') and not (
+            existing and existing.appointment_paper):
+        errors.append('Appointment paper document is required.')
+    return errors
+
+
+def _years_of_service(posted):
+    """The years of service posted, or 0 where it will not convert."""
+    try:
+        return int(posted.get('years_of_service', 0) or 0)
+    except (ValueError, TypeError):
+        return 0
+
+
+def _resubmit_staff_record(record, posted, files, full_name, years):
+    """Update an application the staff member is submitting again.
+
+    Only answered fields overwrite, because a resubmission after a rejection
+    carries the corrected answers and not necessarily the whole form again.
+    """
+    record.full_name = full_name or record.full_name
+    record.contact_number = posted.get('contact_number', record.contact_number)
+    record.barangay = posted.get('barangay', record.barangay)
+    record.municipality = posted.get('municipality', record.municipality)
+    record.province = posted.get('province', record.province)
+    if posted.get('date_of_birth'):
+        record.date_of_birth = posted.get('date_of_birth')
+    if posted.get('gender'):
+        record.gender = posted.get('gender')
+    if posted.get('course'):
+        record.course = posted.get('course')
+    if posted.get('student_number'):
+        record.student_id = posted.get('student_number')
+    record.employment_status = posted.get(
+        'employment_status', record.employment_status)
+    record.designation = posted.get('designation', record.designation)
+    if years:
+        record.years_of_service = years
+    if posted.get('date_of_regularization'):
+        record.date_of_regularization = posted.get('date_of_regularization')
+    record.is_nsu_staff = True
+    record.status = 'Pending Validation'
+    record.remarks = ''
+    if files.get('appointment_paper'):
+        record.appointment_paper = files.get('appointment_paper')
+    record.save()
+    return record
+
+
+def _new_staff_record(user, posted, files, full_name, years):
+    """File a staff application for the first time."""
+    from .models import ApplicantRecord
+
+    try:
+        year_level = int(posted.get('year_level', 1) or 1)
+    except (ValueError, TypeError):
+        year_level = 1
+
+    return ApplicantRecord.objects.create(
+        full_name=full_name,
+        email=user.email,
+        contact_number=posted.get('contact_number', ''),
+        barangay=posted.get('barangay', ''),
+        municipality=posted.get('municipality', ''),
+        province=posted.get('province', ''),
+        date_of_birth=posted.get('date_of_birth') or None,
+        gender=posted.get('gender', ''),
+        course=posted.get('course', ''),
+        year_level=year_level,
+        student_id=posted.get('student_number', ''),
+        is_nsu_staff=True,
+        employment_status=posted.get('employment_status', ''),
+        designation=posted.get('designation', ''),
+        years_of_service=years or None,
+        date_of_regularization=posted.get('date_of_regularization') or None,
+        appointment_paper=files.get('appointment_paper') or None,
+        qualified_for='Staff',
+        status='Pending Validation',
+    )
+
+
+def _sync_staff_profile(staff, record, posted, years):
+    """Carry the application's answers back onto the employee's profile."""
+    staff.employee_id = posted.get('student_number', '').strip() or staff.employee_id
+    staff.contact_number = posted.get('contact_number', '').strip() or staff.contact_number
+    staff.gender = posted.get('gender', '') or staff.gender
+    staff.barangay = posted.get('barangay', '') or staff.barangay
+    staff.municipality = posted.get('municipality', '') or staff.municipality
+    staff.province = posted.get('province', '') or staff.province
+    staff.employment_status = posted.get('employment_status', '') or staff.employment_status
+    staff.designation = posted.get('designation', '') or staff.designation
+    if years:
+        staff.declared_years_of_service = years
+
+    born, ok = _parse_date(posted.get('date_of_birth', ''))
+    if ok and born:
+        staff.date_of_birth = born
+    regularized, ok = _parse_date(posted.get('date_of_regularization', ''))
+    if ok and regularized:
+        staff.date_of_regularization = regularized
+    if record.appointment_paper:
+        staff.appointment_paper = record.appointment_paper.name
+    staff.save()
+
+
+def _staff_apply_prefill(existing, staff, user):
+    """What the form opens with, preferring the application over the profile."""
+    parts = (existing.full_name or '').split() if existing else []
+    return {
+        'first_name': parts[0] if parts else user.first_name,
+        'last_name': parts[-1] if len(parts) > 1 else user.last_name,
+        'date_of_birth': _pick_date(existing, staff, 'date_of_birth'),
+        'gender': _pick(existing, staff, 'gender'),
+        'contact_number': _pick(existing, staff, 'contact_number'),
+        'barangay': _pick(existing, staff, 'barangay'),
+        'municipality': _pick(existing, staff, 'municipality'),
+        'province': _pick(existing, staff, 'province'),
+        'student_number': (existing.student_id if existing and existing.student_id
+                           else staff.employee_id),
+        'year_level': existing.year_level if existing else 1,
+        'course': existing.course if existing else '',
+        'employment_status': _pick(existing, staff, 'employment_status'),
+        'designation': _pick(existing, staff, 'designation'),
+        'years_of_service': (
+            existing.years_of_service
+            if existing and existing.years_of_service is not None
+            else staff.years_of_service if staff.years_of_service is not None
+            else ''),
+        'date_of_regularization': _pick_date(
+            existing, staff, 'date_of_regularization'),
+    }
+
+
+def _save_staff_application(request, staff, existing):
+    """Record a valid staff application, new or resubmitted."""
+    posted, files = request.POST, request.FILES
+    full_name = (f"{posted.get('first_name', '').strip()} "
+                 f"{posted.get('last_name', '').strip()}").strip()
+    years = _years_of_service(posted)
+
+    if existing:
+        record = _resubmit_staff_record(existing, posted, files, full_name, years)
+    else:
+        record = _new_staff_record(request.user, posted, files, full_name, years)
+    _sync_staff_profile(staff, record, posted, years)
+    return record
+
 
 @_nsu_staff_required
 def nsu_staff_apply(request):
     """Apply for the BiPSU Staff Scholarship."""
     from .constants import EMPLOYMENT_STATUSES
-    from .models import ApplicantRecord
+
     user = request.user
     staff = _staff_profile(user)
-
     existing = _staff_application_for(user)
 
     if existing and existing.status in ('Approved', 'Pending Validation'):
         return render(request, 'nsu_staff/apply.html', {
             'blocked': True,
-            'blocked_reason': f'You already have a Staff Scholarship application with status: {existing.status}.',
+            'blocked_reason': ('You already have a Staff Scholarship '
+                               f'application with status: {existing.status}.'),
             'existing': existing,
             'enrolled': True,
         })
@@ -327,112 +510,16 @@ def nsu_staff_apply(request):
         })
 
     errors = []
-
     if request.method == 'POST':
-        p = request.POST
-        f = request.FILES
-
-        required = {
-            'first_name': 'First name',
-            'last_name': 'Last name',
-            'date_of_birth': 'Date of birth',
-            'gender': 'Gender',
-            'course': 'Course',
-            'student_number': 'Student / Employee number',
-            'employment_status': 'Employment status',
-            'designation': 'Designation',
-            'years_of_service': 'Years of service',
-            'date_of_regularization': 'Date of regularization',
-        }
-        for field, label in required.items():
-            if not p.get(field, '').strip():
-                errors.append(f'{label} is required.')
-
-        employment = p.get('employment_status', '').strip()
-        if employment and employment != 'Regular':
-            errors.append(
-                'The BiPSU Staff Scholarship is open to regular employees. '
-                f'Your appointment is recorded as {employment} — contact the '
-                'VPSEA office if that is out of date.'
-            )
-        if not f.get('appointment_paper') and not (existing and existing.appointment_paper):
-            errors.append('Appointment paper document is required.')
-
+        errors = _staff_apply_errors(request.POST, request.FILES, existing)
         if not errors:
-            full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
-            try:
-                yos = int(p.get('years_of_service', 0) or 0)
-            except (ValueError, TypeError):
-                yos = 0
-
-            if existing:
-                existing.full_name = full_name or existing.full_name
-                existing.contact_number = p.get('contact_number', existing.contact_number)
-                existing.barangay = p.get('barangay', existing.barangay)
-                existing.municipality = p.get('municipality', existing.municipality)
-                existing.province = p.get('province', existing.province)
-                if p.get('date_of_birth'):
-                    existing.date_of_birth = p.get('date_of_birth')
-                if p.get('gender'):
-                    existing.gender = p.get('gender')
-                if p.get('course'):
-                    existing.course = p.get('course')
-                if p.get('student_number'):
-                    existing.student_id = p.get('student_number')
-                existing.employment_status = p.get('employment_status', existing.employment_status)
-                existing.designation = p.get('designation', existing.designation)
-                if yos:
-                    existing.years_of_service = yos
-                if p.get('date_of_regularization'):
-                    existing.date_of_regularization = p.get('date_of_regularization')
-                existing.is_nsu_staff = True
-                existing.status = 'Pending Validation'
-                existing.remarks = ''
-                if f.get('appointment_paper'):
-                    existing.appointment_paper = f.get('appointment_paper')
-                existing.save()
-            else:
-                existing = ApplicantRecord.objects.create(
-                    full_name=full_name,
-                    email=user.email,
-                    contact_number=p.get('contact_number', ''),
-                    barangay=p.get('barangay', ''),
-                    municipality=p.get('municipality', ''),
-                    province=p.get('province', ''),
-                    date_of_birth=p.get('date_of_birth') or None,
-                    gender=p.get('gender', ''),
-                    course=p.get('course', ''),
-                    year_level=int(p.get('year_level', 1) or 1),
-                    student_id=p.get('student_number', ''),
-                    is_nsu_staff=True,
-                    employment_status=p.get('employment_status', ''),
-                    designation=p.get('designation', ''),
-                    years_of_service=yos or None,
-                    date_of_regularization=p.get('date_of_regularization') or None,
-                    appointment_paper=f.get('appointment_paper') or None,
-                    qualified_for='Staff',
-                    status='Pending Validation',
-                )
-            staff.employee_id       = p.get('student_number', '').strip() or staff.employee_id
-            staff.contact_number    = p.get('contact_number', '').strip() or staff.contact_number
-            staff.gender            = p.get('gender', '') or staff.gender
-            staff.barangay          = p.get('barangay', '') or staff.barangay
-            staff.municipality      = p.get('municipality', '') or staff.municipality
-            staff.province          = p.get('province', '') or staff.province
-            staff.employment_status = p.get('employment_status', '') or staff.employment_status
-            staff.designation       = p.get('designation', '') or staff.designation
-            if yos:
-                staff.declared_years_of_service = yos
-            dob, ok = _parse_date(p.get('date_of_birth', ''))
-            if ok and dob:
-                staff.date_of_birth = dob
-            dor, ok = _parse_date(p.get('date_of_regularization', ''))
-            if ok and dor:
-                staff.date_of_regularization = dor
-            if existing.appointment_paper:
-                staff.appointment_paper = existing.appointment_paper.name
-            staff.save()
-
+            record = _save_staff_application(request, staff, existing)
+            ActivityLog.record(
+                user,
+                f'{"Resubmitted" if existing else "Applied"} for the BiPSU '
+                f'Staff Scholarship ({record.term_label})',
+                verb='update' if existing else 'create',
+                target=record, request=request)
             return redirect('/nsu-staff/apply/?submitted=1')
 
     return render(request, 'nsu_staff/apply.html', {
@@ -445,23 +532,5 @@ def nsu_staff_apply(request):
         'bipsu_schools': BIPSU_SCHOOLS,
         'employment_statuses': EMPLOYMENT_STATUSES,
         'enrolled': _nsu_staff_enrolled(user),
-        'prefill': {
-            'first_name':   existing.full_name.split()[0] if existing and existing.full_name else user.first_name,
-            'last_name':    existing.full_name.split()[-1] if existing and existing.full_name and len(existing.full_name.split()) > 1 else user.last_name,
-            'date_of_birth': _pick_date(existing, staff, 'date_of_birth'),
-            'gender':        _pick(existing, staff, 'gender'),
-            'contact_number': _pick(existing, staff, 'contact_number'),
-            'barangay':      _pick(existing, staff, 'barangay'),
-            'municipality':  _pick(existing, staff, 'municipality'),
-            'province':      _pick(existing, staff, 'province'),
-            'student_number': (existing.student_id if existing and existing.student_id
-                               else staff.employee_id),
-            'year_level':    existing.year_level if existing else 1,
-            'course':        existing.course if existing else '',
-            'employment_status':      _pick(existing, staff, 'employment_status'),
-            'designation':            _pick(existing, staff, 'designation'),
-            'years_of_service':       (existing.years_of_service if existing and existing.years_of_service is not None
-                                       else staff.years_of_service if staff.years_of_service is not None else ''),
-            'date_of_regularization': _pick_date(existing, staff, 'date_of_regularization'),
-        },
+        'prefill': _staff_apply_prefill(existing, staff, user),
     })

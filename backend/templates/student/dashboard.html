@@ -11,11 +11,11 @@
     <div class="card p-5">
       <div class="flex items-start justify-between">
         <div>
-          <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Recommended</p>
+          <p class="text-xs uppercase tracking-wider u-text-muted">Recommended</p>
           <p class="text-3xl font-bold mt-2">{{ dashboard.recommended_count|default:"0" }}</p>
-          <p class="text-xs mt-1" style="color:var(--text-muted);">Matched scholarships</p>
+          <p class="text-xs mt-1 u-text-muted">Matched scholarships</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:var(--brand-soft);color:var(--brand);">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg u-bg-brand-soft u-text-brand">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
         </div>
       </div>
@@ -23,11 +23,11 @@
     <div class="card p-5">
       <div class="flex items-start justify-between">
         <div>
-          <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Pending</p>
+          <p class="text-xs uppercase tracking-wider u-text-muted">Pending</p>
           <p class="text-3xl font-bold mt-2">{{ dashboard.pending_count|default:"0" }}</p>
-          <p class="text-xs mt-1" style="color:var(--text-muted);">Under review</p>
+          <p class="text-xs mt-1 u-text-muted">Under review</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:var(--warn-bg);color:var(--warn);">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg u-bg-warn u-text-warn">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         </div>
       </div>
@@ -35,11 +35,11 @@
     <div class="card p-5">
       <div class="flex items-start justify-between">
         <div>
-          <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Approved</p>
+          <p class="text-xs uppercase tracking-wider u-text-muted">Approved</p>
           <p class="text-3xl font-bold mt-2">{{ dashboard.approved_count|default:"0" }}</p>
-          <p class="text-xs mt-1" style="color:var(--text-muted);">Active scholar status</p>
+          <p class="text-xs mt-1 u-text-muted">Active scholar status</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:var(--ok-bg);color:var(--ok);">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg u-bg-ok u-text-ok">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
       </div>
@@ -47,11 +47,11 @@
     <div class="card p-5">
       <div class="flex items-start justify-between">
         <div>
-          <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Notifications</p>
+          <p class="text-xs uppercase tracking-wider u-text-muted">Notifications</p>
           <p class="text-3xl font-bold mt-2">{{ dashboard.notification_count|default:"0" }}</p>
-          <p class="text-xs mt-1" style="color:var(--text-muted);">Check notifications</p>
+          <p class="text-xs mt-1 u-text-muted">Check notifications</p>
         </div>
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg" style="background:var(--info-bg);color:var(--info);">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg u-bg-info u-text-info">
           <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
         </div>
       </div>
@@ -60,45 +60,45 @@
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="card p-6 lg:col-span-2">
       <h2 class="font-semibold mb-1">Recommended Scholarships</h2>
-      <p class="text-xs mb-4" style="color:var(--text-muted);">AI-matched based on your profile</p>
+      <p class="text-xs mb-4 u-text-muted">AI-matched based on your profile</p>
       <div class="space-y-3">
         {% for s in scholarships|slice:":3" %}
-        <div class="p-4 rounded-xl border hover:border-primary transition" style="border-color:var(--border);">
+        <div class="p-4 rounded-xl border hover:border-primary transition u-bc-border">
           <div class="flex items-start justify-between gap-3 mb-2">
             <div>
               <p class="font-medium">{{ s.name }}</p>
-              <p class="text-xs mt-0.5" style="color:var(--text-muted);">{{ s.description|truncatewords:12 }}</p>
+              <p class="text-xs mt-0.5 u-text-muted">{{ s.description|truncatewords:12 }}</p>
             </div>
             <span class="badge badge-info shrink-0">{{ s.match|default:"—" }}% Match</span>
           </div>
-          <div class="w-full rounded-full h-1.5 mt-3" style="background:var(--border);">
-            <div class="h-1.5 rounded-full" style="background:var(--brand);width:{{ s.match|default:0 }}%;"></div>
+          <div class="w-full rounded-full h-1.5 mt-3 u-bg-border">
+            <div class="h-1.5 rounded-full u-bg-brand" data-meter="{{ s.match|default:0 }}"></div>
           </div>
         </div>
         {% empty %}
-        <p class="text-sm" style="color:var(--text-muted);">No scholarships available yet.</p>
+        <p class="text-sm u-text-muted">No scholarships available yet.</p>
         {% endfor %}
       </div>
     </div>
     <div class="card p-6">
       <h2 class="font-semibold mb-1">Profile Strength</h2>
-      <p class="text-xs mb-4" style="color:var(--text-muted);">Top match: Academic Scholarship</p>
+      <p class="text-xs mb-4 u-text-muted">Top match: Academic Scholarship</p>
       <div class="flex items-center justify-center my-6">
-        <div class="relative flex items-center justify-center" style="width:120px;height:120px;">
-          <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg);">
+        <div class="relative flex items-center justify-center u-w-120px u-h-120px">
+          <svg class="u-w-120px u-h-120px u-transform-rotate-90deg" viewBox="0 0 120 120">
             <circle cx="60" cy="60" r="50" fill="none" stroke="#e8ecf0" stroke-width="10"/>
             <circle cx="60" cy="60" r="50" fill="none" stroke="var(--brand)" stroke-width="10" stroke-dasharray="314" stroke-dashoffset="{{ top_match_offset|default:'157' }}" stroke-linecap="round"/>
           </svg>
           <div class="absolute text-center">
             <p class="text-2xl font-bold">{{ top_match|default:"0" }}%</p>
-            <p class="text-xs" style="color:var(--text-muted);">match</p>
+            <p class="text-xs u-text-muted">match</p>
           </div>
         </div>
       </div>
       <div class="space-y-2 text-sm">
-        <div class="flex justify-between"><span style="color:var(--text-muted);">GWA</span><span class="font-medium">{{ profile.gwa|default:"—" }}</span></div>
-        <div class="flex justify-between"><span style="color:var(--text-muted);">Course</span><span class="font-medium">{{ profile.course|default:"—" }}</span></div>
-        <div class="flex justify-between"><span style="color:var(--text-muted);">Year</span><span class="font-medium">Year {{ profile.year_level|default:"—" }}</span></div>
+        <div class="flex justify-between"><span class="u-text-muted">GWA</span><span class="font-medium">{{ profile.gwa|default:"—" }}</span></div>
+        <div class="flex justify-between"><span class="u-text-muted">Course</span><span class="font-medium">{{ profile.course|default:"—" }}</span></div>
+        <div class="flex justify-between"><span class="u-text-muted">Year</span><span class="font-medium">Year {{ profile.year_level|default:"—" }}</span></div>
       </div>
     </div>
   </div>
@@ -107,13 +107,13 @@
       <h2 class="font-semibold mb-4">Recent Announcements</h2>
       <div class="grid md:grid-cols-3 gap-4">
         {% for a in announcements|slice:":3" %}
-        <div class="p-4 rounded-xl" style="background:#f6f8fc;">
-          <p class="text-xs" style="color:var(--text-muted);">{{ a.created_at|date:"M d" }}</p>
+        <div class="p-4 rounded-xl u-bg-sunken">
+          <p class="text-xs u-text-muted">{{ a.created_at|date:"M d" }}</p>
           <p class="font-medium text-sm mt-1">{{ a.title }}</p>
-          <p class="text-xs mt-2 line-clamp-2" style="color:var(--text-muted);">{{ a.body|truncatewords:15 }}</p>
+          <p class="text-xs mt-2 line-clamp-2 u-text-muted">{{ a.body|truncatewords:15 }}</p>
         </div>
         {% empty %}
-        <p class="text-sm col-span-3" style="color:var(--text-muted);">No announcements yet.</p>
+        <p class="text-sm col-span-3 u-text-muted">No announcements yet.</p>
         {% endfor %}
       </div>
     </div>
@@ -127,10 +127,10 @@
         <div class="flex gap-3">
           <div class="flex flex-col items-center">
             <div class="h-3 w-3 rounded-full {% if e.status == 'done' %}bg-green-500{% else %}bg-gray-200 border-2 border-gray-300{% endif %}"></div>
-            {% if not forloop.last %}<div class="w-px flex-1 mt-1" style="background:var(--border);"></div>{% endif %}
+            {% if not forloop.last %}<div class="w-px flex-1 mt-1 u-bg-border"></div>{% endif %}
           </div>
           <div class="pb-4">
-            <p class="text-xs" style="color:var(--text-muted);">{{ e.date }}</p>
+            <p class="text-xs u-text-muted">{{ e.date }}</p>
             <p class="text-sm font-medium">{{ e.title }}</p>
           </div>
         </div>

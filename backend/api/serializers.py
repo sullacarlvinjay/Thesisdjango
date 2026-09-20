@@ -176,11 +176,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         model = StudentProfile
         fields = '__all__'
 
-    def get_name(self, obj):
+    def get_name(self, obj) -> str:
         """The student's full name."""
         return obj.user.get_full_name()
 
-    def get_avatar(self, obj):
+    def get_avatar(self, obj) -> str:
         """The profile photo URL, or ''."""
         name = obj.user.get_full_name().split()
         return ''.join([n[0] for n in name[:2]]).upper()
@@ -194,7 +194,7 @@ class ScholarshipSerializer(serializers.ModelSerializer):
         model = Scholarship
         fields = '__all__'
 
-    def get_match(self, obj):
+    def get_match(self, obj) -> int:
         """How well the signed-in student matches this programme.
 
         A rough score for ordering the catalogue, not an eligibility verdict —
@@ -247,7 +247,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ['id', 'type', 'title', 'body', 'is_read', 'time']
 
-    def get_time(self, obj):
+    def get_time(self, obj) -> str:
         """How long ago it arrived, in words."""
         from django.utils import timezone
         from django.utils.timesince import timesince
@@ -296,7 +296,7 @@ class ActivityLogSerializer(serializers.ModelSerializer):
         model = ActivityLog
         fields = ['id', 'who', 'action', 'time']
 
-    def get_time(self, obj):
+    def get_time(self, obj) -> str:
         """How long ago it happened, in words."""
         from django.utils import timezone
         from django.utils.timesince import timesince

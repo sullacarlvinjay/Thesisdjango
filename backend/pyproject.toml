@@ -46,7 +46,6 @@ select = ["E", "F", "W", "B", "C90", "UP", "DJ"]
 ignore = [
     "E501",
     "B008",
-    "UP038",
 ]
 
 [tool.ruff.lint.mccabe]
@@ -57,3 +56,21 @@ max-complexity = 15
 "api/student_views.py" = ["F401", "E501"]
 "api/test_*.py" = ["C90"]
 "tests_browser/base.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.13"
+files = [
+    "api/tes_ranking.py",
+    "api/staff_ranking.py",
+    "api/affirmative_ranking.py",
+    "api/analytics_charts.py",
+    "api/mfa.py",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+pretty = true

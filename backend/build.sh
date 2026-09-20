@@ -30,6 +30,12 @@ python manage.py migrate
 # the password of an account that already exists.
 python manage.py bootstrap
 
+# Duplicate benefits and repeated award numbers are refused by the database as
+# of migration 0096. Anything predating it is reported rather than hidden; this
+# does not stop the deploy, because the rows are already there and the office
+# is who settles them. See docs/OPERATIONS.md.
+python manage.py find_duplicate_awards
+
 # Configuration that would otherwise fail quietly once the site is live. Nothing
 # here stops the deploy: the warnings are for things the site survives without
 # but nobody would notice were missing. See api/checks.py.

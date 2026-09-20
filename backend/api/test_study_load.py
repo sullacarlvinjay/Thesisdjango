@@ -1,7 +1,7 @@
 from django.test import Client, TestCase
 
 from api.models import StudentProfile, SystemSettings, User
-from api.test_registration_payload import CERTIFICATES, a_student
+from api.fixtures_registration import CERTIFICATES, a_student
 
 
 class StudyLoadIsRequiredTest(TestCase):

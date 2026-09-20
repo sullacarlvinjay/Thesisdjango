@@ -7,8 +7,8 @@
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
 {% block content %}
 {% if errors %}
-<div class="mb-4 p-3 rounded-lg" style="background:var(--danger-bg);border:1px solid var(--danger-border);">
-  {% for e in errors %}<p class="text-sm" style="color:var(--danger);">{{ e }}</p>{% endfor %}
+<div class="mb-4 p-3 rounded-lg u-bg-danger u-border-1px-solid-danger-border">
+  {% for e in errors %}<p class="text-sm u-text-danger">{{ e }}</p>{% endfor %}
 </div>
 {% endif %}
 <form method="post" enctype="multipart/form-data">
@@ -16,80 +16,80 @@
   <div class="grid {% if action == 'Edit' %}xl:grid-cols-4 lg:grid-cols-3{% else %}lg:grid-cols-3{% endif %} gap-6">
     <div class="{% if action == 'Edit' %}xl:col-span-3 lg:col-span-2{% else %}lg:col-span-2{% endif %} space-y-6">
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Account Credentials</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Account Credentials</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>First Name <span style="color:var(--danger);">*</span></label>
-            <input name="first_name" required value="{{ v_first_name }}" placeholder="e.g. Juan" />
+            <label for="f-first-name">First Name <span class="u-text-danger">*</span></label>
+            <input id="f-first-name" name="first_name" required value="{{ v_first_name }}" placeholder="e.g. Juan" />
           </div>
           <div class="space-y-1.5">
-            <label>Last Name <span style="color:var(--danger);">*</span></label>
-            <input name="last_name" required value="{{ v_last_name }}" placeholder="e.g. Dela Cruz" />
+            <label for="f-last-name">Last Name <span class="u-text-danger">*</span></label>
+            <input id="f-last-name" name="last_name" required value="{{ v_last_name }}" placeholder="e.g. Dela Cruz" />
           </div>
           <div class="space-y-1.5">
-            <label>Middle Name</label>
-            <input name="middle_name" value="{{ v_middle_name }}" placeholder="e.g. Ramirez" />
+            <label for="f-middle-name">Middle Name</label>
+            <input id="f-middle-name" name="middle_name" value="{{ v_middle_name }}" placeholder="e.g. Ramirez" />
           </div>
           <div class="space-y-1.5">
-            <label>Suffix</label>
-            <input name="suffix" value="{{ v_suffix }}" placeholder="Jr., III — if any" />
+            <label for="f-suffix">Suffix</label>
+            <input id="f-suffix" name="suffix" value="{{ v_suffix }}" placeholder="Jr., III — if any" />
           </div>
           <div class="space-y-1.5">
-            <label>Email <span style="color:var(--danger);">*</span></label>
-            <input name="email" type="email" required value="{{ v_email }}" placeholder="student@gmail.com" />
+            <label for="f-email">Email <span class="u-text-danger">*</span></label>
+            <input id="f-email" name="email" type="email" required value="{{ v_email }}" placeholder="student@gmail.com" />
           </div>
           <div class="space-y-1.5">
-            <label>Password {% if action == 'Edit' %}<span style="color:var(--text-muted);font-weight:400;">(blank = keep current)</span>{% else %}<span style="color:var(--danger);">*</span>{% endif %}</label>
-            <input name="password" type="password" {% if action == 'Add' %}required{% endif %} placeholder="{% if action == 'Edit' %}Leave blank to keep unchanged{% else %}Set a password{% endif %}" />
+            <label for="f-password">Password {% if action == 'Edit' %}<span class="u-text-muted u-fw-400">(blank = keep current)</span>{% else %}<span class="u-text-danger">*</span>{% endif %}</label>
+            <input id="f-password" name="password" type="password" {% if action == 'Add' %}required{% endif %} placeholder="{% if action == 'Edit' %}Leave blank to keep unchanged{% else %}Set a password{% endif %}" />
           </div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Personal Information</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>Student Number <span style="color:var(--danger);">*</span></label>
-            <input name="student_id" required value="{{ v_student_id }}" placeholder="e.g. 2024-00001" />
+            <label for="f-student-id">Student Number <span class="u-text-danger">*</span></label>
+            <input id="f-student-id" name="student_id" required value="{{ v_student_id }}" placeholder="e.g. 2024-00001" />
           </div>
           <div class="space-y-1.5">
-            <label>Birth Date</label>
+            <label for="birthDateField">Birth Date</label>
             <input name="date_of_birth" id="birthDateField" type="date" value="{{ v_date_of_birth }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Age</label>
-            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
+            <label for="ageField">Age</label>
+            <input class="u-bg-sunken u-text-muted u-cursor-blocked" id="ageField" type="number" readonly/>
           </div>
           <div class="space-y-1.5">
-            <label>Gender</label>
-            <select name="gender">
+            <label for="f-gender">Gender</label>
+            <select id="f-gender" name="gender">
               <option value="">— Select —</option>
               <option value="Male" {% if v_gender == "Male" %}selected{% endif %}>Male</option>
               <option value="Female" {% if v_gender == "Female" %}selected{% endif %}>Female</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Contact Number</label>
-            <input name="contact_number" type="tel" value="{{ v_contact_number }}" placeholder="e.g. 09XX-XXX-XXXX" />
+            <label for="f-contact-number">Contact Number</label>
+            <input id="f-contact-number" name="contact_number" type="tel" value="{{ v_contact_number }}" placeholder="e.g. 09XX-XXX-XXXX" />
           </div>
           <div class="space-y-1.5">
-            <label>Barangay / Street</label>
-            <input name="barangay" value="{{ v_barangay }}" placeholder="e.g. Brgy. Larrazabal" />
+            <label for="f-barangay">Barangay / Street</label>
+            <input id="f-barangay" name="barangay" value="{{ v_barangay }}" placeholder="e.g. Brgy. Larrazabal" />
           </div>
           <div class="space-y-1.5">
-            <label>Municipality</label>
-            <input name="municipality" value="{{ v_municipality }}" placeholder="e.g. Naval" />
+            <label for="f-municipality">Municipality</label>
+            <input id="f-municipality" name="municipality" value="{{ v_municipality }}" placeholder="e.g. Naval" />
           </div>
           <div class="space-y-1.5">
-            <label>Province</label>
-            <input name="province" value="{{ v_province }}" placeholder="e.g. Biliran" />
+            <label for="f-province">Province</label>
+            <input id="f-province" name="province" value="{{ v_province }}" placeholder="e.g. Biliran" />
           </div>
           <div class="space-y-1.5">
-            <label>Birth Place</label>
-            <input name="birth_place" value="{{ v_birth_place }}" placeholder="e.g. Naval, Biliran" />
+            <label for="f-birth-place">Birth Place</label>
+            <input id="f-birth-place" name="birth_place" value="{{ v_birth_place }}" placeholder="e.g. Naval, Biliran" />
           </div>
           <div class="space-y-1.5">
-            <label>Civil Status</label>
-            <select name="civil_status">
+            <label for="f-civil-status">Civil Status</label>
+            <select id="f-civil-status" name="civil_status">
               <option value="">— Select —</option>
               {% for val, label in civil_statuses %}
               <option value="{{ val }}" {% if v_civil_status == val %}selected{% endif %}>{{ label }}</option>
@@ -97,16 +97,16 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Annual Family Income (₱)</label>
-            <input name="family_income" type="number" min="0" value="{{ v_family_income }}" placeholder="e.g. 120000" />
+            <label for="f-family-income">Annual Family Income (₱)</label>
+            <input id="f-family-income" name="family_income" type="number" min="0" value="{{ v_family_income }}" placeholder="e.g. 120000" />
           </div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Enrollment Data</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Enrollment Data</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>School <span style="color:var(--danger);">*</span></label>
+            <label for="schoolSelect">School <span class="u-text-danger">*</span></label>
             <select name="school" id="schoolSelect" onchange="updateCourseDropdown()" required>
               <option value="">— Select School —</option>
               {% for val, label in bipsu_schools %}
@@ -115,14 +115,14 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Course <span style="color:var(--danger);">*</span></label>
+            <label for="courseSelect">Course <span class="u-text-danger">*</span></label>
             <select name="course" id="courseSelect" required>
               <option value="">— Select Course —</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Level</label>
-            <select name="level">
+            <label for="f-level">Level</label>
+            <select id="f-level" name="level">
               <option value="">— Select —</option>
               {% for val, label in student_levels %}
               <option value="{{ val }}" {% if v_level == val %}selected{% endif %}>{{ label }}</option>
@@ -130,16 +130,16 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Department</label>
-            <input name="department" value="{{ v_department }}" placeholder="e.g. Computer Science Department" />
+            <label for="f-department">Department</label>
+            <input id="f-department" name="department" value="{{ v_department }}" placeholder="e.g. Computer Science Department" />
           </div>
           <div class="space-y-1.5">
-            <label>Curriculum</label>
-            <input name="curriculum" value="{{ v_curriculum }}" placeholder="e.g. 2018-2019" />
+            <label for="f-curriculum">Curriculum</label>
+            <input id="f-curriculum" name="curriculum" value="{{ v_curriculum }}" placeholder="e.g. 2018-2019" />
           </div>
           <div class="space-y-1.5">
-            <label>Year Level <span style="color:var(--danger);">*</span></label>
-            <select name="year_level">
+            <label for="f-year-level">Year Level <span class="u-text-danger">*</span></label>
+            <select id="f-year-level" name="year_level">
               <option value="1" {% if v_year_level == "1" %}selected{% endif %}>1st Year</option>
               <option value="2" {% if v_year_level == "2" %}selected{% endif %}>2nd Year</option>
               <option value="3" {% if v_year_level == "3" %}selected{% endif %}>3rd Year</option>
@@ -147,12 +147,12 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Learner Ref. No.</label>
-            <input name="learner_ref_no" value="{{ v_learner_ref_no }}" placeholder="12-digit LRN" />
+            <label for="f-learner-ref-no">Learner Ref. No.</label>
+            <input id="f-learner-ref-no" name="learner_ref_no" value="{{ v_learner_ref_no }}" placeholder="12-digit LRN" />
           </div>
           <div class="space-y-1.5">
-            <label>Entry Period</label>
-            <select name="entry_period">
+            <label for="f-entry-period">Entry Period</label>
+            <select id="f-entry-period" name="entry_period">
               <option value="">— Select —</option>
               {% for val, label in semesters %}
               <option value="{{ val }}" {% if v_entry_period == val %}selected{% endif %}>{{ label }}</option>
@@ -160,98 +160,97 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Entry Date</label>
-            <input name="entry_date" type="date" value="{{ v_entry_date }}" />
+            <label for="f-entry-date">Entry Date</label>
+            <input id="f-entry-date" name="entry_date" type="date" value="{{ v_entry_date }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Exam Score</label>
-            <input name="exam_score" type="number" step="0.01" min="0" value="{{ v_exam_score }}"
+            <label for="f-exam-score">Exam Score</label>
+            <input id="f-exam-score" name="exam_score" type="number" step="0.01" min="0" value="{{ v_exam_score }}"
                    placeholder="Admission exam score on the registrar's record" />
           </div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Educational Background</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Educational Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>Elementary School</label>
-            <input name="elementary" value="{{ v_elementary }}" placeholder="School name" />
+            <label for="f-elementary">Elementary School</label>
+            <input id="f-elementary" name="elementary" value="{{ v_elementary }}" placeholder="School name" />
           </div>
           <div class="space-y-1.5">
-            <label>High School</label>
-            <input name="highschool" value="{{ v_highschool }}" placeholder="School name" />
+            <label for="f-highschool">High School</label>
+            <input id="f-highschool" name="highschool" value="{{ v_highschool }}" placeholder="School name" />
           </div>
           <div class="space-y-1.5 sm:col-span-2">
-            <label>Last School Attended</label>
-            <input name="last_school" value="{{ v_last_school }}" placeholder="School name" />
+            <label for="f-last-school">Last School Attended</label>
+            <input id="f-last-school" name="last_school" value="{{ v_last_school }}" placeholder="School name" />
           </div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Family Background</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Family Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>Father's Name</label>
-            <input name="father_name" value="{{ v_father_name }}" />
+            <label for="f-father-name">Father's Name</label>
+            <input id="f-father-name" name="father_name" value="{{ v_father_name }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Father's Occupation</label>
-            <input name="father_occupation" value="{{ v_father_occupation }}" />
+            <label for="f-father-occupation">Father's Occupation</label>
+            <input id="f-father-occupation" name="father_occupation" value="{{ v_father_occupation }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Mother's Name</label>
-            <input name="mother_name" value="{{ v_mother_name }}" />
+            <label for="f-mother-name">Mother's Name</label>
+            <input id="f-mother-name" name="mother_name" value="{{ v_mother_name }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Mother's Occupation</label>
+            <label for="gwaInput">Mother's Occupation</label>
             <input name="mother_occupation" value="{{ v_mother_occupation }}" />
           </div>
         </div>
       </div>
       {% if show_application_fields %}
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Academic Information</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Academic Information</h2>
         <div class="grid sm:grid-cols-3 gap-4">
           <div class="space-y-1.5">
-            <label>GWA</label>
+            <label for="gwaInput">GWA</label>
             <input name="gwa" type="number" step="0.01" min="1" max="5" id="gwaInput"
               value="{{ v_gwa }}" oninput="validateGWA(this.value)" />
           </div>
           <div class="space-y-1.5">
-            <label>Semester</label>
-            <input name="semester" value="{{ v_semester }}" />
+            <label for="f-semester">Semester</label>
+            <input id="f-semester" name="semester" value="{{ v_semester }}" />
           </div>
           <div class="space-y-1.5">
-            <label>School Year</label>
-            <input name="school_year" value="{{ v_school_year }}" />
+            <label for="f-school-year">School Year</label>
+            <input id="f-school-year" name="school_year" value="{{ v_school_year }}" />
           </div>
         </div>
       </div>
       {% endif %}
       {% if show_application_fields %}
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h2>
-        <p class="text-xs mb-5" style="color:var(--text-muted);">
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider u-text-brand">Document Upload</h2>
+        <p class="text-xs mb-5 u-text-muted">
           {% if action == 'Edit' %}Upload a new file to replace the existing one. Leave blank to keep the current file.{% else %}All documents are required. Accepted: PDF, JPG, PNG · Max 5MB each.{% endif %}
         </p>
         <div class="space-y-4">
           {% for doc_key, doc_label, doc_hint in doc_list %}
-          <div class="rounded-xl border p-4" style="border-color:var(--border);">
+          <div class="rounded-xl border p-4 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">{{ forloop.counter }}</span>
-              <label class="text-sm font-medium" style="color:var(--text-soft);">{{ doc_label }} {% if action == 'Add' %}<span style="color:var(--danger);">*</span>{% endif %}</label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">{{ forloop.counter }}</span>
+              <label class="text-sm font-medium u-text-soft">{{ doc_label }} {% if action == 'Add' %}<span class="u-text-danger">*</span>{% endif %}</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">{{ doc_hint }}</p>
+            <p class="text-xs mb-2 ml-7 u-text-muted">{{ doc_hint }}</p>
             {% if action == 'Edit' and app %}
               {% for d in app.documents.all %}{% if d.name == doc_label %}
               <div class="flex items-center gap-2 mb-2 ml-7">
-                <svg class="h-4 w-4 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                <a href="{{ d.file.url }}" data-doc="{{ d.name }}" class="text-xs" style="color:var(--info);">Current file on record</a>
+                <svg class="h-4 w-4 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <a href="{{ d.file.url }}" data-doc="{{ d.name }}" class="text-xs u-text-info">Current file on record</a>
               </div>
               {% endif %}{% endfor %}
             {% endif %}
-            <input type="file" name="{{ doc_key }}" accept=".pdf,.jpg,.jpeg,.png"
-              {% if action == 'Add' %}required{% endif %} style="width:100%;" />
+            <input class="u-w-full" type="file" name="{{ doc_key }}" accept=".pdf,.jpg,.jpeg,.png" {% if action == 'Add' %}required{% endif %}/>
           </div>
           {% endfor %}
         </div>
@@ -261,10 +260,10 @@
     <div class="space-y-6">
       {% if action == 'Edit' %}
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--text-muted);">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h2>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider u-text-muted">Profile Info <span class="u-fs-0-7rem u-fw-400 u-tt-none u-ls-0">(read-only — set by student)</span></h2>
+        <p class="text-xs mb-4 u-text-muted">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
         <div class="space-y-3">
-          <div class="section-title" style="margin-top:0;">Identity &amp; Status</div>
+          <div class="section-title u-mt-0">Identity &amp; Status</div>
           <div class="detail-grid">
             <div class="detail-field"><label>Civil Status</label><span>{{ v_civil_status|default:"—" }}</span></div>
             <div class="detail-field"><label>Citizenship</label><span>{{ v_citizenship|default:"—" }}</span></div>
@@ -277,7 +276,7 @@
           </div>
           <div class="flex flex-wrap gap-2 mt-1">
             {% if v_is_pwd %}<span class="badge badge-info">PWD — {{ v_disability_type }}</span>
-            {% else %}<span class="text-xs" style="color:var(--text-muted);">No priority group on record</span>{% endif %}
+            {% else %}<span class="text-xs u-text-muted">No priority group on record</span>{% endif %}
           </div>
           <div class="section-title">TES Eligibility</div>
           <div class="detail-grid">
@@ -303,8 +302,8 @@
           </div>
           {% if profile.shs_gpa_cert or profile.suc_exam_cert %}
           <div class="flex flex-wrap gap-2 mt-1">
-            {% if profile.shs_gpa_cert %}<a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" class="btn btn-outline" style="font-size:0.72rem;padding:0.2rem 0.6rem;">SHS GPA Cert</a>{% endif %}
-            {% if profile.suc_exam_cert %}<a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" class="btn btn-outline" style="font-size:0.72rem;padding:0.2rem 0.6rem;">SUC Exam Cert</a>{% endif %}
+            {% if profile.shs_gpa_cert %}<a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" class="btn btn-outline u-fs-0-72rem u-p-0-2rem-0-6rem">SHS GPA Cert</a>{% endif %}
+            {% if profile.suc_exam_cert %}<a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" class="btn btn-outline u-fs-0-72rem u-p-0-2rem-0-6rem">SUC Exam Cert</a>{% endif %}
           </div>
           {% endif %}
         </div>
@@ -313,13 +312,13 @@
       <div class="card p-6 sticky top-24">
         {% if show_application_fields %}
         <div class="flex items-center gap-2 mb-3">
-          <svg class="h-4 w-4" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          <svg class="h-4 w-4 u-text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
           <h2 class="font-semibold">Auto-Validation</h2>
         </div>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">Real-time eligibility based on GWA.</p>
-        <div id="validationResult" class="p-4 rounded-xl" style="background:var(--surface-2);">
+        <p class="text-xs mb-4 u-text-muted">Real-time eligibility based on GWA.</p>
+        <div id="validationResult" class="p-4 rounded-xl u-bg-surface-2">
           <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
-          <p class="text-xl font-bold mt-1" id="classificationText" style="color:var(--text-muted);">Enter GWA</p>
+          <p class="text-xl font-bold mt-1 u-text-muted" id="classificationText">Enter GWA</p>
         </div>
         <div class="mt-4 space-y-2 text-xs">
           <div class="flex justify-between"><span>Rule: GWA ≤ 1.29</span><span class="badge badge-muted" id="rule1">—</span></div>
@@ -329,7 +328,7 @@
         <button type="submit" class="btn btn-primary w-full mt-6">
           {% if action == 'Add' %}Add Student{% else %}Save Changes{% endif %}
         </button>
-        <a href="{{ cancel_url }}" class="btn btn-outline w-full mt-2" style="text-align:center;">Cancel</a>
+        <a href="{{ cancel_url }}" class="btn btn-outline w-full mt-2 u-ta-center">Cancel</a>
       </div>
     </div>
   </div>

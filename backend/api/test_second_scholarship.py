@@ -6,7 +6,7 @@ from api.models import (
     ActivityLog, ImportedScholar, Scholarship, ScholarshipLinkRequest,
     StudentProfile, SystemSettings, User,
 )
-from api.test_registration_payload import a_declared_scholar
+from api.fixtures_registration import a_declared_scholar
 
 
 def a_proof(name='award.pdf', size=1024):
@@ -63,7 +63,7 @@ class TwoDeclarationsAtRegistrationTest(TestCase):
         self.assertEqual(ScholarshipLinkRequest.objects.count(), 1)
 
     def test_declaring_nothing_still_works_unchanged(self):
-        from api.test_registration_payload import a_student
+        from api.fixtures_registration import a_student
         r = self.c.post('/register/', a_student(email='ben@gmail.com',
                                                 student_id='23-0003'))
         self.assertEqual(r.status_code, 302)

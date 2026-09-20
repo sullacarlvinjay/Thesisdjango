@@ -159,9 +159,12 @@ def vpsea_report_download(request):
     try:
         buf, _summary = masterlist_report.build_document(
             parsed['sy'], parsed['semester'], term_label=term)
-    except FileNotFoundError as exc:
+    except FileNotFoundError:
         from urllib.parse import quote
-        return redirect(f'/vpsea/reports/?sy={quote(term)}&error={quote(str(exc))}')
+        logger.exception('Masterlist template missing for term %r', term)
+        return redirect(f'/vpsea/reports/?sy={quote(term)}&error=' + quote(
+            'The masterlist template is missing on the server. Restore it from '
+            'the office copy before generating this report.'))
 
     label = term.replace('-', '_')
     filename = f'BiPSU_List_of_Scholars_{label}.docx'
@@ -171,6 +174,310 @@ def vpsea_report_download(request):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+MAX_COLS = 13
+
+HEADERS_ACADEMIC = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX',
+                    'BRGY./ST.', 'MUN.', 'PROV.', 'COURSE', 'YR.', 'GWA', '%',
+                    'SCHOLARSHIP PROGRAM']
+
+HEADERS_STAFF = ['NO.', 'LAST NAME', 'FIRST NAME', 'M.I.', 'SEX', 'COURSE',
+                 'YEAR LEVEL', 'STUDENT NUMBER', '%', 'SCHOLARSHIP PROGRAM']
+
+HEADERS_AWARD = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME',
+                 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE',
+                 'YR.', 'SCHOLARSHIP PROGRAM']
+
+HEADERS_GSIS = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX',
+                'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.',
+                'SCHOLARSHIP PROGRAM']
+
+FOOTER_TEXT = (
+    'Prepared by:\t\t\t\t\tNoted:\t\t\t\t\t\tRecommending approval:\t\t\t\t\t\tApproved:\n'
+    'MARICEL S. SAULAN\t\t\t\tNORMA M. DUALLO, Ph.D.TM\t\t\tERWIN G. SALVATIERRA, Ph. D.\t\t\tVICTOR C. CAÑEZO, JR., Ed. D.\n'
+    'Scholarship in charge\t\t\t\tSDSO Director\t\t\t\t\tVP for Extension Services, Student and External Affairs\t\tUniversity President'
+)
+
+
+def _split_name(full_name):
+    """Split a single full name into last, first and middle initial."""
+    parts = (full_name or '').strip().split()
+    if len(parts) == 0:
+        return ('', '', '')
+    if len(parts) == 1:
+        return (parts[0], '', '')
+    if len(parts) == 2:
+        return (parts[-1], parts[0], '')
+    middle = ' '.join(parts[1:-1])
+    return (parts[-1], parts[0], middle[0] + '.' if middle else '')
+
+
+def _name_parts(user):
+    """Name cells for a record, whichever shape it arrived in."""
+    return (user.last_name or '', user.first_name or '', '')
+
+
+def _address_parts(address):
+    """Barangay, municipality and province as separate cells."""
+    parts = [piece.strip() for piece in (address or '').split(',')]
+    return (parts[0] if len(parts) > 0 else '',
+            parts[1] if len(parts) > 1 else '',
+            parts[2] if len(parts) > 2 else '')
+
+
+def _is_female(gender):
+    """Whether a gender cell reads as female."""
+    return bool(gender) and gender.upper() in ('F', 'FEMALE')
+
+
+def _by_gender(records, gender_of):
+    """Split records into female and male bands, keeping the order.
+
+    Anything that does not read as female goes in the male band rather than
+    being dropped, so the two bands always add up to the section total.
+    """
+    female = [record for record in records if _is_female(gender_of(record))]
+    female_pks = {record.pk for record in female}
+    return female, [record for record in records if record.pk not in female_pks]
+
+
+def _academic_rows(awards):
+    """Rows for the Academic section."""
+    rows = []
+    for number, award in enumerate(awards, 1):
+        profile = award.student
+        last, first, initial = _name_parts(profile.user)
+        brgy, mun, prov = _address_parts(profile.address)
+        standing = ('University Scholar' if profile.gwa <= 1.29
+                    else 'College Scholars' if profile.gwa <= 1.50 else '')
+        rows.append([number, last, first, initial, profile.gender or '',
+                     brgy, mun, prov, profile.course, profile.year_level,
+                     profile.gwa, standing, 'ACADEMIC'])
+    return rows
+
+
+def _staff_rows(records):
+    """Rows for the BiPSU Staff section."""
+    rows = []
+    for number, record in enumerate(records, 1):
+        last, first, initial = _split_name(record.full_name)
+        rows.append([number, last, first, initial, record.gender or '',
+                     record.course, record.year_level, record.student_id or '',
+                     '100' if record.is_nsu_staff else '75',
+                     'BiPSU STAFF SCHOLARSHIP'])
+    return rows
+
+
+def _affirmative_rows(records):
+    """Rows for the Affirmative Action section."""
+    rows = []
+    for number, record in enumerate(records, 1):
+        last, first, initial = _split_name(record.full_name)
+        brgy, mun, prov = _address_parts(record.address)
+        rows.append([number, '', last, first, initial, record.gender or '',
+                     brgy, mun, prov, '', record.course, record.year_level,
+                     'Affirmative Action Scholarship'])
+    return rows
+
+
+def _award_rows(awards):
+    """Rows for the CHED, DOST and TES sections."""
+    rows = []
+    for number, award in enumerate(awards, 1):
+        profile = award.student
+        last, first, initial = _name_parts(profile.user)
+        brgy, mun, prov = _address_parts(profile.address)
+        rows.append([number, award.award_number, last, first, initial,
+                     profile.gender or '', brgy, mun, prov,
+                     award.congress_district, profile.course,
+                     profile.year_level, award.scholarship.name])
+    return rows
+
+
+def _gsis_rows(awards):
+    """Rows for the GSIS section, which carries no award number."""
+    rows = []
+    for number, award in enumerate(awards, 1):
+        profile = award.student
+        last, first, initial = _name_parts(profile.user)
+        brgy, mun, prov = _address_parts(profile.address)
+        rows.append([number, last, first, initial, profile.gender or '',
+                     brgy, mun, prov, award.congress_district, profile.course,
+                     profile.year_level, award.scholarship.name])
+    return rows
+
+
+def _approved_awards(stype, term):
+    """Approved portal awards for one programme in one term."""
+    from .models import Application
+
+    return list(Application.objects.filter(
+        status='Approved', scholarship__type=stype, term_label=term
+    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS)
+        .order_by('student__user__last_name'))
+
+
+def _approved_records(qualified_for, term):
+    """Approved roster records for one programme in one term."""
+    from .models import ApplicantRecord
+
+    return list(ApplicantRecord.objects.filter(
+        status='Approved', qualified_for=qualified_for, term_label=term
+    ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
+
+
+def _award_gender(award):
+    """The gender on a portal award's student profile."""
+    return award.student.gender
+
+
+def _record_gender(record):
+    """The gender on a roster record."""
+    return record.gender
+
+
+class _MasterlistSheet:
+    """The masterlist workbook, with one method per kind of row.
+
+    Written top to bottom: every method appends at the cursor and moves it
+    on, so a section is a sequence of calls rather than a row arithmetic
+    the caller has to keep straight.
+    """
+    def __init__(self, sheet_title):
+        import openpyxl
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+        self.workbook = openpyxl.Workbook()
+        self.sheet = self.workbook.active
+        self.sheet.title = sheet_title
+        self.row = 1
+
+        thin = Side(style='thin')
+        self.border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        self.center = Alignment(horizontal='center', vertical='center',
+                                wrap_text=True)
+        self.header_font = Font(bold=True, size=9)
+        self.header_fill = PatternFill('solid', fgColor='D9E1F2')
+        self.section_fill = PatternFill('solid', fgColor='BDD7EE')
+        self.title_fill = PatternFill('solid', fgColor='1F4E79')
+        self.title_font = Font(bold=True, size=11, color='FFFFFF')
+
+    def _merged(self, text, ncols):
+        """Write one merged cell across the row and return it."""
+        self.sheet.cell(row=self.row, column=1, value=text)
+        self.sheet.merge_cells(start_row=self.row, start_column=1,
+                               end_row=self.row, end_column=ncols)
+        return self.sheet.cell(row=self.row, column=1)
+
+    def title(self, text, ncols=MAX_COLS):
+        """Write one of the merged title rows."""
+        cell = self._merged(text, ncols)
+        cell.font = self.title_font
+        cell.fill = self.title_fill
+        cell.alignment = self.center
+        cell.border = self.border
+        self.sheet.row_dimensions[self.row].height = 18
+        self.row += 1
+
+    def section(self, text, ncols):
+        """Write a programme's section heading."""
+        from openpyxl.styles import Font
+
+        cell = self._merged(text, ncols)
+        cell.font = Font(bold=True, size=10)
+        cell.fill = self.section_fill
+        cell.alignment = self.center
+        cell.border = self.border
+        self.row += 1
+
+    def gender_label(self, text, ncols):
+        """Write the FEMALE or MALE band label."""
+        from openpyxl.styles import Alignment, Font
+
+        cell = self._merged(text, ncols)
+        cell.font = Font(bold=True, size=9)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        self.row += 1
+
+    def headers(self, headers):
+        """Write a header row."""
+        for column, heading in enumerate(headers, 1):
+            cell = self.sheet.cell(row=self.row, column=column, value=heading)
+            cell.font = self.header_font
+            cell.fill = self.header_fill
+            cell.border = self.border
+            cell.alignment = self.center
+        self.row += 1
+
+    def rows(self, values):
+        """Write a block of scholar rows."""
+        from openpyxl.styles import Alignment, Font
+
+        for line in values:
+            for column, value in enumerate(line, 1):
+                cell = self.sheet.cell(row=self.row, column=column, value=value)
+                cell.border = self.border
+                cell.alignment = Alignment(vertical='center', wrap_text=True)
+                cell.font = Font(size=9)
+            self.row += 1
+
+    def blank(self):
+        """Leave a row empty, for spacing."""
+        self.row += 1
+
+    def gendered(self, headers, records, build_rows, gender_of):
+        """Write a section's female band then its male band."""
+        female, male = _by_gender(records, gender_of)
+        for label, band in (('FEMALE', female), ('MALE', male)):
+            self.gender_label(label, len(headers))
+            self.headers(headers)
+            self.rows(build_rows(band))
+
+    def footer(self, text):
+        """Put the signature block in the page footer."""
+        for footer in (self.sheet.oddFooter, self.sheet.evenFooter):
+            footer.center.text = text
+            footer.center.size = 8
+
+    def autofit(self):
+        """Widen each column to its longest cell, within reason."""
+        from openpyxl.utils import get_column_letter
+
+        for index in range(1, self.sheet.max_column + 1):
+            longest = 0
+            for row in range(1, self.sheet.max_row + 1):
+                value = self.sheet.cell(row=row, column=index).value
+                if value:
+                    longest = max(longest, len(str(value)))
+            self.sheet.column_dimensions[get_column_letter(index)].width = min(
+                longest + 3, 35)
+
+    def as_response(self, filename):
+        """The workbook as a download."""
+        from io import BytesIO
+
+        buffer = BytesIO()
+        self.workbook.save(buffer)
+        buffer.seek(0)
+        response = HttpResponse(
+            buffer.read(),
+            content_type=('application/vnd.openxmlformats-officedocument'
+                          '.spreadsheetml.sheet'),
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+def _write_ched_sections(sheet, term, heading_suffix):
+    """The two CHED tiers, each as its own gendered section."""
+    full, half = split_ched(_approved_awards('CHED', term))
+    for title, awards in (('FULL MERIT/ FULL SCHOLAR (*)', full),
+                          ('HALF MERIT/ PARTIAL SCHOLAR (*)', half)):
+        sheet.section(f'{title} SCHOLARSHIP GRANT — {heading_suffix}',
+                      len(HEADERS_AWARD))
+        sheet.gendered(HEADERS_AWARD, list(awards), _award_rows, _award_gender)
+        sheet.blank()
+
 
 @_vpsea_required
 def vpsea_report_download_excel(request):
@@ -183,310 +490,57 @@ def vpsea_report_download_excel(request):
     below is scoped to ``term``; they were not, and the sheet carried every
     approved award ever made under a heading naming one semester.
     """
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    from io import BytesIO
-    from django.http import HttpResponse
-    from .models import Application, ApplicantRecord
-
     term, parsed, _display = _report_term(request)
     semester = parsed['semester']
     ay = parsed['sy']
+    suffix = f'{semester} SY: {ay}'
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Scholars'
+    sheet = _MasterlistSheet('Scholars')
+    sheet.title('Republic of the Philippines')
+    sheet.title('BILIRAN PROVINCE STATE UNIVERSITY — Naval, Biliran')
+    sheet.title(f'LIST OF SCHOLARS FOR {suffix}')
+    sheet.blank()
 
-    thin = Side(style='thin')
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    header_font = Font(bold=True, size=9)
-    header_fill = PatternFill('solid', fgColor='D9E1F2')
-    section_fill = PatternFill('solid', fgColor='BDD7EE')
-    title_fill = PatternFill('solid', fgColor='1F4E79')
-    title_font = Font(bold=True, size=11, color='FFFFFF')
+    sheet.section(f'ACADEMIC (@) SCHOLARSHIP GRANT — {suffix}',
+                  len(HEADERS_ACADEMIC))
+    sheet.gendered(HEADERS_ACADEMIC, _approved_awards('Academic', term),
+                   _academic_rows, _award_gender)
+    sheet.blank()
 
-    current_row = [1]
+    sheet.section(f'BiPSU STAFF (@) SCHOLARSHIP GRANT — {suffix}',
+                  len(HEADERS_STAFF))
+    sheet.headers(HEADERS_STAFF)
+    sheet.rows(_staff_rows(_approved_records('Staff', term)))
+    sheet.blank()
 
-    def write_title(text, ncols):
-        """Write the merged title row."""
-        r = current_row[0]
-        ws.cell(row=r, column=1, value=text)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
-        cell = ws.cell(row=r, column=1)
-        cell.font = title_font
-        cell.fill = title_fill
-        cell.alignment = center
-        cell.border = border
-        ws.row_dimensions[r].height = 18
-        current_row[0] += 1
+    sheet.section(f'AFFIRMATIVE ACTION (*) SCHOLARSHIP GRANT — {suffix}',
+                  len(HEADERS_AWARD))
+    sheet.gendered(HEADERS_AWARD, _approved_records('Affirmative', term),
+                   _affirmative_rows, _record_gender)
+    sheet.blank()
 
-    def write_section(text, ncols):
-        """Write a programme's section heading."""
-        r = current_row[0]
-        ws.cell(row=r, column=1, value=text)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
-        cell = ws.cell(row=r, column=1)
-        cell.font = Font(bold=True, size=10)
-        cell.fill = section_fill
-        cell.alignment = center
-        cell.border = border
-        current_row[0] += 1
+    _write_ched_sections(sheet, term, suffix)
 
-    def write_gender_label(text, ncols):
-        """Write the FEMALE or MALE band label."""
-        r = current_row[0]
-        ws.cell(row=r, column=1, value=text)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
-        cell = ws.cell(row=r, column=1)
-        cell.font = Font(bold=True, size=9)
-        cell.alignment = Alignment(horizontal='left', vertical='center')
-        current_row[0] += 1
+    sheet.section(f'DOST (*) SCHOLARSHIP GRANT — {suffix}', len(HEADERS_AWARD))
+    sheet.gendered(HEADERS_AWARD, _approved_awards('DOST', term),
+                   _award_rows, _award_gender)
+    sheet.blank()
 
-    def write_headers(headers):
-        """Write a header row."""
-        r = current_row[0]
-        for ci, h in enumerate(headers, 1):
-            cell = ws.cell(row=r, column=ci, value=h)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.border = border
-            cell.alignment = center
-        current_row[0] += 1
+    sheet.section(f'GSIS (*) SCHOLARSHIP GRANT — {suffix}', len(HEADERS_GSIS))
+    sheet.gendered(HEADERS_GSIS, _approved_awards('GSIS', term),
+                   _gsis_rows, _award_gender)
+    sheet.blank()
 
-    def write_rows(rows_data):
-        """Write a block of scholar rows."""
-        for row_vals in rows_data:
-            r = current_row[0]
-            for ci, val in enumerate(row_vals, 1):
-                cell = ws.cell(row=r, column=ci, value=val)
-                cell.border = border
-                cell.alignment = Alignment(vertical='center', wrap_text=True)
-                cell.font = Font(size=9)
-            current_row[0] += 1
+    sheet.section(
+        f'TERTIARY EDUCATION SUBSIDY -TES (*) SCHOLARSHIP GRANT — {suffix}',
+        len(HEADERS_AWARD))
+    sheet.gendered(HEADERS_AWARD, _approved_awards('TDP', term),
+                   _award_rows, _award_gender)
+    sheet.blank()
+    sheet.blank()
 
-    def blank_row():
-        """An empty row of the right width, for spacing."""
-        current_row[0] += 1
-
-    def _split_name(full_name):
-        """Split a single full name into last, first and middle."""
-        parts = full_name.strip().split()
-        if len(parts) == 0: return ('', '', '')
-        if len(parts) == 1: return (parts[0], '', '')
-        if len(parts) == 2: return (parts[-1], parts[0], '')
-        last = parts[-1]; first = parts[0]
-        middle = ' '.join(parts[1:-1])
-        return (last, first, middle[0] + '.' if middle else '')
-
-    def _name_parts(user):
-        """Name cells for a record, whichever shape it arrived in."""
-        return (user.last_name or '', user.first_name or '', '')
-
-    def addr_parts(addr):
-        """Barangay, municipality and province as separate cells."""
-        parts = [x.strip() for x in (addr or '').split(',')]
-        return (parts[0] if len(parts) > 0 else '',
-                parts[1] if len(parts) > 1 else '',
-                parts[2] if len(parts) > 2 else '')
-
-    MAX_COLS = 13
-
-    write_title('Republic of the Philippines', MAX_COLS)
-    write_title('BILIRAN PROVINCE STATE UNIVERSITY — Naval, Biliran', MAX_COLS)
-    write_title(f'LIST OF SCHOLARS FOR {semester} SY: {ay}', MAX_COLS)
-    blank_row()
-
-    academic = list(Application.objects.filter(
-        status='Approved', scholarship__type='Academic', term_label=term
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
-    females_a = [a for a in academic if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    female_pks_a = {a.pk for a in females_a}
-    males_a   = [a for a in academic if a.pk not in female_pks_a]
-
-    headers_acad = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'COURSE', 'YR.', 'GWA', '%', 'SCHOLARSHIP PROGRAM']
-    write_section(f'ACADEMIC (@) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_acad))
-
-    def acad_rows(apps):
-        """Rows for the Academic section."""
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            last, first, mi = _name_parts(u)
-            brgy, mun, prov = addr_parts(p.address)
-            pct = 'University Scholar' if p.gwa <= 1.29 else ('College Scholars' if p.gwa <= 1.50 else '')
-            rows.append([i, last, first, mi, p.gender or '', brgy, mun, prov, p.course, p.year_level, p.gwa, pct, 'ACADEMIC'])
-        return rows
-
-    write_gender_label('FEMALE', len(headers_acad))
-    write_headers(headers_acad)
-    write_rows(acad_rows(females_a))
-    write_gender_label('MALE', len(headers_acad))
-    write_headers(headers_acad)
-    write_rows(acad_rows(males_a))
-    blank_row()
-
-    staff = list(ApplicantRecord.objects.filter(
-        status='Approved', qualified_for='Staff', term_label=term
-    ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
-    headers_staff = ['NO.', 'LAST NAME', 'FIRST NAME', 'M.I.', 'SEX', 'COURSE', 'YEAR LEVEL', 'STUDENT NUMBER', '%', 'SCHOLARSHIP PROGRAM']
-    write_section(f'BiPSU STAFF (@) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_staff))
-    write_headers(headers_staff)
-    staff_rows = []
-    for i, app in enumerate(staff, 1):
-        last, first, mi = _split_name(app.full_name)
-        pct = '100' if app.is_nsu_staff else '75'
-        staff_rows.append([i, last, first, mi, app.gender or '', app.course, app.year_level, app.student_id or '', pct, 'BiPSU STAFF SCHOLARSHIP'])
-    write_rows(staff_rows)
-    blank_row()
-
-    affirmative = list(ApplicantRecord.objects.filter(
-        status='Approved', qualified_for='Affirmative', term_label=term
-    ).select_related(*STAFF_APPLICATION_DETAILS).order_by('full_name'))
-    aff_females = [a for a in affirmative if a.gender and a.gender.upper() in ('F', 'FEMALE')]
-    female_pks  = {a.pk for a in aff_females}
-    aff_males   = [a for a in affirmative if a.pk not in female_pks]
-    headers_aff = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-    write_section(f'AFFIRMATIVE ACTION (*) SCHOLARSHIP GRANT — {semester} SY: {ay}',
-                  len(headers_aff))
-
-    def aff_rows(apps):
-        """Rows for the Affirmative and Staff sections."""
-        rows = []
-        for i, app in enumerate(apps, 1):
-            last, first, mi = _split_name(app.full_name)
-            brgy, mun, prov = addr_parts(app.address)
-            rows.append([i, '', last, first, mi, app.gender or '', brgy, mun, prov, '', app.course, app.year_level, 'Affirmative Action Scholarship'])
-        return rows
-
-    write_gender_label('FEMALE', len(headers_aff))
-    write_headers(headers_aff)
-    write_rows(aff_rows(aff_females))
-    write_gender_label('MALE', len(headers_aff))
-    write_headers(headers_aff)
-    write_rows(aff_rows(aff_males))
-    blank_row()
-
-    ched_all = list(Application.objects.filter(
-        status='Approved', scholarship__type='CHED', term_label=term
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
-    ched_full, ched_half = split_ched(ched_all)
-    headers_ched = ['NO.', 'AWARD NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-
-    def ched_rows(apps):
-        """Rows for the CHED, DOST and TDP sections."""
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            last, first, mi = _name_parts(u)
-            brgy, mun, prov = addr_parts(p.address)
-            award = app.award_number
-            cong  = app.congress_district
-            rows.append([i, award, last, first, mi, p.gender or '', brgy, mun, prov, cong, p.course, p.year_level, app.scholarship.name])
-        return rows
-
-    for block_title, block_apps in [('FULL MERIT/ FULL SCHOLAR (*)', ched_full), ('HALF MERIT/ PARTIAL SCHOLAR (*)', ched_half)]:
-        write_section(f'{block_title} SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_ched))
-        bf = [a for a in block_apps if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-        female_pks = {a.pk for a in bf}
-        bm = [a for a in block_apps if a.pk not in female_pks]
-        write_gender_label('FEMALE', len(headers_ched))
-        write_headers(headers_ched)
-        write_rows(ched_rows(bf))
-        write_gender_label('MALE', len(headers_ched))
-        write_headers(headers_ched)
-        write_rows(ched_rows(bm))
-        blank_row()
-
-    dost_all = list(Application.objects.filter(
-        status='Approved', scholarship__type='DOST', term_label=term
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
-    write_section(f'DOST (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_ched))
-    dost_f = [a for a in dost_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    dost_female_pks = {a.pk for a in dost_f}
-    dost_m = [a for a in dost_all if a.pk not in dost_female_pks]
-    write_gender_label('FEMALE', len(headers_ched))
-    write_headers(headers_ched)
-    write_rows(ched_rows(dost_f))
-    write_gender_label('MALE', len(headers_ched))
-    write_headers(headers_ched)
-    write_rows(ched_rows(dost_m))
-    blank_row()
-
-    gsis_all = list(Application.objects.filter(
-        status='Approved', scholarship__type='GSIS', term_label=term
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
-    headers_gsis = ['NO.', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME', 'SEX', 'BRGY./ST.', 'MUN.', 'PROV.', 'CONG. DIST.', 'COURSE', 'YR.', 'SCHOLARSHIP PROGRAM']
-    write_section(f'GSIS (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_gsis))
-
-    def gsis_rows(apps):
-        """Rows for the GSIS section."""
-        rows = []
-        for i, app in enumerate(apps, 1):
-            p = app.student; u = p.user
-            last, first, mi = _name_parts(u)
-            brgy, mun, prov = addr_parts(p.address)
-            cong = app.congress_district
-            rows.append([i, last, first, mi, p.gender or '', brgy, mun, prov, cong, p.course, p.year_level, app.scholarship.name])
-        return rows
-
-    gsis_f = [a for a in gsis_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    gsis_female_pks = {a.pk for a in gsis_f}
-    gsis_m = [a for a in gsis_all if a.pk not in gsis_female_pks]
-    write_gender_label('FEMALE', len(headers_gsis))
-    write_headers(headers_gsis)
-    write_rows(gsis_rows(gsis_f))
-    write_gender_label('MALE', len(headers_gsis))
-    write_headers(headers_gsis)
-    write_rows(gsis_rows(gsis_m))
-    blank_row()
-
-    tes_all = list(Application.objects.filter(
-        status='Approved', scholarship__type='TDP', term_label=term
-    ).select_related('student__user', 'scholarship', *STUDENT_DETAILS).order_by('student__user__last_name'))
-    write_section(f'TERTIARY EDUCATION SUBSIDY -TES (*) SCHOLARSHIP GRANT — {semester} SY: {ay}', len(headers_ched))
-    tes_f = [a for a in tes_all if a.student.gender and a.student.gender.upper() in ('F', 'FEMALE')]
-    tes_female_pks = {a.pk for a in tes_f}
-    tes_m = [a for a in tes_all if a.pk not in tes_female_pks]
-    write_gender_label('FEMALE', len(headers_ched))
-    write_headers(headers_ched)
-    write_rows(ched_rows(tes_f))
-    write_gender_label('MALE', len(headers_ched))
-    write_headers(headers_ched)
-    write_rows(ched_rows(tes_m))
-    blank_row()
-    blank_row()
-
-    footer_text = (
-        'Prepared by:\t\t\t\t\tNoted:\t\t\t\t\t\tRecommending approval:\t\t\t\t\t\tApproved:\n'
-        'MARICEL S. SAULAN\t\t\t\tNORMA M. DUALLO, Ph.D.TM\t\t\tERWIN G. SALVATIERRA, Ph. D.\t\t\tVICTOR C. CAÑEZO, JR., Ed. D.\n'
-        'Scholarship in charge\t\t\t\tSDSO Director\t\t\t\t\tVP for Extension Services, Student and External Affairs\t\tUniversity President'
-    )
-    ws.oddFooter.center.text = footer_text
-    ws.oddFooter.center.size = 8
-    ws.evenFooter.center.text = footer_text
-    ws.evenFooter.center.size = 8
-
-    for col_idx in range(1, ws.max_column + 1):
-        max_len = 0
-        col_letter = get_column_letter(col_idx)
-        for row_idx in range(1, ws.max_row + 1):
-            cell = ws.cell(row=row_idx, column=col_idx)
-            try:
-                if cell.value:
-                    max_len = max(max_len, len(str(cell.value)))
-            except Exception:
-                pass
-        ws.column_dimensions[col_letter].width = min(max_len + 3, 35)
-
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    filename = f'Scholarship_Report_{term.replace("-","_")}_{semester.replace(" ","_")}.xlsx'
-    response = HttpResponse(
-        buffer.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
+    sheet.footer(FOOTER_TEXT)
+    sheet.autofit()
+    return sheet.as_response(
+        f'Scholarship_Report_{term.replace("-", "_")}_'
+        f'{semester.replace(" ", "_")}.xlsx')

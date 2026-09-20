@@ -10,16 +10,58 @@ from . import scholar_columns
 from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, User, ApplicantRecord, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from . import notify
 from django.http import HttpResponse
 from datetime import date
 from io import BytesIO
 import logging
-from .views_shared import CHED_ARCHIVE_TIERS, COLUMN_HINTS, COLUMN_MAPS, _scholar_groups, _scholars_from_sheet, _vpsea_required
+from .views_shared import CHED_ARCHIVE_TIERS, COLUMN_HINTS, COLUMN_MAPS, DUPLICATE_AWARD_NUMBERS, IMPORT_ABANDONED, IMPORT_FAILED, _scholar_groups, _scholars_from_sheet, _vpsea_required
 from .views_declarations import _archive_back
 
 logger = logging.getLogger(__name__)
+
+IMPORT_JOB = 'archive-import'
+
+
+def _import_progress(request):
+    """The import banners, from a job row when there is one.
+
+    Every other banner on this page still comes straight off the query string,
+    because the request that wrote it had also finished the work. An import has
+    not, so ``?import_job=`` names the row and the answers are read from there
+    — including the one nobody writes, which is the job that was still running
+    when the process went away.
+    """
+    from .models import BackgroundJob
+
+    job_id = request.GET.get('import_job')
+    job = (BackgroundJob.objects.filter(pk=job_id, kind=IMPORT_JOB).first()
+           if job_id and job_id.isdigit() else None)
+
+    if job is None:
+        created = request.GET.get('import_ok')
+        return {
+            'import_message': (f'Successfully imported {created} records.'
+                               if created else None),
+            'import_error': request.GET.get('import_error'),
+            'columns_bad': request.GET.get('columns_bad'),
+            'import_job': None,
+        }
+
+    if job.abandoned():
+        return {'import_message': None, 'import_error': IMPORT_ABANDONED,
+                'columns_bad': None, 'import_job': None}
+
+    outcome = job.outcome or {}
+    done = job.status == BackgroundJob.DONE
+    return {
+        'import_message': (f"Successfully imported {outcome.get('created', 0)} "
+                           'records.') if done else None,
+        'import_error': job.detail if job.status == BackgroundJob.FAILED else None,
+        'columns_bad': outcome.get('refused') or None,
+        'import_job': None if job.finished else job,
+    }
 
 
 def _archive_candidates(req, label=None):
@@ -256,8 +298,7 @@ def vpsea_archives(request):
         ],
         'col_hint': COLUMN_HINTS.get(stype, ''),
         'recent_imports': ActivityLog.objects.filter(action__icontains='Imported').order_by('-created_at')[:5],
-        'import_message': f"Successfully imported {request.GET.get('import_ok')} records." if request.GET.get('import_ok') else None,
-        'import_error': request.GET.get('import_error'),
+        **_import_progress(request),
     }
 
     if stype == UNAWARDED_TAB:
@@ -275,215 +316,283 @@ def vpsea_archives(request):
         'total': sum(len(records) for _title, records, _empty in groups),
     })
 
+ARCHIVE_DOCUMENTS = (
+    ('doc_certificate_of_grades', 'Certificate Of Grades'),
+    ('doc_certificate_of_enrollment', 'Certificate Of Enrollment'),
+    ('doc_prospectus', 'Prospectus'),
+    ('doc_id_photo', 'Id Photo'),
+    ('doc_application_form', 'Application Form'),
+    ('proof_document', 'Proof Document'),
+)
+
+ACADEMIC_SCHOOL_FIELDS = ('elementary', 'highschool', 'last_school')
+
+ACADEMIC_PARENT_FIELDS = (
+    'father_last_name', 'father_first_name', 'father_middle_name',
+    'father_occupation', 'mother_last_name', 'mother_first_name',
+    'mother_middle_name', 'mother_occupation',
+)
+
+
+def _posted_number(posted, field, default, cast):
+    """One posted number, or the default where it will not convert."""
+    try:
+        return cast(posted.get(field, default) or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _account_details_missing(posted, email):
+    """What an account still needs before it can be created."""
+    missing = []
+    if not email:
+        missing.append('an email address')
+    if not posted.get('student_id', '').strip():
+        missing.append('a student number')
+    return missing
+
+
+def _add_imported_scholar(posted, stype, tier, term_label):
+    """Record a scholar as an import, with no portal account."""
+    from .models import ImportedScholar
+
+    ImportedScholar.objects.create(
+        scholarship_type=stype,
+        term_label=term_label,
+        last_name=posted.get('last_name', '').strip(),
+        first_name=posted.get('first_name', '').strip(),
+        middle_name=posted.get('middle_name', '').strip(),
+        gender=posted.get('gender', ''),
+        course=posted.get('course', ''),
+        year_level=_posted_number(posted, 'year_level', 0, int),
+        gwa=_posted_number(posted, 'gwa', 0.0, float),
+        student_id=posted.get('student_id', '').strip(),
+        award_number=posted.get('award_number', ''),
+        congress_district=posted.get('congress_district', ''),
+        barangay=posted.get('barangay', ''),
+        municipality=posted.get('municipality', ''),
+        province=posted.get('province', ''),
+        award_tier=tier,
+        imported_from='Added by SDSO',
+    )
+
+
+def _roster_email(posted, stype, supplied_email, full_name):
+    """An address for a roster record, invented only where none was given."""
+    from .models import ApplicantRecord
+
+    if supplied_email:
+        return supplied_email
+    stem = (posted.get('student_id', '').strip()
+            or full_name.replace(' ', '_').lower())
+    email = f'{stem}_{stype.lower()}@bipsu.edu.ph'
+    base = email.split('@')[0]
+    counter = 1
+    while ApplicantRecord.objects.filter(email=email).exists():
+        email = f'{base}_{counter}@bipsu.edu.ph'
+        counter += 1
+    return email
+
+
+def _add_roster_record(posted, stype, supplied_email):
+    """Record an Affirmative or Staff scholar, who has no portal account."""
+    from .models import ApplicantRecord
+
+    full_name = (f"{posted.get('first_name', '').strip()} "
+                 f"{posted.get('last_name', '').strip()}").strip()
+    ApplicantRecord.objects.create(
+        full_name=full_name,
+        email=_roster_email(posted, stype, supplied_email, full_name),
+        contact_number=posted.get('contact_number', ''),
+        barangay=posted.get('barangay', ''),
+        municipality=posted.get('municipality', ''),
+        province=posted.get('province', ''),
+        date_of_birth=posted.get('date_of_birth') or None,
+        gender=posted.get('gender', ''),
+        course=posted.get('course', ''),
+        year_level=_posted_number(posted, 'year_level', 1, int),
+        student_id=posted.get('student_id', ''),
+        qualified_for=stype,
+        status='Approved',
+        is_nsu_staff=(stype == 'Staff'),
+    )
+
+
+def _student_account(posted, supplied_email):
+    """The account and profile for a scholar the office is adding.
+
+    Returns:
+        ``(user, profile, student_id, account_created)``.
+    """
+    from .models import StudentProfile, User
+
+    student_id = posted.get('student_id', '').strip()
+    email = supplied_email or f'{student_id}@bipsu.edu.ph'
+    user = User.objects.filter(email=email).first()
+    account_created = False
+    if not user:
+        user = User.objects.create_user(
+            username=email, email=email,
+            password=student_id or 'bipsu1234',
+            first_name=posted.get('first_name', ''),
+            last_name=posted.get('last_name', ''),
+            role='student',
+        )
+        account_created = True
+
+    profile = StudentProfile.objects.filter(user=user).first()
+    if profile:
+        _update_student_profile(profile, posted)
+    else:
+        profile = StudentProfile.objects.create(
+            user=user,
+            student_id=student_id,
+            course=posted.get('course', ''),
+            year_level=_posted_number(posted, 'year_level', 1, int),
+            gwa=_posted_number(posted, 'gwa', 0.0, float),
+            gender=posted.get('gender', ''),
+            barangay=posted.get('barangay', ''),
+            municipality=posted.get('municipality', ''),
+            province=posted.get('province', ''),
+            contact_number=posted.get('contact_number', ''),
+            date_of_birth=posted.get('date_of_birth') or None,
+        )
+    return user, profile, student_id, account_created
+
+
+def _update_student_profile(profile, posted):
+    """Overwrite an existing profile with whatever the form carried."""
+    profile.course = posted.get('course', profile.course)
+    profile.year_level = _posted_number(
+        posted, 'year_level', profile.year_level, int)
+    profile.gwa = _posted_number(posted, 'gwa', profile.gwa, float)
+    profile.gender = posted.get('gender', profile.gender)
+    profile.barangay = posted.get('barangay', profile.barangay)
+    profile.municipality = posted.get('municipality', profile.municipality)
+    profile.province = posted.get('province', profile.province)
+    profile.save()
+
+
+def _academic_form_data(posted, profile):
+    """Schooling and parent details for an Academic award.
+
+    The schooling answers go into the award's ``form_data`` as well as onto
+    the profile, because the masterlist reads them off the award.
+    """
+    form_data = {field: posted.get(field, '') for field in ACADEMIC_SCHOOL_FIELDS}
+    changed = []
+    for field in ACADEMIC_PARENT_FIELDS + ACADEMIC_SCHOOL_FIELDS:
+        value = posted.get(field, '').strip()
+        if value:
+            setattr(profile, field, value)
+            changed.append(field)
+    if changed:
+        profile.save(update_fields=changed)
+    return form_data
+
+
+def _archive_award(posted, profile, scholarship, stype, tier, parsed):
+    """The award row for a scholar the office added, created if new."""
+    from .models import Application, CHED_TIER_CHOICES
+
+    form_data = {}
+    if tier:
+        form_data['scholar_type'] = dict(CHED_TIER_CHOICES)[tier]
+    if stype == 'Academic':
+        form_data.update(_academic_form_data(posted, profile))
+
+    term = {'school_year': parsed['sy'], 'semester': parsed['semester']}
+    existing = Application.objects.filter(
+        student=profile, scholarship=scholarship, **term).first()
+    if existing:
+        return existing
+    return Application.objects.create(
+        student=profile,
+        scholarship=scholarship,
+        status='Approved',
+        form_data=form_data,
+        source='import',
+        award_number=posted.get('award_number', ''),
+        congress_district=posted.get('congress_district', ''),
+        **term,
+    )
+
+
+def _attach_archive_documents(application, files):
+    """Save whichever supporting documents the form carried."""
+    from .models import ApplicationDocument
+
+    for field, label in ARCHIVE_DOCUMENTS:
+        uploaded = files.get(field)
+        if uploaded:
+            ApplicationDocument.objects.create(
+                application=application, name=label, file=uploaded)
+
+
+def _add_student_scholar(request, posted, stype, tier, parsed):
+    """Record a scholar who gets a portal account of their own."""
+    user, profile, student_id, account_created = _student_account(
+        posted, posted.get('email', '').strip())
+
+    scholarship = Scholarship.objects.filter(type=stype).first()
+    if scholarship:
+        award = _archive_award(posted, profile, scholarship, stype, tier, parsed)
+        _attach_archive_documents(award, request.FILES)
+
+    if account_created and posted.get('email', '').strip():
+        notify.notify(
+            user, 'Your SRMS account is ready',
+            'The VPSEA office has added you to the Scholarship Records '
+            'Management System.\n\n'
+            f'Sign in with this email address. Your initial password is your '
+            f'student number ({student_id}). Contact the VPSEA office to have '
+            'it changed.',
+            tone='success',
+        )
+
+
 @_vpsea_required
 def vpsea_archive_add(request):
-    """Add a scholar record by hand."""
-    from .models import (Application, Scholarship, StudentProfile, User,
-                         ApplicantRecord, SystemSettings,
-                         ApplicationDocument, CHED_TIER_CHOICES)
+    """Add a scholar record by hand.
+
+    Three shapes of record come through here: an import with no account, a
+    roster record for the programmes the office administers directly, and a
+    full student account with an award attached.
+    """
+    from urllib.parse import quote
+
+    from .models import SystemSettings
+
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
-    p = request.POST
-    f = request.FILES
-    stype = p.get('scholarship_type', 'Academic')
-    tier = p.get('tier', '') if stype == 'CHED' else ''
+
+    posted = request.POST
+    stype = posted.get('scholarship_type', 'Academic')
+    tier = posted.get('tier', '') if stype == 'CHED' else ''
     if tier not in CHED_ARCHIVE_TIERS:
         tier = ''
     back = f'/vpsea/archives/?type={stype}' + (f'&tier={tier}' if tier else '')
+
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
-    active_sy = parsed['sy']
-    active_semester = parsed['semester']
-
-    wants_account = p.get('create_account') == 'yes'
-    supplied_email = p.get('email', '').strip()
-
-    if wants_account:
-        missing = []
-        if not supplied_email:
-            missing.append('an email address')
-        if not p.get('student_id', '').strip():
-            missing.append('a student number')
-        if missing:
-            from urllib.parse import quote
-            return redirect(f'{back}&error=' + quote(
-                'Creating an account needs ' + ' and '.join(missing) + '. The '
-                'address is where the scholar is emailed, and the student number '
-                'is their first password. Choose "Just an import" to record this '
-                'scholar without an account.'))
+    wants_account = posted.get('create_account') == 'yes'
 
     if not wants_account:
-        from .models import ImportedScholar
-        try:
-            year_level = int(p.get('year_level', 0) or 0)
-        except (TypeError, ValueError):
-            year_level = 0
-        try:
-            gwa = float(p.get('gwa', 0) or 0)
-        except (TypeError, ValueError):
-            gwa = 0.0
-        ImportedScholar.objects.create(
-            scholarship_type=stype,
-            term_label=settings_obj.academic_year,
-            last_name=p.get('last_name', '').strip(),
-            first_name=p.get('first_name', '').strip(),
-            middle_name=p.get('middle_name', '').strip(),
-            gender=p.get('gender', ''),
-            course=p.get('course', ''),
-            year_level=year_level,
-            gwa=gwa,
-            student_id=p.get('student_id', '').strip(),
-            award_number=p.get('award_number', ''),
-            congress_district=p.get('congress_district', ''),
-            barangay=p.get('barangay', ''),
-            municipality=p.get('municipality', ''),
-            province=p.get('province', ''),
-            award_tier=tier,
-            imported_from='Added by SDSO',
-        )
+        _add_imported_scholar(posted, stype, tier, settings_obj.academic_year)
         return redirect(f'{back}&added=1')
 
+    missing = _account_details_missing(posted, posted.get('email', '').strip())
+    if missing:
+        return redirect(f'{back}&error=' + quote(
+            'Creating an account needs ' + ' and '.join(missing) + '. The '
+            'address is where the scholar is emailed, and the student number '
+            'is their first password. Choose "Just an import" to record this '
+            'scholar without an account.'))
+
     if stype in ('Affirmative', 'Staff'):
-        full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
-        email = supplied_email
-        if not email:
-            email = f"{p.get('student_id','').strip() or full_name.replace(' ','_').lower()}_{stype.lower()}@bipsu.edu.ph"
-            base = email
-            counter = 1
-            while ApplicantRecord.objects.filter(email=email).exists():
-                email = f"{base.split('@')[0]}_{counter}@bipsu.edu.ph"
-                counter += 1
-        ApplicantRecord.objects.create(
-            full_name=full_name,
-            email=email,
-            contact_number=p.get('contact_number', ''),
-            barangay=p.get('barangay', ''),
-            municipality=p.get('municipality', ''),
-            province=p.get('province', ''),
-            date_of_birth=p.get('date_of_birth') or None,
-            gender=p.get('gender', ''),
-            course=p.get('course', ''),
-            year_level=int(p.get('year_level', 1) or 1),
-            student_id=p.get('student_id', ''),
-            qualified_for=stype,
-            status='Approved',
-            is_nsu_staff=(stype == 'Staff'),
-        )
+        _add_roster_record(posted, stype, posted.get('email', '').strip())
     else:
-        email = supplied_email
-        student_id = p.get('student_id', '').strip()
-        if not email:
-            email = f"{student_id}@bipsu.edu.ph"
-        user = User.objects.filter(email=email).first()
-        account_created = False
-        if not user:
-            user = User.objects.create_user(
-                username=email, email=email,
-                password=student_id or 'bipsu1234',
-                first_name=p.get('first_name', ''),
-                last_name=p.get('last_name', ''),
-                role='student',
-            )
-            account_created = True
-        profile = StudentProfile.objects.filter(user=user).first()
-        if not profile:
-            profile = StudentProfile.objects.create(
-                user=user,
-                student_id=student_id,
-                course=p.get('course', ''),
-                year_level=int(p.get('year_level', 1) or 1),
-                gwa=float(p.get('gwa', 0) or 0),
-                gender=p.get('gender', ''),
-                barangay=p.get('barangay', ''),
-                municipality=p.get('municipality', ''),
-                province=p.get('province', ''),
-                contact_number=p.get('contact_number', ''),
-                date_of_birth=p.get('date_of_birth') or None,
-            )
-        else:
-            profile.course = p.get('course', profile.course)
-            profile.year_level = int(p.get('year_level', profile.year_level) or profile.year_level)
-            profile.gwa = float(p.get('gwa', profile.gwa) or profile.gwa)
-            profile.gender = p.get('gender', profile.gender)
-            profile.barangay = p.get('barangay', profile.barangay)
-            profile.municipality = p.get('municipality', profile.municipality)
-            profile.province = p.get('province', profile.province)
-            profile.save()
-        scholarship = Scholarship.objects.filter(type=stype).first()
-        if scholarship:
-            award_fields = {
-                'source': 'import',
-                'school_year': active_sy,
-                'semester': active_semester,
-                'award_number': p.get('award_number', ''),
-                'congress_district': p.get('congress_district', ''),
-            }
-            form_data = {}
-            if tier:
-                form_data['scholar_type'] = dict(CHED_TIER_CHOICES)[tier]
-            if stype == 'Academic':
-                form_data.update({
-                    'elementary': p.get('elementary', ''),
-                    'highschool': p.get('highschool', ''),
-                    'last_school': p.get('last_school', ''),
-                })
-                parent_fields = [
-                    'father_last_name', 'father_first_name', 'father_middle_name',
-                    'father_occupation', 'mother_last_name', 'mother_first_name',
-                    'mother_middle_name', 'mother_occupation',
-                ]
-                changed = []
-                for field in parent_fields:
-                    value = p.get(field, '').strip()
-                    if value:
-                        setattr(profile, field, value)
-                        changed.append(field)
-                for field in ('elementary', 'highschool', 'last_school'):
-                    value = p.get(field, '').strip()
-                    if value:
-                        setattr(profile, field, value)
-                        changed.append(field)
-                if changed:
-                    profile.save(update_fields=changed)
-            already = Application.objects.filter(
-                student=profile, scholarship=scholarship,
-                school_year=active_sy, semester=active_semester,
-            ).exists()
-            if not already:
-                app = Application.objects.create(
-                    student=profile,
-                    scholarship=scholarship,
-                    status='Approved',
-                    form_data=form_data,
-                    **award_fields,
-                )
-            else:
-                app = Application.objects.filter(
-                    student=profile, scholarship=scholarship,
-                    school_year=active_sy, semester=active_semester,
-                ).first()
-            doc_fields = [
-                ('doc_certificate_of_grades', 'Certificate Of Grades'),
-                ('doc_certificate_of_enrollment', 'Certificate Of Enrollment'),
-                ('doc_prospectus', 'Prospectus'),
-                ('doc_id_photo', 'Id Photo'),
-                ('doc_application_form', 'Application Form'),
-                ('proof_document', 'Proof Document'),
-            ]
-            for field, label in doc_fields:
-                uploaded = f.get(field)
-                if uploaded:
-                    ApplicationDocument.objects.create(application=app, name=label, file=uploaded)
-        if account_created and supplied_email:
-            notify.notify(
-                user, 'Your SRMS account is ready',
-                'The VPSEA office has added you to the Scholarship Records '
-                'Management System.\n\n'
-                f'Sign in with this email address. Your initial password is your '
-                f'student number ({student_id}). Contact the VPSEA office to have '
-                'it changed.',
-                tone='success',
-            )
+        _add_student_scholar(request, posted, stype, tier, parsed)
     return redirect(f'{back}&added=1')
 
 def _apply_student_record_edits(profile, p):
@@ -895,11 +1004,97 @@ def vpsea_rollover_delete(request, pk):
         changes={'scholar_rows_removed': [removed, 0]})
     return redirect(f'/vpsea/archives/?type={stype}')
 
+def run_archive_import(job_id, payload, filename, stype, rollover_label,
+                       user_id, address=''):
+    """Read one uploaded workbook into the archive, away from the request.
+
+    Takes the spreadsheet as bytes rather than as the upload itself. Django
+    deletes a ``TemporaryUploadedFile`` the moment the request that carried it
+    ends, and that is before this runs. ``MAX_UPLOAD_SIZE_MB`` caps one of
+    these at ten megabytes and ``BACKGROUND_QUEUE_LIMIT`` caps how many can be
+    held at once, which is what keeps the pool inside the instance's 512 MB.
+
+    What it does to the database is what the view did inline: the same
+    transaction, the same order, the same two refusals. The only thing that
+    changed is who waits for it, and that the outcome is written to a row
+    instead of a query string.
+    """
+    from django.core.files.base import ContentFile
+    from . import ratelimit
+    from .models import (ActivityLog, BackgroundJob, ImportedScholar,
+                         ScholarListImport, SystemSettings)
+
+    job = BackgroundJob.objects.filter(pk=job_id).first()
+    if job is None:
+        logger.warning('Import job %s vanished before it could run', job_id)
+        return
+    job.begin()
+    who = User.objects.filter(pk=user_id).first()
+
+    try:
+        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+        parsed = SystemSettings.parse_label(settings_obj.academic_year)
+        active_semester = parsed['semester']
+        rollover_parsed = SystemSettings.parse_label(rollover_label) if '-' in rollover_label else {'sy': rollover_label, 'semester': active_semester}
+
+        records, refused = _scholars_from_sheet(
+            BytesIO(payload), stype, rollover_label, imported_from=filename)
+        created = len(records)
+
+        filed = ScholarListImport.objects.filter(
+            term_label=rollover_label, scholarship_type=stype)
+        rollover = None
+        if not filed.exists():
+            rollover = ScholarListImport(
+                scholarship_type=stype,
+                school_year=rollover_parsed['sy'],
+                semester=rollover_parsed.get('semester', active_semester),
+                term_label=rollover_label,
+                scholar_count=created,
+                imported_by=who,
+            )
+            rollover.excel_file.save(
+                f'{stype}_{rollover_label}.xlsx', ContentFile(payload), save=False)
+
+        with transaction.atomic():
+            ImportedScholar.objects.filter(
+                scholarship_type=stype, term_label=rollover_label).delete()
+            ImportedScholar.objects.bulk_create(records)
+
+            if rollover is None:
+                filed.update(scholar_count=created)
+            else:
+                rollover.save()
+
+            ActivityLog.record(
+                who, f'Imported {filename} ({created} rows) for {stype} as "{rollover_label}"',
+                verb='import', request=ratelimit.as_caller(address))
+    except IntegrityError:
+        logger.exception(
+            'Scholar list import repeated an award number for %s term %r',
+            stype, rollover_label)
+        job.fail(DUPLICATE_AWARD_NUMBERS)
+    except Exception:
+        logger.exception(
+            'Scholar list import failed for %s term %r', stype, rollover_label)
+        job.fail(IMPORT_FAILED)
+    else:
+        job.succeed(f'Imported {created} records.',
+                    created=created, refused=refused, type=stype)
+
+
 @_vpsea_required
 def vpsea_archive_import(request):
-    """Import a scholar list from a spreadsheet."""
-    from django.core.files.base import ContentFile
-    from .models import ScholarListImport, ActivityLog, SystemSettings, ImportedScholar
+    """Accept a scholar list and hand the reading of it to the pool.
+
+    The office is redirected with a job id rather than a count. A workbook big
+    enough to take longer than gunicorn's 120-second timeout used to have the
+    request killed out from under it mid-read; the work now outlives the
+    request that asked for it, and the archive page follows the row.
+    """
+    from .models import BackgroundJob
+    from . import jobs, ratelimit
+
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     stype = request.POST.get('type', 'Academic')
@@ -909,45 +1104,35 @@ def vpsea_archive_import(request):
         return redirect(f'/vpsea/archives/?type={stype}&import_error=No+file+provided')
     if not rollover_label:
         return redirect(f'/vpsea/archives/?type={stype}&import_error=Rollover+name+is+required')
-    try:
-        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-        parsed = SystemSettings.parse_label(settings_obj.academic_year)
-        active_semester = parsed['semester']
-        rollover_parsed = SystemSettings.parse_label(rollover_label) if '-' in rollover_label else {'sy': rollover_label, 'semester': active_semester}
 
-        records, refused = _scholars_from_sheet(file, stype, rollover_label)
+    job = BackgroundJob.objects.create(
+        kind=IMPORT_JOB, started_by=request.user,
+        label=f'{stype} scholar list for {rollover_label}'[:200])
+    jobs.enqueue(
+        run_archive_import, job.pk, file.read(), file.name, stype,
+        rollover_label, request.user.pk, ratelimit.client_address(request),
+        label=f'import {file.name} for {stype} {rollover_label}')
+    return redirect(f'/vpsea/archives/?type={stype}&import_job={job.pk}')
 
-        with transaction.atomic():
-            ImportedScholar.objects.filter(
-                scholarship_type=stype, term_label=rollover_label).delete()
-            ImportedScholar.objects.bulk_create(records)
-        created = len(records)
 
-        file.seek(0)
-        if not ScholarListImport.objects.filter(term_label=rollover_label, scholarship_type=stype).exists():
-            rollover = ScholarListImport(
-                scholarship_type=stype,
-                school_year=rollover_parsed['sy'],
-                semester=rollover_parsed.get('semester', active_semester),
-                term_label=rollover_label,
-                scholar_count=created,
-                imported_by=request.user,
-            )
-            rollover.excel_file.save(f'{stype}_{rollover_label}.xlsx', ContentFile(file.read()), save=True)
-        else:
-            ScholarListImport.objects.filter(term_label=rollover_label, scholarship_type=stype).update(scholar_count=created)
+@_vpsea_required
+def vpsea_archive_import_status(request, pk):
+    """Whether one import has finished, for the page waiting on it.
 
-        ActivityLog.record(
-            request.user, f'Imported {file.name} ({created} rows) for {stype} as "{rollover_label}"',
-            verb='import', request=request)
-    except Exception as exc:
-        from urllib.parse import quote
-        return redirect(f'/vpsea/archives/?type={quote(stype)}&import_error='
-                        + quote(str(exc)))
-    target = f'/vpsea/archives/?type={stype}&import_ok={created}'
-    if refused:
-        target += f'&columns_bad={refused}'
-    return redirect(target)
+    Says only that much. The banners are built by ``vpsea_archives`` from the
+    same row, so a page that learns the job is done reloads and reads them from
+    there rather than keeping a second copy of the wording in JavaScript.
+    """
+    from django.http import JsonResponse
+    from .models import BackgroundJob
+
+    job = BackgroundJob.objects.filter(pk=pk, kind=IMPORT_JOB).first()
+    if job is None:
+        return JsonResponse({'error': 'No such import.'}, status=404)
+    return JsonResponse({
+        'status': job.status,
+        'finished': bool(job.finished or job.abandoned()),
+    })
 
 @_vpsea_required
 def vpsea_archive_download(request):

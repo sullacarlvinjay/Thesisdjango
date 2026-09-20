@@ -16,16 +16,14 @@
   <a href="/vpsea/affirmative/?tab=academic"
      class="btn {% if active_tab == 'academic' %}btn-primary{% else %}btn-outline{% endif %}">
     Academic
-    <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5"
-          style="background:{% if active_tab == 'academic' %}rgba(255,255,255,0.25){% else %}var(--brand-soft){% endif %};color:{% if active_tab == 'academic' %}#fff{% else %}var(--brand){% endif %};">
+    <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5 {% if active_tab == 'academic' %}u-bg-white-25 u-text-white{% else %}u-bg-brand-soft u-text-brand{% endif %}">
       {{ academic_apps|length }}
     </span>
   </a>
   <a href="/vpsea/affirmative/?tab=staff"
      class="btn {% if active_tab == 'staff' %}btn-primary{% else %}btn-outline{% endif %}">
     BiPSU Staff
-    <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5"
-          style="background:{% if active_tab == 'staff' %}rgba(255,255,255,0.25){% else %}var(--brand-soft){% endif %};color:{% if active_tab == 'staff' %}#fff{% else %}var(--brand){% endif %};">
+    <span class="ml-1 text-xs font-bold rounded-full px-1.5 py-0.5 {% if active_tab == 'staff' %}u-bg-white-25 u-text-white{% else %}u-bg-brand-soft u-text-brand{% endif %}">
       {{ staff_apps|length }}
     </span>
   </a>
@@ -33,180 +31,151 @@
 {% include "vpsea/_window_card.html" %}
 <div class="card p-6">
   <div class="filter-scheme mb-5" data-filter-bar data-filter-search="#searchInput">
-    <input placeholder="Search by name or ID…" style="max-width:20rem;" id="searchInput" />
+    <input class="u-maxw-20rem" placeholder="Search by name or ID…" id="searchInput"
+           aria-label="Search applicants by name or student number"/>
   </div>
   {% if active_tab == 'academic' %}
-  <div style="overflow-x:auto;">
-    <table data-priority-columns data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-875rem" data-priority-columns data-filterable data-sortable id="appTable">
       <thead>
-        <tr style="border-bottom:1px solid var(--border);">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Student</th>
-          <th data-priority="low" data-filter="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">School</th>
-          <th data-filter="Course" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Course</th>
-          <th data-priority="medium" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Year</th>
-          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">GWA</th>
-          <th data-priority="medium" data-filter="Type" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Type</th>
-          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Semester</th>
-          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Status</th>
-          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Date</th>
+        <tr class="u-bb-1px-solid-border">
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">ID</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">Student</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="low" data-filter="School">School</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Course">Course</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="medium">Year</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="low">GWA</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="medium" data-filter="Type">Type</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Semester">Semester</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Status">Status</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="low">Date</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for app in academic_apps %}
-        <tr style="border-bottom:1px solid var(--surface-2);" class="app-row"
-          data-name="{{ app.student.user.get_full_name|lower }}"
-          data-id="{{ app.student.student_id|lower }}"
-          data-status="{{ app.status }}"
-          data-appid="{{ app.id }}"
-          data-firstname="{{ app.student.user.first_name }}"
-          data-lastname="{{ app.student.user.last_name }}"
-          data-studentid="{{ app.student.student_id }}"
-          data-email="{{ app.student.user.email }}"
-          data-course="{{ app.student.course }}"
-          data-year="{{ app.student.year_level }}"
-          data-gwa="{{ app.student.gwa }}"
-          data-gender="{{ app.student.gender }}"
-          data-dob="{{ app.student.date_of_birth|default:'' }}"
-          data-contact="{{ app.student.contact_number }}"
-          data-address="{{ app.student.address }}"
-          data-scholarship="{{ app.scholarship.name }}"
-          data-remarks="{{ app.remarks }}"
-          data-docs="{% for doc in app.documents.all %}{{ doc.name }}::{{ doc.file.url }}{% if not forloop.last %}||{% endif %}{% endfor %}"
-          data-formdata-id="{{ app.id }}">
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:var(--text-muted);">APP-{{ app.id|stringformat:"07d" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+        <tr class="app-row u-bb-1px-solid-surface-2" data-name="{{ app.student.user.get_full_name|lower }}" data-id="{{ app.student.student_id|lower }}" data-status="{{ app.status }}" data-appid="{{ app.id }}" data-firstname="{{ app.student.user.first_name }}" data-lastname="{{ app.student.user.last_name }}" data-studentid="{{ app.student.student_id }}" data-email="{{ app.student.user.email }}" data-course="{{ app.student.course }}" data-year="{{ app.student.year_level }}" data-gwa="{{ app.student.gwa }}" data-gender="{{ app.student.gender }}" data-dob="{{ app.student.date_of_birth|default:'' }}" data-contact="{{ app.student.contact_number }}" data-address="{{ app.student.address }}" data-scholarship="{{ app.scholarship.name }}" data-remarks="{{ app.remarks }}" data-docs="{% for doc in app.documents.all %}{{ doc.name }}::{{ doc.file.url }}{% if not forloop.last %}||{% endif %}{% endfor %}" data-formdata-id="{{ app.id }}">
+          <td class="u-p-0-6rem-0-75rem u-mono u-fs-0-75rem u-text-muted">APP-{{ app.id|stringformat:"07d" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--brand);">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 u-bg-brand">
                 {{ app.student.user.first_name|first }}{{ app.student.user.last_name|first }}
               </div>
               <div>
                 <p class="font-medium leading-tight">{{ app.student.user.get_full_name }}</p>
-                <p class="text-xs" style="color:var(--text-muted);">{{ app.student.student_id }}</p>
+                <p class="text-xs u-text-muted">{{ app.student.student_id }}</p>
               </div>
             </div>
           </td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ app.student.school|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.student.course }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.student.year_level }}</td>
-          <td style="padding:0.6rem 0.75rem;"><span class="badge badge-muted">{{ app.student.gwa }}</span></td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.scholarship.name }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ app.term_display|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ app.student.school|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ app.student.course }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ app.student.year_level }}</td>
+          <td class="u-p-0-6rem-0-75rem"><span class="badge badge-muted">{{ app.student.gwa }}</span></td>
+          <td class="u-p-0-6rem-0-75rem">{{ app.scholarship.name }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ app.term_display|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% else %}badge-warning{% endif %}">
               {{ app.status }}
             </span>
+            {% include "vpsea/_decided_by.html" with row=app %}
           </td>
-          <td style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
-            <button onclick="openAcademicModal(this.closest('tr'))" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
+          <td class="u-p-0-6rem-0-75rem u-text-muted u-fs-0-8rem">{{ app.submitted_at|date:"M d, Y" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
+            <button onclick="openAcademicModal(this.closest('tr'))" class="btn btn-outline u-p-0-3rem-0-6rem u-fs-0-75rem">
               <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               View
             </button>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" style="padding:2rem;text-align:center;color:var(--text-muted);">No academic applications found.</td></tr>
+        <tr><td class="u-p-2rem u-ta-center u-text-muted" colspan="11">No academic applications found.</td></tr>
         {% endfor %}
         {% for app in academic_apps %}{{ app.form_data|json_script:app.id }}{% endfor %}
       </tbody>
     </table>
   </div>
   {% else %}
-  <div style="overflow-x:auto;">
-    <table data-priority-columns data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-875rem" data-priority-columns data-filterable data-sortable>
       <thead>
-        <tr style="border-bottom:1px solid var(--border);">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Name</th>
-          <th data-filter="Course" data-filter-group="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Course</th>
-          <th data-priority="medium" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Year</th>
-          <th data-filter="Employment" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Employment</th>
-          <th data-priority="medium" data-filter="Designation" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Designation</th>
-          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Date of Reg.</th>
-          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Semester</th>
-          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Status</th>
-          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Submitted</th>
+        <tr class="u-bb-1px-solid-border">
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">ID</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500">Name</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Course" data-filter-group="School">Course</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="medium">Year</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Employment">Employment</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="medium" data-filter="Designation">Designation</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="low">Date of Reg.</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Semester">Semester</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-filter="Status">Status</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-75rem u-text-muted u-fw-500" data-priority="low">Submitted</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for app in staff_apps %}
-        <tr style="border-bottom:1px solid var(--surface-2);" class="app-row"
-          data-name="{{ app.full_name|lower }}"
-          data-id="{{ app.student_id|lower }}"
-          data-status="{{ app.status }}"
-          data-appid="{{ app.id }}"
-          data-fullname="{{ app.full_name }}"
-          data-course="{{ app.course }}"
-          data-employment="{{ app.employment_status|default:'' }}"
-          data-designation="{{ app.designation|default:'' }}"
-          data-yos="{{ app.years_of_service|default:'' }}"
-          data-doreg="{{ app.date_of_regularization|date:'Y-m-d'|default:'' }}"
-          data-remarks="{{ app.remarks }}"
-          data-docurl="{% if app.appointment_paper %}{{ app.appointment_paper.url }}{% endif %}">
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:var(--text-muted);">STF-{{ app.id|stringformat:"05d" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+        <tr class="app-row u-bb-1px-solid-surface-2" data-name="{{ app.full_name|lower }}" data-id="{{ app.student_id|lower }}" data-status="{{ app.status }}" data-appid="{{ app.id }}" data-fullname="{{ app.full_name }}" data-course="{{ app.course }}" data-employment="{{ app.employment_status|default:'' }}" data-designation="{{ app.designation|default:'' }}" data-yos="{{ app.years_of_service|default:'' }}" data-doreg="{{ app.date_of_regularization|date:'Y-m-d'|default:'' }}" data-remarks="{{ app.remarks }}" data-docurl="{% if app.appointment_paper %}{{ app.appointment_paper.url }}{% endif %}">
+          <td class="u-p-0-6rem-0-75rem u-mono u-fs-0-75rem u-text-muted">STF-{{ app.id|stringformat:"05d" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--ok);">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 u-bg-ok-solid">
                 {{ app.full_name|first }}
               </div>
               <div>
                 <p class="font-medium leading-tight">{{ app.full_name }}</p>
-                <p class="text-xs" style="color:var(--text-muted);">{{ app.email }}</p>
+                <p class="text-xs u-text-muted">{{ app.email }}</p>
               </div>
             </div>
           </td>
-          <td data-group="{{ app.course_school }}" style="padding:0.6rem 0.75rem;">{{ app.course }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.year_level }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.employment_status|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ app.designation|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;">{{ app.date_of_regularization|date:"M d, Y"|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ app.term_display|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="u-p-0-6rem-0-75rem" data-group="{{ app.course_school }}">{{ app.course }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ app.year_level }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ app.employment_status|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ app.designation|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem">{{ app.date_of_regularization|date:"M d, Y"|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ app.term_display|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% else %}badge-warning{% endif %}">
               {{ app.status }}
             </span>
+            {% include "vpsea/_decided_by.html" with row=app %}
           </td>
-          <td style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
-          <td style="padding:0.6rem 0.75rem;">
-            <button onclick="openStaffModal(this.closest('tr'))"
-              class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
+          <td class="u-p-0-6rem-0-75rem u-text-muted u-fs-0-8rem">{{ app.submitted_at|date:"M d, Y" }}</td>
+          <td class="u-p-0-6rem-0-75rem">
+            <button onclick="openStaffModal(this.closest('tr'))" class="btn btn-outline u-p-0-3rem-0-6rem u-fs-0-75rem">
               <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               View
             </button>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" style="padding:2rem;text-align:center;color:var(--text-muted);">No BiPSU Staff applications found.</td></tr>
+        <tr><td class="u-p-2rem u-ta-center u-text-muted" colspan="11">No BiPSU Staff applications found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% endif %}
 </div>
-<div id="academicModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
-  <div class="card modal-sheet" style="max-width:44rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-50 u-ai-center u-jc-center u-p-1rem" id="academicModal">
+  <div class="card modal-sheet u-maxw-44rem">
     <div class="modal-sheet-head">
       <h2 class="modal-sheet-title" id="acadModalTitle">Application Review</h2>
       <button onclick="closeAcadModal()" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Personal Information</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-2 u-text-brand">Personal Information</p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalPersonal"></div>
     <div id="acadModalEduSection">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Educational Background</p>
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 u-text-brand">Educational Background</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalEdu"></div>
     </div>
     <div id="acadModalFamSection">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Family Background</p>
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 u-text-brand">Family Background</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalFam"></div>
     </div>
-    <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Academic Information</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 u-text-brand">Academic Information</p>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm mb-4" id="acadModalAcad"></div>
     <div id="acadModalDocsSection">
-      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3" style="color:var(--brand);">Submitted Documents</p>
+      <p class="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 u-text-brand">Submitted Documents</p>
       <div id="acadModalDocs" class="space-y-2 mb-4"></div>
     </div>
     </div>
@@ -217,28 +186,28 @@
         <input type="hidden" name="tab" value="academic" />
         <input type="hidden" name="app_id" id="acadModalAppId" />
         <div class="space-y-1.5 mb-4">
-          <label>Admin Remarks</label>
+          <label for="acadModalRemarks">Admin Remarks</label>
           <textarea name="remarks" rows="3" placeholder="Add notes for the applicant…" id="acadModalRemarks"></textarea>
         </div>
         <div class="flex gap-2">
           <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
           <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Send Back</button>
-          <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">✕ Reject</button>
+          <button type="submit" name="status" value="Rejected" class="btn u-flex-1 u-bg-danger u-text-danger u-border-1px-solid-danger-border">✕ Reject</button>
         </div>
       </form>
     </div>
   </div>
 </div>
-<div id="affModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;padding:1rem;">
-  <div class="card modal-sheet" style="max-width:38rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-50 u-ai-center u-jc-center u-p-1rem" id="affModal">
+  <div class="card modal-sheet u-maxw-38rem">
     <div class="modal-sheet-head">
       <h2 class="modal-sheet-title" id="affModalTitle">Application Review</h2>
       <button onclick="closeAffModal()" class="modal-sheet-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-sheet-body">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm" id="affModalDetails"></div>
-      <div id="affModalDocSection" style="display:none;margin-top:1rem;">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--brand);">Appointment Paper</p>
+      <div class="u-d-none u-mt-1rem" id="affModalDocSection">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2 u-text-brand">Appointment Paper</p>
         <div id="affModalDoc"></div>
       </div>
     </div>
@@ -249,13 +218,13 @@
       <input type="hidden" name="tab" id="affModalTab" value="affirmative" />
       <input type="hidden" name="app_id" id="affModalAppId" />
       <div class="space-y-1.5 mb-4">
-        <label>Admin Remarks</label>
+        <label for="affModalRemarks">Admin Remarks</label>
         <textarea name="remarks" rows="3" id="affModalRemarks" placeholder="Add verification notes…"></textarea>
       </div>
       <div class="flex gap-2">
         <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
         <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Send Back</button>
-        <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">✕ Reject</button>
+        <button type="submit" name="status" value="Rejected" class="btn u-flex-1 u-bg-danger u-text-danger u-border-1px-solid-danger-border">✕ Reject</button>
       </div>
     </form>
     </div>
@@ -270,8 +239,8 @@
 <script>
 function field(label, value) {
   if (!value && value !== 0) return '';
-  return '<div><p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:0.1rem;">' + label +
-         '</p><p class="font-medium" style="word-break:break-word;">' + value + '</p></div>';
+  return '<div><p class="u-fs-0-7rem u-text-muted u-mb-0-1rem">' + label +
+         '</p><p class="font-medium u-wb-break-word">' + value + '</p></div>';
 }
 function openAcademicModal(row) {
   const d = row.dataset;
@@ -308,7 +277,7 @@ function openAcademicModal(row) {
   if (d.docs) {
     docsEl.innerHTML = d.docs.split('||').map(p => {
       const [name, url] = p.split('::');
-      return '<a href="' + url + '" data-doc="' + name + '" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;color:var(--info);text-decoration:none;">' +
+      return '<a href="' + url + '" data-doc="' + name + '" class="flex items-center gap-2 u-p-0-4rem-0-6rem u-border-1px-solid-border u-round-6px u-fs-0-82rem u-text-info u-no-underline">' +
         '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
         name + '</a>';
     }).join('');
@@ -350,7 +319,7 @@ function openStaffModal(row) {
   const docSec = document.getElementById('affModalDocSection');
   const docEl  = document.getElementById('affModalDoc');
   if (d.docurl) {
-    docEl.innerHTML = '<a href="' + d.docurl + '" data-doc="Appointment Paper" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;color:var(--info);text-decoration:none;">' +
+    docEl.innerHTML = '<a href="' + d.docurl + '" data-doc="Appointment Paper" class="flex items-center gap-2 u-p-0-4rem-0-6rem u-border-1px-solid-border u-round-6px u-fs-0-82rem u-text-info u-no-underline">' +
       '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
       'View Appointment Paper</a>';
     docSec.style.display = '';

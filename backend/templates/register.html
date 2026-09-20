@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=80" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=86" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -27,83 +27,85 @@
       <p class="text-sm mt-1">Create your account</p>
     </div>
     {% if errors %}
-    <div class="mb-4 p-3 rounded-lg text-sm badge-destructive" style="display:block;border-radius:var(--radius);">
+    <div class="mb-4 p-3 rounded-lg text-sm badge-destructive u-d-block u-round-radius">
       {% for e in errors %}<p>{{ e }}</p>{% endfor %}
     </div>
     {% endif %}
     
-    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm" data-utm>
+    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm" data-utm{% if not errors %} data-steps{% endif %}>
       {% csrf_token %}
+      <div data-step data-step-label="Account type">
       <div class="auth-card mb-4">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:var(--text-soft);">I am registering as</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-3 u-text-soft">I am registering as</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="type-card {% if not post.account_type or post.account_type == 'student' %}selected-student{% endif %}"
                id="card-student" onclick="selectType('student')">
             <div class="flex items-center gap-2 mb-1">
-              <svg class="h-5 w-5" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="h-5 w-5 u-text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
               </svg>
-              <span class="text-sm font-semibold" style="color:var(--text);">Student</span>
+              <span class="text-sm font-semibold u-text-base">Student</span>
             </div>
-            <p class="text-xs" style="color:var(--text-muted);">Scholarship applicant enrolled at BiPSU</p>
+            <p class="text-xs u-text-muted">Scholarship applicant enrolled at BiPSU</p>
           </div>
           <div class="type-card {% if post.account_type == 'nsu_staff' %}selected-staff{% endif %}"
                id="card-staff" onclick="selectType('nsu_staff')">
             <div class="flex items-center gap-2 mb-1">
-              <svg class="h-5 w-5" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="h-5 w-5 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
-              <span class="text-sm font-semibold" style="color:var(--text);">BiPSU Staff</span>
+              <span class="text-sm font-semibold u-text-base">BiPSU Staff</span>
             </div>
-            <p class="text-xs" style="color:var(--text-muted);">Faculty, employee, or qualified dependent</p>
+            <p class="text-xs u-text-muted">Faculty, employee, or qualified dependent</p>
           </div>
         </div>
         <input type="hidden" name="account_type" id="account_type"
                value="{{ post.account_type|default:'student' }}" />
       </div>
+      </div>
+      <div data-step data-step-label="Your details">
       <div class="auth-card mb-4">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" id="section-title"
-           style="color:var(--brand);">Personal Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand" id="section-title">Personal Information</p>
         <div class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>First Name</label>
-              <input name="first_name" value="{{ post.first_name }}" placeholder="Juan" required />
+              <label for="f-first-name">First Name</label>
+              <input id="f-first-name" name="first_name" value="{{ post.first_name }}" placeholder="Juan" required />
             </div>
             <div class="space-y-1.5">
-              <label>Last Name</label>
-              <input name="last_name" value="{{ post.last_name }}" placeholder="Dela Cruz" required />
+              <label for="f-last-name">Last Name</label>
+              <input id="f-last-name" name="last_name" value="{{ post.last_name }}" placeholder="Dela Cruz" required />
             </div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Middle Name</label>
-              <input name="middle_name" value="{{ post.middle_name }}" placeholder="Ramirez" required />
+              <label for="f-middle-name">Middle Name</label>
+              <input id="f-middle-name" name="middle_name" value="{{ post.middle_name }}" placeholder="Ramirez" required />
             </div>
             <div class="space-y-1.5">
-              <label>Suffix <span class="label-optional">Optional</span></label>
-              <input name="suffix" value="{{ post.suffix }}" placeholder="Jr., III — if any" />
+              <label for="f-suffix">Suffix <span class="label-optional">Optional</span></label>
+              <input id="f-suffix" name="suffix" value="{{ post.suffix }}" placeholder="Jr., III — if any" />
             </div>
           </div>
           <div class="space-y-1.5">
-            <label>Email</label>
-            <input type="email" name="email" value="{{ post.email }}" placeholder="you@gmail.com" required autocomplete="email" />
+            <label for="f-email">Email</label>
+            <input id="f-email" type="email" name="email" value="{{ post.email }}" placeholder="you@gmail.com" required autocomplete="email" />
           </div>
           <div class="space-y-1.5">
-            <label>Contact Number</label>
-            <input type="tel" name="contact_number" value="{{ post.contact_number }}" placeholder="09XXXXXXXXX" required autocomplete="tel" />
+            <label for="f-contact-number">Contact Number</label>
+            <input id="f-contact-number" type="tel" name="contact_number" value="{{ post.contact_number }}" placeholder="09XXXXXXXXX" required autocomplete="tel" />
           </div>
           
           <div data-student-only class="space-y-3"
                {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1.5">
-                <label>Date of Birth</label>
-                <input type="date" name="date_of_birth" value="{{ post.date_of_birth }}" required />
+                <label for="f-date-of-birth">Date of Birth</label>
+                <input id="f-date-of-birth" type="date" name="date_of_birth" value="{{ post.date_of_birth }}" required />
               </div>
               <div class="space-y-1.5">
-                <label>Gender</label>
-                <select name="gender" required>
+                <label for="f-gender">Gender</label>
+                <select id="f-gender" name="gender" required>
                   <option value="">— Select —</option>
                   {% for value, label in genders %}
                   <option value="{{ value }}" {% if post.gender == value %}selected{% endif %}>{{ label }}</option>
@@ -113,12 +115,12 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1.5">
-                <label>Birth Place</label>
-                <input name="birth_place" value="{{ post.birth_place }}" placeholder="e.g. Naval, Biliran" required />
+                <label for="f-birth-place">Birth Place</label>
+                <input id="f-birth-place" name="birth_place" value="{{ post.birth_place }}" placeholder="e.g. Naval, Biliran" required />
               </div>
               <div class="space-y-1.5">
-                <label>Civil Status</label>
-                <select name="civil_status" required>
+                <label for="f-civil-status">Civil Status</label>
+                <select id="f-civil-status" name="civil_status" required>
                   <option value="">— Select —</option>
                   {% for value, label in civil_statuses %}
                   <option value="{{ value }}" {% if post.civil_status == value %}selected{% endif %}>{{ label }}</option>
@@ -140,38 +142,39 @@
               </select>
             </div>
             <div class="space-y-1.5" id="disabilityOther" {% if disability_value != other_option %}hidden{% endif %}>
-              <label>Please specify the disability</label>
-              <input name="disability_type_other" value="{{ disability_other }}" maxlength="100"
+              <label for="f-disability-type-other">Please specify the disability</label>
+              <input id="f-disability-type-other" name="disability_type_other" value="{{ disability_other }}" maxlength="100"
                      placeholder="Type the disability as you would write it on a form" />
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div class="space-y-1.5">
-                <label>Barangay / Street</label>
-                <input name="barangay" value="{{ post.barangay }}" placeholder="e.g. Brgy. Larrazabal" required />
+                <label for="f-barangay">Barangay / Street</label>
+                <input id="f-barangay" name="barangay" value="{{ post.barangay }}" placeholder="e.g. Brgy. Larrazabal" required />
               </div>
               <div class="space-y-1.5">
-                <label>Municipality</label>
-                <input name="municipality" value="{{ post.municipality }}" placeholder="e.g. Naval" required />
+                <label for="f-municipality">Municipality</label>
+                <input id="f-municipality" name="municipality" value="{{ post.municipality }}" placeholder="e.g. Naval" required />
               </div>
               <div class="space-y-1.5">
-                <label>Province</label>
-                <input name="province" value="{{ post.province }}" placeholder="e.g. Biliran" required />
+                <label for="f-province">Province</label>
+                <input id="f-province" name="province" value="{{ post.province }}" placeholder="e.g. Biliran" required />
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div data-student-only class="card mb-4" style="padding:1.5rem;"
-           {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Academic Information</p>
+      </div>
+      <div data-step data-step-label="Course">
+      <div data-student-only class="card mb-4 u-p-1-5rem" {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Academic Information</p>
         <div class="space-y-3">
           <div class="space-y-1.5">
-            <label>Student ID</label>
+            <label for="f-student-id">Student ID</label>
             
-            <input name="student_id" value="{{ post.student_id }}" placeholder="e.g. 2021-00001" required />
+            <input id="f-student-id" name="student_id" value="{{ post.student_id }}" placeholder="e.g. 2021-00001" required />
           </div>
           <div class="space-y-1.5">
-            <label>School</label>
+            <label for="schoolSelect">School</label>
             <select name="school" id="schoolSelect" required onchange="updateCourseDropdown()">
               <option value="">— Select School —</option>
               {% for val, label in bipsu_schools %}
@@ -181,14 +184,14 @@
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Course</label>
+              <label for="courseSelect">Course</label>
               <select name="course" id="courseSelect" required>
                 <option value="">— Select your school first —</option>
               </select>
             </div>
             <div class="space-y-1.5">
-              <label>Year Level</label>
-              <select name="year_level" required>
+              <label for="f-year-level">Year Level</label>
+              <select id="f-year-level" name="year_level" required>
                 <option value="" {% if not post.year_level %}selected{% endif %}>— Select —</option>
                 <option value="1" {% if post.year_level == "1" %}selected{% endif %}>1st Year</option>
                 <option value="2" {% if post.year_level == "2" %}selected{% endif %}>2nd Year</option>
@@ -199,118 +202,120 @@
           </div>
         </div>
       </div>
-      <div data-student-only class="card mb-4" style="padding:1.5rem;"
-           {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Educational Background</p>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">Where you studied before BiPSU. Locked once saved — the SDSO can correct it.</p>
+      </div>
+      <div data-step data-step-label="Schooling">
+      <div data-student-only class="card mb-4 u-p-1-5rem" {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">Educational Background</p>
+        <p class="text-xs mb-4 u-text-muted">Where you studied before BiPSU. Locked once saved — the SDSO can correct it.</p>
         <div class="space-y-3">
           <div class="space-y-1.5">
-            <label>Elementary School</label>
-            <input name="elementary" value="{{ post.elementary }}" required />
+            <label for="f-elementary">Elementary School</label>
+            <input id="f-elementary" name="elementary" value="{{ post.elementary }}" required />
           </div>
           <div class="space-y-1.5">
-            <label>High School</label>
-            <input name="highschool" value="{{ post.highschool }}" required />
+            <label for="f-highschool">High School</label>
+            <input id="f-highschool" name="highschool" value="{{ post.highschool }}" required />
           </div>
           <div class="space-y-1.5">
-            <label>Was your high school a public school?</label>
-            <select name="highschool_is_public" required>
+            <label for="f-highschool-is-public">Was your high school a public school?</label>
+            <select id="f-highschool-is-public" name="highschool_is_public" required>
               <option value="" {% if not post.highschool_is_public or post.highschool_is_public == 'unknown' %}selected{% endif %}>— Select —</option>
               <option value="yes" {% if post.highschool_is_public == 'yes' %}selected{% endif %}>Yes</option>
               <option value="no" {% if post.highschool_is_public == 'no' %}selected{% endif %}>No</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Last School Attended</label>
-            <input name="last_school" value="{{ post.last_school }}" required />
+            <label for="f-last-school">Last School Attended</label>
+            <input id="f-last-school" name="last_school" value="{{ post.last_school }}" required />
           </div>
         </div>
       </div>
-      <div data-student-only class="card mb-4" style="padding:1.5rem;"
-           {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Socioeconomic Information</p>
+      </div>
+      <div data-step data-step-label="Household">
+      <div data-student-only class="card mb-4 u-p-1-5rem" {% if post.account_type == 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Socioeconomic Information</p>
         <div class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Annual Family Income (₱)</label>
-              <input name="family_income" type="number" step="0.01" min="0"
+              <label for="f-family-income">Annual Family Income (₱)</label>
+              <input id="f-family-income" name="family_income" type="number" step="0.01" min="0"
                      value="{{ post.family_income }}" placeholder="e.g. 180000" required />
             </div>
             <div class="space-y-1.5">
-              <label>Indigenous Group <span class="label-optional">Optional</span></label>
-              <input name="indigenous_group" value="{{ post.indigenous_group }}" />
+              <label for="f-indigenous-group">Indigenous Group <span class="label-optional">Optional</span></label>
+              <input id="f-indigenous-group" name="indigenous_group" value="{{ post.indigenous_group }}" />
             </div>
           </div>
           <div class="space-y-1.5">
-            <label>Are you from a depressed area?</label>
-            <select name="is_from_depressed_area" required>
+            <label for="f-is-from-depressed-area">Are you from a depressed area?</label>
+            <select id="f-is-from-depressed-area" name="is_from_depressed_area" required>
               <option value="" {% if not post.is_from_depressed_area or post.is_from_depressed_area == 'unknown' %}selected{% endif %}>— Select —</option>
               <option value="yes" {% if post.is_from_depressed_area == 'yes' %}selected{% endif %}>Yes</option>
               <option value="no" {% if post.is_from_depressed_area == 'no' %}selected{% endif %}>No</option>
             </select>
-            <p class="text-xs" style="color:var(--text-muted);">
+            <p class="text-xs u-text-muted">
               A depressed or economically disadvantaged barangay or municipality.
               The SDSO verifies this answer.
             </p>
           </div>
           
           <div class="space-y-1.5">
-            <label class="flex items-center gap-2 cursor-pointer text-sm" style="font-weight:600;">
-              <input type="checkbox" name="has_scholarship" id="hasScholarship"
-                     {% if post.has_scholarship %}checked{% endif %} style="width:auto;" />
+            <label class="flex items-center gap-2 cursor-pointer text-sm u-fw-600">
+              <input class="u-w-auto" type="checkbox" name="has_scholarship" id="hasScholarship" {% if post.has_scholarship %}checked{% endif %}/>
               I already hold a scholarship
             </label>
-            <select name="scholarship_type" id="scholarshipType" data-type-for="1">
+            <select name="scholarship_type" id="scholarshipType" data-type-for="1"
+                    aria-label="Which scholarship you already hold">
               <option value="">— Which scholarship? —</option>
               {% for value, label in scholarship_types %}
               <option value="{{ value }}" {% if post.scholarship_type == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
-            <p class="text-xs" style="color:var(--text-muted);">
+            <p class="text-xs u-text-muted">
               Tick this only for a scholarship you hold now. If you hold more than one,
               name the first here — Scholarship Data below has room for the others.
             </p>
           </div>
         </div>
       </div>
+      </div>
+      <div data-step data-step-label="Scholarships held">
       {% for slot in declaration_slots %}
-      <div data-student-only data-slot="{{ slot.n }}" class="card mb-4" id="{{ slot.card_id }}" style="padding:1.5rem;"
-           {% if post.account_type == 'nsu_staff' or not slot.open %}hidden{% endif %}>
+      <div data-student-only data-slot="{{ slot.n }}" class="card mb-4 u-p-1-5rem" id="{{ slot.card_id }}" {% if post.account_type == 'nsu_staff' or not slot.open %}hidden{% endif %}>
         {% if slot.extra %}
         <input type="hidden" name="has_scholarship{{ slot.suffix }}" value="on"
                {% if post.account_type == 'nsu_staff' or not slot.open %}disabled{% endif %} />
         {% endif %}
         <div class="flex items-start justify-between gap-3 mb-1">
-          <p class="text-xs font-semibold uppercase tracking-wider" style="color:var(--brand);">
+          <p class="text-xs font-semibold uppercase tracking-wider u-text-brand">
             Scholarship Data{% if slot.extra %} {{ slot.n }}{% endif %}
           </p>
           {% if slot.extra %}
-          <button type="button" class="btn btn-outline" data-drop-slot="{{ slot.n }}"
-                  style="padding:0.15rem 0.5rem;font-size:0.75rem;">Remove</button>
+          <button type="button" class="btn btn-outline u-p-0-15rem-0-5rem u-fs-0-75rem" data-drop-slot="{{ slot.n }}">Remove</button>
           {% endif %}
         </div>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">
+        <p class="text-xs mb-4 u-text-muted">
           The SDSO verifies this against their records when they verify your account. Once
           approved it is recorded as your award and appears under My Applications.
         </p>
         <div class="space-y-3">
           {% if slot.extra %}
           <div class="space-y-1.5">
-            <label>Which scholarship</label>
+            <label for="{{ slot.type_id }}">Which scholarship</label>
             <select name="scholarship_type{{ slot.suffix }}" id="{{ slot.type_id }}" data-type-for="{{ slot.n }}">
               <option value="">— Which scholarship? —</option>
               {% for value, label in scholarship_types %}
               <option value="{{ value }}" {% if slot.type == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
-            <p class="text-xs" style="color:var(--text-muted);">Name each scholarship once. The office verifies them one at a time.</p>
+            <p class="text-xs u-text-muted">Name each scholarship once. The office verifies them one at a time.</p>
           </div>
           {% endif %}
           
           <div class="space-y-1.5" id="{{ slot.tier_id }}" data-ched-tier {% if slot.type != 'CHED' %}hidden{% endif %}>
-            <label>CHED Award Tier</label>
-            <p class="text-xs" style="color:var(--text-muted);">Your award letter says which. Full Merit covers full tuition; Half Merit is the partial grant.</p>
-            <select name="award_tier{{ slot.suffix }}">
+            <label for="f-award-tier-{{ slot.suffix }}">CHED Award Tier</label>
+            <p class="text-xs u-text-muted">Your award letter says which. Full Merit covers full tuition; Half Merit is the partial grant.</p>
+            <select id="f-award-tier-{{ slot.suffix }}" name="award_tier{{ slot.suffix }}">
               <option value="">— Select tier —</option>
               {% for value, label in ched_tiers %}
               <option value="{{ value }}" {% if slot.tier == value %}selected{% endif %}>{{ label }}</option>
@@ -318,24 +323,24 @@
             </select>
           </div>
           <div class="space-y-3" data-staff-dependent {% if slot.type != 'Staff' %}hidden{% endif %}>
-            <p class="text-xs" style="color:var(--text-muted);">
+            <p class="text-xs u-text-muted">
               The BiPSU Staff Scholarship is held through a BiPSU employee. Tell the
               office whose appointment it rests on and how you are related to them.
             </p>
             <div class="space-y-1.5">
-              <label>Employee's Full Name</label>
-              <input name="staff_name{{ slot.suffix }}" value="{{ slot.staff_name }}"
+              <label for="f-staff-name-{{ slot.suffix }}">Employee's Full Name</label>
+              <input id="f-staff-name-{{ slot.suffix }}" name="staff_name{{ slot.suffix }}" value="{{ slot.staff_name }}"
                      placeholder="e.g. Ernesto Dela Pena" />
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1.5">
-                <label>Employee Number</label>
-                <input name="staff_employee_id{{ slot.suffix }}" value="{{ slot.staff_employee_id }}"
+                <label for="f-staff-employee-id-{{ slot.suffix }}">Employee Number</label>
+                <input id="f-staff-employee-id-{{ slot.suffix }}" name="staff_employee_id{{ slot.suffix }}" value="{{ slot.staff_employee_id }}"
                        placeholder="e.g. EMP-0042" class="font-mono" />
               </div>
               <div class="space-y-1.5">
-                <label>Your Relationship</label>
-                <select name="relationship_to_staff{{ slot.suffix }}">
+                <label for="f-relationship-to-staff-{{ slot.suffix }}">Your Relationship</label>
+                <select id="f-relationship-to-staff-{{ slot.suffix }}" name="relationship_to_staff{{ slot.suffix }}">
                   <option value="">— Select —</option>
                   {% for value, label in staff_relationships %}
                   <option value="{{ value }}" {% if slot.relationship_to_staff == value %}selected{% endif %}>{{ label }}</option>
@@ -345,19 +350,19 @@
             </div>
           </div>
           <div class="space-y-1.5">
-            <label>Award / Scholar Number <span class="label-optional">Optional</span></label>
-            <input name="award_number{{ slot.suffix }}" value="{{ slot.award_number }}" placeholder="e.g. 2026-DOST-00194"
+            <label for="f-award-number-{{ slot.suffix }}">Award / Scholar Number <span class="label-optional">Optional</span></label>
+            <input id="f-award-number-{{ slot.suffix }}" name="award_number{{ slot.suffix }}" value="{{ slot.award_number }}" placeholder="e.g. 2026-DOST-00194"
                    class="font-mono" />
-            <p class="text-xs" style="color:var(--text-muted);">If your award letter has one, it lets the office match you to their records automatically.</p>
+            <p class="text-xs u-text-muted">If your award letter has one, it lets the office match you to their records automatically.</p>
           </div>
           <div class="space-y-1.5">
-            <label>Proof Document</label>
-            <input type="file" name="proof_document{{ slot.suffix }}" accept=".pdf,.jpg,.jpeg,.png" />
-            <p class="text-xs" style="color:var(--text-muted);">Your award letter, certificate, or any official document proving the scholarship. PDF, JPG or PNG · maximum {{ max_upload_mb }} MB.</p>
+            <label for="f-proof-document-{{ slot.suffix }}">Proof Document</label>
+            <input id="f-proof-document-{{ slot.suffix }}" type="file" name="proof_document{{ slot.suffix }}" accept=".pdf,.jpg,.jpeg,.png" />
+            <p class="text-xs u-text-muted">Your award letter, certificate, or any official document proving the scholarship. PDF, JPG or PNG · maximum {{ max_upload_mb }} MB.</p>
           </div>
           <div class="space-y-1.5">
-            <label>Additional Notes <span class="label-optional">Optional</span></label>
-            <textarea name="notes{{ slot.suffix }}" rows="3" placeholder="Anything the office should know about this award">{{ slot.notes }}</textarea>
+            <label for="f-notes-{{ slot.suffix }}">Additional Notes <span class="label-optional">Optional</span></label>
+            <textarea id="f-notes-{{ slot.suffix }}" name="notes{{ slot.suffix }}" rows="3" placeholder="Anything the office should know about this award">{{ slot.notes }}</textarea>
           </div>
         </div>
       </div>
@@ -367,54 +372,56 @@
           + I hold another scholarship
         </button>
       </div>
+      </div>
       
-      <div data-student-only class="card mb-4" id="scholarshipEligibility" style="padding:1.5rem;"
-           {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">Used for scholarship matching. All of it has to be answered, and the certified documents uploaded as proof, before the form will send.</p>
+      <div data-step data-step-label="Grades">
+      <div data-student-only class="card mb-4 u-p-1-5rem" id="scholarshipEligibility" {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">Scholarship Eligibility Information</p>
+        <p class="text-xs mb-4 u-text-muted">Used for scholarship matching. All of it has to be answered, and the certified documents uploaded as proof, before the form will send.</p>
         <div class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>SHS Grade Point Average (%)</label>
-              <input name="shs_gpa" type="number" step="0.01" min="0" max="100"
+              <label for="f-shs-gpa">SHS Grade Point Average (%)</label>
+              <input id="f-shs-gpa" name="shs_gpa" type="number" step="0.01" min="0" max="100"
                      value="{{ post.shs_gpa }}" placeholder="e.g. 88.5" required />
             </div>
             <div class="space-y-1.5">
-              <label>SHS GPA Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
-              <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
+              <label for="f-shs-gpa-cert">SHS GPA Certificate <span class="font-normal u-text-muted">(PDF/JPG/PNG)</span></label>
+              <input id="f-shs-gpa-cert" name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
             </div>
           </div>
           
           <div class="space-y-1.5">
-            <label>SUC Admission Exam Score</label>
+            <label for="f-suc-exam-score">SUC Admission Exam Score</label>
             <div class="suc-score-pair">
-              <input name="suc_exam_score" type="number" step="0.01" min="0"
+              <input id="f-suc-exam-score" name="suc_exam_score" type="number" step="0.01" min="0"
                      value="{{ post.suc_exam_score }}" placeholder="score, e.g. 35" aria-label="SUC exam score" required />
               <span class="suc-score-of">out of</span>
               <input name="suc_exam_total" type="number" step="0.01" min="1"
                      value="{{ post.suc_exam_total }}" placeholder="total, e.g. 50" aria-label="Total items" required />
             </div>
-            <p class="text-xs" style="color:var(--text-muted);">Enter 100 as the total if your certificate already gives a percentage. Both come off the same certificate, so copy them from the document rather than from memory.</p>
+            <p class="text-xs u-text-muted">Enter 100 as the total if your certificate already gives a percentage. Both come off the same certificate, so copy them from the document rather than from memory.</p>
           </div>
           <div class="space-y-1.5">
-            <label>SUC Exam Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
-            <input name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
+            <label for="f-suc-exam-cert">SUC Exam Certificate <span class="font-normal u-text-muted">(PDF/JPG/PNG)</span></label>
+            <input id="f-suc-exam-cert" name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
           </div>
           <div class="space-y-1.5">
-            <label>Certificate of Registration / Study Load <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
-            <input name="study_load" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
-            <p class="text-xs" style="color:var(--text-muted);">This term's registration form or study load from the registrar. The office uses it to confirm you are currently enrolled.</p>
+            <label for="f-study-load">Certificate of Registration / Study Load <span class="font-normal u-text-muted">(PDF/JPG/PNG)</span></label>
+            <input id="f-study-load" name="study_load" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
+            <p class="text-xs u-text-muted">This term's registration form or study load from the registrar. The office uses it to confirm you are currently enrolled.</p>
           </div>
           <label class="flex items-center gap-2 cursor-pointer text-sm">
-            <input type="checkbox" name="is_tes_beneficiary" {% if post.is_tes_beneficiary %}checked{% endif %} style="width:auto;" />
+            <input class="u-w-auto" type="checkbox" name="is_tes_beneficiary" {% if post.is_tes_beneficiary %}checked{% endif %}/>
             I am a current TES (Tertiary Education Subsidy) beneficiary
           </label>
         </div>
       </div>
-      <div data-student-only class="card mb-4" id="tesEligibility" style="padding:1.5rem;"
-           {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">TES Eligibility Information</p>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">
+      </div>
+      <div data-step data-step-label="TES questions">
+      <div data-student-only class="card mb-4 u-p-1-5rem" id="tesEligibility" {% if post.account_type == 'nsu_staff' or post.has_scholarship %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">TES Eligibility Information</p>
+        <p class="text-xs mb-4 u-text-muted">
           What the SDSO checks the TES rules against when it recommends students to UniFAST.
           All of it has to be answered before the form will send, so answer from the document you
           hold — your Listahanan or 4Ps record, your enrolment papers — rather than from memory.
@@ -424,105 +431,106 @@
         <div class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Citizenship</label>
-              <select name="citizenship" required>
+              <label for="f-citizenship">Citizenship</label>
+              <select id="f-citizenship" name="citizenship" required>
                 <option value="" {% if not post.citizenship %}selected{% endif %}>— Select —</option>
                 <option value="Filipino" {% if post.citizenship == 'Filipino' %}selected{% endif %}>Filipino</option>
                 <option value="Non-Filipino" {% if post.citizenship == 'Non-Filipino' %}selected{% endif %}>Non-Filipino</option>
               </select>
             </div>
             <div class="space-y-1.5">
-              <label>Household Size</label>
-              <input name="household_size" type="number" min="1" step="1" placeholder="e.g. 5"
+              <label for="f-household-size">Household Size</label>
+              <input id="f-household-size" name="household_size" type="number" min="1" step="1" placeholder="e.g. 5"
                      value="{{ post.household_size }}" required />
-              <p class="text-xs" style="color:var(--text-muted);">Everyone your family income supports, including you.</p>
+              <p class="text-xs u-text-muted">Everyone your family income supports, including you.</p>
             </div>
           </div>
           <div class="space-y-1.5">
-            <label>Year You First Enrolled in This Course</label>
-            <input name="year_first_enrolled" type="number" min="1980" step="1" placeholder="e.g. 2023"
+            <label for="f-year-first-enrolled">Year You First Enrolled in This Course</label>
+            <input id="f-year-first-enrolled" name="year_first_enrolled" type="number" min="1980" step="1" placeholder="e.g. 2023"
                    value="{{ post.year_first_enrolled }}" required />
-            <p class="text-xs" style="color:var(--text-muted);">Not the current year — the year you started the programme.</p>
+            <p class="text-xs u-text-muted">Not the current year — the year you started the programme.</p>
           </div>
           <div class="space-y-1.5">
-            <label>Listed in the DSWD Listahanan?</label>
-            <select name="is_listahanan_household" required>
+            <label for="f-is-listahanan-household">Listed in the DSWD Listahanan?</label>
+            <select id="f-is-listahanan-household" name="is_listahanan_household" required>
               <option value="" {% if not post.is_listahanan_household or post.is_listahanan_household == 'unknown' %}selected{% endif %}>— Select —</option>
               <option value="yes" {% if post.is_listahanan_household == 'yes' %}selected{% endif %}>Yes</option>
               <option value="no" {% if post.is_listahanan_household == 'no' %}selected{% endif %}>No</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>4Ps (Pantawid Pamilya) Beneficiary?</label>
-            <select name="is_4ps_beneficiary" required>
+            <label for="f-is-4ps-beneficiary">4Ps (Pantawid Pamilya) Beneficiary?</label>
+            <select id="f-is-4ps-beneficiary" name="is_4ps_beneficiary" required>
               <option value="" {% if not post.is_4ps_beneficiary or post.is_4ps_beneficiary == 'unknown' %}selected{% endif %}>— Select —</option>
               <option value="yes" {% if post.is_4ps_beneficiary == 'yes' %}selected{% endif %}>Yes</option>
               <option value="no" {% if post.is_4ps_beneficiary == 'no' %}selected{% endif %}>No</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Dependent of a solo parent?</label>
-            <select name="is_solo_parent_dependent" required>
+            <label for="f-is-solo-parent-dependent">Dependent of a solo parent?</label>
+            <select id="f-is-solo-parent-dependent" name="is_solo_parent_dependent" required>
               <option value="" {% if not post.is_solo_parent_dependent or post.is_solo_parent_dependent == 'unknown' %}selected{% endif %}>— Select —</option>
               <option value="yes" {% if post.is_solo_parent_dependent == 'yes' %}selected{% endif %}>Yes</option>
               <option value="no" {% if post.is_solo_parent_dependent == 'no' %}selected{% endif %}>No</option>
             </select>
-            <p class="text-xs" style="color:var(--text-muted);">A solo parent listed on the DSWD registry.</p>
+            <p class="text-xs u-text-muted">A solo parent listed on the DSWD registry.</p>
           </div>
           <div class="space-y-1.5">
-            <label>Do you already hold a college degree?</label>
-            <select name="has_previous_degree" required>
+            <label for="f-has-previous-degree">Do you already hold a college degree?</label>
+            <select id="f-has-previous-degree" name="has_previous_degree" required>
               <option value="" {% if not post.has_previous_degree or post.has_previous_degree == 'unknown' %}selected{% endif %}>— Select —</option>
               <option value="yes" {% if post.has_previous_degree == 'yes' %}selected{% endif %}>Yes</option>
               <option value="no" {% if post.has_previous_degree == 'no' %}selected{% endif %}>No</option>
             </select>
-            <p class="text-xs" style="color:var(--text-muted);">TES is for a first undergraduate degree.</p>
+            <p class="text-xs u-text-muted">TES is for a first undergraduate degree.</p>
           </div>
         </div>
       </div>
-      <div data-staff-only class="card mb-4" style="padding:1.5rem;"
-           {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--ok);">Employment Information</p>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">Saved to your staff profile. You can correct any of it later under My Profile.</p>
+      </div>
+      <div data-step data-step-label="Employment">
+      <div data-staff-only class="card mb-4 u-p-1-5rem" {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-ok">Employment Information</p>
+        <p class="text-xs mb-4 u-text-muted">Saved to your staff profile. You can correct any of it later under My Profile.</p>
         <div class="space-y-3">
           <div class="space-y-1.5">
-            <label>School / Employee ID</label>
-            <input name="school_id" value="{{ post.school_id }}" placeholder="e.g. 32-1-213313" required />
+            <label for="f-school-id">School / Employee ID</label>
+            <input id="f-school-id" name="school_id" value="{{ post.school_id }}" placeholder="e.g. 32-1-213313" required />
           </div>
           <div class="space-y-1.5">
-            <label>Office / College / Unit</label>
-            <input name="staff_school" value="{{ post.staff_school }}"
+            <label for="f-staff-school">Office / College / Unit</label>
+            <input id="f-staff-school" name="staff_school" value="{{ post.staff_school }}"
                    placeholder="e.g. School of Engineering" autocomplete="off" required />
-            <p class="text-xs" style="color:var(--text-muted);">Type the office, college or unit you are assigned to, in full.</p>
+            <p class="text-xs u-text-muted">Type the office, college or unit you are assigned to, in full.</p>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
-              <label>Department</label>
-              <input name="department" value="{{ post.department }}" placeholder="e.g. Computer Science Department" required />
+              <label for="f-department">Department</label>
+              <input id="f-department" name="department" value="{{ post.department }}" placeholder="e.g. Computer Science Department" required />
             </div>
             <div class="space-y-1.5">
-              <label>Position</label>
-              <input name="position" value="{{ post.position }}" placeholder="e.g. Instructor I" required />
+              <label for="f-position">Position</label>
+              <input id="f-position" name="position" value="{{ post.position }}" placeholder="e.g. Instructor I" required />
             </div>
           </div>
         </div>
       </div>
+      </div>
       
-      <div data-staff-only class="card mb-4" style="padding:1.5rem;"
-           {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--ok);">Scholarship Data</p>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">
+      <div data-step data-step-label="Declared award">
+      <div data-staff-only class="card mb-4 u-p-1-5rem" {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-ok">Scholarship Data</p>
+        <p class="text-xs mb-4 u-text-muted">
           The SDSO verifies this against their records when they verify your account. Once
           approved it is recorded as your award and you will not need to apply for it again.
         </p>
         <div class="space-y-3">
           <div class="space-y-1.5">
-            <label class="flex items-center gap-2 cursor-pointer text-sm" style="font-weight:600;">
-              <input type="checkbox" name="has_staff_scholarship" id="hasStaffScholarship"
-                     {% if post.has_staff_scholarship %}checked{% endif %} style="width:auto;" />
+            <label class="flex items-center gap-2 cursor-pointer text-sm u-fw-600">
+              <input class="u-w-auto" type="checkbox" name="has_staff_scholarship" id="hasStaffScholarship" {% if post.has_staff_scholarship %}checked{% endif %}/>
               I already hold the {{ staff_scholarship_label }}
             </label>
-            <p class="text-xs" style="color:var(--text-muted);">
+            <p class="text-xs u-text-muted">
               Tick this only for an award you hold now. Leave it clear if you mean to apply
               for one — the Apply page in your portal is where that starts.
             </p>
@@ -530,30 +538,34 @@
           <div id="staffScholarshipData" class="space-y-3"
                {% if not post.has_staff_scholarship %}hidden{% endif %}>
             <div class="space-y-1.5">
-              <label>Proof Document</label>
-              <input type="file" name="staff_proof_document" accept=".pdf,.jpg,.jpeg,.png" />
-              <p class="text-xs" style="color:var(--text-muted);">Your award letter, certificate, or any official document proving the scholarship. PDF, JPG or PNG · maximum {{ max_upload_mb }} MB.</p>
+              <label for="f-staff-proof-document">Proof Document</label>
+              <input id="f-staff-proof-document" type="file" name="staff_proof_document" accept=".pdf,.jpg,.jpeg,.png" />
+              <p class="text-xs u-text-muted">Your award letter, certificate, or any official document proving the scholarship. PDF, JPG or PNG · maximum {{ max_upload_mb }} MB.</p>
             </div>
             <div class="space-y-1.5">
-              <label>Additional Notes <span class="label-optional">Optional</span></label>
-              <textarea name="staff_notes" rows="3" placeholder="Anything the office should know about this award">{{ post.staff_notes }}</textarea>
+              <label for="f-staff-notes">Additional Notes <span class="label-optional">Optional</span></label>
+              <textarea id="f-staff-notes" name="staff_notes" rows="3" placeholder="Anything the office should know about this award">{{ post.staff_notes }}</textarea>
             </div>
           </div>
         </div>
       </div>
+      </div>
+      <div data-step data-step-label="Password">
       <div class="auth-card mb-4">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Account Security</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Account Security</p>
         <div class="space-y-3">
           <div class="space-y-1.5">
-            <label>Password</label>
-            <input type="password" name="password" placeholder="••••••••" required autocomplete="new-password" />
+            <label for="f-password">Password</label>
+            <input id="f-password" type="password" name="password" placeholder="••••••••" required autocomplete="new-password" />
           </div>
           <div class="space-y-1.5">
-            <label>Confirm Password</label>
-            <input type="password" name="confirm_password" placeholder="••••••••" required autocomplete="new-password" />
+            <label for="f-confirm-password">Confirm Password</label>
+            <input id="f-confirm-password" type="password" name="confirm_password" placeholder="••••••••" required autocomplete="new-password" />
           </div>
         </div>
       </div>
+      </div>
+      <div data-step data-step-label="Terms">
       <div class="auth-card mb-4" id="termsCard">
         <p class="terms-eyebrow">Terms and Agreement</p>
         <p class="terms-lead">
@@ -573,7 +585,8 @@
         </label>
         <p class="terms-meta">Version {{ terms_version }} · {{ terms_effective }}</p>
       </div>
-      <button type="submit" id="submit-btn"
+      </div>
+      <button type="submit" id="submit-btn" data-step-submit
               class="btn btn-auth" data-busy-text="Creating your account…">
         Create Account
       </button>
@@ -678,6 +691,7 @@ function selectType(type) {
   }
 }
 </script>
+<script src="{% static 'js/form-steps.js' %}?v=1"></script>
 <script src="{% static 'js/register-scholarship.js' %}?v=9"></script>
 <script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
 <script src="{% static 'js/modal-open.js' %}?v=2"></script>

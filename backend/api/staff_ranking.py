@@ -9,7 +9,12 @@ Which rules apply at all depends on whether the applicant is the employee or
 their dependent, so that is settled first.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import ApplicantRecord
 
 PASS = 'PASS'
 FAIL = 'FAIL'
@@ -48,20 +53,20 @@ class RuleResult:
     verdict: str
     detail: str
     source: str = ''
-    missing: tuple = ()
+    missing: tuple[str, ...] = ()
 
     @property
-    def passed(self):
+    def passed(self) -> bool:
         """Whether this qualification was met."""
         return self.verdict == PASS
 
     @property
-    def failed(self):
+    def failed(self) -> bool:
         """Whether this qualification refused the applicant."""
         return self.verdict == FAIL
 
     @property
-    def unverified(self):
+    def unverified(self) -> bool:
         """Whether the rule could not be run for want of an answer.
 
         Distinct from failing: the applicant has not been refused, the office has
@@ -84,30 +89,30 @@ class Evaluation:
         missing: what the office must obtain, collected from the rules.
         rank: position in the ranked list, filled in by :func:`rank`.
     """
-    application: object
+    application: 'ApplicantRecord'
     standing: str
-    rules: list
+    rules: list[RuleResult]
     status: str
-    missing: list = field(default_factory=list)
-    rank: int = None
+    missing: list[str] = field(default_factory=list)
+    rank: int | None = None
 
     @property
-    def applicant_name(self):
+    def applicant_name(self) -> str:
         """The applicant's name as the application records it."""
         return self.application.full_name
 
     @property
-    def qualified(self):
+    def qualified(self) -> bool:
         """Whether every qualification was met outright."""
         return self.status == QUALIFIED
 
     @property
-    def needs_verification(self):
+    def needs_verification(self) -> bool:
         """Whether a decision is waiting on missing information."""
         return self.status == FOR_VERIFICATION
 
     @property
-    def recommendation(self):
+    def recommendation(self) -> str:
         """The verdict in the words the office uses."""
         if self.status == NOT_QUALIFIED:
             return 'Not Recommended'
@@ -115,7 +120,7 @@ class Evaluation:
             return 'For Verification'
         return 'Recommended'
 
-    def rule(self, key):
+    def rule(self, key: str) -> RuleResult | None:
         """The result for one rule key, or ``None`` if it was not run."""
         for r in self.rules:
             if r.key == key:
@@ -123,17 +128,26 @@ class Evaluation:
         return None
 
     @property
-    def permanent_verdict(self):
+    def permanent_verdict(self) -> str:
         """The appointment rule's verdict, for the ranking table."""
-        return self.rule('permanent').verdict
+        return self._verdict_of('permanent')
 
     @property
-    def baccalaureate_verdict(self):
+    def baccalaureate_verdict(self) -> str:
         """The prior-degree rule's verdict, for the ranking table."""
-        return self.rule('baccalaureate').verdict
+        return self._verdict_of('baccalaureate')
+
+    def _verdict_of(self, key: str) -> str:
+        """One rule's verdict, or unverified where the rule never ran.
+
+        A rule that did not run is not a pass: the ranking table would show a
+        blank cell as if the qualification had been checked.
+        """
+        found = self.rule(key)
+        return found.verdict if found is not None else NEEDS_VERIFICATION
 
     @property
-    def sort_key(self):
+    def sort_key(self) -> tuple:
         """Ranking order: qualified first, then by name.
 
         There is no score to sort on. The qualifications are pass or fail, so the
@@ -144,7 +158,7 @@ class Evaluation:
         return (status_rank, (self.application.full_name or '').lower())
 
 
-def _standing_rule(application):
+def _standing_rule(application: 'ApplicantRecord') -> tuple[str, RuleResult]:
     """Decide whether this is an employee applying or their dependent.
 
     Everything else depends on the answer, so it is settled first. Both flags
@@ -185,7 +199,8 @@ def _standing_rule(application):
         missing=('Whether the applicant is the employee or their dependent',))
 
 
-def _permanent_appointment_rule(application, standing):
+def _permanent_appointment_rule(application: 'ApplicantRecord',
+                                standing: str) -> RuleResult:
     """Whether the appointment behind the claim is permanent.
 
     Qualification (a) for an employee, (b) for a dependent. For a dependent
@@ -261,7 +276,8 @@ def _permanent_appointment_rule(application, standing):
         source='employment_status')
 
 
-def _legitimate_dependent_rule(application, standing):
+def _legitimate_dependent_rule(application: 'ApplicantRecord',
+                               standing: str) -> RuleResult:
     """Whether a dependent has stated the relationship in full.
 
     Not applicable to an employee applying for themselves. For a dependent,
@@ -301,7 +317,8 @@ def _legitimate_dependent_rule(application, standing):
         source='relationship_to_staff')
 
 
-def _no_baccalaureate_rule(application, standing):
+def _no_baccalaureate_rule(application: 'ApplicantRecord',
+                           standing: str) -> RuleResult:
     """Qualification (c): a dependent must not already hold a degree.
 
     Applies to dependents only. An employee who already has a baccalaureate is
@@ -330,7 +347,7 @@ def _no_baccalaureate_rule(application, standing):
         'No baccalaureate degree on record.', source='has_baccalaureate')
 
 
-def evaluate(application):
+def evaluate(application: 'ApplicantRecord') -> Evaluation:
     """Judge one staff application against every qualification.
 
     A single failure refuses the application. Absent a failure, any rule that
@@ -355,7 +372,7 @@ def evaluate(application):
     else:
         status = QUALIFIED
 
-    missing = []
+    missing: list[str] = []
     if status != NOT_QUALIFIED:
         for rule in rules:
             missing.extend(rule.missing)
@@ -369,7 +386,7 @@ def evaluate(application):
     )
 
 
-def rank(applications):
+def rank(applications: Iterable['ApplicantRecord']) -> list[Evaluation]:
     """Evaluate and order a set of staff applications.
 
     Unlike TES, nothing is screened out first: an incomplete application is

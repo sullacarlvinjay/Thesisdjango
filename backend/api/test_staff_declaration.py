@@ -6,7 +6,7 @@ from api.models import (
     ApplicantRecord, ScholarshipLinkRequest, StaffProfile,
     StaffScholarshipDeclaration, StudentProfile, SystemSettings, User,
 )
-from api.test_registration_payload import (
+from api.fixtures_registration import (
     a_declared_scholar, a_staff_member, a_student,
 )
 

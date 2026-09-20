@@ -8,12 +8,13 @@
 {% include "_window_notice.html" %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
-    <div class="relative flex-1" style="min-width:16rem;">
-      <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style="color:var(--text-muted);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
-      <input id="search" placeholder="Search applications…" style="padding-left:2.25rem;" oninput="filterTable(this.value)" />
+    <div class="relative flex-1 u-minw-16rem">
+      <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 u-text-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+      <input class="u-pl-2-25rem" id="search" placeholder="Search applications…"
+             aria-label="Search your applications" oninput="filterTable(this.value)"/>
     </div>
   </div>
-  <div style="overflow-x:auto;">
+  <div class="u-scroll-x">
     <table id="appTable">
       <thead>
         <tr>
@@ -32,17 +33,19 @@
             {% elif a.status == "Needs Revision" %}<span class="badge badge-info">{{ a.status }}</span>
             {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
           </td>
-          <td style="color:var(--text-muted);">{{ a.remarks|default:"—" }}</td>
+          <td class="u-text-muted">{{ a.remarks|default:"—" }}</td>
           <td>{{ a.updated_at|date:"M d, Y" }}</td>
           <td>
-            <button class="btn btn-outline" style="padding:0.25rem 0.75rem;font-size:0.75rem;" onclick="openModal('app-{{ a.id }}')">
+            <button class="btn btn-outline u-p-0-25rem-0-75rem u-fs-0-75rem"
+                    aria-label="View this application"
+                    onclick="openModal('app-{{ a.id }}')">
               <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             </button>
           </td>
         </tr>
         {% endfor %}
         {% if not applications %}
-        <tr><td colspan="7" class="text-center py-8" style="color:var(--text-muted);">No applications yet.</td></tr>
+        <tr><td colspan="7" class="text-center py-8 u-text-muted">No applications yet.</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -52,16 +55,16 @@
   <div class="modal">
     <div class="modal-header">
       <h2 class="font-semibold text-base" id="modalTitle"></h2>
-      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.25rem;line-height:1;">✕</button>
+      <button class="u-bg-none u-border-none u-cursor-pointer u-text-muted u-fs-1-25rem u-lh-1" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
-<div style="display:none;">
+<div class="u-d-none">
   {% for a in applications %}
   <div id="app-{{ a.id }}">
     {% if a.remarks %}
-    <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:var(--warn-bg);border:1px solid #fdea2b;color:var(--warn);">
+    <div class="rounded-xl px-4 py-3 mb-1 text-sm u-bg-warn u-border-1px-solid-hexfdea2b u-text-warn">
       <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
     </div>
     {% endif %}
@@ -113,7 +116,7 @@
       {% for doc in a.documents.all %}
       <div class="detail-field">
         <label>{{ doc.name }}</label>
-        <span><a href="{{ doc.file.url }}" data-doc="{{ doc.name }}" style="color:var(--brand);text-decoration:underline;">View file</a></span>
+        <span><a class="u-text-brand u-underline" href="{{ doc.file.url }}" data-doc="{{ doc.name }}">View file</a></span>
       </div>
       {% endfor %}
     </div>

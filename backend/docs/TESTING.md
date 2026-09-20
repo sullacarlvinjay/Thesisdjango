@@ -12,7 +12,7 @@ technique against real output rather than taking a description on trust.
 python manage.py test api
 ```
 
-Around 1,500 cases, roughly 10–20 minutes. Do **not** pass `--parallel` on
+Around 1,600 cases, roughly 10–20 minutes. Do **not** pass `--parallel` on
 Python 3.14: the runner dies with `TypeError: cannot pickle 'traceback' object`
 the moment any case errors, which hides the actual failure behind a
 serialisation crash.
@@ -102,7 +102,13 @@ criteria that must each be able to fail on its own:
 - `api/test_qualification.py` — the combined verdict.
 
 Boundary values are tested at the edge and one step either side, rather than
-only in the middle of each range.
+only in the middle of each range. `api/test_analytics_charts.py` does the same
+for the GWA bands: every ceiling is tested at the value and one step past it.
+
+What this is **not**: `coverage.py` measures branch coverage, not condition or
+MC/DC coverage. Nothing here is a measurement of clause 5.2.3 — these are
+table-driven cases chosen to exercise each operand, which is evidence of a
+different kind. Claiming otherwise would be claiming a number nobody computed.
 
 ### Path coverage — clause 5.2.4
 
@@ -124,6 +130,14 @@ wrong answer changes who receives money — `tes_ranking.py`,
 `affirmative_ranking.py`, `staff_ranking.py` and the window and eligibility
 guards. Those modules are deliberately small and low-complexity for exactly
 this reason.
+
+The same reasoning now applies to the analytics dashboard.
+`_build_analytics_context` ran at cyclomatic complexity 101 with every chart's
+logic in a closure nothing could reach; stating one case for one chart meant
+building a request and reading a rendered page. The chart logic is in
+`api/analytics_charts.py` as plain functions, and `api/test_analytics_charts.py`
+walks their paths directly — 38 cases in 0.03 seconds, against a builder that
+now scores 22.
 
 ### Loop testing — clause 5.2.5
 
@@ -150,9 +164,15 @@ Covers unused bindings (`F841`), undefined names (`F821`), unused imports
 loop control variables never read (`B007`), and `zip` over sequences of
 unequal length (`B905`). Current output in `quality/lint.txt`.
 
-Data crossing a module boundary is tested at the boundary: `api/test_registration_payload.py`,
-`api/test_import_fills_custom_columns.py` and `api/test_scholar_columns.py`
-each assert that what one component wrote is what the next one reads.
+Data crossing a module boundary is tested at the boundary:
+`api/test_import_fills_custom_columns.py`, `api/test_scholar_columns.py` and
+`api/test_registration_data_flow.py` each assert that what one component wrote
+is what the next one reads.
+
+`api/fixtures_registration.py` was cited here as a third piece of evidence and
+is not one. It builds the registration payload the tests above post; it
+contains no assertions and proves nothing on its own. It was named
+`test_registration_payload.py`, which is what made it look like a test.
 
 ### Error and exception handling — clause 5.2.7
 
@@ -168,6 +188,20 @@ the wrong account is refused rather than merely unlinked.
 
 Exception chaining (`raise ... from`) is enforced by `ruff`'s `B904`, so a
 re-raise cannot silently discard the original cause.
+
+**A handler must not leak what it caught, and must not leave half a write
+behind.** `api/test_import_atomicity.py` covers both on the spreadsheet import:
+
+- It makes `ScholarListImport.save` throw and asserts zero scholar rows
+  survive — the import either files completely or files nothing.
+- It raises an exception whose text contains a password-failure message, a
+  Supabase hostname and a server path, and asserts none of them reach the
+  redirect URL while all of them reach the log. A generic sentence is what the
+  office is shown.
+- It asserts a failed import for one term does not delete another term's rows.
+
+`api/test_award_integrity.py` covers the constraints that stop a duplicate
+benefit at the database rather than in whichever view remembered to check.
 
 ---
 
@@ -201,6 +235,20 @@ Stated rather than papered over:
   noticed it being wrong.
 - **Email and object storage are tested at the seam**, not against the live
   services.
-- **The analytics context builder is the highest-complexity block in the
-  codebase.** It is covered, but its path count makes exhaustive path testing
-  impractical; it is the first thing that should be decomposed further.
+- **Condition and MC/DC coverage are not measured.** `coverage.py` measures
+  statement and branch coverage and nothing finer, so the condition-coverage
+  claims above rest on table-driven cases rather than on a tool. They are real
+  cases, but they are evidence of a different kind and should not be read as a
+  measurement.
+- **`_build_analytics_context` is still the largest function here.** It was
+  cyclomatic complexity 101 and is now 22, with the chart logic extracted to
+  `api/analytics_charts.py` where each piece is a plain function with a test
+  of its own (`api/test_analytics_charts.py`, 38 cases, 0.03 s). What is left
+  is the term selection and the orchestration, which is the part that genuinely
+  needs a database.
+- **Type coverage is partial.** `mypy` runs in CI over the modules that decide
+  money plus the ones written with annotations from the start — see
+  `[tool.mypy]` in `pyproject.toml`. The rest of the codebase is unannotated
+  and unchecked. Widening that file list is how the rest gets adopted; it
+  already found one real defect, a `None` rule dereferenced in
+  `staff_ranking.Evaluation.permanent_verdict`.

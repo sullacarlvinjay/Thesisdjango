@@ -1,12 +1,14 @@
 """Request and response middleware.
 
-Selective compression, cache headers for the API, and releasing an account the
-office has just approved so a waiting registrant is not left staring at a page
-that will never change on its own.
+Selective compression, cache headers for the API, the browser policy headers
+Django does not ship, and releasing an account the office has just approved so
+a waiting registrant is not left staring at a page that will never change on
+its own.
 """
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import login
 from django.middleware.gzip import GZipMiddleware
 from django.utils import timezone
@@ -41,6 +43,56 @@ class SelectiveGZipMiddleware(GZipMiddleware):
             if content_type.startswith(('image/', 'video/', 'audio/', 'font/')):
                 return response
         return super().process_response(request, response)
+
+def _csp_value(policy):
+    """Serialise a directive mapping as a Content-Security-Policy value."""
+    return '; '.join(
+        directive if not sources else f'{directive} ' + ' '.join(sources)
+        for directive, sources in policy.items()
+    )
+
+
+def _permissions_value(policy):
+    """Serialise a feature mapping as a Permissions-Policy value.
+
+    The grammar is not CSP's: every feature carries a parenthesised
+    allowlist, and an empty one is what denies the feature outright.
+    """
+    return ', '.join(
+        f'{feature}=({" ".join(allowlist)})'
+        for feature, allowlist in policy.items()
+    )
+
+
+class SecurityHeadersMiddleware:
+    """Send the browser policy headers Django has no setting for.
+
+    Content-Security-Policy and Permissions-Policy are document policies, so
+    they go on HTML responses only: putting them on a spreadsheet download or
+    a PDF the browser renders in its own viewer buys nothing and can break
+    the viewer.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.csp = _csp_value(getattr(settings, 'CONTENT_SECURITY_POLICY', {}))
+        self.permissions = _permissions_value(
+            getattr(settings, 'PERMISSIONS_POLICY', {}))
+        self.header = ('Content-Security-Policy-Report-Only'
+                       if getattr(settings, 'CSP_REPORT_ONLY', False)
+                       else 'Content-Security-Policy')
+
+    def __call__(self, request):
+        """Add the policy headers to HTML responses."""
+        response = self.get_response(request)
+        content_type = (response.get('Content-Type') or '').split(';')[0].strip().lower()
+        if content_type != 'text/html':
+            return response
+        if self.csp and not response.has_header(self.header):
+            response[self.header] = self.csp
+        if self.permissions and not response.has_header('Permissions-Policy'):
+            response['Permissions-Policy'] = self.permissions
+        return response
+
 
 PENDING_EMAIL = 'awaiting_verification_email'
 PENDING_SINCE = 'awaiting_verification_since'

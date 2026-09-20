@@ -1,6 +1,7 @@
 -r requirements.txt
 
 coverage==7.16.0
+mypy==2.3.1
 pyflakes==3.4.0
 ruff==0.15.3
 radon==6.0.1

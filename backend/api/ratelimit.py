@@ -10,6 +10,11 @@ machine working through many accounts; the account counter slows a botnet
 working through one account, which no address counter can see. Whichever trips
 first refuses the request.
 
+The REST endpoints share those tallies rather than keeping their own. An
+attacker turned away at ``/login/`` gains nothing by moving to
+``/api/auth/login/``, which is what two separate allowances on one account
+would have given them.
+
 With no ``REDIS_URL`` set the cache is per-process, so each gunicorn worker
 keeps a separate tally and the real limit is the configured one times the
 worker count. Render runs this on a single worker (see ``render.yaml``), and
@@ -19,18 +24,22 @@ number of them.
 
 from django.conf import settings
 from django.core.cache import cache
+from rest_framework.exceptions import ParseError, UnsupportedMediaType
+from rest_framework.throttling import BaseThrottle
 
 
 LOGIN = 'login'
 REGISTER = 'register'
 RESEND = 'resend'
 PASSWORD_CHANGE = 'password-change'
+MFA_CODE = 'mfa-code'
 
 LIMITS = {
     LOGIN: (8, 900),
     REGISTER: (5, 3600),
     RESEND: (4, 3600),
     PASSWORD_CHANGE: (6, 900),
+    MFA_CODE: (6, 900),
 }
 
 
@@ -51,6 +60,20 @@ def client_address(request):
         if forwarded:
             return forwarded.split(',')[0].strip()
     return (request.META.get('REMOTE_ADDR') or '').strip() or 'unknown'
+
+
+def as_caller(address):
+    """A stand-in request carrying one address, and nothing else.
+
+    Work that outlives its request still has to be audited, and
+    ``ActivityLog.record`` reads exactly one thing off a request: the caller's
+    address. Passing the real request into a background thread would hand it an
+    object whose files are already deleted and whose session is closed, so the
+    address is copied out at the door and travels on its own.
+    """
+    from types import SimpleNamespace
+
+    return SimpleNamespace(META={'REMOTE_ADDR': address or ''})
 
 
 def _keys(scope, request, subject):
@@ -111,3 +134,53 @@ def wait_message(seconds, subject='attempts'):
     unit = 'minute' if minutes == 1 else 'minutes'
     return (f'Too many {subject}. For security, this has been paused. '
             f'Try again in about {minutes} {unit}.')
+
+
+class CredentialThrottle(BaseThrottle):
+    """Refuse an API credential request the shared tally has already locked out.
+
+    Subclasses name a scope. The keys are the ones the web forms already write,
+    so the two surfaces spend one allowance between them.
+
+    A throttle only refuses; it never counts. Counting stays in the view, which
+    is the only place that can tell a wrong password from a right one -- see
+    :func:`register_failure` and :func:`clear`.
+    """
+
+    scope = ''
+    subject_field = 'email'
+
+    def subject(self, request):
+        """The account named in the body, or ``''`` when it names none.
+
+        A body that cannot be parsed still leaves the address counter, which is
+        the half that does not need to know who is being tried.
+        """
+        try:
+            data = request.data
+        except (ParseError, UnsupportedMediaType):
+            return ''
+        if not hasattr(data, 'get'):
+            return ''
+        return str(data.get(self.subject_field) or '')
+
+    def allow_request(self, request, view):
+        """Read the tally without touching it."""
+        self.waiting = retry_after(self.scope, request, self.subject(request))
+        return self.waiting is None
+
+    def wait(self):
+        """Seconds until the caller may try again, for ``Retry-After``."""
+        return self.waiting
+
+
+class LoginThrottle(CredentialThrottle):
+    """The sign-in allowance, shared with the ``/login/`` form."""
+
+    scope = LOGIN
+
+
+class RegisterThrottle(CredentialThrottle):
+    """The registration allowance, shared with the ``/register/`` form."""
+
+    scope = REGISTER

@@ -28,6 +28,40 @@
     return SERIES[index % SERIES.length];
   }
 
+  function shade(hex, amount) {
+    var value = parseInt(String(hex).replace('#', ''), 16);
+    var parts = [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+    var moved = parts.map(function (channel) {
+      return Math.max(0, Math.min(255, Math.round(channel + amount)));
+    });
+    return 'rgb(' + moved.join(',') + ')';
+  }
+
+  function hoverPaint(paint) {
+    if (Array.isArray(paint)) {
+      return paint.map(function (one) { return shade(one, -34); });
+    }
+    return shade(paint, -34);
+  }
+
+  function seriesTotal(context) {
+    var data = (context.chart.data.datasets[context.datasetIndex] || {}).data || [];
+    return data.reduce(function (sum, value) {
+      var n = typeof value === 'number' ? value : 0;
+      return sum + n;
+    }, 0);
+  }
+
+  function shareOfTotal(context) {
+    var value = typeof context.parsed === 'number'
+      ? context.parsed
+      : (context.parsed.x != null && context.chart.options.indexAxis === 'y'
+         ? context.parsed.x : context.parsed.y);
+    var total = seriesTotal(context);
+    if (!total || typeof value !== 'number') return '';
+    return Math.round((value / total) * 1000) / 10 + '% of ' + total;
+  }
+
   function labels(chart) {
     return chart.data.labels || [];
   }
@@ -465,13 +499,35 @@
           },
         },
         tooltip: {
+          enabled: true,
           backgroundColor: '#ffffff',
           titleColor: INK,
           bodyColor: INK,
           borderColor: AXIS,
           borderWidth: 1,
           displayColors: true,
-          callbacks: config.tooltipCallbacks || {},
+          usePointStyle: true,
+          padding: 10,
+          caretPadding: 8,
+          titleFont: { size: 12, weight: '600' },
+          bodyFont: { size: 12 },
+          footerFont: { size: 11, weight: '400' },
+          footerColor: '#6b7280',
+          animation: { duration: 120 },
+          callbacks: Object.assign({
+            footer: function (items) {
+              if (config.shareInTooltip === false || !items || !items.length) {
+                return '';
+              }
+              if (items.length === 1) return shareOfTotal(items[0]);
+              var total = items.reduce(function (sum, item) {
+                return sum + (typeof item.parsed === 'number'
+                  ? item.parsed
+                  : (item.parsed.y != null ? item.parsed.y : item.parsed.x) || 0);
+              }, 0);
+              return 'Total ' + total;
+            },
+          }, config.tooltipCallbacks || {}),
         },
         excelDataTable: {
           display: table,
@@ -491,7 +547,18 @@
 
     if (pie) base.aspectRatio = config.aspectRatio || 1.6;
     if (config.indexAxis) base.indexAxis = config.indexAxis;
-    if (config.interaction) base.interaction = config.interaction;
+
+    base.interaction = config.interaction || (pie
+      ? { mode: 'nearest', intersect: true }
+      : { mode: 'index', intersect: false, axis: horizontal ? 'y' : 'x' });
+    base.hover = { mode: base.interaction.mode,
+                   intersect: base.interaction.intersect,
+                   axis: base.interaction.axis };
+
+    base.onHover = function (event, active) {
+      var target = event.native && event.native.target;
+      if (target) target.style.cursor = active.length ? 'pointer' : 'default';
+    };
     return base;
   }
 
@@ -511,16 +578,24 @@
         borderSkipped: false,
         categoryPercentage: 0.74,
         barPercentage: 0.76,
+        hoverBackgroundColor: hoverPaint(paint),
+        hoverBorderColor: INK,
+        hoverBorderWidth: 2,
       };
     });
   }
 
   function slices(values) {
+    var paint = values.map(function (_, index) { return colour(index); });
     return {
       data: values,
-      backgroundColor: values.map(function (_, index) { return colour(index); }),
+      backgroundColor: paint,
       borderColor: '#ffffff',
       borderWidth: 1,
+      hoverBackgroundColor: hoverPaint(paint),
+      hoverBorderColor: '#ffffff',
+      hoverBorderWidth: 2,
+      hoverOffset: 10,
     };
   }
 
@@ -549,6 +624,9 @@
     RULE: RULE,
     AXIS: AXIS,
     colour: colour,
+    shade: shade,
+    hoverPaint: hoverPaint,
+    shareOfTotal: shareOfTotal,
     options: options,
     bars: bars,
     slices: slices,

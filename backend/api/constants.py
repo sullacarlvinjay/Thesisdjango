@@ -11,7 +11,6 @@ USER_ROLES = [
     ('nsu_staff', 'BiPSU Staff'),
     ('vpsea', 'VPSEA Admin'),
     ('partner', 'External Partner'),
-    ('super', 'Super Admin'),
 ]
 
 
@@ -77,6 +76,10 @@ SCHOLARSHIP_TYPE_CHOICES = [
 STUDENT_UNDECLARABLE_TYPES = frozenset({'Affirmative', 'FHE'})
 
 ALWAYS_HOLDABLE_TYPES = frozenset({'FHE'})
+
+CONFLICTING_BENEFIT_TYPES = frozenset({
+    'TES', 'TDP', 'SUC-TDP', 'DOST', 'JLSS', 'CHED', 'CoScho',
+})
 
 DEPENDENT_DECLARABLE_TYPE = 'Staff'
 

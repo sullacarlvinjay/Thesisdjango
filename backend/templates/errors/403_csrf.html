@@ -14,12 +14,12 @@
     <li>Your browser is blocking cookies for this site.</li>
   </ul>
 </div>
-<p class="text-sm mb-4" style="color:var(--text-muted);">
+<p class="text-sm mb-4 u-text-muted">
   Open the form fresh and submit it again — it will go through. If you were part
   way into a long form, your answers are not lost: use Back once you have signed
   in again, and the browser will still have them.
 </p>
-<a href="{{ retry_url|default:'/login/' }}" class="btn btn-auth" style="text-decoration:none;">
+<a href="{{ retry_url|default:'/login/' }}" class="btn btn-auth u-no-underline">
   {% if request.user.is_authenticated %}Reload the page{% else %}Sign in again{% endif %}
 </a>
 {% if reason and debug %}

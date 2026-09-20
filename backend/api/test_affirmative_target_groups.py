@@ -6,7 +6,7 @@ from openpyxl import load_workbook
 from api.affirmative_ranking import target_groups
 from api.models import AffirmativeRecommendation, StudentProfile, SystemSettings, User
 from api.student_views import _affirmative_ranking_data
-from api.test_registration_payload import a_student as a_registration
+from api.fixtures_registration import a_student as a_registration
 
 
 class Fixtures:

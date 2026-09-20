@@ -27,31 +27,31 @@
               <span class="badge badge-info">Recommendation only</span>
             {% endif %}
           </div>
-          <p class="text-xs mt-1" style="color:var(--text-muted);">{{ s.description|truncatewords:15 }}</p>
+          <p class="text-xs mt-1 u-text-muted">{{ s.description|truncatewords:15 }}</p>
         </div>
         <div class="text-right shrink-0">
-          <p class="text-2xl font-bold" style="color:var(--brand);">{{ s.match|default:"—" }}%</p>
-          <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">match</p>
+          <p class="text-2xl font-bold u-text-brand">{{ s.match|default:"—" }}%</p>
+          <p class="text-xs uppercase tracking-wider u-text-muted">match</p>
         </div>
       </div>
-      <div class="w-full rounded-full h-1.5 mb-4" style="background:var(--border);">
-        <div class="h-1.5 rounded-full" style="background:var(--brand);width:{{ s.match|default:0 }}%;"></div>
+      <div class="w-full rounded-full h-1.5 mb-4 u-bg-border">
+        <div class="h-1.5 rounded-full u-bg-brand" data-meter="{{ s.match|default:0 }}"></div>
       </div>
       <div class="space-y-2 text-sm flex-1">
         <div class="flex gap-2">
-          <svg class="h-4 w-4 shrink-0 mt-0.5" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <div><p class="text-xs font-medium">Eligibility</p><p class="text-xs" style="color:var(--text-muted);">{{ s.eligibility|truncatewords:12 }}</p></div>
+          <svg class="h-4 w-4 shrink-0 mt-0.5 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div><p class="text-xs font-medium">Eligibility</p><p class="text-xs u-text-muted">{{ s.eligibility|truncatewords:12 }}</p></div>
         </div>
         <div class="flex gap-2">
-          <svg class="h-4 w-4 shrink-0 mt-0.5" style="color:var(--info);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <div><p class="text-xs font-medium">Requirements</p><p class="text-xs" style="color:var(--text-muted);">{{ s.requirements|join:", " }}</p></div>
+          <svg class="h-4 w-4 shrink-0 mt-0.5 u-text-info" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div><p class="text-xs font-medium">Requirements</p><p class="text-xs u-text-muted">{{ s.requirements|join:", " }}</p></div>
         </div>
       </div>
-      <div class="mt-4 pt-4" style="border-top:1px solid var(--border);">
+      <div class="mt-4 pt-4 u-bt-1px-solid-border">
         {% if s.type == "Academic" %}
           <a href="/student/apply/academic/" class="btn btn-primary w-full">Start Application</a>
         {% else %}
-          <button class="btn btn-outline w-full" disabled style="opacity:0.5;cursor:not-allowed;">
+          <button class="btn btn-outline w-full u-op-0-5 u-cursor-blocked" disabled>
             <svg class="h-3 w-3 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
             Apply externally
           </button>
@@ -59,7 +59,7 @@
       </div>
     </div>
     {% empty %}
-    <p class="text-sm col-span-2" style="color:var(--text-muted);">No scholarships in this category.</p>
+    <p class="text-sm col-span-2 u-text-muted">No scholarships in this category.</p>
     {% endfor %}
   </div>
   {% endfor %}

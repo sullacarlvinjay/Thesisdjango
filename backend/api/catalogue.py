@@ -347,15 +347,26 @@ SCHOLARSHIPS = [   {   'name': 'Academic Scholarship',
         'type': 'GSIS',
         'category': 'application',
         'group': 'external',
-        'description': 'Dev seed for GSIS',
-        'eligibility': 'Dev only',
+        'description': 'is the educational assistance the Government Service '
+                       'Insurance System extends to the children and dependents of '
+                       'its active members. It carries tuition, a book allowance and '
+                       'a monthly stipend for a first undergraduate degree, and is '
+                       'renewed each semester on continued good standing.',
+        'eligibility': 'Dependent of an active GSIS member, in good standing and '
+                       'holding no other government scholarship',
         'eligibility_list': [   'Child or dependent of an active GSIS member',
                                 'Good academic standing',
                                 'Must not be a recipient of other government '
                                 'scholarships',
                                 'Enrolled in an accredited higher education '
                                 'institution'],
-        'requirements': [],
+        'requirements': [   'Proof of the parent or guardian\'s active GSIS '
+                            'membership',
+                            'Birth Certificate (PSA) showing the relationship to '
+                            'the member',
+                            'Certificate of Registration (COR) or Certificate of '
+                            'Enrollment (COE) — Registrar',
+                            'Certificate of Grades (COG) — Registrar'],
         'benefits': [   'Tuition fee coverage',
                         'Annual book allowance',
                         'Monthly stipend',

@@ -11,7 +11,7 @@ from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, 
 from django.db import transaction
 from . import notify
 import logging
-from .views_shared import _active_term, _change_own_password, _column_picker_context, _posted_custom_columns, _safe_next, _vpsea_required, paginate
+from .views_shared import _active_term, _change_own_password, _column_picker_context, _posted_custom_columns, _safe_next, _vpsea_required, paginate, record_decision
 from .views_declarations import approve_declared_scholarship, approve_declared_staff_scholarship, declared_scholarships, declared_staff_scholarship, pending_declarations, reject_declared_scholarship, reject_declared_staff_scholarship
 from .views_archives import STUDENT_RECORD_FIELDS, _archive_candidates
 
@@ -137,9 +137,9 @@ def vpsea_affirmative_applications(request):
                     return redirect('/vpsea/affirmative/?tab=academic&error=' + quote(
                         f'APP-{acad_app.id:07d} was already decided '
                         f'({acad_app.status}). A decision is made once.'))
-                acad_app.status = new_status
-                acad_app.remarks = remarks
-                acad_app.save()
+                record_decision(
+                    request, acad_app, new_status, remarks,
+                    f'APP-{acad_app.id:07d} ({acad_app.scholarship.name})')
                 notify.decision(
                     acad_app.student, f'Your {acad_app.scholarship.name} application',
                     new_status, remarks, link='/student/applications/',
@@ -154,9 +154,10 @@ def vpsea_affirmative_applications(request):
                     return redirect(f'/vpsea/affirmative/?tab={tab}&error=' + quote(
                         f'{aff_app.full_name} was already decided '
                         f'({aff_app.status}). A decision is made once.'))
-                aff_app.status = new_status
-                aff_app.remarks = remarks
-                aff_app.save()
+                record_decision(
+                    request, aff_app, new_status, remarks,
+                    f'the {aff_app.get_qualified_for_display()} application '
+                    f'of {aff_app.full_name}')
                 notify.decision(
                     aff_app.email,
                     f'Your {aff_app.get_qualified_for_display()} application',
@@ -208,13 +209,14 @@ def vpsea_affirmative_applications(request):
         tab = 'academic'
     academic_apps = (
         Application.objects
-        .select_related('student__user', 'scholarship', *STUDENT_DETAILS)
+        .select_related('student__user', 'scholarship', 'reviewed_by', *STUDENT_DETAILS)
         .prefetch_related('documents')
         .exclude(scholarship__type__in=['Staff'])
         .order_by('-submitted_at')
     )
     staff_apps = ApplicantRecord.objects.filter(
-        qualified_for='Staff').select_related(*STAFF_APPLICATION_DETAILS).order_by('-submitted_at')
+        qualified_for='Staff').select_related(
+            'reviewed_by', *STAFF_APPLICATION_DETAILS).order_by('-submitted_at')
     return render(request, 'vpsea/affirmative.html', {
         'academic_apps': academic_apps,
         'staff_apps': staff_apps,
@@ -259,9 +261,12 @@ def vpsea_renewals(request):
         renewal_id = request.POST.get('renewal_id')
         new_status = request.POST.get('status')
         remarks = request.POST.get('remarks', '')
-        AcademicRenewal.objects.filter(id=renewal_id).update(status=new_status, remarks=remarks)
         reviewed = AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).filter(id=renewal_id).first()
         if reviewed:
+            record_decision(
+                request, reviewed, new_status, remarks,
+                f'the {reviewed.get_scholarship_type_display()} renewal '
+                f'of {reviewed.student}')
             notify.decision(
                 reviewed.student,
                 f'Your {reviewed.get_scholarship_type_display()} renewal',
@@ -294,7 +299,8 @@ def vpsea_renewals(request):
             except AcademicRenewal.DoesNotExist:
                 pass
         return redirect('/vpsea/renewals/')
-    renewals = AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-submitted_at')
+    renewals = AcademicRenewal.objects.select_related(
+        'student__user', 'reviewed_by', *STUDENT_DETAILS).order_by('-submitted_at')
     return render(request, 'vpsea/renewals.html', {
         'renewals': renewals,
         'approved_count': renewals.filter(status='Approved').count(),
@@ -319,45 +325,6 @@ def vpsea_announcements(request):
         return redirect(f'/vpsea/announcements/?posted={reached}')
     announcements = Announcement.objects.all().order_by('-created_at')
     return render(request, 'vpsea/announcements.html', {'announcements': announcements})
-
-def mail_status(settings_obj):
-    """What became of the last email the system tried to send.
-
-    The deployment has no shell, so this panel is the only way anyone
-    finds out whether mail is working at all.
-    """
-    from django.conf import settings as django_settings
-
-    backend = getattr(django_settings, 'EMAIL_BACKEND', '')
-    if backend.endswith('locmem.EmailBackend'):
-        route, detail = 'Test', 'Messages are collected in memory by the test suite.'
-    elif backend == 'api.email_backends.BrevoEmailBackend':
-        route, detail = 'Brevo', 'Sent over HTTPS on port 443.'
-    elif backend.endswith('smtp.EmailBackend'):
-        host = getattr(django_settings, 'EMAIL_HOST', '')
-        port = getattr(django_settings, 'EMAIL_PORT', '')
-        route = 'SMTP'
-        detail = (f'Sent to {host} on port {port}. Render blocks outbound SMTP '
-                  f'on its free plan, so this delivers nothing there however '
-                  f'carefully it is filled in.')
-    else:
-        route = 'Not configured'
-        detail = ('Messages are written to the service log and delivered to '
-                  'nobody. Set BREVO_API_KEY, or EMAIL_HOST where SMTP is '
-                  'reachable.')
-
-    return {
-        'route': route,
-        'route_detail': detail,
-        'enabled': getattr(django_settings, 'EMAIL_ENABLED', False),
-        'key_set': bool(getattr(django_settings, 'BREVO_API_KEY', '')),
-        'sender': getattr(django_settings, 'DEFAULT_FROM_EMAIL', ''),
-        'site_url': getattr(django_settings, 'SITE_URL', ''),
-        'last_at': settings_obj.last_mail_attempt_at,
-        'last_to': settings_obj.last_mail_to,
-        'last_subject': settings_obj.last_mail_subject,
-        'last_error': settings_obj.last_mail_error,
-    }
 
 def _decide_added_scholarship(request):
     """Accept or refuse an award the office added by hand."""
@@ -403,6 +370,336 @@ def _decide_added_scholarship(request):
         return redirect(f'/vpsea/accounts/?error={quote(problem)}')
     return redirect('/vpsea/accounts/?scholarship=approved')
 
+def _claimed_archive_row(request, declared):
+    """The imported row a declaration is being matched to.
+
+    Returns:
+        ``(row, problem)``. A blank choice is not a problem — it means the
+        office is approving the declaration without matching it to an
+        imported scholar.
+    """
+    archive_id = request.POST.get(f'archive_id_{declared.pk}', '').strip()
+    if not archive_id:
+        return None, ''
+
+    from .models import ImportedScholar, SystemSettings
+
+    settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+    row = ImportedScholar.objects.filter(
+        id=archive_id, scholarship_type=declared.scholarship_type,
+        term_label=settings_obj.academic_year, claimed_by__isnull=True,
+    ).first()
+    if not row:
+        return None, 'That archive row is no longer available'
+    return row, ''
+
+
+def _decide_declarations(request, account, action, message):
+    """Approve or reject everything this account declared.
+
+    Returns a problem to show the office, or '' when all of it went through.
+    """
+    staff_declared = declared_staff_scholarship(account)
+    if staff_declared and action == 'approve':
+        _award, problem = approve_declared_staff_scholarship(
+            staff_declared, request.user, remarks=message)
+        if problem:
+            return problem
+    elif staff_declared:
+        reject_declared_staff_scholarship(staff_declared, request.user, message)
+
+    for declared in declared_scholarships(getattr(account, 'profile', None)):
+        if action != 'approve':
+            reject_declared_scholarship(declared, request.user, message)
+            continue
+        archive, problem = _claimed_archive_row(request, declared)
+        if problem:
+            return problem
+        _award, problem = approve_declared_scholarship(
+            declared, request.user, archive=archive, remarks=message,
+            tier=request.POST.get(f'award_tier_{declared.pk}', ''))
+        if problem:
+            return problem
+    return ''
+
+
+ACCOUNTS_BACK = '/vpsea/accounts/'
+
+MIN_PASSWORD = 8
+
+
+def _office_error(message):
+    """Send the office back to the accounts page with one message."""
+    from urllib.parse import quote
+
+    return redirect(f'{ACCOUNTS_BACK}?error={quote(message)}')
+
+
+def _office_saved(email, what):
+    """Send the office back having changed one office account."""
+    from urllib.parse import quote
+
+    return redirect(f'{ACCOUNTS_BACK}?office={what}&who={quote(email)}')
+
+
+def _office_accounts():
+    """Every account that signs into this portal, oldest first."""
+    return User.objects.filter(role='vpsea').order_by('date_joined')
+
+
+def _may_manage_office(user):
+    """Whether this office account may open and close the others.
+
+    The line is not rank but recovery. An account that reaches the Django
+    admin can put back anything that goes wrong here; an account opened from
+    this panel cannot, and is not given the power to lock out the one that
+    opened it. Both accounts reach the same scholarship work either way.
+    """
+    return bool(user.is_superuser)
+
+
+def _refuse_office_management():
+    """Turn away an office account that may not manage the others."""
+    return _office_error('Your account signs in to this portal but may not open '
+                         'or close another one. Ask whoever opened yours.')
+
+
+def _create_office_account(request):
+    """Open a second login onto this portal.
+
+    The new account is the same role as the one creating it, so it reaches
+    the same pages and is held to the same MFA rule. What separates the two
+    is not what they may do but that every decision now records which of them
+    made it.
+    """
+    from .models import ActivityLog
+
+    if not _may_manage_office(request.user):
+        return _refuse_office_management()
+
+    first_name = (request.POST.get('first_name') or '').strip()
+    last_name = (request.POST.get('last_name') or '').strip()
+    email = (request.POST.get('email') or '').strip().lower()
+    password = request.POST.get('password') or ''
+
+    errors = []
+    if not first_name:
+        errors.append('A name is required — it is what the audit trail reads back.')
+    if not email:
+        errors.append('An email address is required — it is how they sign in.')
+    if len(password) < MIN_PASSWORD:
+        errors.append(f'The password must be at least {MIN_PASSWORD} characters.')
+    if email and User.objects.filter(email__iexact=email).exists():
+        errors.append(f'{email} already has an account.')
+    if errors:
+        return _office_error(' '.join(errors))
+
+    account = User.objects.create_user(
+        username=email, email=email, password=password, role='vpsea',
+        first_name=first_name, last_name=last_name,
+    )
+    ActivityLog.record(
+        request.user, f'Created the office account {email}',
+        verb='create', target=account, request=request)
+    return _office_saved(email, 'created')
+
+
+def _office_account(request):
+    """The office account this POST names, or ``None``."""
+    return _office_accounts().filter(pk=request.POST.get('account_id')).first()
+
+
+def _reset_office_password(request):
+    """Set a new password on another office account."""
+    from .models import ActivityLog
+
+    if not _may_manage_office(request.user):
+        return _refuse_office_management()
+
+    account = _office_account(request)
+    password = request.POST.get('password') or ''
+    if not account:
+        return _office_error('That is not an office account.')
+    if account == request.user:
+        return _office_error('Change your own password from My Profile, so that '
+                             'you are asked for the current one first.')
+    if len(password) < MIN_PASSWORD:
+        return _office_error(f'The password must be at least {MIN_PASSWORD} characters.')
+
+    account.set_password(password)
+    account.save(update_fields=['password'])
+    ActivityLog.record(
+        request.user, f'Reset the password for the office account {account.email}',
+        verb='update', target=account, request=request)
+    return _office_saved(account.email, 'reset')
+
+
+def _set_office_access(request):
+    """Close or reopen another office account.
+
+    Closed, never deleted. Every decision this account reached points at it,
+    and deleting the row would leave that history attributed to nobody.
+    """
+    from .models import ActivityLog
+
+    if not _may_manage_office(request.user):
+        return _refuse_office_management()
+
+    account = _office_account(request)
+    if not account:
+        return _office_error('That is not an office account.')
+    if account == request.user:
+        return _office_error('An office account cannot close itself.')
+
+    wanted = request.POST.get('active') == '1'
+    if not wanted and _office_accounts().filter(is_active=True).count() < 2:
+        return _office_error('That is the last office account that can still sign '
+                             'in. Open another one before closing this one.')
+
+    account.is_active = wanted
+    account.save(update_fields=['is_active'])
+    what = 'Reopened' if wanted else 'Closed'
+    ActivityLog.record(
+        request.user, f'{what} the office account {account.email}',
+        verb='update', target=account, request=request,
+        changes={'is_active': [str(not wanted), str(wanted)]})
+    return _office_saved(account.email, 'reopened' if wanted else 'closed')
+
+
+def _decide_account(request):
+    """Approve or reject one registration, with everything it declared."""
+    from urllib.parse import quote
+
+    from .models import ActivityLog
+
+    account = User.objects.filter(
+        id=request.POST.get('user_id'), role__in=('student', 'nsu_staff'),
+    ).first()
+    if not account:
+        return redirect('/vpsea/accounts/?error=Account+not+found')
+
+    action = request.POST.get('action')
+    message = request.POST.get('message', '').strip()
+    if action not in ('approve', 'reject'):
+        return redirect('/vpsea/accounts/?error=Unknown+action')
+    if action == 'reject' and not message:
+        return redirect('/vpsea/accounts/?error=A+reason+is+required+when+rejecting'
+                        '+—+it+is+what+the+person+reads+when+they+try+to+sign+in')
+
+    problem = _decide_declarations(request, account, action, message)
+    if problem:
+        return redirect(f'/vpsea/accounts/?error={quote(problem)}')
+
+    status = 'approved' if action == 'approve' else 'rejected'
+    was = account.verification_status
+    account.decide_verification(status, message, request.user)
+
+    _in_app, emailed = notify.account_decision(
+        account, status, account.verification_note)
+    ActivityLog.record(
+        request.user,
+        f'Account {status}: {account.get_full_name() or account.email} '
+        f'({account.get_role_display()}) — {account.verification_note}',
+        verb='approve' if status == 'approved' else 'reject',
+        target=account, request=request,
+        changes={'verification_status': [was, status]})
+    return redirect(f'/vpsea/accounts/?{action}d=1&emailed={1 if emailed else 0}')
+
+
+def _attach_profiles(accounts):
+    """Hang each account's student and employee profile off the row."""
+    from .models import StaffProfile, StudentProfile
+
+    students = {p.user_id: p for p in
+                StudentProfile.with_details().filter(user__in=accounts)}
+    staff = {p.user_id: p for p in
+             StaffProfile.objects.filter(user__in=accounts)}
+    for account in accounts:
+        account.student_profile = students.get(account.id)
+        account.employee_profile = staff.get(account.id)
+
+
+def _attach_archive_candidates(declarations, active_label):
+    """Hang the imported rows each declaration might be claiming off it."""
+    for declared in declarations:
+        declared.archive_candidates = list(
+            _archive_candidates(declared, active_label))
+        declared.other_semester_rows = list(
+            _archive_candidates(declared).exclude(term_label=active_label)[:5])
+
+
+def _duplicate_benefit_warning(account, active_label):
+    """The hazard in approving this registration, in one sentence, or ''.
+
+    Statement of the Problem #7 is duplicate benefits. They are recorded
+    rather than refused — the office has to be able to see one to act on it —
+    so the place to stop a mistake is the moment before it is made.
+    """
+    from .constants import CONFLICTING_BENEFIT_TYPES
+    from .models import Application
+
+    declared = {d.scholarship_type for d in getattr(account, 'declarations', [])}
+    clashing = sorted(declared & CONFLICTING_BENEFIT_TYPES)
+    profile = getattr(account, 'student_profile', None)
+
+    held = []
+    if profile is not None:
+        held = sorted(
+            Application.objects
+            .filter(student=profile, status='Approved', term_label=active_label,
+                    scholarship__type__in=CONFLICTING_BENEFIT_TYPES)
+            .values_list('scholarship__type', flat=True).distinct())
+
+    if held and clashing:
+        return (f'This account already holds {", ".join(held)} for '
+                f'{active_label}. Approving adds {", ".join(clashing)} on top '
+                'of it — a duplicate government benefit.')
+    if len(clashing) > 1:
+        return (f'{", ".join(clashing)} are all national grants and are not '
+                'meant to be held together. Approving records every one of '
+                'them against this student.')
+    return ''
+
+
+def _attach_pending_declarations(pending, active_label):
+    """Hang each waiting registrant's declarations off their row."""
+    for account in pending:
+        account.staff_declared = declared_staff_scholarship(account)
+        account.declarations = declared_scholarships(account.student_profile)
+        _attach_archive_candidates(account.declarations, active_label)
+        account.duplicate_benefit_warning = _duplicate_benefit_warning(
+            account, active_label)
+
+
+def _attach_decided_declarations(decided):
+    """Hang each decided registrant's declarations off their row.
+
+    Read in two queries rather than per row: the decided list is the one
+    that keeps growing, and a query per account is what made this page slow.
+    """
+    from collections import defaultdict
+
+    from .models import StaffScholarshipDeclaration
+
+    per_student = defaultdict(list)
+    for declared in (ScholarshipLinkRequest.objects
+                     .select_related('reviewed_by', 'matched_archive')
+                     .filter(student__user__in=decided, filed_in_portal=False)
+                     .order_by('submitted_at', 'pk')):
+        per_student[declared.student_id].append(declared)
+
+    per_employee = {}
+    for declaration in (StaffScholarshipDeclaration.objects
+                        .select_related('reviewed_by')
+                        .filter(staff_user__in=decided).order_by('submitted_at')):
+        per_employee[declaration.staff_user_id] = declaration
+
+    for account in decided:
+        account.staff_declared = per_employee.get(account.id)
+        account.declarations = per_student.get(
+            getattr(account.student_profile, 'pk', None), [])
+
+
 @_vpsea_required
 def vpsea_accounts(request):
     """The account verification queue.
@@ -412,86 +709,21 @@ def vpsea_accounts(request):
     survivable at a demo's handful of accounts and not at a few years of
     intake.
     """
-    from .models import ActivityLog, StaffProfile, StudentProfile
+    from django.conf import settings as django_settings
 
-    if request.method == 'POST' and request.POST.get('action') == 'test_email':
-        from urllib.parse import quote
-        to = (request.POST.get('test_to') or request.user.email or '').strip()
-        if not to:
-            return redirect('/vpsea/accounts/?error=Give+an+address+to+send+the+test+to')
-        ok = notify.send_email(
-            to, '[BiPSU SRMS] Test message',
-            'This is a test from the BiPSU Scholarship Records Management '
-            'System.\n\nIf you are reading it in an inbox, mail works: '
-            'applicants will be told what the office decided, and registrants '
-            'can confirm their address.')
-        return redirect(f'/vpsea/accounts/?tested={1 if ok else 0}&to={quote(to)}')
-
-    if request.method == 'POST' and request.POST.get('declaration_id'):
-        return _decide_added_scholarship(request)
+    from .models import CHED_TIER_CHOICES, SystemSettings
 
     if request.method == 'POST':
-        account = User.objects.filter(
-            id=request.POST.get('user_id'), role__in=('student', 'nsu_staff'),
-        ).first()
-        if not account:
-            return redirect('/vpsea/accounts/?error=Account+not+found')
-
-        action = request.POST.get('action')
-        message = request.POST.get('message', '').strip()
-        if action == 'reject' and not message:
-            return redirect('/vpsea/accounts/?error=A+reason+is+required+when+rejecting'
-                            '+—+it+is+what+the+person+reads+when+they+try+to+sign+in')
-        if action not in ('approve', 'reject'):
-            return redirect('/vpsea/accounts/?error=Unknown+action')
-
-        staff_declared = declared_staff_scholarship(account)
-        if staff_declared and action == 'approve':
-            _award, problem = approve_declared_staff_scholarship(
-                staff_declared, request.user, remarks=message)
-            if problem:
-                from urllib.parse import quote
-                return redirect(f'/vpsea/accounts/?error={quote(problem)}')
-        elif staff_declared:
-            reject_declared_staff_scholarship(staff_declared, request.user, message)
-
-        for declared in declared_scholarships(getattr(account, 'profile', None)):
-            if action != 'approve':
-                reject_declared_scholarship(declared, request.user, message)
-                continue
-            archive = None
-            archive_id = request.POST.get(f'archive_id_{declared.pk}', '').strip()
-            if archive_id:
-                from .models import ImportedScholar, SystemSettings
-                settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-                archive = ImportedScholar.objects.filter(
-                    id=archive_id, scholarship_type=declared.scholarship_type,
-                    term_label=settings_obj.academic_year, claimed_by__isnull=True,
-                ).first()
-                if not archive:
-                    return redirect('/vpsea/accounts/?error=That+archive+row+is+no+'
-                                    'longer+available')
-            _award, problem = approve_declared_scholarship(
-                declared, request.user, archive=archive, remarks=message,
-                tier=request.POST.get(f'award_tier_{declared.pk}', ''))
-            if problem:
-                from urllib.parse import quote
-                return redirect(f'/vpsea/accounts/?error={quote(problem)}')
-
-        status = 'approved' if action == 'approve' else 'rejected'
-        was = account.verification_status
-        account.decide_verification(status, message, request.user)
-
-        _in_app, emailed = notify.account_decision(
-            account, status, account.verification_note)
-        ActivityLog.record(
-            request.user,
-            f'Account {status}: {account.get_full_name() or account.email} '
-            f'({account.get_role_display()}) — {account.verification_note}',
-            verb='approve' if status == 'approved' else 'reject',
-            target=account, request=request,
-            changes={'verification_status': [was, status]})
-        return redirect(f'/vpsea/accounts/?{action}d=1&emailed={1 if emailed else 0}')
+        office = request.POST.get('office')
+        if office == 'create':
+            return _create_office_account(request)
+        if office == 'reset':
+            return _reset_office_password(request)
+        if office == 'access':
+            return _set_office_access(request)
+        if request.POST.get('declaration_id'):
+            return _decide_added_scholarship(request)
+        return _decide_account(request)
 
     pending_page = paginate(request, User.objects.filter(
         verification_status='pending', role__in=('student', 'nsu_staff'),
@@ -505,53 +737,16 @@ def vpsea_accounts(request):
         param='decided_page')
     decided = decided_page['rows']
 
-    students = {p.user_id: p for p in StudentProfile.with_details().filter(
-        user__in=pending + decided)}
-    staff = {p.user_id: p for p in StaffProfile.objects.filter(
-        user__in=pending + decided)}
-    for account in pending + decided:
-        account.student_profile = students.get(account.id)
-        account.employee_profile = staff.get(account.id)
+    _attach_profiles(pending + decided)
 
-    from .models import SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     active_label = settings_obj.academic_year
-    for account in pending:
-        account.staff_declared = declared_staff_scholarship(account)
-        account.declarations = declared_scholarships(account.student_profile)
-        for req in account.declarations:
-            req.archive_candidates = list(_archive_candidates(req, active_label))
-            req.other_semester_rows = list(
-                _archive_candidates(req).exclude(term_label=active_label)[:5])
-
-    from collections import defaultdict
-    from .models import StaffScholarshipDeclaration
-
-    per_student = defaultdict(list)
-    for req in (ScholarshipLinkRequest.objects
-                .select_related('reviewed_by', 'matched_archive')
-                .filter(student__user__in=decided, filed_in_portal=False)
-                .order_by('submitted_at', 'pk')):
-        per_student[req.student_id].append(req)
-    per_employee = {}
-    for decl in (StaffScholarshipDeclaration.objects
-                 .select_related('reviewed_by')
-                 .filter(staff_user__in=decided).order_by('submitted_at')):
-        per_employee[decl.staff_user_id] = decl
-    for account in decided:
-        account.staff_declared = per_employee.get(account.id)
-        account.declarations = per_student.get(
-            getattr(account.student_profile, 'pk', None), [])
-
-    from django.conf import settings as django_settings
-    from .models import CHED_TIER_CHOICES
+    _attach_pending_declarations(pending, active_label)
+    _attach_decided_declarations(decided)
 
     settings_obj.refresh_from_db()
     added = list(pending_declarations())
-    for req in added:
-        req.archive_candidates = list(_archive_candidates(req, active_label))
-        req.other_semester_rows = list(
-            _archive_candidates(req).exclude(term_label=active_label)[:5])
+    _attach_archive_candidates(added, active_label)
 
     return render(request, 'vpsea/accounts.html', {
         'active': 'accounts',
@@ -561,9 +756,6 @@ def vpsea_accounts(request):
         'decided_page': decided_page,
         'added_scholarships': added,
         'scholarship_decision': request.GET.get('scholarship', ''),
-        'mail': mail_status(settings_obj),
-        'tested': request.GET.get('tested'),
-        'tested_to': request.GET.get('to', ''),
         'ched_tiers': CHED_TIER_CHOICES,
         'active_label': active_label,
         'error': request.GET.get('error', ''),
@@ -571,11 +763,80 @@ def vpsea_accounts(request):
         'rejected': request.GET.get('rejected'),
         'emailed': request.GET.get('emailed'),
         'email_enabled': django_settings.EMAIL_ENABLED,
+        'office_accounts': _office_accounts(),
+        'may_manage_office': _may_manage_office(request.user),
+        'office_done': request.GET.get('office', ''),
+        'office_who': request.GET.get('who', ''),
+        'min_password': MIN_PASSWORD,
     })
+
+def _mfa_context(user, **extra):
+    """What the profile page needs to show about the second factor."""
+    from django.conf import settings
+
+    from . import mfa
+
+    context = {
+        'mfa_enabled': user.mfa_enabled,
+        'mfa_enforced': getattr(settings, 'MFA_ENFORCED', False),
+        'mfa_required': user.mfa_required,
+        'mfa_recovery_left': len(user.mfa_recovery_codes or []),
+        'mfa_enrolling': bool(user.mfa_secret) and not user.mfa_enabled,
+        'mfa_secret': mfa.format_secret(user.mfa_secret) if user.mfa_secret else '',
+        'mfa_uri': (mfa.provisioning_uri(user.mfa_secret, user.email)
+                    if user.mfa_secret else ''),
+    }
+    context.update(extra)
+    return context
+
+
+def _handle_mfa_action(request, user, action):
+    """Start, confirm or drop this account's second factor.
+
+    Returns a response, or ``None`` when the post was not an MFA one.
+    """
+    from .models import ActivityLog
+
+    if action == 'mfa_start':
+        user.begin_mfa_enrolment()
+        return redirect('/vpsea/profile/?mfa=enrol')
+
+    if action == 'mfa_confirm':
+        codes = user.confirm_mfa(request.POST.get('mfa_code'))
+        if codes is None:
+            return render(request, 'vpsea/profile.html', dict(_mfa_context(user), **{
+                'active': 'profile',
+                'errors': ['That code did not match. Check that the app is set '
+                           'up against this account and read the current code.'],
+            }))
+        ActivityLog.record(
+            user, 'Turned on two-step sign-in for their own account',
+            verb='update', request=request)
+        return render(request, 'vpsea/profile.html', dict(_mfa_context(user), **{
+            'active': 'profile',
+            'errors': [],
+            'mfa_new_recovery_codes': codes,
+        }))
+
+    if action == 'mfa_disable':
+        if not user.check_password(request.POST.get('current_password') or ''):
+            return render(request, 'vpsea/profile.html', dict(_mfa_context(user), **{
+                'active': 'profile',
+                'errors': ['Enter your current password to turn two-step '
+                           'sign-in off.'],
+            }))
+        user.disable_mfa()
+        ActivityLog.record(
+            user, 'Turned off two-step sign-in for their own account',
+            verb='update', request=request)
+        return redirect('/vpsea/profile/?mfa=off')
+
+    return None
+
 
 @_vpsea_required
 def vpsea_profile(request):
-    """The office's own profile and password."""
+    """The office's own profile, password and second factor."""
     from . import email_verify
     from .models import ActivityLog
 
@@ -584,6 +845,9 @@ def vpsea_profile(request):
     saved = password_changed = email_changed = False
 
     if request.method == 'POST':
+        response = _handle_mfa_action(request, user, request.POST.get('action'))
+        if response is not None:
+            return response
         wanted_password = bool(request.POST.get('new_password') or
                                request.POST.get('current_password'))
         old_email = user.email
@@ -619,13 +883,14 @@ def vpsea_profile(request):
             password_changed = wanted_password
             email_changed = wanted_email
 
-    return render(request, 'vpsea/profile.html', {
+    return render(request, 'vpsea/profile.html', dict(_mfa_context(user), **{
         'active': 'profile',
         'saved': saved,
         'password_changed': password_changed,
         'email_changed': email_changed,
         'errors': errors,
-    })
+        'mfa_notice': request.GET.get('mfa', ''),
+    }))
 
 @_vpsea_required
 def vpsea_students(request):
@@ -1091,8 +1356,10 @@ def vpsea_scholarship_add(request):
                             if line.strip()]
         benefits = [line.strip() for line
                     in p.get('benefits', '').splitlines() if line.strip()]
-        if not name: errors.append('Name is required.')
-        if not stype: errors.append('Type is required.')
+        if not name:
+            errors.append('Name is required.')
+        if not stype:
+            errors.append('Type is required.')
         errors += _column_name_errors(p)
         if not errors:
             Scholarship.objects.create(
@@ -1137,8 +1404,10 @@ def vpsea_scholarship_edit(request, pk):
         s.logo = _posted_logo(p)
         s.table_columns = scholar_columns.clean_choice(p.getlist('table_columns'))
         s.extra_columns = _posted_custom_columns(p)
-        if not s.name: errors.append('Name is required.')
-        if not s.type: errors.append('Type is required.')
+        if not s.name:
+            errors.append('Name is required.')
+        if not s.type:
+            errors.append('Type is required.')
         errors += _column_name_errors(p)
         if not errors:
             s.save()
@@ -1160,116 +1429,171 @@ def vpsea_scholarship_toggle(request, pk):
         Scholarship.objects.filter(pk=pk).update(is_active=Q(is_active=False))
     return redirect('/vpsea/scholarships/')
 
+PARTNERS_BACK = '/vpsea/partners/'
+
+
+def _partner_error(message):
+    """Send the office back to the partner page with one message."""
+    from urllib.parse import quote
+
+    return redirect(f'{PARTNERS_BACK}?error={quote(message)}')
+
+
+def _partner_saved(name):
+    """Send the office back having saved a partner."""
+    from urllib.parse import quote
+
+    return redirect(f'{PARTNERS_BACK}?saved={quote(name)}')
+
+
+def _create_partner_office(request):
+    """Create a partner office and the account that signs into it."""
+    from urllib.parse import quote
+
+    from .models import ActivityLog, PartnerOffice
+
+    name = (request.POST.get('name') or '').strip()
+    email = (request.POST.get('email') or '').strip().lower()
+    password = request.POST.get('password') or ''
+
+    errors = []
+    if not name:
+        errors.append('A partner name is required.')
+    if not email:
+        errors.append('An email address is required — it is how they sign in.')
+    if len(password) < 8:
+        errors.append('The password must be at least 8 characters.')
+    if name and PartnerOffice.objects.filter(name__iexact=name).exists():
+        errors.append(f'A partner called {name} already exists.')
+    if email and User.objects.filter(email__iexact=email).exists():
+        errors.append(f'{email} already has an account.')
+    if errors:
+        return _partner_error(' '.join(errors))
+
+    with transaction.atomic():
+        office = PartnerOffice.objects.create(
+            name=name, logo=_posted_logo(request.POST))
+        office.scholarships.set(_posted_partner_scholarships(request.POST))
+        account = User.objects.create_user(
+            username=email, email=email, password=password,
+            role='partner', first_name=name, last_name='',
+        )
+        account.partner_office = office
+        account.save(update_fields=['partner_office'])
+    ActivityLog.record(
+        request.user, f'Created the partner office {name}',
+        verb='create', request=request)
+    return redirect(f'{PARTNERS_BACK}?created={quote(name)}')
+
+
+def _set_partner_access(request, office):
+    """Rename a partner and change which programmes it may read."""
+    from .models import ActivityLog, PartnerOffice
+
+    was = office.name
+    posted_name = request.POST.get('name')
+    name = office.name if posted_name is None else posted_name.strip()
+    if not name:
+        return _partner_error('A partner name is required.')
+    if PartnerOffice.objects.filter(name__iexact=name).exclude(pk=office.pk).exists():
+        return _partner_error(f'A partner called {name} already exists.')
+
+    office.name = name
+    office.scholarships.set(_posted_partner_scholarships(request.POST))
+    office.may_add_scholarships = bool(request.POST.get('may_add_scholarships'))
+    office.logo = _posted_logo(request.POST)
+    office.save(update_fields=['name', 'may_add_scholarships', 'logo'])
+
+    renamed = f' and renamed it from {was}' if was != name else ''
+    ActivityLog.record(
+        request.user, f'Changed what {office.name} can see{renamed}',
+        verb='update', request=request)
+    return _partner_saved(office.name)
+
+
+def _reset_partner_password(request, office):
+    """Set a new password on one of a partner's accounts."""
+    from .models import ActivityLog
+
+    account = office.accounts.filter(pk=request.POST.get('account_id')).first()
+    password = request.POST.get('password') or ''
+    if not account:
+        return _partner_error("That account is not this partner's.")
+    if len(password) < 8:
+        return _partner_error('The password must be at least 8 characters.')
+
+    account.set_password(password)
+    account.save(update_fields=['password'])
+    ActivityLog.record(
+        request.user, f'Reset the password for {account.email} ({office.name})',
+        verb='update', request=request)
+    return _partner_saved(office.name)
+
+
+def _delete_partner_office(request, office):
+    """Remove a partner office and every account that signed into it."""
+    from urllib.parse import quote
+
+    from .models import ActivityLog
+
+    name = office.name
+    emails = list(office.accounts.values_list('email', flat=True))
+    with transaction.atomic():
+        office.accounts.all().delete()
+        office.delete()
+    ActivityLog.record(
+        request.user,
+        f'Deleted the partner office {name} and {len(emails)} account(s)',
+        verb='delete', request=request)
+    return redirect(f'{PARTNERS_BACK}?deleted={quote(name)}')
+
+
+def _toggle_partner_office(request, office):
+    """Suspend a partner office, or let it back in."""
+    from .models import ActivityLog
+
+    office.is_active = not office.is_active
+    office.save(update_fields=['is_active'])
+    state = 'Re-enabled' if office.is_active else 'Suspended'
+    ActivityLog.record(
+        request.user, f'{state} the partner office {office.name}',
+        verb='other', request=request)
+    return _partner_saved(office.name)
+
+
+PARTNER_ACTIONS = {
+    'access': _set_partner_access,
+    'password': _reset_partner_password,
+    'delete': _delete_partner_office,
+    'toggle': _toggle_partner_office,
+}
+
+
 @_vpsea_required
 def vpsea_partners(request):
     """Manage partner offices and what each may see."""
-    from urllib.parse import quote
-
     from .constants import available_logos
-    from .models import ActivityLog, PartnerOffice
+    from .models import PartnerOffice
 
     if request.method == 'POST':
         action = request.POST.get('action')
-        back = '/vpsea/partners/'
-
         if action == 'create':
-            name = (request.POST.get('name') or '').strip()
-            email = (request.POST.get('email') or '').strip().lower()
-            password = request.POST.get('password') or ''
-            errors = []
-            if not name:
-                errors.append('A partner name is required.')
-            if not email:
-                errors.append('An email address is required — it is how they sign in.')
-            if len(password) < 8:
-                errors.append('The password must be at least 8 characters.')
-            if name and PartnerOffice.objects.filter(name__iexact=name).exists():
-                errors.append(f'A partner called {name} already exists.')
-            if email and User.objects.filter(email__iexact=email).exists():
-                errors.append(f'{email} already has an account.')
-            if errors:
-                return redirect(f'{back}?error={quote(" ".join(errors))}')
+            return _create_partner_office(request)
 
-            with transaction.atomic():
-                office = PartnerOffice.objects.create(
-                    name=name, logo=_posted_logo(request.POST))
-                office.scholarships.set(_posted_partner_scholarships(request.POST))
-                account = User.objects.create_user(
-                    username=email, email=email, password=password,
-                    role='partner', first_name=name, last_name='',
-                )
-                account.partner_office = office
-                account.save(update_fields=['partner_office'])
-            ActivityLog.record(
-                request.user, f'Created the partner office {name}',
-                verb='create', request=request)
-            return redirect(f'{back}?created={quote(name)}')
-
-        office = PartnerOffice.objects.filter(pk=request.POST.get('office_id')).first()
+        office = PartnerOffice.objects.filter(
+            pk=request.POST.get('office_id')).first()
         if not office:
-            return redirect(f'{back}?error={quote("That partner was not found.")}')
+            return _partner_error('That partner was not found.')
 
-        if action == 'access':
-            was = office.name
-            posted_name = request.POST.get('name')
-            name = office.name if posted_name is None else posted_name.strip()
-            if not name:
-                return redirect(f'{back}?error={quote("A partner name is required.")}')
-            if PartnerOffice.objects.filter(name__iexact=name).exclude(pk=office.pk).exists():
-                return redirect(f'{back}?error={quote(f"A partner called {name} already exists.")}')
+        handler = PARTNER_ACTIONS.get(action)
+        if handler is None:
+            return _partner_error('Unknown action.')
+        return handler(request, office)
 
-            office.name = name
-            office.scholarships.set(_posted_partner_scholarships(request.POST))
-            office.may_add_scholarships = bool(request.POST.get('may_add_scholarships'))
-            office.logo = _posted_logo(request.POST)
-            office.save(update_fields=['name', 'may_add_scholarships', 'logo'])
-            renamed = f' and renamed it from {was}' if was != name else ''
-            ActivityLog.record(
-                request.user, f'Changed what {office.name} can see{renamed}',
-                verb='update', request=request)
-            return redirect(f'{back}?saved={quote(office.name)}')
-
-        if action == 'password':
-            account = office.accounts.filter(pk=request.POST.get('account_id')).first()
-            password = request.POST.get('password') or ''
-            if not account:
-                return redirect(f'{back}?error={quote("That account is not this partner's.")}')
-            if len(password) < 8:
-                return redirect(f'{back}?error={quote("The password must be at least 8 characters.")}')
-            account.set_password(password)
-            account.save(update_fields=['password'])
-            ActivityLog.record(
-                request.user, f'Reset the password for {account.email} ({office.name})',
-                verb='update', request=request)
-            return redirect(f'{back}?saved={quote(office.name)}')
-
-        if action == 'delete':
-            name = office.name
-            emails = list(office.accounts.values_list('email', flat=True))
-            with transaction.atomic():
-                office.accounts.all().delete()
-                office.delete()
-            ActivityLog.record(
-                request.user, f'Deleted the partner office {name} and {len(emails)} account(s)',
-                verb='delete', request=request)
-            return redirect(f'{back}?deleted={quote(name)}')
-
-        if action == 'toggle':
-            office.is_active = not office.is_active
-            office.save(update_fields=['is_active'])
-            state = 'Re-enabled' if office.is_active else 'Suspended'
-            ActivityLog.record(
-                request.user, f'{state} the partner office {office.name}',
-                verb='other', request=request)
-            return redirect(f'{back}?saved={quote(office.name)}')
-
-        return redirect(f'{back}?error={quote("Unknown action.")}')
-
-    offices = (PartnerOffice.objects
-               .prefetch_related('scholarships', 'accounts')
-               .order_by('name'))
     return render(request, 'vpsea/partners.html', {
-        'offices': offices,
+        'offices': (PartnerOffice.objects
+                    .prefetch_related('scholarships', 'accounts')
+                    .order_by('name')),
         'scholarships': Scholarship.objects.order_by('name'),
         'logos': available_logos(),
         'created': request.GET.get('created'),

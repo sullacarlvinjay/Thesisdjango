@@ -1,0 +1,86 @@
+{% if mfa_notice == 'required' %}
+<div class="notice notice--warn mb-5 mt-6">
+  <div>
+    <p class="notice__title">Two-step sign-in is required on office accounts.</p>
+    <p class="notice__body">This account reads household income, Listahanan status and disability records. Set it up below before going on.</p>
+  </div>
+</div>
+{% elif mfa_notice == 'off' %}
+<div class="notice notice--ok mb-5 mt-6">
+  <div><p class="notice__title">Two-step sign-in is off for this account.</p></div>
+</div>
+{% endif %}
+
+{% if mfa_new_recovery_codes %}
+<div class="notice notice--ok mb-5 mt-6">
+  <div>
+    <p class="notice__title">Two-step sign-in is on. Write these recovery codes down now.</p>
+    <p class="notice__body">Each one signs you in once if the phone is lost, and this is the only time they are shown. Keep them where the office keeps its keys, not in this system.</p>
+    <ul class="mfa-recovery-list">
+      {% for code in mfa_new_recovery_codes %}<li>{{ code }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="card p-6 mt-6">
+  <p class="card-eyebrow">Two-Step Sign-In</p>
+
+  {% if mfa_enabled %}
+  <p class="text-xs mb-4 text-muted-foreground">
+    On. Signing in asks for a six-digit code from your authenticator app after the
+    password. {{ mfa_recovery_left }} recovery code{{ mfa_recovery_left|pluralize }} left —
+    turn this off and on again to issue a fresh set.
+  </p>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="mfa_disable" />
+    <div class="space-y-1.5 mfa-field">
+      <label for="mfaOffPassword">Current password</label>
+      <input id="mfaOffPassword" name="current_password" type="password" autocomplete="current-password" required />
+    </div>
+    <button type="submit" class="btn btn-outline">Turn two-step sign-in off</button>
+  </form>
+
+  {% elif mfa_enrolling %}
+  <p class="text-xs mb-4 text-muted-foreground">
+    Add this account to an authenticator app — Google Authenticator, Microsoft
+    Authenticator, Authy or a password manager that generates codes. Choose
+    "enter a setup key" and type the key below, then confirm with the code the
+    app shows.
+  </p>
+  <dl class="mfa-key">
+    <dt>Account</dt>
+    <dd>{{ user.email }}</dd>
+    <dt>Setup key</dt>
+    <dd><code class="mfa-secret">{{ mfa_secret }}</code></dd>
+    <dt>Type</dt>
+    <dd>Time-based, 6 digits, 30 seconds</dd>
+  </dl>
+  <p class="text-xs mt-3 mb-4 text-muted-foreground">
+    An app that takes a pasted link can use this instead:
+    <code class="mfa-uri">{{ mfa_uri }}</code>
+  </p>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="mfa_confirm" />
+    <div class="space-y-1.5 mfa-field">
+      <label for="mfaCode">Code from the app</label>
+      <input id="mfaCode" name="mfa_code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" placeholder="000000" autocomplete="one-time-code" required />
+    </div>
+    <button type="submit" class="btn btn-primary">Confirm and turn on</button>
+  </form>
+
+  {% else %}
+  <p class="text-xs mb-4 text-muted-foreground">
+    Off. A password alone is what stands between this account and every
+    scholar's household income, Listahanan status and disability record.
+    {% if mfa_required %}Office accounts are expected to turn this on.{% endif %}
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="mfa_start" />
+    <button type="submit" class="btn btn-primary">Set up two-step sign-in</button>
+  </form>
+  {% endif %}
+</div>

@@ -6,30 +6,30 @@
 {% block page_subtitle %}Student Development and Service Office{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="dashboard" %}{% endblock %}
 {% block content %}
-<p class="text-xs mb-4" style="color:var(--text-muted);">Showing data for: <strong>{{ active_sy_display }}</strong></p>
+<p class="text-xs mb-4 u-text-muted">Showing data for: <strong>{{ active_sy_display }}</strong></p>
 <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
   <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Total Applicants</p>
+    <p class="text-xs uppercase tracking-wider u-text-muted">Total Applicants</p>
     <p class="text-3xl font-bold mt-2">{{ total_applicants }}</p>
-    <p class="text-xs mt-1" style="color:var(--text-muted);">This semester</p>
+    <p class="text-xs mt-1 u-text-muted">This semester</p>
   </div>
   <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Approved</p>
-    <p class="text-3xl font-bold mt-2" style="color:var(--ok);">{{ approved }}</p>
+    <p class="text-xs uppercase tracking-wider u-text-muted">Approved</p>
+    <p class="text-3xl font-bold mt-2 u-text-ok">{{ approved }}</p>
   </div>
   <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Rejected</p>
-    <p class="text-3xl font-bold mt-2" style="color:var(--danger);">{{ rejected }}</p>
+    <p class="text-xs uppercase tracking-wider u-text-muted">Rejected</p>
+    <p class="text-3xl font-bold mt-2 u-text-danger">{{ rejected }}</p>
   </div>
   <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Pending</p>
-    <p class="text-3xl font-bold mt-2" style="color:var(--warn);">{{ pending }}</p>
-    <p class="text-xs mt-1" style="color:var(--text-muted);">Awaiting validation</p>
+    <p class="text-xs uppercase tracking-wider u-text-muted">Pending</p>
+    <p class="text-3xl font-bold mt-2 u-text-warn">{{ pending }}</p>
+    <p class="text-xs mt-1 u-text-muted">Awaiting validation</p>
   </div>
   <div class="card p-5">
-    <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Renewals</p>
-    <p class="text-3xl font-bold mt-2" style="color:var(--info);">{{ renewals }}</p>
-    <p class="text-xs mt-1" style="color:var(--text-muted);">Awaiting review</p>
+    <p class="text-xs uppercase tracking-wider u-text-muted">Renewals</p>
+    <p class="text-3xl font-bold mt-2 u-text-info">{{ renewals }}</p>
+    <p class="text-xs mt-1 u-text-muted">Awaiting review</p>
   </div>
 </div>
 <div class="grid lg:grid-cols-2 gap-6">
@@ -59,21 +59,21 @@
     <div class="space-y-3">
       {% with total=total_applicants %}
       <div>
-        <div class="flex justify-between text-sm mb-1"><span>Approved</span><span style="color:var(--ok);">{{ approved }}</span></div>
-        <div class="w-full rounded-full h-2" style="background:var(--border);">
-          <div class="h-2 rounded-full" style="background:var(--ok);width:{% if total %}{% widthratio approved total 100 %}{% else %}0{% endif %}%;"></div>
+        <div class="flex justify-between text-sm mb-1"><span>Approved</span><span class="u-text-ok">{{ approved }}</span></div>
+        <div class="w-full rounded-full h-2 u-bg-border">
+          <div class="h-2 rounded-full u-bg-ok-solid" data-meter="{% if total %}{% widthratio approved total 100 %}{% else %}0{% endif %}"></div>
         </div>
       </div>
       <div>
-        <div class="flex justify-between text-sm mb-1"><span>Pending</span><span style="color:var(--warn);">{{ pending }}</span></div>
-        <div class="w-full rounded-full h-2" style="background:var(--border);">
-          <div class="h-2 rounded-full" style="background:#fdea2b;width:{% if total %}{% widthratio pending total 100 %}{% else %}0{% endif %}%;"></div>
+        <div class="flex justify-between text-sm mb-1"><span>Pending</span><span class="u-text-warn">{{ pending }}</span></div>
+        <div class="w-full rounded-full h-2 u-bg-border">
+          <div class="h-2 rounded-full u-bg-hexfdea2b" data-meter="{% if total %}{% widthratio pending total 100 %}{% else %}0{% endif %}"></div>
         </div>
       </div>
       <div>
-        <div class="flex justify-between text-sm mb-1"><span>Rejected</span><span style="color:var(--danger);">{{ rejected }}</span></div>
-        <div class="w-full rounded-full h-2" style="background:var(--border);">
-          <div class="h-2 rounded-full" style="background:var(--danger);width:{% if total %}{% widthratio rejected total 100 %}{% else %}0{% endif %}%;"></div>
+        <div class="flex justify-between text-sm mb-1"><span>Rejected</span><span class="u-text-danger">{{ rejected }}</span></div>
+        <div class="w-full rounded-full h-2 u-bg-border">
+          <div class="h-2 rounded-full u-bg-danger-solid" data-meter="{% if total %}{% widthratio rejected total 100 %}{% else %}0{% endif %}"></div>
         </div>
       </div>
       {% endwith %}

@@ -6,7 +6,7 @@ from api.models import (
     FamilyBackground, PersonalInformation, Scholarship, ScholarshipLinkRequest,
     StaffProfile, StaffRenewal, StudentProfile, SystemSettings, User,
 )
-from api.test_registration_payload import a_staff_member
+from api.fixtures_registration import a_staff_member
 
 
 def a_document(name='proof.pdf'):

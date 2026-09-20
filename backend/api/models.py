@@ -148,6 +148,11 @@ class TermStamped(models.Model):
     class Meta:
         abstract = True
 
+    def save(self, *args, **kwargs):
+        """Stamp the term, then save."""
+        self.fill_term()
+        super().save(*args, **kwargs)
+
     def fill_term(self):
         """Stamp a new row with the active term if it carries none."""
         if not self.term_label and not self.school_year:
@@ -161,11 +166,6 @@ class TermStamped(models.Model):
             self.semester = self.semester or parsed['semester']
         elif self.school_year and not self.term_label:
             self.term_label = SystemSettings.make_label(self.school_year, self.semester)
-
-    def save(self, *args, **kwargs):
-        """Stamp the term, then save."""
-        self.fill_term()
-        super().save(*args, **kwargs)
 
     @property
     def term_display(self):
@@ -208,8 +208,95 @@ class User(AbstractUser):
         upload_to='profile/photos/', null=True, blank=True,
         help_text='Square headshot, any common image format.')
 
+    mfa_secret = models.CharField(max_length=64, blank=True, editable=False)
+    mfa_enabled = models.BooleanField(
+        default=False,
+        help_text='Whether this account is asked for an authenticator code.')
+    mfa_confirmed_at = models.DateTimeField(null=True, blank=True)
+    mfa_recovery_codes = models.JSONField(default=list, blank=True, editable=False)
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+
+    @property
+    def mfa_required(self):
+        """Whether this account's role is one the university requires MFA of.
+
+        Answered from the role rather than from the account, so adding a
+        second office account cannot quietly create one without it.
+        """
+        from django.conf import settings
+
+        return self.role in getattr(settings, 'MFA_REQUIRED_ROLES', ())
+
+    @property
+    def mfa_outstanding(self):
+        """Whether this account owes the university an MFA enrolment."""
+        return self.mfa_required and not self.mfa_enabled
+
+    def begin_mfa_enrolment(self):
+        """Issue a secret this account can be enrolled against.
+
+        Not turned on here: the secret is worthless until a code generated
+        from it has been checked, and enabling it first would lock out an
+        account whose authenticator never actually got set up.
+        """
+        from . import mfa
+
+        self.mfa_secret = mfa.new_secret()
+        self.mfa_enabled = False
+        self.mfa_confirmed_at = None
+        self.save(update_fields=['mfa_secret', 'mfa_enabled', 'mfa_confirmed_at'])
+        return self.mfa_secret
+
+    def confirm_mfa(self, submitted):
+        """Turn MFA on once a code from the new secret checks out.
+
+        Returns:
+            The recovery codes, in the clear and for the only time, or
+            ``None`` where the submitted code did not match.
+        """
+        from django.utils import timezone
+
+        from . import mfa
+
+        if not self.mfa_secret or not mfa.verify(self.mfa_secret, submitted):
+            return None
+        codes = mfa.new_recovery_codes()
+        self.mfa_enabled = True
+        self.mfa_confirmed_at = timezone.now()
+        self.mfa_recovery_codes = [mfa.hash_recovery_code(c) for c in codes]
+        self.save(update_fields=['mfa_enabled', 'mfa_confirmed_at',
+                                 'mfa_recovery_codes'])
+        return codes
+
+    def disable_mfa(self):
+        """Drop the second factor and everything that belonged to it."""
+        self.mfa_secret = ''
+        self.mfa_enabled = False
+        self.mfa_confirmed_at = None
+        self.mfa_recovery_codes = []
+        self.save(update_fields=['mfa_secret', 'mfa_enabled',
+                                 'mfa_confirmed_at', 'mfa_recovery_codes'])
+
+    def check_mfa(self, submitted):
+        """Whether a submitted authenticator or recovery code lets this account in.
+
+        A recovery code is spent as it is accepted, so the list shortens by
+        one each time one is used.
+        """
+        from . import mfa
+
+        if not self.mfa_enabled:
+            return True
+        if mfa.verify(self.mfa_secret, submitted):
+            return True
+        matched, remaining = mfa.spend_recovery_code(
+            self.mfa_recovery_codes, submitted)
+        if matched:
+            self.mfa_recovery_codes = remaining
+            self.save(update_fields=['mfa_recovery_codes'])
+        return matched
 
     @property
     def awaiting_verification(self):
@@ -314,6 +401,27 @@ class DetailRows(models.Model):
     class Meta:
         abstract = True
 
+    def save(self, *args, **kwargs):
+        """Save this row and any detail rows that were touched."""
+        creating = self._state.adding
+        update_fields = kwargs.pop('update_fields', None)
+        detail_fields = None
+        if update_fields is not None:
+            own, detail_fields = [], {}
+            for name in update_fields:
+                moved = self.DETAIL_FIELDS.get(name)
+                if moved is None:
+                    own.append(name)
+                else:
+                    detail_fields.setdefault(moved[0], []).append(moved[1])
+            if own or not detail_fields:
+                super().save(*args, update_fields=own, **kwargs)
+        else:
+            super().save(*args, **kwargs)
+        self.save_details(detail_fields)
+        if creating:
+            self.ensure_details()
+
     @property
     def _detail_cache(self):
         """Per-instance cache of loaded detail rows."""
@@ -337,27 +445,6 @@ class DetailRows(models.Model):
         if cache[related] is None and create:
             cache[related] = self._meta.get_field(related).related_model()
         return cache[related]
-
-    def save(self, *args, **kwargs):
-        """Save this row and any detail rows that were touched."""
-        creating = self._state.adding
-        update_fields = kwargs.pop('update_fields', None)
-        detail_fields = None
-        if update_fields is not None:
-            own, detail_fields = [], {}
-            for name in update_fields:
-                moved = self.DETAIL_FIELDS.get(name)
-                if moved is None:
-                    own.append(name)
-                else:
-                    detail_fields.setdefault(moved[0], []).append(moved[1])
-            if own or not detail_fields:
-                super().save(*args, update_fields=own, **kwargs)
-        else:
-            super().save(*args, **kwargs)
-        self.save_details(detail_fields)
-        if creating:
-            self.ensure_details()
 
     def save_details(self, only=None):
         """Save the loaded detail rows, optionally a named subset."""
@@ -879,6 +966,9 @@ class Scholarship(models.Model):
         default=list, blank=True,
         help_text="Columns the office added, as [{'key', 'label'}].")
 
+    def __str__(self):
+        return self.name
+
     @property
     def logo_url(self):
         """The programme's seal, or the university's."""
@@ -977,9 +1067,6 @@ class Scholarship(models.Model):
             score += 30
         return min(score, 100)
 
-    def __str__(self):
-        return self.name
-
 
 class Application(TermStamped):
     """A student applying, through the portal, for a catalogue programme."""
@@ -1003,6 +1090,12 @@ class Application(TermStamped):
     submitted_at = models.DateField(auto_now_add=True)
     updated_at = models.DateField(auto_now=True)
 
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_applications',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         indexes = [
             models.Index(fields=['term_label', 'status']),
@@ -1013,7 +1106,15 @@ class Application(TermStamped):
                 fields=['student', 'scholarship', 'school_year', 'semester'],
                 name='one_award_per_student_scholarship_term',
             ),
+            models.UniqueConstraint(
+                fields=['scholarship', 'school_year', 'semester', 'award_number'],
+                condition=~models.Q(award_number=''),
+                name='one_award_number_per_programme_term',
+            ),
         ]
+
+    def __str__(self):
+        return f"{self.student.student_id} — {self.scholarship.name}"
 
     def save(self, *args, **kwargs):
         """Stamp the term, then save."""
@@ -1021,8 +1122,28 @@ class Application(TermStamped):
             self.form_data.pop('csrfmiddlewaretoken', None)
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"{self.student.student_id} — {self.scholarship.name}"
+    def conflicts_with(self):
+        """Other approved awards this one duplicates a benefit with.
+
+        Reported, never refused. A student who really does hold two national
+        grants is the problem this system exists to surface, and a database
+        that would not store the second one could not show the office the
+        first thing about it. The office is warned before it approves and can
+        find every case afterwards with ``manage.py find_duplicate_awards``.
+        """
+        from .constants import ALWAYS_HOLDABLE_TYPES, CONFLICTING_BENEFIT_TYPES
+
+        if self.status != 'Approved' or not self.scholarship_id:
+            return Application.objects.none()
+        if self.scholarship.type not in CONFLICTING_BENEFIT_TYPES:
+            return Application.objects.none()
+        return (Application.objects
+                .filter(student_id=self.student_id, status='Approved',
+                        school_year=self.school_year, semester=self.semester,
+                        scholarship__type__in=CONFLICTING_BENEFIT_TYPES)
+                .exclude(pk=self.pk)
+                .exclude(scholarship__type__in=ALWAYS_HOLDABLE_TYPES)
+                .select_related('scholarship'))
 
 
 class ApplicationDocument(models.Model):
@@ -1173,14 +1294,21 @@ class ImportedScholar(PhilippineAddress):
         indexes = [
             models.Index(fields=['scholarship_type', 'term_label', 'claimed_by']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['scholarship_type', 'term_label', 'award_number'],
+                condition=~models.Q(award_number=''),
+                name='one_imported_award_number_per_term',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.full_name} — {self.scholarship_type}'
 
     @property
     def full_name(self):
         """The scholar's full name, assembled from its parts."""
         return f'{self.first_name} {self.last_name}'.strip()
-
-    def __str__(self):
-        return f'{self.full_name} — {self.scholarship_type}'
 
 
 class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
@@ -1243,6 +1371,15 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_applicant_records',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.full_name} — {self.qualified_for}"
+
     @property
     def suc_exam_percent(self):
         """The entrance exam score as a percentage."""
@@ -1252,9 +1389,6 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
     def suc_exam_display(self):
         """The entrance exam score as a readable string."""
         return format_exam_score(self.suc_exam_score, self.suc_exam_total)
-
-    def __str__(self):
-        return f"{self.full_name} — {self.qualified_for}"
 
     @property
     def name_parts(self):
@@ -1409,6 +1543,10 @@ class AcademicRenewal(TermStamped):
     status = models.CharField(max_length=20, choices=REVIEW_STATUSES, default='Pending')
     remarks = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_academic_renewals',
+    )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -1487,6 +1625,15 @@ class ScholarshipLinkRequest(TermStamped):
         related_name='+',
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['scholarship_type', 'term_label', 'award_number'],
+                condition=models.Q(status='Approved') & ~models.Q(award_number=''),
+                name='one_approved_link_award_number_per_term',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.student} — Link {self.scholarship_type} ({self.status})"
 
@@ -1538,6 +1685,94 @@ class ScholarListImport(TermStamped):
     def __str__(self):
         return (f'{self.scholarship_type} — {self.term_label or self.school_year} '
                 f'{self.semester} ({self.scholar_count} scholars)')
+
+
+class BackgroundJob(models.Model):
+    """One piece of work a request handed to the pool in ``api/jobs.py``.
+
+    The row is written before the job is queued, so it exists even if the
+    process dies in between. That ordering is the whole point: the pool lives
+    inside the web process and does not survive a restart, and a row still
+    marked ``running`` when nothing is running is the only way the office finds
+    out that nobody is going to finish it.
+
+    Nothing retries on its own. A job that failed says why, and the office
+    decides whether to send the spreadsheet again.
+    """
+
+    QUEUED, RUNNING, DONE, FAILED = 'queued', 'running', 'done', 'failed'
+    STATUS_CHOICES = [
+        (QUEUED, 'Queued'),
+        (RUNNING, 'Running'),
+        (DONE, 'Done'),
+        (FAILED, 'Failed'),
+    ]
+
+    kind = models.CharField(max_length=30)
+    label = models.CharField(max_length=200)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES,
+                              default=QUEUED)
+    detail = models.TextField(blank=True)
+    outcome = models.JSONField(default=dict, blank=True)
+    started_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,
+                                   related_name='background_jobs')
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['kind', 'status'])]
+
+    def __str__(self):
+        return f'{self.label} ({self.get_status_display()})'
+
+    @property
+    def finished(self):
+        """Whether there is an outcome to show."""
+        return self.status in (self.DONE, self.FAILED)
+
+    def begin(self):
+        """Mark the job as picked up."""
+        from django.utils import timezone
+
+        self.status = self.RUNNING
+        self.started_at = timezone.now()
+        self.save(update_fields=['status', 'started_at'])
+
+    def succeed(self, detail='', **outcome):
+        """Record what the job produced."""
+        self._settle(self.DONE, detail, outcome)
+
+    def fail(self, detail, **outcome):
+        """Record why the job stopped, in words the office can act on."""
+        self._settle(self.FAILED, detail, outcome)
+
+    def _settle(self, status, detail, outcome):
+        """Write the ending once, so the two endings cannot drift apart."""
+        from django.utils import timezone
+
+        self.status = status
+        self.detail = detail
+        self.outcome = outcome
+        self.finished_at = timezone.now()
+        self.save(update_fields=['status', 'detail', 'outcome', 'finished_at'])
+
+    def abandoned(self, after_minutes=30):
+        """Whether this job was unfinished when the process went away.
+
+        A restart takes the queue with it and leaves the row behind. Nothing
+        rewrites that row afterwards, so its age is the only evidence there is.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        if self.finished:
+            return False
+        since = self.started_at or self.created_at
+        return bool(since and timezone.now() - since >
+                    timedelta(minutes=after_minutes))
 
 
 class PartnerOffice(models.Model):

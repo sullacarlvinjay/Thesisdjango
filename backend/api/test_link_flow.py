@@ -5,7 +5,7 @@ from api.models import (
     User, StudentProfile, Scholarship, Application, ImportedScholar,
     ScholarshipLinkRequest, SystemSettings, Notification,
 )
-from api.test_registration_payload import a_student
+from api.fixtures_registration import a_student
 
 
 def archive_rows(response, kind=None):

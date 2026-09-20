@@ -7,15 +7,32 @@
 {% block content %}
 
 {% if approved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">
   ✓ Account verified. They can sign in now.
   {% if emailed == '1' and email_enabled %}They have been emailed.{% endif %}
 </div>
 {% endif %}
 {% if rejected %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--warn-bg);color:var(--warn);border:1px solid #fdea2b;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-warn u-text-warn u-border-1px-solid-hexfdea2b">
   Account rejected. Your reason is what they will read when they try to sign in.
   {% if emailed == '1' and email_enabled %}They have been emailed the same words.{% endif %}
+</div>
+{% endif %}
+
+{% if office_done %}
+<div class="page-alert page-alert-ok">
+  {% if office_done == 'created' %}
+    &check; {{ office_who }} can now sign in to this portal with the same reach as you.
+    Every decision they make is recorded under their name.
+  {% elif office_done == 'reset' %}
+    &check; Password changed for {{ office_who }}. Tell them in person &mdash; this system
+    never emails a password.
+  {% elif office_done == 'closed' %}
+    &check; {{ office_who }} can no longer sign in. What they already decided stays
+    recorded against them.
+  {% elif office_done == 'reopened' %}
+    &check; {{ office_who }} can sign in again.
+  {% endif %}
 </div>
 {% endif %}
 
@@ -31,90 +48,110 @@
 {% endif %}
 
 {% if emailed == '0' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm u-bg-danger u-text-danger u-border-1px-solid-danger-border">
   <span class="font-semibold">The decision was saved, but the email did not go out.</span>
   The mail server refused or timed out — the server log has the reason. Tell them another way.
 </div>
 {% endif %}
-{% if tested == '1' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
-  ✓ Test message accepted for delivery to {{ tested_to }}. If it does not arrive, it left
-  this server and the problem is beyond it — check the spam folder, then the provider's own log.
-</div>
-{% endif %}
-{% if tested == '0' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
-  <span class="font-semibold">The test message did not go out.</span>
-  The reason is in <strong>Last attempt</strong> below, in the provider's own words.
-</div>
-{% endif %}
-
-<details class="card mail-panel mb-5" {% if not mail.enabled or mail.last_error %}open{% endif %}>
-  <summary class="mail-panel__summary">
-    <span class="mail-panel__title">Email</span>
-    {% if not mail.enabled %}
-      <span class="badge badge-warning">Not configured</span>
-    {% elif mail.last_error %}
-      <span class="badge badge-destructive">Last send failed</span>
-    {% else %}
-      <span class="badge badge-success">{{ mail.route }}</span>
-    {% endif %}
-    <span class="mail-panel__hint">what this deployment can and cannot send</span>
+<details class="card office-panel mb-5">
+  <summary class="office-panel__summary">
+    <span class="office-panel__title">Office accounts</span>
+    <span class="badge badge-muted">{{ office_accounts|length }}</span>
+    <span class="office-panel__hint">who else signs in to this portal</span>
   </summary>
-  <div class="mail-panel__body">
-    <p class="mail-panel__note">{{ mail.route_detail }}</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Route</label><span>{{ mail.route }}</span></div>
-      <div class="detail-field"><label>Brevo API key</label>
-        <span>{% if mail.key_set %}Set{% else %}Not set{% endif %}</span>
+  <div class="office-panel__body">
+    <p class="office-panel__note">
+      An office account reaches every page you reach. What separates two officers is not
+      what they may do but that each decision &mdash; every account verified, application
+      decided and renewal reviewed &mdash; is recorded against the one who made it. Share a
+      login and that record says nothing.
+    </p>
+    {% if not may_manage_office %}
+    <p class="office-panel__note">
+      Opening and closing these accounts is left to an account that can also reach the
+      Django admin, so that whatever goes wrong here can be put back. Yours signs in to
+      every page of this portal but not to this list.
+    </p>
+    {% endif %}
+    <div class="office-accounts">
+      {% for a in office_accounts %}
+      <div class="office-accounts__row">
+        <span class="office-accounts__who">
+          <strong>{{ a.get_full_name|default:a.email }}</strong>
+          {% if a == user %}<span class="badge badge-muted">You</span>{% endif %}
+          {% if not a.is_active %}<span class="badge badge-warning">Closed</span>{% endif %}
+          {% if a.mfa_enabled %}<span class="badge badge-success">MFA on</span>
+          {% else %}<span class="badge badge-warning">MFA not set up</span>{% endif %}
+          <span class="office-accounts__mail">{{ a.email }} &middot; opened {{ a.date_joined|date:"M j, Y" }}</span>
+        </span>
+        {% if a != user and may_manage_office %}
+        <span class="office-accounts__acts">
+        <form method="post" action="/vpsea/accounts/" class="office-accounts__act">
+          {% csrf_token %}
+          <input type="hidden" name="office" value="reset" />
+          <input type="hidden" name="account_id" value="{{ a.pk }}" />
+          <label class="sr-only" for="opw-{{ a.pk }}">New password for {{ a.email }}</label>
+          <input type="password" name="password" id="opw-{{ a.pk }}" minlength="{{ min_password }}"
+                 placeholder="New password" required />
+          <button type="submit" class="btn btn-outline">Reset</button>
+        </form>
+        <form method="post" action="/vpsea/accounts/" class="office-accounts__act"
+              {% if a.is_active %}data-confirm="Close {{ a.email }}?"
+              data-confirm-detail="They stop being able to sign in. Nothing they decided is removed — it stays recorded against them, which is why the account is closed rather than deleted."
+              data-confirm-tone="danger" data-confirm-label="Close"{% endif %}>
+          {% csrf_token %}
+          <input type="hidden" name="office" value="access" />
+          <input type="hidden" name="account_id" value="{{ a.pk }}" />
+          <input type="hidden" name="active" value="{% if a.is_active %}0{% else %}1{% endif %}" />
+          <button type="submit" class="btn {% if a.is_active %}btn-danger-soft{% else %}btn-outline{% endif %}">
+            {% if a.is_active %}Close{% else %}Reopen{% endif %}
+          </button>
+        </form>
+        </span>
+        {% endif %}
       </div>
-      <div class="detail-field"><label>Sends as</label><span>{{ mail.sender }}</span></div>
-      <div class="detail-field"><label>Links point at</label>
-        <span>{{ mail.site_url|default:"— nothing, so messages carry no link" }}</span>
-      </div>
+      {% endfor %}
     </div>
-    
-    {% if mail.route == 'Brevo' %}
-    <p class="mail-panel__note">
-      Brevo refuses any sender but the address verified under
-      <em>Senders, domains &amp; dedicated IPs</em>. That has to be the address above.
+    {% if may_manage_office %}
+    <div class="section-title">Open another one</div>
+    <p class="office-panel__note">
+      Hand the password over in person and have them change it under My Profile. Nothing
+      here emails it.
     </p>
-    {% endif %}
-    <div class="section-title">Last attempt</div>
-    {% if mail.last_at %}
-      <div class="detail-grid">
-        <div class="detail-field"><label>When</label><span>{{ mail.last_at|date:"M d, Y H:i" }}</span></div>
-        <div class="detail-field"><label>To</label><span>{{ mail.last_to|default:"—" }}</span></div>
-        <div class="detail-field"><label>Subject</label><span>{{ mail.last_subject|default:"—" }}</span></div>
-      </div>
-      {% if mail.last_error %}
-      <p class="mail-panel__error">{{ mail.last_error }}</p>
-      {% else %}
-      <p class="mail-panel__ok">It left this server. Anything after that is the receiving mailbox.</p>
-      {% endif %}
-    {% else %}
-      <p class="mail-panel__note">Nothing has been sent from this deployment yet.</p>
-    {% endif %}
-    <div class="section-title">Send a test</div>
-    <p class="mail-panel__note">
-      One real message, reported as it actually went. This is the shell-less version of
-      <code>manage.py check_email</code>.
-    </p>
-    <form method="post" action="/vpsea/accounts/" class="mail-panel__test">
+    <form method="post" action="/vpsea/accounts/" class="space-y-4">
       {% csrf_token %}
-      <input type="hidden" name="action" value="test_email" />
-      <input type="email" name="test_to" value="{{ user.email }}"
-             placeholder="you@example.com" aria-label="Address to send the test to" />
-      <button type="submit" class="btn btn-outline">Send test</button>
+      <input type="hidden" name="office" value="create" />
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="space-y-1.5">
+          <label for="office-first">First name</label>
+          <input name="first_name" id="office-first" required />
+        </div>
+        <div class="space-y-1.5">
+          <label for="office-last">Last name</label>
+          <input name="last_name" id="office-last" />
+        </div>
+        <div class="space-y-1.5">
+          <label for="office-email">Email &mdash; how they sign in</label>
+          <input type="email" name="email" id="office-email" required />
+        </div>
+        <div class="space-y-1.5">
+          <label for="office-pw">Password</label>
+          <input type="password" name="password" id="office-pw"
+                 minlength="{{ min_password }}"
+                 placeholder="At least {{ min_password }} characters" required />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Open the account</button>
     </form>
+    {% endif %}
   </div>
 </details>
 {% if error %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">{{ error }}</div>
+<div class="mb-5 rounded-lg px-4 py-3 text-sm u-bg-danger u-text-danger u-border-1px-solid-danger-border">{{ error }}</div>
 {% endif %}
 <div class="card p-6 mb-6">
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Waiting for you</p>
-  <p class="text-xs mb-4" style="color:var(--text-muted);">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">Waiting for you</p>
+  <p class="text-xs mb-4 u-text-muted">
     Someone who registers on the public form cannot sign in until you decide here. Check what they entered
     against your records — an unverified account is the only thing standing between a stranger and a student portal.
     A registration that declares a scholarship is decided here too: verifying the account records the award.
@@ -122,25 +159,25 @@
   {% if pending %}
   <div class="space-y-4">
     {% for account in pending %}
-    <div style="border:1px solid var(--border);border-radius:0.75rem;padding:1rem;">
+    <div class="u-border-1px-solid-border u-round-0-75rem u-p-1rem">
       <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div class="min-w-0">
-          <p class="font-semibold text-sm" style="color:var(--text);">
+          <p class="font-semibold text-sm u-text-base">
             {{ account.get_full_name|default:account.email }}
-            <span class="badge {% if account.role == 'nsu_staff' %}badge-success{% else %}badge-info{% endif %}" style="margin-left:0.35rem;">{{ account.get_role_display }}</span>
+            <span class="badge {% if account.role == 'nsu_staff' %}badge-success{% else %}badge-info{% endif %} u-ml-0-35rem">{{ account.get_role_display }}</span>
           </p>
-          <p class="text-xs mt-0.5" style="color:var(--text-muted);">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}
+          <p class="text-xs mt-0.5 u-text-muted">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}
             <button type="button" class="copy-btn" data-copy="{{ account.email }}" aria-label="Copy this email address"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span data-copy-label>Copy</span></button></p>
           
           {% if account.email_verified %}
-          <p class="text-xs mt-1" style="color:var(--ok);">✓ Email address confirmed by them</p>
+          <p class="text-xs mt-1 u-text-ok">✓ Email address confirmed by them</p>
           {% elif account.awaiting_email_confirmation %}
-          <p class="text-xs mt-1" style="color:var(--warn);">
+          <p class="text-xs mt-1 u-text-warn">
             ⚠ Email address not confirmed — the link sent {{ account.email_confirmation_sent_at|timesince }} ago
             has not been opened. Anything you write to this address may reach nobody.
           </p>
           {% else %}
-          <p class="text-xs mt-1" style="color:var(--warn);">⚠ Email address not confirmed — no link was ever sent.</p>
+          <p class="text-xs mt-1 u-text-warn">⚠ Email address not confirmed — no link was ever sent.</p>
           {% endif %}
         </div>
       </div>
@@ -151,61 +188,61 @@
         <input type="hidden" name="user_id" value="{{ account.id }}" />
         
         {% if account.staff_declared %}
-        <div class="p-4 rounded-xl" style="background:var(--warn-bg);border:1px solid #fdea2b;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--warn);">BiPSU Staff Scholarship declared at registration</p>
-          <p class="text-xs mb-3" style="color:var(--text-soft);">
+        <div class="p-4 rounded-xl u-bg-warn u-border-1px-solid-hexfdea2b">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2 u-text-warn">BiPSU Staff Scholarship declared at registration</p>
+          <p class="text-xs mb-3 u-text-soft">
             Verifying this account records the award for {{ active_label }} and they will
             not need to apply for it. Rejecting turns the declaration down in the same
             words, and writes no award.
           </p>
-          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:var(--text-soft);">
-            <div><span style="color:var(--text-muted);">Programme</span><br />BiPSU Staff Scholarship</div>
-            <div><span style="color:var(--text-muted);">Declared</span><br />{{ account.staff_declared.submitted_at|date:"M d, Y" }}</div>
+          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3 u-text-soft">
+            <div><span class="u-text-muted">Programme</span><br />BiPSU Staff Scholarship</div>
+            <div><span class="u-text-muted">Declared</span><br />{{ account.staff_declared.submitted_at|date:"M d, Y" }}</div>
             <div>
-              <span style="color:var(--text-muted);">Proof</span><br />
+              <span class="u-text-muted">Proof</span><br />
               {% if account.staff_declared.proof_document %}
-              <a href="{{ account.staff_declared.proof_document.url }}" data-doc="BiPSU Staff Scholarship — proof" style="color:var(--brand);">View document</a>
+              <a class="u-text-brand" href="{{ account.staff_declared.proof_document.url }}" data-doc="BiPSU Staff Scholarship — proof">View document</a>
               {% else %}&mdash;{% endif %}
             </div>
           </div>
           {% if account.staff_declared.notes %}
-          <p class="text-xs" style="color:var(--text-muted);"><strong>Their note:</strong> {{ account.staff_declared.notes }}</p>
+          <p class="text-xs u-text-muted"><strong>Their note:</strong> {{ account.staff_declared.notes }}</p>
           {% endif %}
         </div>
         {% endif %}
         {% if account.declarations|length > 1 %}
-        <p class="text-xs font-semibold" style="color:var(--warn);">
+        <p class="text-xs font-semibold u-text-warn">
           This registration declared {{ account.declarations|length }} scholarships.
           Read every card — verifying the account records all of them.
         </p>
         {% endif %}
         {% for declared in account.declarations %}
-        <div class="p-4 rounded-xl" style="background:var(--warn-bg);border:1px solid #fdea2b;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--warn);">
+        <div class="p-4 rounded-xl u-bg-warn u-border-1px-solid-hexfdea2b">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2 u-text-warn">
             Scholarship declared at registration{% if account.declarations|length > 1 %} · {{ forloop.counter }} of {{ account.declarations|length }}{% endif %}
           </p>
-          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:var(--text-soft);">
-            <div><span style="color:var(--text-muted);">Scholarship</span><br />{{ declared.get_scholarship_type_display }}</div>
-            <div><span style="color:var(--text-muted);">Award Number</span><br /><span class="font-mono">{{ declared.award_number|default:"—" }}</span></div>
+          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3 u-text-soft">
+            <div><span class="u-text-muted">Scholarship</span><br />{{ declared.get_scholarship_type_display }}</div>
+            <div><span class="u-text-muted">Award Number</span><br /><span class="font-mono">{{ declared.award_number|default:"—" }}</span></div>
             <div>
-              <span style="color:var(--text-muted);">Proof</span><br />
+              <span class="u-text-muted">Proof</span><br />
               {% if declared.proof_document %}
-              <a href="{{ declared.proof_document.url }}" data-doc="{{ declared.get_scholarship_type_display }} — proof" style="color:var(--brand);">View document</a>
+              <a class="u-text-brand" href="{{ declared.proof_document.url }}" data-doc="{{ declared.get_scholarship_type_display }} — proof">View document</a>
               {% else %}—{% endif %}
             </div>
           </div>
           {% if declared.notes %}
-          <p class="text-xs mb-3" style="color:var(--text-muted);"><strong>Their note:</strong> {{ declared.notes }}</p>
+          <p class="text-xs mb-3 u-text-muted"><strong>Their note:</strong> {{ declared.notes }}</p>
           {% endif %}
           {% if declared.scholarship_type == 'CHED' %}
           <div class="space-y-1.5 mb-3">
-            <label>CHED Award Tier</label>
-            <p class="text-xs" style="color:var(--warn);">
+            <label for="f-award-tier-{{ declared.pk }}">CHED Award Tier</label>
+            <p class="text-xs u-text-warn">
               The student declared
               <strong>{{ declared.get_award_tier_display|default:"nothing" }}</strong>.
               Correct it here if the proof says otherwise — the masterlists report the two tiers separately.
             </p>
-            <select name="award_tier_{{ declared.pk }}">
+            <select id="f-award-tier-{{ declared.pk }}" name="award_tier_{{ declared.pk }}">
               {% for value, label in ched_tiers %}
               <option value="{{ value }}" {% if declared.award_tier == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
@@ -214,9 +251,9 @@
           {% endif %}
           {% if declared.archive_candidates %}
           <div class="space-y-1.5">
-            <label>Merge with an imported row <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
-            <p class="text-xs" style="color:var(--text-muted);">Rows from this term's uploaded list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
-            <select name="archive_id_{{ declared.pk }}">
+            <label for="f-archive-id-{{ declared.pk }}">Merge with an imported row <span class="u-text-muted u-fw-400">(optional)</span></label>
+            <p class="text-xs u-text-muted">Rows from this term's uploaded list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
+            <select id="f-archive-id-{{ declared.pk }}" name="archive_id_{{ declared.pk }}">
               <option value="">— No imported row —</option>
               {% for row in declared.archive_candidates %}
               <option value="{{ row.id }}">{{ row.last_name }}, {{ row.first_name }}{% if row.student_id %} · {{ row.student_id }}{% endif %}{% if row.award_number %} · {{ row.award_number }}{% endif %}{% if row.imported_from %} · {{ row.imported_from }}{% endif %}</option>
@@ -224,10 +261,10 @@
             </select>
           </div>
           {% else %}
-          <p class="text-xs" style="color:var(--warn);">No row in this term's {{ declared.get_scholarship_type_display }} import ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
+          <p class="text-xs u-text-warn">No row in this term's {{ declared.get_scholarship_type_display }} import ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
           {% endif %}
           {% if declared.other_semester_rows %}
-          <p class="text-xs mt-2" style="color:var(--text-muted);">
+          <p class="text-xs mt-2 u-text-muted">
             Same scholar in earlier imports, as evidence only:
             {% for row in declared.other_semester_rows %}{{ row.term_label }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </p>
@@ -235,12 +272,17 @@
         </div>
         {% endfor %}
         <div class="flex flex-wrap items-end gap-2">
-          <div class="space-y-1.5" style="flex:1 1 20rem;min-width:14rem;">
-            <label>Message to them <span style="color:var(--text-muted);font-weight:400;">(required to reject)</span></label>
-            <input name="message" placeholder="e.g. Student ID does not match our enrolment list for this semester." />
+          <div class="space-y-1.5 u-flex-1-1-20rem u-minw-14rem">
+            <label for="f-message">Message to them <span class="u-text-muted u-fw-400">(required to reject)</span></label>
+            <input id="f-message" name="message" placeholder="e.g. Student ID does not match our enrolment list for this semester." />
           </div>
-          <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
-          <button type="submit" name="action" value="reject" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger-border);">Reject</button>
+          <button type="submit" name="action" value="approve" class="btn btn-primary"
+                  data-confirm="Verify {{ account.get_full_name|default:account.email }}?"
+                  data-confirm-detail="They will be able to sign in, and every scholarship they declared is approved with this account."
+                  {% if account.duplicate_benefit_warning %}data-confirm-consequence="{{ account.duplicate_benefit_warning }}"
+                  data-confirm-tone="danger"{% else %}data-confirm-tone="warn"{% endif %}
+                  data-confirm-label="Verify the account">Verify</button>
+          <button type="submit" name="action" value="reject" class="btn btn-outline u-text-danger u-bc-danger-border" data-confirm="Reject {{ account.get_full_name|default:account.email }}?" data-confirm-detail="They are emailed the reason you typed and cannot sign in. Every scholarship they declared is turned down with the account." data-confirm-consequence="Rejection is not silent. The person reads your message, so it has to say what was actually wrong." data-confirm-label="Reject the account" data-confirm-tone="danger">Reject</button>
         </div>
       </form>
     </div>
@@ -248,14 +290,14 @@
   </div>
   {% include "_pagination.html" with page=pending_page.page page_param=pending_page.page_param querystring=pending_page.querystring label="Pending registrations" %}
   {% else %}
-  <p class="text-sm" style="color:var(--text-muted);">Nothing waiting. New registrations land here.</p>
+  <p class="text-sm u-text-muted">Nothing waiting. New registrations land here.</p>
   {% endif %}
 </div>
 
 {% if added_scholarships %}
 <div class="card p-6 mb-4">
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--warn);">Scholarships added by verified students</p>
-  <p class="text-xs mb-4" style="color:var(--text-muted);">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-warn">Scholarships added by verified students</p>
+  <p class="text-xs mb-4 u-text-muted">
     A student who registered before they won something adds it from their own portal. These accounts
     are already verified, so each scholarship is a decision on its own. Verifying one records the
     Approved award for <strong>{{ active_label }}</strong> — it flows into the archives, reports,
@@ -299,12 +341,12 @@
 
         {% if req.scholarship_type == 'CHED' %}
         <div class="space-y-1.5">
-          <label>CHED Award Tier</label>
+          <label for="f-award-tier-{{ req.pk }}">CHED Award Tier</label>
           <p class="declaration-card__aside">
             The student said <strong>{{ req.get_award_tier_display|default:"nothing" }}</strong>.
             Correct it here if the proof says otherwise — the masterlists report the two tiers separately.
           </p>
-          <select name="award_tier_{{ req.pk }}">
+          <select id="f-award-tier-{{ req.pk }}" name="award_tier_{{ req.pk }}">
             {% for value, label in ched_tiers %}
             <option value="{{ value }}" {% if req.award_tier == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
@@ -314,9 +356,9 @@
 
         {% if req.archive_candidates %}
         <div class="space-y-1.5">
-          <label>Merge with an imported row <span class="label-optional">Optional</span></label>
+          <label for="f-archive-id-{{ req.pk }}">Merge with an imported row <span class="label-optional">Optional</span></label>
           <p class="declaration-card__aside">Rows from this term's uploaded {{ req.get_scholarship_type_display }} list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
-          <select name="archive_id_{{ req.pk }}">
+          <select id="f-archive-id-{{ req.pk }}" name="archive_id_{{ req.pk }}">
             <option value="">— No imported row —</option>
             {% for row in req.archive_candidates %}
             <option value="{{ row.id }}">{{ row.last_name }}, {{ row.first_name }}{% if row.student_id %} · {{ row.student_id }}{% endif %}{% if row.award_number %} · {{ row.award_number }}{% endif %}{% if row.imported_from %} · {{ row.imported_from }}{% endif %}</option>
@@ -340,8 +382,8 @@
 
         <div class="declaration-actions">
           <div class="space-y-1.5 declaration-actions__field">
-            <label>Message to them <span class="label-optional">Required to reject</span></label>
-            <input name="message" placeholder="e.g. That award letter is from another university." />
+            <label for="f-message-1">Message to them <span class="label-optional">Required to reject</span></label>
+            <input id="f-message-1" name="message" placeholder="e.g. That award letter is from another university." />
           </div>
           <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
           <button type="submit" name="action" value="reject" class="btn btn-outline declaration-actions__reject">Reject</button>
@@ -355,40 +397,40 @@
 
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Recently decided</p>
-  <p class="text-xs mb-4" style="color:var(--text-muted);">The last 25 decisions. <strong>View record</strong> reopens everything the decision was made on — what they registered with, and what became of any scholarship they declared. Verifying a rejected account here lets them straight in.</p>
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">Recently decided</p>
+  <p class="text-xs mb-4 u-text-muted">The last 25 decisions. <strong>View record</strong> reopens everything the decision was made on — what they registered with, and what became of any scholarship they declared. Verifying a rejected account here lets them straight in.</p>
   {% if decided %}
-  <div style="overflow-x:auto;">
-    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-8125rem" data-filterable data-sortable>
       <thead>
         <tr>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Name</th>
-          <th data-filter="Role" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Role</th>
-          <th data-filter="Registered" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Registered</th>
-          <th data-filter="Decision" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Decision</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Message they see</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">By</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;"></th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600">Name</th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600" data-filter="Role">Role</th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600" data-filter="Registered">Registered</th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600" data-filter="Decision">Decision</th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600">Message they see</th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600">By</th>
+          <th class="u-ta-left u-p-0-55rem-0-75rem u-bg-sunken u-text-muted u-fw-600"></th>
         </tr>
       </thead>
       <tbody>
         {% for account in decided %}
         <tr>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);">
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border">
             {{ account.get_full_name|default:account.email }}
-            <br /><span style="color:var(--text-muted);font-size:0.75rem;">{{ account.email }}</span>
+            <br /><span class="u-text-muted u-fs-0-75rem">{{ account.email }}</span>
           </td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">{{ account.get_role_display }}</td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">{{ account.student_profile.term_display|default:"—" }}</td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);">
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">{{ account.get_role_display }}</td>
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">{{ account.student_profile.term_display|default:"—" }}</td>
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border">
             <span class="badge {% if account.verification_status == 'approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ account.get_verification_status_display }}</span>
           </td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">{{ account.verification_note|default:"—" }}</td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">{{ account.verification_note|default:"—" }}</td>
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">
             {{ account.verified_by.get_full_name|default:"—" }}<br />
-            <span style="font-size:0.75rem;">{{ account.verified_at|date:"M j, Y" }}</span>
+            <span class="u-fs-0-75rem">{{ account.verified_at|date:"M j, Y" }}</span>
           </td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);">
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border">
             <div class="record-actions">
               <button type="button" class="btn btn-outline record-actions__btn"
                       data-preview-open="record-{{ account.id }}">View record</button>
@@ -408,7 +450,7 @@
   </div>
   {% include "_pagination.html" with page=decided_page.page page_param=decided_page.page_param querystring=decided_page.querystring label="Decided registrations" %}
   {% else %}
-  <p class="text-sm" style="color:var(--text-muted);">No decisions yet.</p>
+  <p class="text-sm u-text-muted">No decisions yet.</p>
   {% endif %}
 </div>
 

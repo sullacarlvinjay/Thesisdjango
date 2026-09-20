@@ -6,48 +6,48 @@
 {% block page_subtitle %}Manage programs shown on the public landing page{% endblock %}
 {% block nav %}{% include "vpsea/_nav.html" with active="scholarships" %}{% endblock %}
 {% block content %}
-{% if added %}<div class="mb-4 p-3 rounded-lg text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">Scholarship added successfully.</div>{% endif %}
-{% if saved %}<div class="mb-4 p-3 rounded-lg text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">Changes saved successfully.</div>{% endif %}
+{% if added %}<div class="mb-4 p-3 rounded-lg text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">Scholarship added successfully.</div>{% endif %}
+{% if saved %}<div class="mb-4 p-3 rounded-lg text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">Changes saved successfully.</div>{% endif %}
 <div class="flex items-center justify-between mb-5">
-  <p class="text-sm" style="color:var(--text-muted);">{{ scholarships|length }} program{{ scholarships|length|pluralize }} total</p>
-  <a href="/vpsea/scholarships/add/" class="btn btn-primary" style="gap:0.4rem;">
+  <p class="text-sm u-text-muted">{{ scholarships|length }} program{{ scholarships|length|pluralize }} total</p>
+  <a href="/vpsea/scholarships/add/" class="btn btn-primary u-gap-0-4rem">
     <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
     Add Scholarship
   </a>
 </div>
 <div class="card">
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-875rem">
       <thead>
-        <tr style="border-bottom:2px solid var(--border);background:#f6f8fc;">
-          <th style="text-align:left;padding:0.6rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Name</th>
-          <th style="text-align:left;padding:0.6rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Type</th>
-          <th style="text-align:left;padding:0.6rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Description</th>
-          <th style="text-align:left;padding:0.6rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Status</th>
-          <th style="padding:0.6rem 0.75rem;"></th>
+        <tr class="u-bb-2px-solid-border u-bg-sunken">
+          <th class="u-ta-left u-p-0-6rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Name</th>
+          <th class="u-ta-left u-p-0-6rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Type</th>
+          <th class="u-ta-left u-p-0-6rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Description</th>
+          <th class="u-ta-left u-p-0-6rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Status</th>
+          <th class="u-p-0-6rem-0-75rem"></th>
         </tr>
       </thead>
       <tbody>
         {% for s in scholarships %}
-        <tr style="border-bottom:1px solid var(--surface-2);">
-          <td style="padding:0.65rem 0.75rem;font-weight:600;">{{ s.name }}</td>
-          <td style="padding:0.65rem 0.75rem;">
-            <span class="badge" style="background:var(--brand-soft);color:var(--brand);">{{ s.type }}</span>
+        <tr class="u-bb-1px-solid-surface-2">
+          <td class="u-p-0-65rem-0-75rem u-fw-600">{{ s.name }}</td>
+          <td class="u-p-0-65rem-0-75rem">
+            <span class="badge u-bg-brand-soft u-text-brand">{{ s.type }}</span>
           </td>
-          <td style="padding:0.65rem 0.75rem;color:var(--text-muted);font-size:0.8rem;max-width:22rem;">{{ s.description|truncatechars:80 }}</td>
-          <td style="padding:0.65rem 0.75rem;">
+          <td class="u-p-0-65rem-0-75rem u-text-muted u-fs-0-8rem u-maxw-22rem">{{ s.description|truncatechars:80 }}</td>
+          <td class="u-p-0-65rem-0-75rem">
             {% if s.is_active %}
-            <span class="badge" style="background:var(--ok-bg);color:var(--ok);">Active</span>
+            <span class="badge u-bg-ok u-text-ok">Active</span>
             {% else %}
-            <span class="badge" style="background:var(--danger-bg);color:var(--danger);">Inactive</span>
+            <span class="badge u-bg-danger u-text-danger">Inactive</span>
             {% endif %}
           </td>
-          <td style="padding:0.65rem 0.75rem;">
+          <td class="u-p-0-65rem-0-75rem">
             <div class="flex items-center gap-2">
-              <a href="/vpsea/scholarships/{{ s.pk }}/edit/" class="btn btn-outline" style="padding:0.3rem 0.7rem;font-size:0.75rem;">Edit</a>
-              <form method="post" action="/vpsea/scholarships/{{ s.pk }}/toggle/" style="margin:0;">
+              <a href="/vpsea/scholarships/{{ s.pk }}/edit/" class="btn btn-outline u-p-0-3rem-0-7rem u-fs-0-75rem">Edit</a>
+              <form class="u-m-0" method="post" action="/vpsea/scholarships/{{ s.pk }}/toggle/">
                 {% csrf_token %}
-                <button type="submit" class="btn" style="padding:0.3rem 0.7rem;font-size:0.75rem;{% if s.is_active %}background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);{% else %}background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);{% endif %}">
+                <button type="submit" class="btn u-p-0-3rem-0-7rem u-fs-0-75rem {% if s.is_active %}u-bg-danger u-text-danger u-border-1px-solid-danger-border{% else %}u-bg-ok u-text-ok u-border-1px-solid-ok-border{% endif %}">
                   {% if s.is_active %}Deactivate{% else %}Activate{% endif %}
                 </button>
               </form>
@@ -55,7 +55,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="padding:3rem;text-align:center;color:var(--text-muted);">No scholarship programs yet. <a href="/vpsea/scholarships/add/" style="color:var(--brand);">Add one</a>.</td></tr>
+        <tr><td class="u-p-3rem u-ta-center u-text-muted" colspan="5">No scholarship programs yet. <a class="u-text-brand" href="/vpsea/scholarships/add/">Add one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>

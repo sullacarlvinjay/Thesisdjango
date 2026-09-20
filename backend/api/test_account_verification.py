@@ -3,7 +3,7 @@ from django.test import Client, TestCase
 from api.models import (
     Notification, StaffProfile, StudentProfile, SystemSettings, User,
 )
-from api.test_registration_payload import a_staff_member, a_student
+from api.fixtures_registration import a_staff_member, a_student
 
 
 class RegistrationLeavesTheAccountPendingTest(TestCase):
@@ -65,7 +65,7 @@ def with_certificates(base, **overrides):
     Overrides are applied last, so a case that deliberately sends a bad
     certificate still gets the one it asked for.
     """
-    from api.test_registration_payload import CERTIFICATES, a_certificate
+    from api.fixtures_registration import CERTIFICATES, a_certificate
     posted = dict(base)
     posted.update({name: a_certificate(name) for name in CERTIFICATES})
     posted.update(overrides)
@@ -627,7 +627,7 @@ class TheDecidedListShowsTheWholeRecordTest(TestCase):
 class TheDecidedRecordShowsWhatBecameOfADeclarationTest(TestCase):
     def setUp(self):
         from api.models import Scholarship
-        from api.test_registration_payload import a_declared_scholar
+        from api.fixtures_registration import a_declared_scholar
         from api.test_second_scholarship import a_proof
 
         SystemSettings.objects.create(pk=1, academic_year='26-1',

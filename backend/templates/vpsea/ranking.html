@@ -37,6 +37,7 @@
     <h2 class="font-semibold">Affirmative Action — Rule-Based Recommendation</h2>
     <div class="rec-actions">
       <input id="recSearch" class="rec-search" placeholder="Search name or student ID…"
+             aria-label="Search the ranking by name or student number"
              oninput="filterTable('recSearch','recTable','data-name')" />
       <a class="btn btn-outline"
          href="/vpsea/ranking/download/?type=Affirmative&passing={{ passing_threshold }}">
@@ -193,7 +194,7 @@
             <div class="rec-fit">
               <span class="rec-fit__track">
                 <span class="rec-fit__bar rec-fit__bar--{% if r.rec.fit_score >= 80 %}ok{% elif r.rec.fit_score >= 50 %}warn{% else %}danger{% endif %}"
-                      style="width:{{ r.rec.fit_score }}%"></span>
+                      data-meter="{{ r.rec.fit_score }}"></span>
               </span>
               <span class="rec-fit__value">{{ r.rec.fit_score }}%</span>
             </div>

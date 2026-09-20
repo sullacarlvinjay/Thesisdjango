@@ -102,6 +102,94 @@ never prompts for them.
 | `check_email` | Sends a test message through the configured backend. |
 | `make_favicon` | Regenerates favicons from `media/logos/BiPSU.png`. |
 | `prune_staff_student_profiles` | Removes student profiles mistakenly attached to employee accounts. |
+| `backup` | Writes a restorable dump of the database plus a manifest of every upload it refers to. |
+| `restore` | Loads a dump back. Refuses without `--yes`. |
+| `find_duplicate_awards` | Lists students holding two benefits in one term, and award numbers recorded twice. |
+
+---
+
+## Backup and restore
+
+This system is the record of who was awarded what. Losing it loses students'
+Listahanan status, household income and disability records, and there is no
+second copy anywhere in the university.
+
+### What is backed up, and by what
+
+| | Held by | Covered by |
+|---|---|---|
+| Database | Supabase Postgres | Supabase's own free-tier backups, **plus** `manage.py backup` |
+| Uploaded documents | Supabase Storage bucket | The bucket's own retention, **not** by `manage.py backup` |
+| Code and migrations | GitHub | Git |
+
+`manage.py backup` deliberately does not copy the documents. It writes a
+manifest instead — every stored filename the database expects to find, with
+its size — so a restore can say which documents are missing rather than the
+office discovering it one scholar at a time.
+
+### Targets
+
+| | Target | Why |
+|---|---|---|
+| RPO — how much data a failure may lose | **24 hours** | Supabase's free tier takes a daily snapshot. A term's intake is weeks of work, so a day is the most that may go. |
+| RTO — how long a restore may take | **4 hours** | Restore is one command over a dump of a few megabytes; the hours are for noticing, deciding and verifying, not for the transfer. |
+
+Both are stated so they can be missed visibly. Neither is met by Supabase's
+free tier on its own, because a daily snapshot nobody has restored from is not
+a tested recovery path — which is what the rest of this section is for.
+
+### Taking a backup
+
+```bash
+python manage.py backup --label before-rollover
+```
+
+Writes two files into `backups/`:
+
+- `srms-<timestamp>-<label>.json.gz` — every application table, gzipped JSON.
+  Portable between SQLite and Postgres, which matters because the deployed
+  database is Postgres and every rehearsal happens on SQLite. `pg_dump` is not
+  in the deploy container.
+- `srms-<timestamp>-<label>.manifest.txt` — one line per uploaded file:
+  model, field, stored name, size. A size of `-1` means the database expects a
+  file the bucket does not have.
+
+Take one **before every migration that changes data**, and before a term
+rollover. Render's disk does not survive a redeploy, so copy the file off the
+instance — this is why the command writes a small, single file.
+
+### Restoring
+
+```bash
+python manage.py restore backups/srms-20260920-214456-before-rollover.json.gz --yes
+```
+
+- Without `--yes` it prints which database it would overwrite and stops. That
+  guard exists because the realistic moment for this is an operator under
+  pressure typing quickly at a production shell.
+- `--flush` empties every table first. Without it, rows whose primary key is
+  not in the backup stay where they are — which is what you want when
+  recovering one bad migration, and not what you want when rebuilding from
+  scratch.
+- Uploaded documents are not in the file. Check the matching `.manifest.txt`
+  against the bucket before telling the office it is back.
+
+### Rehearsing it
+
+The restore is exercised on every CI run: `api/test_backup_restore.py` writes
+a real backup, deletes the student records and the awards, restores them, and
+asserts a household income and an approved award come back with the values
+they went in with. A procedure nobody has run is a hope, not a recovery plan.
+
+To rehearse by hand against a copy of production data:
+
+```bash
+python manage.py backup --label rehearsal
+python manage.py restore backups/srms-<timestamp>-rehearsal.json.gz --yes --flush
+python manage.py find_duplicate_awards
+```
+
+The last line is the check that the restore is coherent, not merely loaded.
 
 ---
 

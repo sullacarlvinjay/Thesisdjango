@@ -12,6 +12,11 @@ office to chase rather than judged on what is absent — see
 
 from dataclasses import dataclass
 from datetime import date
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .models import StudentProfile
 
 PASS = 'PASS'
 FAIL = 'FAIL'
@@ -24,14 +29,14 @@ PRIORITY_2 = 'Priority 2'
 
 STANDARD_PROGRAM_YEARS = 4
 GRACE_YEARS = 1
-PROGRAM_YEARS = {}
+PROGRAM_YEARS: dict[str, int] = {}
 
 CONFLICTING_GOVERNMENT_PROGRAMS = ('TDP', 'DOST', 'CHED')
 
 NEGATIVE_ANSWERS = frozenset({'n/a', 'na', 'none', 'no', 'wala', '-', '--', 'nil', 'n.a.'})
 
 
-def _stated(value):
+def _stated(value: Any) -> str:
     """Return a real answer, or '' for one of the ways people write "none".
 
     Forms collect free text, and "N/A", "wala", "-" and an empty box all mean
@@ -65,12 +70,12 @@ class RuleResult:
     source: str = ''
 
     @property
-    def passed(self):
+    def passed(self) -> bool:
         """Whether this rule was satisfied."""
         return self.verdict == PASS
 
     @property
-    def failed(self):
+    def failed(self) -> bool:
         """Whether this rule refused the applicant."""
         return self.verdict == FAIL
 
@@ -84,31 +89,31 @@ class Evaluation:
     already eligible, which is why both are carried rather than collapsed
     into a single score.
     """
-    profile: object
-    rules: list
+    profile: 'StudentProfile'
+    rules: list[RuleResult]
     status: str
     priority: str
-    priority_markers: list
-    per_capita_income: float = None
-    rank: int = None
+    priority_markers: list[str]
+    per_capita_income: float | None = None
+    rank: int | None = None
 
     @property
-    def student_name(self):
+    def student_name(self) -> str:
         """The applicant's name, from the profile or the account."""
         return self.profile.full_name or self.profile.user.get_full_name()
 
     @property
-    def student_id(self):
+    def student_id(self) -> str:
         """The applicant's student number."""
         return self.profile.student_id
 
     @property
-    def eligible(self):
+    def eligible(self) -> bool:
         """Whether every rule passed."""
         return self.status == ELIGIBLE
 
     @property
-    def recommendation(self):
+    def recommendation(self) -> str:
         """The verdict in the words the office uses.
 
         Three outcomes, not two: an eligible applicant carrying a priority marker
@@ -119,7 +124,7 @@ class Evaluation:
             return 'Not Recommended'
         return 'High Priority' if self.priority == PRIORITY_1 else 'Recommended'
 
-    def rule(self, key):
+    def rule(self, key: str) -> RuleResult | None:
         """The result for one rule key, or ``None`` if it was not run."""
         for r in self.rules:
             if r.key == key:
@@ -127,12 +132,12 @@ class Evaluation:
         return None
 
     @property
-    def failed_rules(self):
+    def failed_rules(self) -> list[RuleResult]:
         """Every rule that refused this applicant."""
         return [r for r in self.rules if r.failed]
 
     @property
-    def reason(self):
+    def reason(self) -> str:
         """Why this applicant was refused, as one sentence.
 
         Empty for an eligible applicant. Built from the rules that failed rather
@@ -141,7 +146,7 @@ class Evaluation:
         return '; '.join(r.label for r in self.failed_rules)
 
     @property
-    def sort_key(self):
+    def sort_key(self) -> tuple:
         """Ranking order: eligibility, then priority, then need.
 
         Eligible before ineligible, Priority 1 before Priority 2, then lowest
@@ -170,7 +175,7 @@ REQUIRED_ANSWERS = (
 )
 
 
-def _pending_declarations(profiles):
+def _pending_declarations(profiles: Sequence[Any]) -> dict[int, set[str]]:
     """Scholarship types each applicant has declared but nobody has decided.
 
     An undecided declaration is neither held nor not held. Ranking someone
@@ -186,7 +191,7 @@ def _pending_declarations(profiles):
     """
     from .models import ScholarshipLinkRequest
 
-    pending = {}
+    pending: dict[int, set[str]] = {}
     rows = (ScholarshipLinkRequest.objects
             .filter(student__in=profiles, status='Pending')
             .values_list('student_id', 'scholarship_type'))
@@ -195,7 +200,7 @@ def _pending_declarations(profiles):
     return pending
 
 
-def unanswered_on_record(profile):
+def unanswered_on_record(profile: 'StudentProfile') -> tuple[str, ...]:
     """Questions this applicant's record cannot answer yet.
 
     Every rule below reads a stored field. A blank field is not a "no" — it is
@@ -236,7 +241,9 @@ def unanswered_on_record(profile):
     return tuple(dict.fromkeys(gaps))
 
 
-def missing_answers(profile, pending=None):
+def missing_answers(profile: 'StudentProfile',
+                    pending: dict[int, set[str]] | None = None,
+                    ) -> tuple[str, ...]:
     """Every gap in one applicant's record, including undecided declarations.
 
     :func:`unanswered_on_record` covers the stored fields; this adds the
@@ -258,7 +265,8 @@ def missing_answers(profile, pending=None):
     return tuple(dict.fromkeys(gaps))
 
 
-def screen(profiles):
+def screen(profiles: Iterable['StudentProfile'],
+           ) -> tuple[list['StudentProfile'], list['StudentProfile']]:
     """Split applicants into those who can be judged and those who cannot.
 
     Returns:
@@ -268,13 +276,14 @@ def screen(profiles):
     """
     profiles = list(profiles)
     pending = _pending_declarations(profiles)
-    complete, incomplete = [], []
+    complete: list[StudentProfile] = []
+    incomplete: list[StudentProfile] = []
     for profile in profiles:
         (incomplete if missing_answers(profile, pending=pending) else complete).append(profile)
     return complete, incomplete
 
 
-def _citizenship_rule(profile):
+def _citizenship_rule(profile: 'StudentProfile') -> RuleResult:
     """Filipino citizenship, as recorded on the profile."""
     recorded = _stated(profile.citizenship)
     if recorded.casefold() in ('filipino', 'filipino citizen', 'philippine', 'pilipino'):
@@ -286,7 +295,7 @@ def _citizenship_rule(profile):
                       source='StudentProfile.citizenship')
 
 
-def _enrollment_rule(profile):
+def _enrollment_rule(profile: 'StudentProfile') -> RuleResult:
     """Current enrolment at a CHED-recognised SUC.
 
     Always passes at this point: :func:`unanswered_on_record` has already
@@ -301,7 +310,7 @@ def _enrollment_rule(profile):
         source='StudentProfile.school')
 
 
-def _first_degree_rule(profile):
+def _first_degree_rule(profile: 'StudentProfile') -> RuleResult:
     """TES is for a first undergraduate degree only."""
     if profile.has_previous_degree:
         return RuleResult('first_degree', 'First College Degree', FAIL,
@@ -312,7 +321,8 @@ def _first_degree_rule(profile):
                       source='StudentProfile.has_previous_degree')
 
 
-def _maximum_years_rule(profile, today=None):
+def _maximum_years_rule(profile: 'StudentProfile',
+                        today: date | None = None) -> RuleResult:
     """Whether the applicant is still inside the allowed years of study.
 
     The programme length plus a one-year grace period. ``PROGRAM_YEARS`` holds
@@ -334,7 +344,7 @@ def _maximum_years_rule(profile, today=None):
         source='StudentProfile.year_first_enrolled')
 
 
-def _other_assistance_rule(profile):
+def _other_assistance_rule(profile: 'StudentProfile') -> RuleResult:
     """No other government grant may be held alongside TES.
 
     Both the awards this office recorded and the ones the applicant declared
@@ -368,7 +378,7 @@ def _other_assistance_rule(profile):
         source='Application / ScholarshipLinkRequest')
 
 
-def _priority_signals(profile):
+def _priority_signals(profile: 'StudentProfile') -> list[str]:
     """The grounds, if any, for ranking this applicant ahead of others.
 
     Listahanan listing is the primary measure; 4Ps is read only when the
@@ -396,12 +406,13 @@ def _priority_signals(profile):
     return markers
 
 
-def _per_capita_income(profile):
+def _per_capita_income(profile: 'StudentProfile') -> float:
     """Household income divided by household size, to two places."""
     return round(profile.family_income / profile.household_size, 2)
 
 
-def evaluate(profile, today=None):
+def evaluate(profile: 'StudentProfile',
+             today: date | None = None) -> Evaluation:
     """Judge one applicant against every rule.
 
     Args:
@@ -444,7 +455,8 @@ def evaluate(profile, today=None):
     )
 
 
-def rank(profiles, today=None):
+def rank(profiles: Iterable['StudentProfile'],
+         today: date | None = None) -> list[Evaluation]:
     """Screen, evaluate and order a set of applicants.
 
     Applicants with incomplete records are set aside rather than ranked; use

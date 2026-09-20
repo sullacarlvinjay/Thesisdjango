@@ -5,7 +5,7 @@ from api.constants import (
     BIPSU_STAFF_UNITS, BIPSU_TEACHING_UNITS,
 )
 from api.models import StaffEmployment, StaffProfile, SystemSettings, User
-from api.test_registration_payload import a_staff_member
+from api.fixtures_registration import a_staff_member
 
 
 def values(pairs):

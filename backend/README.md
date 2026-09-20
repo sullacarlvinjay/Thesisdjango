@@ -101,7 +101,7 @@ Set both in `.env` before running it, or create an account yourself with
 python manage.py test api
 ```
 
-The suite is large — around 1,500 cases — and takes roughly 10–20 minutes on a
+The suite is large — around 1,600 cases — and takes roughly 10–20 minutes on a
 typical laptop. To run one area while working:
 
 ```bash
@@ -112,8 +112,14 @@ Do **not** pass `--parallel` on Python 3.14: the runner fails with
 `TypeError: cannot pickle 'traceback' object` whenever a case errors, which
 hides the real failure.
 
-Every push runs the suite, the linter, a missing-migration check and branch
-coverage on GitHub Actions — see [.github/workflows/tests.yml](.github/workflows/tests.yml).
+Every push runs the suite, the linter, `mypy`, the OpenAPI schema check, a
+missing-migration check and branch coverage on GitHub Actions — see
+[.github/workflows/tests.yml](.github/workflows/tests.yml). All of them are
+gates; none is advisory.
+
+`mypy` is scoped to the modules that decide money plus the ones written with
+annotations from the start — see `[tool.mypy]` in `pyproject.toml`. Widening
+that file list is how the rest of the codebase gets adopted.
 
 ### Coverage and static analysis
 
@@ -169,6 +175,23 @@ Token-authenticated, under `/api/`. **List endpoints are paged**: responses are
 the rows, so it pages with `?limit=` and `?offset=` and keeps its counts. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#paging).
 
+**The contract is published, not described.** An OpenAPI 3.0 schema is
+generated from the views themselves by `drf-spectacular`:
+
+| Path | What |
+|---|---|
+| `/api/schema/` | The OpenAPI document |
+| `/api/docs/` | Swagger UI, for trying a call |
+| `/api/redoc/` | ReDoc, for reading |
+
+All three need a token, like everything else under `/api/`.
+
+Generating it in CI is a gate: `manage.py spectacular --fail-on-warn` fails the
+build on an endpoint with no declared response shape, so a new endpoint cannot
+ship undocumented. `api/test_openapi_schema.py` goes further and compares the
+documented shape against what each view actually returns, because a schema that
+has drifted from the API is worse than none.
+
 ---
 
 ## Layout
@@ -188,6 +211,9 @@ api/                     the single Django app
   views_shared.py        helpers used by more than one portal
   student_views.py       re-export surface kept for existing imports
   views.py               the REST API (Django REST Framework)
+  api_schema.py          response shapes for the hand-written API views
+  analytics_charts.py    the chart logic, with no database in it
+  mfa.py                 time-based one-time passwords (RFC 6238)
   models.py              every model
   test_*.py              the test suite, one module per behaviour
 config/                  settings, URLs, WSGI

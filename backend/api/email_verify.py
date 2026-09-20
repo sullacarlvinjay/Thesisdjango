@@ -107,7 +107,11 @@ def send_confirmation(user, request=None):
     """Email the address-confirmation link and record the attempt.
 
     The timestamp is written whether or not the send succeeded, because it
-    is what rate-limits the resend button. Returns whether it went out.
+    is what rate-limits the resend button.
+
+    The message is queued rather than sent, so nothing is returned: making a
+    registrant wait out a mail round trip before their own page loads bought
+    them an answer none of the callers read.
     """
     from django.utils import timezone
     from . import notify
@@ -125,9 +129,8 @@ def send_confirmation(user, request=None):
         'If you did not register, you can ignore this message. Nothing happens '
         'until the link is opened.'
     )
-    sent = notify.send_email(
+    notify.queue_email(
         user.email, '[BiPSU SRMS] Confirm your email address', body)
 
     user.email_confirmation_sent_at = timezone.now()
     user.save(update_fields=['email_confirmation_sent_at'])
-    return sent

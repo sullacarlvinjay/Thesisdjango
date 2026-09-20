@@ -1,0 +1,1 @@
+{% if row.reviewed_by %}<span class="decided-by">by {{ row.reviewed_by.get_full_name|default:row.reviewed_by.email }}{% if row.reviewed_at %} on {{ row.reviewed_at|date:"M j, Y" }}{% endif %}</span>{% endif %}

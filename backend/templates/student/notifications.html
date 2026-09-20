@@ -5,7 +5,7 @@
 {% block page_subtitle %}Stay up to date with your scholarship activity{% endblock %}
 {% block nav %}{% include "student/_nav.html" %}{% endblock %}
 {% block content %}
-<div class="space-y-3" style="max-width:48rem;">
+<div class="space-y-3 u-maxw-48rem">
   {% for n in notifications %}
   <div class="card p-4 flex gap-4">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
@@ -23,13 +23,13 @@
     <div class="flex-1 min-w-0">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-0.5 sm:gap-2">
         <p class="font-medium text-sm min-w-0">{{ n.title }}</p>
-        <span class="text-xs sm:shrink-0" style="color:var(--text-muted);">{{ n.created_at|timesince }} ago</span>
+        <span class="text-xs sm:shrink-0 u-text-muted">{{ n.created_at|timesince }} ago</span>
       </div>
-      <p class="text-sm mt-1 notif-body" style="color:var(--text-muted);">{{ n.body }}</p>
+      <p class="text-sm mt-1 notif-body u-text-muted">{{ n.body }}</p>
     </div>
   </div>
   {% empty %}
-  <div class="card p-8 text-center" style="color:var(--text-muted);">
+  <div class="card p-8 text-center u-text-muted">
     <svg class="h-10 w-10 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
     <p class="font-medium">No notifications yet</p>
     <p class="text-sm mt-1">You're all caught up!</p>

@@ -7,6 +7,250 @@ several of them removed something that used to work.
 
 ---
 
+## The ISO 25010 / 29119-4 evaluation, round two
+
+A reviewer scored the system against ISO/IEC 25010:2023 and ISO/IEC/IEEE
+29119-4:2021 and named three defects and nine recommendations. This is what
+each one turned into, and what it cost.
+
+### The CI was red on every commit to master
+
+`.github/workflows/tests.yml` runs `python -m ruff check .` with no
+`continue-on-error`. That command exited 1 with **34 errors**, so every build
+on master had been failing. A quality gate nobody can pass is not a gate.
+
+All 34 are fixed rather than narrowed away. Twelve were `E701`/`E702`
+(statements sharing a line), four were `UP031` (percent formatting in tests),
+six were `DJ012` (`save` and `__str__` out of the Django Style Guide's order in
+`models.py`), and nine were `C901` — functions past complexity 15. The `UP038`
+entry in the ignore list was also dropped: ruff has removed that rule and was
+printing a warning on every run.
+
+The nine complex functions were decomposed, not silenced. No `# noqa`, and the
+per-file ignore list is unchanged.
+
+### `_build_analytics_context` went from 101 to 22
+
+The single biggest obstacle to this project's own path-coverage claim. It was
+532 lines with every chart's logic in a closure, which meant nothing could
+reach any of it: stating one case for one chart required building a request and
+reading a rendered page.
+
+The chart logic is now `api/analytics_charts.py` — banding, identity, tier
+words, series naming, the spreadsheet readers — as plain functions with no
+database in them. `api/test_analytics_charts.py` walks their paths directly:
+**38 cases in 0.03 seconds**, against a builder that now scores 22 on radon.
+What remains in `views_analytics.py` is term selection and orchestration, which
+is the part that genuinely needs a database.
+
+The other eight were split the same way — by extracting what the function was
+already doing in sections, not by moving code into a file and calling it done.
+
+### The spreadsheet import could commit half a transaction
+
+`transaction.atomic()` in `vpsea_archive_import` wrapped only the
+`ImportedScholar` delete and `bulk_create`. The parent `ScholarListImport` —
+which carries the source file and the scholar count — was created **after** it,
+and in production that file upload goes to Supabase S3. If it threw, the broad
+`except Exception` redirected with an error and the office was told the import
+had failed, while the scholar rows were already committed with no parent record
+naming where they came from.
+
+The atomic block now covers both. The upload happens before it and with
+`save=False`, so a failed upload commits nothing at all and a failed
+transaction leaves at worst an orphaned object in the bucket — the harmless
+direction of the two. `api/test_import_atomicity.py` makes
+`ScholarListImport.save` throw and asserts zero scholar rows survive.
+
+### Raw exception text was being put into a URL
+
+`api/views_archives.py` did `import_error=' + quote(str(exc))` on a bare
+`except Exception`. That can put database errors, filesystem paths and S3
+endpoint details into the query string, the browser history and the server
+logs. Two more places did the same: `views_partner.partner_archive_import`
+interpolated the exception into its message, and
+`views_reports.vpsea_report_download` put a `FileNotFoundError` — which carries
+the server's absolute template path — straight into a redirect.
+
+All three now call `logger.exception(...)` and show a generic sentence. The
+test raises an exception whose text contains a password-failure message, a
+Supabase hostname and a server path, and asserts none of them reach the
+redirect while all of them reach the log.
+
+### Duplicate benefits are refused by the database
+
+Statement of the Problem #7 names duplicate benefits as a core problem to
+solve. It was checked in `tes_ranking._other_assistance_rule` — advisory, for
+one programme — which meant a second award could always be written, and
+`award_number` was a plain non-unique `CharField` on three models.
+
+Migration `0096_award_integrity` adds four constraints:
+
+| Constraint | Refuses |
+|---|---|
+| `one_exclusive_benefit_per_student_term` | A student holding two approved awards in one term |
+| `one_award_number_per_programme_term` | One award number issued twice for a programme and term |
+| `one_imported_award_number_per_term` | A spreadsheet recording one award number twice |
+| `one_approved_link_award_number_per_term` | Two students both approved against one declared award |
+
+The first needs a column the constraint can key on, because a partial unique
+constraint cannot traverse a foreign key to read `scholarship.type`.
+`Application.holds_exclusive_benefit` is derived in `save()` from the status
+and the programme, and Free Higher Education stays the standing exception —
+it neither takes the slot nor is blocked by one, which is the rule
+`views_shared.can_hold_alongside` already encoded in Python.
+
+Two things about the migration are deliberate:
+
+- **The backfill lets sleeping duplicates lie.** Where a student already holds
+  two approved awards, the earliest keeps the flag and the rest are left
+  unflagged, so the invariant holds from here on without the migration
+  refusing to apply over history the office has not settled. They are still
+  reported.
+- **Repeated award numbers stop it.** Those cannot be tolerated the same way —
+  a unique index will not build over them — so a `RunPython` step checks first
+  and raises a message naming `manage.py find_duplicate_awards` instead of
+  letting an opaque `IntegrityError` surface mid-deploy.
+
+`find_duplicate_awards` is that command; `build.sh` runs it after `migrate` so
+anything predating the constraints is reported rather than hidden.
+
+### There was no backup procedure at all
+
+`grep -i backup docs/OPERATIONS.md` returned nothing. No command, no restore
+path, no stated RPO or RTO — the whole recovery plan was Supabase's free-tier
+snapshots, which nobody had ever restored from.
+
+`manage.py backup` writes a gzipped `dumpdata` plus a manifest of every
+uploaded file the database expects to find. `dumpdata` rather than `pg_dump`
+because the deployed database is Postgres, every rehearsal happens on SQLite,
+and `pg_dump` is not in the deploy container. `manage.py restore` reads it
+back and refuses without `--yes`, because the realistic moment for this is an
+operator under pressure typing quickly at a production shell.
+
+The documents themselves are not copied — they are in a bucket that is backed
+up as a bucket. The manifest means a restore can *say* which ones are missing
+rather than the office discovering it one scholar at a time. The file fields
+are discovered from the models rather than listed by hand, because a
+hand-kept list goes stale the first time someone adds a document field.
+
+`docs/OPERATIONS.md` now states RPO 24 hours and RTO 4 hours, so they can be
+missed visibly. `api/test_backup_restore.py` runs the round trip on every CI
+run: it backs up, deletes the student records and the awards, restores, and
+asserts a household income and an approved award come back with the values
+they went in with. A procedure nobody has run is a hope, not a recovery plan.
+
+**A pre-deploy backup in `build.sh` was tried and removed.** `dumpdata` reads
+through the models, so on any deploy that adds a column it fails with "no such
+column" — which is exactly the deploy where you want the backup. A step that
+usually fails teaches people to ignore failures.
+
+### CSP, Permissions-Policy, and HSTS that means something
+
+`SECURE_HSTS_SECONDS` was `3600`. An hour is not a protection: a browser that
+has not visited since lunchtime is back to trusting a plaintext first request.
+It is a year now, in `settings.py`, `.env.example` and `render.yaml`.
+
+There was no Content-Security-Policy and no Permissions-Policy, and Django has
+a setting for neither, so `api.middleware.SecurityHeadersMiddleware` sends
+both — on HTML responses only, because they are document policies and putting
+them on a spreadsheet download or an inline PDF buys nothing and can break the
+viewer.
+
+**The CSP is not strict, and is not described as one.** The templates carry 28
+inline `<script>` blocks, about 1,200 inline `style` attributes and some 69
+inline event handlers; `'unsafe-inline'` is what lets them run, and nonces
+cannot replace it while the attribute handlers exist. What the policy does
+still buy: `default-src 'self'`, one named foreign script host, `object-src
+'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'self'`.
+That is written down in `docs/SECURITY.md` under what is out of scope rather
+than left for a reader to discover.
+
+### Two-step sign-in for office accounts
+
+Password-only on accounts that read Listahanan status, disability and household
+income is thin under RA 10173.
+
+`api/mfa.py` implements TOTP to RFC 6238 against the standard library. TOTP is
+an HMAC, a counter and a truncation — about forty lines — and `pyotp` plus
+`qrcode` would be two more pinned dependencies on a 512 MB instance. It is
+verified against the RFC's own published test vectors, not against itself.
+
+No QR code is drawn: rendering one needs a Reed-Solomon encoder this project
+has no other use for. Enrolment shows the base32 key in the grouped form every
+authenticator accepts under "enter a setup key", plus the `otpauth://` URI.
+
+**Enrolment is on the office's own profile page, not a page of its own**, and
+the code step reuses the sign-in page rather than adding a route. The password
+step no longer signs anyone in: the account is held by id in the session and
+`login()` is not called until the code checks out, which is what the test
+asserts — it checks the client is unauthenticated, not that the page mentioned
+a code. Eight single-use recovery codes are issued at enrolment, hashed, and
+shown once.
+
+**Enforcement is off by default.** `MFA_ENFORCED=True` sends an unenrolled
+office account to its own profile to enrol; it does not sign them out, because
+locking the office out of its own records is not a privacy improvement.
+Flipping it in a deploy would interrupt whoever was signed in, mid-task, with
+no warning — so it is a decision somebody makes, not something a deploy does
+to them.
+
+### An OpenAPI contract, gated in CI
+
+Twenty endpoints and no schema. `drf-spectacular` now generates one, served at
+`/api/schema/` with Swagger at `/api/docs/` and ReDoc at `/api/redoc/`, all
+behind the same token as everything else under `/api/`.
+
+Generating it raised 36 errors: eight views are plain `APIView`s that build
+their response dictionary by hand, so there was nothing for the generator to
+read. `api/api_schema.py` declares those shapes and `@extend_schema` attaches
+them. Four more warnings were `SerializerMethodField` getters with no return
+annotation, which is the type-hint recommendation arriving early.
+
+`manage.py spectacular --fail-on-warn --validate` is a CI step, so a new
+endpoint with no declared response shape fails the build.
+`api/test_openapi_schema.py` goes further: it compares each documented shape
+against what the view actually returns, field by field, because a schema that
+has drifted is worse than none.
+
+### Type hints where a wrong answer costs money
+
+`tes_ranking.py`, `staff_ranking.py` and `affirmative_ranking.py` are annotated
+throughout, along with `analytics_charts.py` and `mfa.py`. `mypy` runs in CI
+scoped to exactly those files via `[tool.mypy]`; widening that list is how the
+rest gets adopted, and it is a gate, not advisory.
+
+**It found a real defect on the first run.**
+`staff_ranking.Evaluation.permanent_verdict` and `baccalaureate_verdict` did
+`self.rule(key).verdict`, and `rule()` returns `None` when the rule never ran —
+an `AttributeError` waiting for an application whose standing was never
+established. They return `NEEDS_VERIFICATION` now, which is what an unrun rule
+means. It also caught `_standing_rule` being annotated `-> str` when it in fact
+returns a tuple.
+
+### The landing page was advertising a developer placeholder
+
+`api/catalogue.py` shipped `'description': 'Dev seed for GSIS'` and
+`'eligibility': 'Dev only'`, live on the public landing page, with an empty
+requirements list. Replaced with real prose and the four documents the GSIS
+programme asks for.
+
+### `test_registration_payload.py` was not a test
+
+`docs/TESTING.md` cited it as one of three artifacts evidencing data-flow
+testing. It is a fixture builder: it constructs the registration payload the
+real tests post and contains no assertions at all. The name is what made it
+look like evidence.
+
+It is `api/fixtures_registration.py` now, and
+`api/test_registration_data_flow.py` is the evidence it was standing in for —
+it posts the form and asserts, value by value, that money and counts arrive as
+numbers rather than the posted strings, that a yes/no arrives as a boolean,
+that a question an applicant was never asked stays `None` rather than becoming
+`False`, and that the ranking rules can see every answer the form collected.
+
+---
+
 ## `AffirmativeStaffApplication` is now `ApplicantRecord`
 
 The old name read as "an application from affirmative staff". It was two

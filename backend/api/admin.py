@@ -73,7 +73,46 @@ admin.site.register(ApplicationDocument)
 admin.site.register(Notification)
 admin.site.register(Announcement)
 admin.site.register(ImportedScholar)
-admin.site.register(ActivityLog)
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    """Who did what, when, and to which record.
+
+    Read-only on purpose. An audit trail an administrator can edit answers a
+    weaker question than one they cannot, so the add, change and delete
+    permissions are all refused here — including for a superuser. Entries are
+    written by ``ActivityLog.record`` and by nothing else.
+    """
+    list_display = ('created_at', 'actor', 'verb', 'target_type',
+                    'target_label', 'ip_address')
+    list_filter = ('verb', 'target_type', 'created_at', 'user__role')
+    search_fields = ('action', 'target_label', 'target_id',
+                     'user__email', 'user__first_name', 'user__last_name')
+    date_hierarchy = 'created_at'
+    list_select_related = ('user',)
+    ordering = ('-created_at',)
+    list_per_page = 50
+
+    @admin.display(description='Who', ordering='user__email')
+    def actor(self, entry):
+        """The account that acted, named as an administrator would recognise it."""
+        if entry.user is None:
+            return 'the system'
+        who = entry.user.get_full_name() or entry.user.email
+        return f'{who} ({entry.user.get_role_display()})'
+
+    def has_add_permission(self, request):
+        """Nobody writes an audit entry by hand."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """An entry that can be edited is not evidence."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Entries are kept, not pruned from the admin."""
+        return False
+
+
 admin.site.register(SystemSettings)
 @admin.register(ApplicantRecord)
 class ApplicantRecordAdmin(admin.ModelAdmin):

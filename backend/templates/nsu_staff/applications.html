@@ -9,36 +9,36 @@
 {% block content %}
 <div class="space-y-6">
   <div class="card p-6">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">BiPSU Staff Scholarship Application</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">BiPSU Staff Scholarship Application</p>
     {% if applications %}
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+    <div class="u-scroll-x">
+      <table class="u-w-full u-collapse u-fs-0-875rem">
         <thead>
-          <tr style="border-bottom:2px solid var(--border);background:#f6f8fc;">
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">ID</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Scholarship</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Submitted</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Status</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Remarks</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Updated</th>
+          <tr class="u-bb-2px-solid-border u-bg-sunken">
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">ID</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Scholarship</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Submitted</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Status</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Remarks</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Updated</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {% for a in applications %}
-          <tr style="border-bottom:1px solid var(--surface-2);">
-            <td style="padding:0.7rem 1rem;font-family:monospace;font-size:0.8rem;color:var(--text-muted);">APP-{{ a.id|stringformat:"07d" }}</td>
-            <td style="padding:0.7rem 1rem;font-weight:500;">BiPSU Staff Scholarship</td>
-            <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ a.submitted_at|date:"M d, Y" }}</td>
-            <td style="padding:0.7rem 1rem;">
+          <tr class="u-bb-1px-solid-surface-2">
+            <td class="u-p-0-7rem-1rem u-mono u-fs-0-8rem u-text-muted">APP-{{ a.id|stringformat:"07d" }}</td>
+            <td class="u-p-0-7rem-1rem u-fw-500">BiPSU Staff Scholarship</td>
+            <td class="u-p-0-7rem-1rem u-fs-0-85rem">{{ a.submitted_at|date:"M d, Y" }}</td>
+            <td class="u-p-0-7rem-1rem">
               {% if a.status == "Approved" %}<span class="badge badge-success">{{ a.status }}</span>
               {% elif a.status == "Rejected" or a.status == "Disqualified" %}<span class="badge badge-destructive">{{ a.status }}</span>
               {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
             </td>
-            <td style="padding:0.7rem 1rem;font-size:0.85rem;color:var(--text-muted);">{{ a.remarks|default:"—" }}</td>
-            <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ a.updated_at|date:"M d, Y" }}</td>
-            <td style="padding:0.7rem 1rem;">
-              <button class="btn btn-outline" style="padding:0.25rem 0.75rem;font-size:0.75rem;" onclick="openModal('app-{{ a.id }}')">
+            <td class="u-p-0-7rem-1rem u-fs-0-85rem u-text-muted">{{ a.remarks|default:"—" }}</td>
+            <td class="u-p-0-7rem-1rem u-fs-0-85rem">{{ a.updated_at|date:"M d, Y" }}</td>
+            <td class="u-p-0-7rem-1rem">
+              <button class="btn btn-outline u-p-0-25rem-0-75rem u-fs-0-75rem" onclick="openModal('app-{{ a.id }}')">
                 <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               </button>
             </td>
@@ -48,45 +48,45 @@
       </table>
     </div>
     {% else %}
-    <div class="text-center py-6" style="color:var(--text-muted);">
+    <div class="text-center py-6 u-text-muted">
       <p class="text-sm mb-3">No scholarship application yet.</p>
-      <a href="/nsu-staff/apply/" class="btn btn-primary" style="font-size:0.875rem;">Apply for the Staff Scholarship</a>
+      <a href="/nsu-staff/apply/" class="btn btn-primary u-fs-0-875rem">Apply for the Staff Scholarship</a>
     </div>
     {% endif %}
   </div>
   <div class="card p-6">
-    <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Renewal History</p>
+    <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Renewal History</p>
     {% if renewals %}
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+    <div class="u-scroll-x">
+      <table class="u-w-full u-collapse u-fs-0-875rem">
         <thead>
-          <tr style="border-bottom:2px solid var(--border);background:#f6f8fc;">
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">#</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Submitted</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Status</th>
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Remarks</th>
+          <tr class="u-bb-2px-solid-border u-bg-sunken">
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">#</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Submitted</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Status</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Remarks</th>
             {% if renewals.0.supporting_document %}
-            <th style="text-align:left;padding:0.6rem 1rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Document</th>
+            <th class="u-ta-left u-p-0-6rem-1rem u-fs-0-72rem u-text-muted u-fw-600">Document</th>
             {% endif %}
           </tr>
         </thead>
         <tbody>
           {% for r in renewals %}
-          <tr style="border-bottom:1px solid var(--surface-2);">
-            <td style="padding:0.7rem 1rem;color:var(--text-muted);font-size:0.8rem;">{{ forloop.counter }}</td>
-            <td style="padding:0.7rem 1rem;font-size:0.85rem;">{{ r.submitted_at|date:"M d, Y" }}</td>
-            <td style="padding:0.7rem 1rem;">
+          <tr class="u-bb-1px-solid-surface-2">
+            <td class="u-p-0-7rem-1rem u-text-muted u-fs-0-8rem">{{ forloop.counter }}</td>
+            <td class="u-p-0-7rem-1rem u-fs-0-85rem">{{ r.submitted_at|date:"M d, Y" }}</td>
+            <td class="u-p-0-7rem-1rem">
               <span class="badge {% if r.status == 'Approved' %}badge-success{% elif r.status == 'Rejected' %}badge-destructive{% else %}badge-warning{% endif %}">
                 {{ r.status }}
               </span>
             </td>
-            <td style="padding:0.7rem 1rem;font-size:0.85rem;color:var(--text-muted);">{{ r.remarks|default:"—" }}</td>
+            <td class="u-p-0-7rem-1rem u-fs-0-85rem u-text-muted">{{ r.remarks|default:"—" }}</td>
             {% if r.supporting_document %}
-            <td style="padding:0.7rem 1rem;">
-              <a href="{{ r.supporting_document.url }}" target="_blank" style="color:var(--brand);font-size:0.8rem;text-decoration:underline;">View</a>
+            <td class="u-p-0-7rem-1rem">
+              <a class="u-text-brand u-fs-0-8rem u-underline" href="{{ r.supporting_document.url }}" target="_blank">View</a>
             </td>
             {% else %}
-            <td style="padding:0.7rem 1rem;color:var(--text-muted);font-size:0.8rem;">—</td>
+            <td class="u-p-0-7rem-1rem u-text-muted u-fs-0-8rem">—</td>
             {% endif %}
           </tr>
           {% endfor %}
@@ -94,7 +94,7 @@
       </table>
     </div>
     {% else %}
-    <p class="text-sm" style="color:var(--text-muted);">No renewal submissions yet. <a href="/nsu-staff/renewal/" style="color:var(--brand);">Submit a renewal →</a></p>
+    <p class="text-sm u-text-muted">No renewal submissions yet. <a class="u-text-brand" href="/nsu-staff/renewal/">Submit a renewal →</a></p>
     {% endif %}
   </div>
 </div>
@@ -102,16 +102,16 @@
   <div class="modal">
     <div class="modal-header">
       <h2 class="font-semibold text-base" id="modalTitle"></h2>
-      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.25rem;line-height:1;">✕</button>
+      <button class="u-bg-none u-border-none u-cursor-pointer u-text-muted u-fs-1-25rem u-lh-1" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
-<div style="display:none;">
+<div class="u-d-none">
   {% for a in applications %}
   <div id="app-{{ a.id }}">
     {% if a.remarks %}
-    <div class="rounded-xl px-4 py-3 mb-4 text-sm" style="background:var(--warn-bg);border:1px solid #fdea2b;color:var(--warn);">
+    <div class="rounded-xl px-4 py-3 mb-4 text-sm u-bg-warn u-border-1px-solid-hexfdea2b u-text-warn">
       <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
     </div>
     {% endif %}
@@ -155,7 +155,7 @@
     <div class="detail-grid">
       <div class="detail-field">
         <label>Appointment Paper</label>
-        <span><a href="{{ a.appointment_paper.url }}" target="_blank" style="color:var(--brand);text-decoration:underline;">View file</a></span>
+        <span><a class="u-text-brand u-underline" href="{{ a.appointment_paper.url }}" target="_blank">View file</a></span>
       </div>
     </div>
     {% endif %}

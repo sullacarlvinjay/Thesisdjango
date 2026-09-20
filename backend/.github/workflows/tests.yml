@@ -42,6 +42,17 @@ jobs:
       - name: Lint
         run: python -m ruff check .
 
+      - name: Type check
+        # Scoped to the modules that decide money plus the ones written with
+        # annotations from the start — see [tool.mypy] in pyproject.toml.
+        # Widening the file list is how the rest of the codebase gets adopted.
+        run: python -m mypy
+
+      - name: OpenAPI schema
+        # --fail-on-warn keeps the published contract complete: a new endpoint
+        # with no serializer fails here rather than shipping undocumented.
+        run: python manage.py spectacular --fail-on-warn --validate --file /dev/null
+
       - name: Tests with branch coverage
         # Not --parallel: on Python 3.14 the parallel runner dies with
         # "cannot pickle 'traceback' object" the moment a case errors, which

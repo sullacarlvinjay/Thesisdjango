@@ -7,19 +7,19 @@
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
 {% block content %}
 {% if request.GET.added %}
-<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok);font-size:0.875rem;">
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg u-bg-ok u-border-1px-solid-ok-border u-text-ok u-fs-0-875rem">
   <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
   Student added successfully.
 </div>
 {% endif %}
 {% if request.GET.edited %}
-<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:var(--info-bg);border:1px solid var(--info-border);color:var(--info);font-size:0.875rem;">
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg u-bg-info u-border-1px-solid-info-border u-text-info u-fs-0-875rem">
   <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
   Student updated successfully.
 </div>
 {% endif %}
 {% if request.GET.deleted %}
-<div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger);font-size:0.875rem;">
+<div class="flex items-center gap-2 mb-4 p-3 rounded-lg u-bg-danger u-border-1px-solid-danger-border u-text-danger u-fs-0-875rem">
   <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
   Student deleted.
 </div>
@@ -31,16 +31,14 @@
       <a href="?tab=scholars{% if q %}&q={{ q }}{% endif %}{% if stype %}&stype={{ stype }}{% endif %}"
          class="tab-btn {% if tab != 'no_scholarship' %}active{% endif %}">
         With Scholarship
-        <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
-              style="background:{% if tab != 'no_scholarship' %}var(--brand){% else %}var(--border){% endif %};color:{% if tab != 'no_scholarship' %}#fff{% else %}var(--text-muted){% endif %};">
+        <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full {% if tab != 'no_scholarship' %}u-bg-brand u-text-white{% else %}u-bg-border u-text-muted{% endif %}">
           {{ students|length }}
         </span>
       </a>
       <a href="?tab=no_scholarship{% if q %}&q={{ q }}{% endif %}"
          class="tab-btn {% if tab == 'no_scholarship' %}active{% endif %}">
         No Scholarship
-        <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
-              style="background:{% if tab == 'no_scholarship' %}var(--accent){% else %}var(--border){% endif %};color:{% if tab == 'no_scholarship' %}var(--on-accent){% else %}var(--text-muted){% endif %};">
+        <span class="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full {% if tab == 'no_scholarship' %}u-bg-accent u-text-on-accent{% else %}u-bg-border u-text-muted{% endif %}">
           {{ no_scholarship_students|length }}
         </span>
       </a>
@@ -50,12 +48,12 @@
       <form method="get" class="flex gap-2 flex-wrap items-end">
         <input type="hidden" name="tab" value="scholars" />
         <div class="space-y-1">
-          <label style="font-size:0.7rem;">Search</label>
-          <input name="q" value="{{ q }}" placeholder="Name or student ID…" style="width:14rem;" />
+          <label for="f-q" class="u-fs-0-7rem">Search</label>
+          <input id="f-q" class="u-w-14rem" name="q" value="{{ q }}" placeholder="Name or student ID…"/>
         </div>
         <div class="space-y-1">
-          <label style="font-size:0.7rem;">Scholarship</label>
-          <select name="stype" style="width:11rem;">
+          <label for="f-stype" class="u-fs-0-7rem">Scholarship</label>
+          <select id="f-stype" class="u-w-11rem" name="stype">
             <option value="">All Programs</option>
             {% for t in scholarship_types %}
             <option value="{{ t }}" {% if t == stype %}selected{% endif %}>{{ t }}</option>
@@ -65,7 +63,7 @@
         <button type="submit" class="btn btn-outline">Filter</button>
         {% if q or stype %}<a href="/vpsea/students/" class="btn btn-outline">Clear</a>{% endif %}
       </form>
-      <a href="/vpsea/students/add/" class="btn btn-primary" style="gap:0.4rem;">
+      <a href="/vpsea/students/add/" class="btn btn-primary u-gap-0-4rem">
         <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Add Student
       </a>
@@ -74,8 +72,8 @@
     <form method="get" class="flex gap-2 items-end">
       <input type="hidden" name="tab" value="no_scholarship" />
       <div class="space-y-1">
-        <label style="font-size:0.7rem;">Search</label>
-        <input name="q" value="{{ q }}" placeholder="Name or student ID…" style="width:14rem;" />
+        <label for="f-q-1" class="u-fs-0-7rem">Search</label>
+        <input id="f-q-1" class="u-w-14rem" name="q" value="{{ q }}" placeholder="Name or student ID…"/>
       </div>
       <button type="submit" class="btn btn-outline">Search</button>
       {% if q %}<a href="?tab=no_scholarship" class="btn btn-outline">Clear</a>{% endif %}
@@ -83,47 +81,46 @@
     {% endif %}
   </div>
   {% if tab != 'no_scholarship' %}
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-875rem">
       <thead>
-        <tr style="border-bottom:2px solid var(--border);background:#f6f8fc;">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">#</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Student</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Student ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Course</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Year</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">GWA</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Gender</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Email</th>
-          <th style="text-align:right;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Actions</th>
+        <tr class="u-bb-2px-solid-border u-bg-sunken">
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">#</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Student</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Student ID</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Course</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Year</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">GWA</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Gender</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Email</th>
+          <th class="u-ta-right u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for s in students %}
-        <tr style="border-bottom:1px solid var(--surface-2);">
-          <td style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.8rem;">{{ forloop.counter }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+        <tr class="u-bb-1px-solid-surface-2">
+          <td class="u-p-0-6rem-0-75rem u-text-muted u-fs-0-8rem">{{ forloop.counter }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--brand);">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 u-bg-brand">
                 {{ s.user.first_name|first }}{{ s.user.last_name|first }}
               </div>
               <span class="font-medium">{{ s.user.get_full_name }}</span>
             </div>
           </td>
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.8rem;color:var(--text-muted);">{{ s.student_id }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.course }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.year_level }}</td>
-          <td style="padding:0.6rem 0.75rem;"><span class="badge badge-{% if s.gwa <= 1.29 %}success{% elif s.gwa <= 1.50 %}info{% else %}muted{% endif %}">{{ s.gwa }}</span></td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.gender|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ s.user.email }}</td>
-          <td style="padding:0.6rem 0.75rem;text-align:right;">
+          <td class="u-p-0-6rem-0-75rem u-mono u-fs-0-8rem u-text-muted">{{ s.student_id }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ s.course }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ s.year_level }}</td>
+          <td class="u-p-0-6rem-0-75rem"><span class="badge badge-{% if s.gwa <= 1.29 %}success{% elif s.gwa <= 1.50 %}info{% else %}muted{% endif %}">{{ s.gwa }}</span></td>
+          <td class="u-p-0-6rem-0-75rem">{{ s.gender|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ s.user.email }}</td>
+          <td class="u-p-0-6rem-0-75rem u-ta-right">
             <div class="flex items-center justify-end gap-1.5">
-              <a href="/vpsea/students/{{ s.pk }}/edit/" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;">
+              <a href="/vpsea/students/{{ s.pk }}/edit/" class="btn btn-outline u-p-0-3rem-0-6rem u-fs-0-75rem u-gap-0-3rem">
                 <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 Edit
               </a>
-              <button onclick="confirmDelete({{ s.pk }}, '{{ s.user.get_full_name|escapejs }}')"
-                class="btn" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
+              <button onclick="confirmDelete({{ s.pk }}, '{{ s.user.get_full_name|escapejs }}')" class="btn u-p-0-3rem-0-6rem u-fs-0-75rem u-gap-0-3rem u-bg-danger u-text-danger u-border-1px-solid-danger-border">
                 <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 Delete
               </button>
@@ -131,66 +128,65 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" style="padding:3rem;text-align:center;color:var(--text-muted);">No approved students found for {{ current_sem }} · A.Y. {{ current_sy }}{% if q %} matching "{{ q }}"{% endif %}{% if stype %} under {{ stype }}{% endif %}.</td></tr>
+        <tr><td class="u-p-3rem u-ta-center u-text-muted" colspan="9">No approved students found for {{ current_sem }} · A.Y. {{ current_sy }}{% if q %} matching "{{ q }}"{% endif %}{% if stype %} under {{ stype }}{% endif %}.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% include "_pagination.html" with page=scholars_page.page page_param=scholars_page.page_param querystring=scholars_page.querystring label="Scholars" %}
   {% else %}
-  <p class="text-xs mb-4" style="color:var(--text-muted);">
+  <p class="text-xs mb-4 u-text-muted">
     Registered student accounts with no approved scholarship application on record.
     These students may be eligible to apply or may need follow-up from the SDSO.
   </p>
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+  <div class="u-scroll-x">
+    <table class="u-w-full u-collapse u-fs-0-875rem">
       <thead>
-        <tr style="border-bottom:2px solid var(--border);background:#f6f8fc;">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">#</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Student</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Student ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Course</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Year</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">GWA</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Gender</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Address</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Email</th>
-          <th style="text-align:right;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--text-muted);font-weight:600;">Actions</th>
+        <tr class="u-bb-2px-solid-border u-bg-sunken">
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">#</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Student</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Student ID</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Course</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Year</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">GWA</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Gender</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Address</th>
+          <th class="u-ta-left u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Email</th>
+          <th class="u-ta-right u-p-0-5rem-0-75rem u-fs-0-72rem u-text-muted u-fw-600">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for s in no_scholarship_students %}
-        <tr style="border-bottom:1px solid var(--surface-2);">
-          <td style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.8rem;">{{ forloop.counter }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+        <tr class="u-bb-1px-solid-surface-2">
+          <td class="u-p-0-6rem-0-75rem u-text-muted u-fs-0-8rem">{{ forloop.counter }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--text-muted);">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 u-bg-muted-solid">
                 {{ s.user.first_name|first }}{{ s.user.last_name|first }}
               </div>
               <span class="font-medium">{{ s.user.get_full_name }}</span>
             </div>
           </td>
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.8rem;color:var(--text-muted);">{{ s.student_id }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.course|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.year_level }}</td>
-          <td style="padding:0.6rem 0.75rem;">
+          <td class="u-p-0-6rem-0-75rem u-mono u-fs-0-8rem u-text-muted">{{ s.student_id }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ s.course|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem">{{ s.year_level }}</td>
+          <td class="u-p-0-6rem-0-75rem">
             {% if s.gwa %}
             <span class="badge badge-{% if s.gwa <= 1.29 %}success{% elif s.gwa <= 1.50 %}info{% else %}muted{% endif %}">{{ s.gwa }}</span>
-            {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            {% else %}<span class="u-text-muted">—</span>{% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;">{{ s.gender|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">
+          <td class="u-p-0-6rem-0-75rem">{{ s.gender|default:"—" }}</td>
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">
             {% if s.municipality %}{{ s.municipality }}{% if s.province %}, {{ s.province }}{% endif %}{% else %}—{% endif %}
           </td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ s.user.email }}</td>
-          <td style="padding:0.6rem 0.75rem;text-align:right;">
+          <td class="u-p-0-6rem-0-75rem u-fs-0-8rem u-text-muted">{{ s.user.email }}</td>
+          <td class="u-p-0-6rem-0-75rem u-ta-right">
             <div class="flex items-center justify-end gap-1.5">
-              <a href="/vpsea/students/{{ s.pk }}/edit/" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;">
+              <a href="/vpsea/students/{{ s.pk }}/edit/" class="btn btn-outline u-p-0-3rem-0-6rem u-fs-0-75rem u-gap-0-3rem">
                 <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 Edit
               </a>
-              <button onclick="confirmDelete({{ s.pk }}, '{{ s.user.get_full_name|escapejs }}')"
-                class="btn" style="padding:0.3rem 0.6rem;font-size:0.75rem;gap:0.3rem;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
+              <button onclick="confirmDelete({{ s.pk }}, '{{ s.user.get_full_name|escapejs }}')" class="btn u-p-0-3rem-0-6rem u-fs-0-75rem u-gap-0-3rem u-bg-danger u-text-danger u-border-1px-solid-danger-border">
                 <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 Delete
               </button>
@@ -198,7 +194,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="10" style="padding:3rem;text-align:center;color:var(--text-muted);">
+        <tr><td class="u-p-3rem u-ta-center u-text-muted" colspan="10">
           {% if q %}No students without scholarship matching "{{ q }}".{% else %}All registered students have at least one approved scholarship application.{% endif %}
         </td></tr>
         {% endfor %}
@@ -208,22 +204,22 @@
   {% include "_pagination.html" with page=unawarded_page.page page_param=unawarded_page.page_param querystring=unawarded_page.querystring label="Students without a scholarship" %}
   {% endif %}
 </div>
-<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
-  <div class="card" style="width:100%;max-width:26rem;padding:1.75rem;margin:1rem;">
+<div class="u-d-none u-fixed u-inset-0 u-bg-rgba-0-0-0-0-4 u-z-50 u-ai-center u-jc-center" id="deleteModal">
+  <div class="card u-w-full u-maxw-26rem u-p-1-75rem u-m-1rem">
     <div class="flex items-center gap-3 mb-4">
-      <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background:var(--danger-bg);">
-        <svg class="h-5 w-5" style="color:var(--danger);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 u-bg-danger">
+        <svg class="h-5 w-5 u-text-danger" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
       </div>
       <div>
         <h2 class="font-semibold">Delete Student</h2>
-        <p class="text-xs" style="color:var(--text-muted);">This action cannot be undone.</p>
+        <p class="text-xs u-text-muted">This action cannot be undone.</p>
       </div>
     </div>
-    <p class="text-sm mb-5" style="color:var(--text-soft);">Are you sure you want to delete <strong id="deleteStudentName"></strong>? All their applications and data will be permanently removed.</p>
+    <p class="text-sm mb-5 u-text-soft">Are you sure you want to delete <strong id="deleteStudentName"></strong>? All their applications and data will be permanently removed.</p>
     <form method="post" id="deleteForm">
       {% csrf_token %}
       <div class="flex gap-2">
-        <button type="submit" class="btn flex-1" style="background:var(--danger);color:#fff;border:none;">Delete Student</button>
+        <button type="submit" class="btn flex-1 u-bg-danger-solid u-text-white u-border-none">Delete Student</button>
         <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn btn-outline flex-1">Cancel</button>
       </div>
     </form>

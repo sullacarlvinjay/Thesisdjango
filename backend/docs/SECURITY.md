@@ -91,6 +91,44 @@ usable ([`api/email_verify.py`](../api/email_verify.py)), and the SDSO office
 reviews every new student and employee account before it can sign in.
 Passwords go through Django's validators and PBKDF2 hashing.
 
+### Two-step sign-in for office accounts
+
+A password alone was the whole of the authentication on accounts that read
+Listahanan status, disability and household income — thin under RA 10173.
+Office accounts can now carry a second factor.
+
+[`api/mfa.py`](../api/mfa.py) implements TOTP to RFC 6238 against the standard
+library. It is checked against the RFC's own test vectors in
+`api/test_mfa.py`, rather than against itself.
+
+| | |
+|---|---|
+| Algorithm | HMAC-SHA1, 6 digits, 30-second step |
+| Drift allowed | one step either way |
+| Code attempts | 6 per 15 minutes, per address and per account |
+| Challenge window | 5 minutes from the password step |
+| Recovery codes | 8, single-use, stored as SHA-256 |
+
+**A correct password alone does not produce a signed-in session.** The account
+is held by id in the session while the code is asked for, and
+`django.contrib.auth.login` is not called until the code checks out —
+`api/test_mfa.py` asserts the client is unauthenticated after the password
+step, rather than asserting the page mentioned a code.
+
+Enrolment lives on the office's own profile page, not on a page of its own.
+It shows the base32 setup key in the grouped form every authenticator accepts
+under "enter a setup key", plus the `otpauth://` URI for apps that take a
+pasted link. No QR code is drawn: rendering one needs a Reed-Solomon encoder
+this project has no other use for.
+
+Turning it off requires the current password, so a session left open on a
+shared machine cannot strip the second factor.
+
+**Enforcement is opt-in.** `MFA_ENFORCED` defaults to off. Turned on, an
+office account that has not enrolled is redirected to its own profile to do
+so — not signed out, because locking the office out of its own records is not
+a privacy improvement. `MFA_REQUIRED_ROLES` defaults to `vpsea`.
+
 ---
 
 ## Resistance
@@ -123,6 +161,32 @@ configured one times the worker count. The Render deployment runs a single
 worker (`render.yaml`), so the figures above hold as written. Any multi-worker
 deployment should set `REDIS_URL`.
 
+**Browser policy headers.** `api.middleware.SecurityHeadersMiddleware` sends
+a Content-Security-Policy and a Permissions-Policy on every HTML response —
+document policies, so they are not put on a spreadsheet download or a PDF the
+browser renders in its own viewer.
+
+| Directive | Value | Stops |
+|---|---|---|
+| `default-src` | `'self'` | Anything loaded from another origin by default |
+| `script-src` | `'self' 'unsafe-inline' cdn.jsdelivr.net` | A script from a host the university does not control |
+| `object-src` | `'none'` | Flash/Java-style plugin content |
+| `base-uri` | `'self'` | An injected `<base>` repointing every relative URL |
+| `form-action` | `'self'` | A form posting a scholar's data off-site |
+| `frame-ancestors` | `'self'` | Clickjacking, alongside `X-Frame-Options` |
+
+Permissions-Policy denies camera, microphone, geolocation, payment, USB and
+the rest outright; `fullscreen` is allowed to the page itself. Neither header
+has a Django setting, which is why the middleware exists. `CSP_REPORT_ONLY=1`
+switches the policy to report-only while a change is being tried.
+
+Tests: `api/test_security_headers.py`, which reads the headers off real
+responses rather than off the settings module.
+
+**HSTS is a year, not an hour.** `SECURE_HSTS_SECONDS` defaults to `31536000`.
+It was `3600`, which is too short to be meaningful: a browser that has not
+visited in an hour is back to trusting a plaintext first request.
+
 **`X-Forwarded-For` is trusted only behind a proxy.** `TRUST_FORWARDED_FOR`
 defaults to on when `DEBUG` is off and off otherwise, because the header is
 trivially forged against a server that is not actually behind a proxy. A caller
@@ -136,7 +200,15 @@ counter does not read the request.
 - **No fund disbursement or payment handling.** The system records decisions;
   money is handled by the offices and agencies outside it.
 - **No integration with CHED or DOST systems.** Data arrives by spreadsheet.
-- **No multi-factor authentication.** Worth adding before the system holds
-  live production data for the whole university.
+- **No hardware keys or SMS codes.** The second factor is an authenticator
+  app or a recovery code; WebAuthn and SMS are not implemented.
+- **The Content-Security-Policy still allows inline script and style.** The
+  templates carry 28 inline `<script>` blocks, about 1,200 inline `style`
+  attributes and some 69 inline event handlers, and `'unsafe-inline'` is what
+  lets them run. The policy is real and enforced — it still stops a script
+  from a host the university does not control, and `object-src 'none'`,
+  `base-uri`, `form-action` and `frame-ancestors` all hold — but it is not a
+  strict CSP and should not be described as one. Removing the inline handlers
+  is what would allow nonces to replace `'unsafe-inline'`.
 - **No automated dependency scanning.** `requirements.txt` is pinned, which
   makes builds reproducible but means updates are a manual decision.

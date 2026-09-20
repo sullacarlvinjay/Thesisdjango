@@ -88,7 +88,7 @@ from .views_ranking import (  # noqa: F401
 from .views_vpsea import (  # noqa: F401
     WINDOW_KINDS, _column_name_errors, _decide_added_scholarship, _doc_list,
     _enrollment_fields, _posted_logo, _posted_partner_scholarships,
-    _posted_window, _save_window, _window_card_context, mail_status,
+    _posted_window, _save_window, _window_card_context,
     vpsea_accounts, vpsea_affirmative_applications, vpsea_announcements,
     vpsea_dashboard, vpsea_partners, vpsea_profile, vpsea_renewals,
     vpsea_scholarship_add, vpsea_scholarship_edit, vpsea_scholarship_toggle,

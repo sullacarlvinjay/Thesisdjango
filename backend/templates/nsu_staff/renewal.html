@@ -7,23 +7,23 @@
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
 {% block content %}
 {% if submitted %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">
   ✓ Renewal submitted successfully. The SDSO will review your documents.
 </div>
 {% endif %}
 {% for e in errors %}
-<div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">{{ e }}</div>
+<div class="mb-3 rounded-lg px-4 py-3 text-sm u-bg-danger u-text-danger u-border-1px-solid-danger-border">{{ e }}</div>
 {% endfor %}
 <div class="grid lg:grid-cols-2 gap-6">
   <div class="card p-6">
     <h2 class="font-semibold mb-1">Submit Renewal Documents</h2>
-    <p class="text-xs mb-5" style="color:var(--text-muted);">Upload your documents for {{ semester }} SY {{ academic_year }}. All documents must be certified official copies.</p>
+    <p class="text-xs mb-5 u-text-muted">Upload your documents for {{ semester }} SY {{ academic_year }}. All documents must be certified official copies.</p>
     <form method="post" enctype="multipart/form-data" class="space-y-4">
       {% csrf_token %}
       <div class="space-y-1.5">
-        <label>Supporting Document <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
-        <p class="text-xs" style="color:var(--text-muted);">Employment certificate, clearance, or any document required by the SDSO for renewal.</p>
-        <input name="supporting_document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+        <label for="f-supporting-document">Supporting Document <span class="font-normal u-text-muted">(PDF/JPG/PNG)</span></label>
+        <p class="text-xs u-text-muted">Employment certificate, clearance, or any document required by the SDSO for renewal.</p>
+        <input id="f-supporting-document" name="supporting_document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>
       <div class="pt-2">
         <button type="submit" class="btn btn-primary w-full">Submit Renewal</button>

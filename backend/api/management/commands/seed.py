@@ -13,17 +13,45 @@ import datetime
 User = get_user_model()
 
 
+def previous_term(label):
+    yy, sem = (int(part) for part in label.split('-'))
+    sem -= 1
+    if sem == 0:
+        sem, yy = 2, yy - 1
+    return f'{yy}-{sem}'
+
+
+def term_of(label):
+    parsed = SystemSettings.parse_label(label)
+    return {'school_year': parsed['sy'], 'semester': parsed['semester']}
+
+
+def term_start(label):
+    parsed = SystemSettings.parse_label(label)
+    if parsed['sy_start'] is None:
+        return datetime.date.today()
+    if parsed['semester'] == '1st Semester':
+        return datetime.date(parsed['sy_start'], 8, 15)
+    return datetime.date(parsed['sy_start'] + 1, 1, 15)
+
+
+def file_on(label, day_offset):
+    return term_start(label) + datetime.timedelta(days=day_offset)
+
+
 class Command(BaseCommand):
     help = 'Seed the database with initial data matching the mock data'
 
     def handle(self, *args, **kwargs):
         self.stdout.write('Seeding database...')
 
-        SystemSettings.objects.get_or_create(pk=1)
+        settings_row, _ = SystemSettings.objects.get_or_create(pk=1)
+        this_term = settings_row.academic_year
+        last_term = previous_term(this_term)
 
         super_user, _ = User.objects.get_or_create(
             email='it@bipsu.edu.ph',
-            defaults={'username': 'it@bipsu.edu.ph', 'first_name': 'IT', 'last_name': 'Admin', 'role': 'super', 'is_staff': True, 'is_superuser': True}
+            defaults={'username': 'it@bipsu.edu.ph', 'first_name': 'IT', 'last_name': 'Admin', 'role': 'vpsea', 'is_staff': True, 'is_superuser': True}
         )
         super_user.set_password('admin1234')
         super_user.save()
@@ -67,14 +95,16 @@ class Command(BaseCommand):
         academic = Scholarship.objects.get(type='Academic')
         tdp = Scholarship.objects.get(type='TDP')
         apps_data = [
-            {'scholarship': academic, 'status': 'Approved', 'remarks': 'University Scholar', 'submitted_at': datetime.date(2025, 4, 12)},
-            {'scholarship': tdp, 'status': 'Pending Validation', 'remarks': 'Awaiting document review', 'submitted_at': datetime.date(2025, 4, 18)},
-            {'scholarship': academic, 'status': 'Approved', 'remarks': 'College Scholar', 'submitted_at': datetime.date(2024, 9, 3)},
-            {'scholarship': tdp, 'status': 'Needs Revision', 'remarks': 'Re-upload Certificate of Indigency', 'submitted_at': datetime.date(2025, 5, 2)},
+            (last_term, 19, {'scholarship': academic, 'status': 'Approved', 'remarks': 'College Scholar'}),
+            (last_term, 34, {'scholarship': tdp, 'status': 'Pending Validation', 'remarks': 'Awaiting document review'}),
+            (this_term, 28, {'scholarship': academic, 'status': 'Approved', 'remarks': 'University Scholar'}),
+            (this_term, 48, {'scholarship': tdp, 'status': 'Needs Revision', 'remarks': 'Re-upload Certificate of Indigency'}),
         ]
-        for a in apps_data:
-            if not Application.objects.filter(student=profile, scholarship=a['scholarship'], submitted_at=a['submitted_at']).exists():
-                Application.objects.create(student=profile, **a)
+        for label, day_offset, fields in apps_data:
+            if Application.objects.filter(student=profile, scholarship=fields['scholarship'], **term_of(label)).exists():
+                continue
+            row = Application.objects.create(student=profile, term_label=label, **fields)
+            Application.objects.filter(pk=row.pk).update(submitted_at=file_on(label, day_offset))
 
         notifs = [
             {'type': 'success', 'title': 'Application Approved', 'body': 'Your Academic Scholarship application has been approved as University Scholar.'},
@@ -126,12 +156,14 @@ class Command(BaseCommand):
             profile_defaults.update(extra)
             sp, _ = StudentProfile.objects.get_or_create(user=u, defaults={'student_id': sid, **profile_defaults})
             scholarship = Scholarship.objects.filter(type=stype).first()
-            if scholarship and not Application.objects.filter(student=sp, scholarship=scholarship, status='Approved').exists():
-                Application.objects.create(
-                    student=sp, scholarship=scholarship,
-                    status='Approved', remarks='Seeded test scholar',
-                    submitted_at=datetime.date(2025, 1, 10),
-                )
+            if not scholarship or Application.objects.filter(student=sp, scholarship=scholarship, **term_of(this_term)).exists():
+                continue
+            row = Application.objects.create(
+                student=sp, scholarship=scholarship,
+                status='Approved', remarks='Seeded test scholar',
+                term_label=this_term,
+            )
+            Application.objects.filter(pk=row.pk).update(submitted_at=file_on(this_term, 9))
 
         aff_test = [
             {

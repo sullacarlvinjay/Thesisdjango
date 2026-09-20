@@ -7,6 +7,9 @@ each area of the system lives.
 
 from django.shortcuts import redirect
 from django.urls import path
+from drf_spectacular.views import (
+    SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView,
+)
 
 from . import health, seo, views
 from . import views_analytics as analytics
@@ -39,6 +42,9 @@ urlpatterns = [
     path('student/renewal/academic/', student.student_renewal_academic),
     path('student/profile/', student.student_profile),
 
+    path('vpsea/archives/import/<int:pk>/status/',
+         archives.vpsea_archive_import_status),
+
     path('api/auth/register/', views.RegisterView.as_view()),
     path('api/auth/login/', views.LoginView.as_view()),
     path('api/auth/logout/', views.LogoutView.as_view()),
@@ -60,6 +66,10 @@ urlpatterns = [
     path('api/vpsea/announcements/', views.VPSEAAnnouncementListCreateView.as_view()),
     path('api/vpsea/reports/', views.VPSEAReportsView.as_view()),
     path('api/vpsea/ranking/', views.VPSEAStudentRankingView.as_view()),
+
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema')),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema')),
 
     path('vpsea/', vpsea.vpsea_dashboard),
     path('vpsea/affirmative/', vpsea.vpsea_affirmative_applications),

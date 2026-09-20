@@ -108,7 +108,7 @@ class RegistrationOptionalMarkersTest(TestCase):
                      'is_4ps_beneficiary', 'is_solo_parent_dependent',
                      'has_previous_degree', 'school'):
             with self.subTest(field=name):
-                select = re.search(r'<select[^>]*\bname="%s"[^>]*>(.*?)</select>' % name,
+                select = re.search(rf'<select[^>]*\bname="{name}"[^>]*>(.*?)</select>',
                                    self.html, re.S)
                 first = re.search(r'<option[^>]*>', select.group(1)).group(0)
                 self.assertIn('value=""', first,

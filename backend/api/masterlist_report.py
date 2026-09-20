@@ -459,6 +459,65 @@ def _restamp_period(document, sy, semester):
         walk(section.footer.paragraphs)
 
 
+def _is_para(element):
+    """Whether this body element is a paragraph."""
+    return element.tag.endswith('}p')
+
+
+def _text_of(document, element):
+    """A paragraph's text, or '' for a table."""
+    from docx.text.paragraph import Paragraph
+
+    return Paragraph(element, document).text.strip() if _is_para(element) else ''
+
+
+def _section_starts(document, children):
+    """Indexes of the paragraphs that open each programme's section.
+
+    A section opens with its programme name, followed by the "Scholarship
+    Grant" line; the name alone is not distinctive enough to match on.
+    """
+    starts = []
+    for i, element in enumerate(children):
+        if not _is_para(element):
+            continue
+        for following in children[i + 1:]:
+            if not _is_para(following):
+                break
+            text = _text_of(document, following)
+            if not text:
+                continue
+            if text.upper().startswith('SCHOLARSHIP GRANT'):
+                starts.append(i)
+            break
+    return starts
+
+
+def _remove_marked_sections(document, children, starts):
+    """Delete every element of the sections whose heading carries the marker."""
+    removed = 0
+    for position, start in enumerate(starts):
+        if UNUSED_MARKER not in _text_of(document, children[start]):
+            continue
+        end = starts[position + 1] if position + 1 < len(starts) else len(children)
+        for element in children[start:end]:
+            parent = element.getparent()
+            if parent is not None:
+                parent.remove(element)
+                removed += 1
+    return removed
+
+
+def _strip_markers(document, children):
+    """Take the marker back out of the headings that survived."""
+    from docx.text.paragraph import Paragraph
+
+    for element in children:
+        if _is_para(element) and UNUSED_MARKER in _text_of(document, element):
+            for run in Paragraph(element, document).runs:
+                run.text = run.text.replace(UNUSED_MARKER, '')
+
+
 def _drop_unused_sections(document):
     """Remove the tables for programmes with no scholars this term.
 
@@ -466,50 +525,11 @@ def _drop_unused_sections(document):
     and its table are separate elements in the DOCX and both have to go —
     leaving the heading would print a programme with an empty table under it.
     """
-    from docx.text.paragraph import Paragraph
-
-    body = document.element.body
-    children = [c for c in body.iterchildren()
-                if c.tag.endswith('}p') or c.tag.endswith('}tbl')]
-
-    def is_para(el):
-        """Whether this element is a paragraph."""
-        return el.tag.endswith('}p')
-
-    def text_of(el):
-        """A paragraph's text, or '' for a table."""
-        return Paragraph(el, document).text.strip() if is_para(el) else ''
-
-    headings = []
-    for i, el in enumerate(children):
-        if not is_para(el):
-            continue
-        for nxt in children[i + 1:]:
-            if not is_para(nxt):
-                break
-            following = text_of(nxt)
-            if not following:
-                continue
-            if following.upper().startswith('SCHOLARSHIP GRANT'):
-                headings.append(i)
-            break
-
-    removed = 0
-    for pos, start in enumerate(headings):
-        if UNUSED_MARKER not in text_of(children[start]):
-            continue
-        end = headings[pos + 1] if pos + 1 < len(headings) else len(children)
-        for el in children[start:end]:
-            parent = el.getparent()
-            if parent is not None:
-                parent.remove(el)
-                removed += 1
-
-    for el in children:
-        if is_para(el) and UNUSED_MARKER in text_of(el):
-            para = Paragraph(el, document)
-            for run in para.runs:
-                run.text = run.text.replace(UNUSED_MARKER, '')
+    children = [child for child in document.element.body.iterchildren()
+                if _is_para(child) or child.tag.endswith('}tbl')]
+    removed = _remove_marked_sections(
+        document, children, _section_starts(document, children))
+    _strip_markers(document, children)
     return removed
 
 

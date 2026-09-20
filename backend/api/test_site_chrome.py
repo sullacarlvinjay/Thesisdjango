@@ -147,7 +147,7 @@ class CampaignAttributionTest(TestCase):
         self.c = Client()
 
     def test_a_campaign_is_kept_against_the_address(self):
-        from api.test_registration_payload import a_student
+        from api.fixtures_registration import a_student
 
         payload = json.dumps({
             'utm_source': 'facebook', 'utm_medium': 'post',
@@ -165,14 +165,14 @@ class CampaignAttributionTest(TestCase):
             SignupSource(email='ana@example.com').campaign_label, 'direct')
 
     def test_rubbish_in_the_hidden_field_is_ignored_not_crashed_on(self):
-        from api.test_registration_payload import a_student
+        from api.fixtures_registration import a_student
 
         response = self.c.post('/register/', a_student(
             email='ana@bipsu.edu.ph', utm_payload='{not json at all'))
         self.assertIn(response.status_code, (200, 302))
 
     def test_an_overlong_payload_is_dropped_rather_than_stored(self):
-        from api.test_registration_payload import a_student
+        from api.fixtures_registration import a_student
 
         self.c.post('/register/', a_student(
             email='ana@bipsu.edu.ph',
@@ -188,7 +188,7 @@ class CampaignAttributionTest(TestCase):
                       'the form is marked but nothing is loaded to stamp it')
 
     def test_where_a_registrant_came_from_is_kept(self):
-        from api.test_registration_payload import a_student
+        from api.fixtures_registration import a_student
 
         payload = json.dumps({'utm_source': 'tiktok', 'utm_campaign': 'open-house'})
         response = self.c.post(
@@ -201,7 +201,7 @@ class CampaignAttributionTest(TestCase):
         self.assertEqual(row.utm_campaign, 'open-house')
 
     def test_a_registrant_who_arrived_cold_leaves_no_empty_row(self):
-        from api.test_registration_payload import a_student
+        from api.fixtures_registration import a_student
 
         self.c.post('/register/', a_student(email='cold@bipsu.edu.ph'))
         self.assertFalse(
@@ -464,11 +464,33 @@ class TheDashboardComesFirstTest(TestCase):
     def test_the_office_sidebar_still_carries_every_page_it_had(self):
         source = (settings.BASE_DIR / 'templates/vpsea/_nav.html').read_text(encoding='utf-8')
         for page in ('/vpsea/accounts/', '/vpsea/analytics/', '/vpsea/announcements/',
-                     '/vpsea/affirmative/', '/vpsea/partners/', '/vpsea/profile/',
+                     '/vpsea/affirmative/', '/vpsea/partners/',
                      '/vpsea/renewals/', '/vpsea/reports/', '/vpsea/archives/',
                      '/vpsea/scholarships/', '/vpsea/ranking/'):
             self.assertIn(f'href="{page}"', source,
                           f'{page} fell out when the dashboard was moved')
+
+    def test_no_sidebar_repeats_the_profile_the_avatar_already_links_to(self):
+        """The evaluators asked for one way in, not two.
+
+        Asserting the link is absent would pass on a portal whose profile
+        became unreachable, so the second half of this checks the control in
+        the top bar still points at each role's own profile page.
+        """
+        for role, (path, _home) in self.NAVS.items():
+            with self.subTest(portal=role):
+                source = (settings.BASE_DIR / path).read_text(encoding='utf-8')
+                links = [line for line in source.splitlines()
+                         if 'sidebar-link' in line and '/profile/' in line]
+                self.assertEqual(links, [], f'{role} still lists My Profile twice')
+
+        base = (settings.BASE_DIR / 'templates/base.html').read_text(encoding='utf-8')
+        for path in ('/student/profile/', '/nsu-staff/profile/',
+                     '/vpsea/profile/', '/partner/profile/'):
+            with self.subTest(path=path):
+                self.assertIn(path, base,
+                              'the avatar is the only way in now, so it has to '
+                              'carry every role')
 
 
 class TheSidebarLinksDoNotNestTest(SimpleTestCase):

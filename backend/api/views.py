@@ -7,19 +7,23 @@ List endpoints are paged — responses are ``{count, next, previous, results}``
 rather than bare arrays. See ``api/pagination.py``.
 """
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
+from rest_framework.exceptions import Throttled, ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.authtoken.models import Token
 from django.db.models import Count
 from . import email_verify
+from . import ratelimit
 from .models import (
     STUDENT_DETAILS,
     StudentProfile, Scholarship, Application, Notification,
     Announcement, AcademicRenewal, ImportedScholar,
     ActivityLog,
 )
+from . import api_schema
 from .serializers import (
     RegisterSerializer, LoginSerializer, StudentProfileSerializer,
     ScholarshipSerializer, ApplicationSerializer, NotificationSerializer,
@@ -28,7 +32,7 @@ from .serializers import (
 )
 
 
-OFFICE_ROLES = ('vpsea', 'super')
+OFFICE_ROLES = ('vpsea',)
 
 
 class IsOfficeStaff(BasePermission):
@@ -44,12 +48,50 @@ class IsOfficeStaff(BasePermission):
         )
 
 
-class RegisterView(APIView):
-    """Register an account and send the confirmation email."""
-    permission_classes = [AllowAny]
+class CredentialEndpoint(APIView):
+    """An unauthenticated endpoint that accepts credentials.
 
+    Throttled against the tallies in ``api/ratelimit.py`` -- the same ones the
+    web forms write -- and refused in the same words, so a client reading the
+    published schema finds no softer way in than the page does.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_subject = 'attempts'
+
+    def throttled(self, request, wait):
+        """Refuse in the portal's wording rather than DRF's default."""
+        raise Throttled(wait, detail=ratelimit.wait_message(
+            wait, self.throttle_subject))
+
+    def named_account(self, request):
+        """The address this request is trying, for the per-account tally."""
+        data = request.data
+        return str(data.get('email') or '') if hasattr(data, 'get') else ''
+
+
+class RegisterView(CredentialEndpoint):
+    """Register an account and send the confirmation email."""
+
+    throttle_classes = [ratelimit.RegisterThrottle]
+    throttle_subject = 'registrations'
+
+    @extend_schema(
+        request=RegisterSerializer,
+        responses={201: api_schema.RegistrationAcceptedSerializer,
+                   429: api_schema.ErrorSerializer},
+        summary='Register an account',
+    )
     def post(self, request):
-        """Create the account; it still needs SDSO verification."""
+        """Create the account; it still needs SDSO verification.
+
+        Counts every submission rather than only the failures, for the reason
+        the web form does: minting an account and sending mail to an arbitrary
+        address on the university's behalf are both things a *successful*
+        submission does.
+        """
+        ratelimit.register_failure(
+            ratelimit.REGISTER, request, self.named_account(request))
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -62,18 +104,37 @@ class RegisterView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
-class LoginView(APIView):
+class LoginView(CredentialEndpoint):
     """Exchange credentials for an API token."""
-    permission_classes = [AllowAny]
 
+    throttle_classes = [ratelimit.LoginThrottle]
+    throttle_subject = 'sign-in attempts'
+
+    @extend_schema(
+        request=LoginSerializer,
+        responses={200: api_schema.TokenSerializer,
+                   403: api_schema.SignInRefusedSerializer,
+                   429: api_schema.ErrorSerializer},
+        summary='Exchange credentials for a token',
+    )
     def post(self, request):
         """Issue a token, unless the account may not sign in yet.
 
         An unverified account is refused with its standing, so a client can say
         what is happening rather than showing a bare failure.
+
+        Only wrong credentials are counted, and one good pair forgets the
+        tally, so a person who mistypes twice and then gets it right is not
+        carrying those two around for the next quarter of an hour.
         """
+        email = self.named_account(request)
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError:
+            ratelimit.register_failure(ratelimit.LOGIN, request, email)
+            raise
+        ratelimit.clear(ratelimit.LOGIN, request, email)
         user = serializer.validated_data['user']
         if not user.can_sign_in:
             return Response({
@@ -90,6 +151,8 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     """Discard the caller's API token."""
+    @extend_schema(request=None, responses={204: None},
+                   summary='Discard the API token')
     def post(self, request):
         """Delete the token, ending every session using it."""
         request.user.auth_token.delete()
@@ -157,6 +220,8 @@ class StudentAnnouncementListView(generics.ListAPIView):
 
 class StudentDashboardView(APIView):
     """The counts and match scores behind the student dashboard."""
+    @extend_schema(responses={200: api_schema.StudentDashboardSerializer},
+                   summary='Student dashboard figures')
     def get(self, request):
         """Summarise this student's standing."""
         profile = request.user.profile
@@ -201,6 +266,16 @@ class VPSEAStudentRankingView(APIView):
         limit = min(number('limit', self.DEFAULT_LIMIT, 1), self.MAX_LIMIT)
         return limit, number('offset', 0)
 
+    @extend_schema(
+        parameters=[OpenApiParameter(
+            'passing', float, description='Passing mark, as a percentage. '
+            'Defaults to 75.'),
+            OpenApiParameter('limit', int, description='Rows per page, at most '
+                             '200. Defaults to 50.'),
+            OpenApiParameter('offset', int, description='Rows to skip.')],
+        responses={200: api_schema.AffirmativeRankingSerializer},
+        summary='Affirmative Action ranking',
+    )
     def get(self, request):
         """Recompute and return the ranking for a threshold."""
         from .models import AffirmativeRecommendation
@@ -309,6 +384,13 @@ class VPSEAArchiveListView(generics.ListAPIView):
 class VPSEAArchiveUploadView(APIView):
     """Import a scholar list from a spreadsheet."""
     permission_classes = [IsOfficeStaff]
+
+    @extend_schema(
+        request=api_schema.ArchiveUploadRequestSerializer,
+        responses={200: api_schema.ArchiveUploadSerializer,
+                   400: api_schema.ErrorSerializer},
+        summary='Import a scholar list',
+    )
     def post(self, request, type):
         """Read the workbook and record what it created."""
         import openpyxl
@@ -357,6 +439,8 @@ class VPSEAAnalyticsView(APIView):
     permission_classes = [IsOfficeStaff]
     CACHE_KEY = 'api-vpsea-analytics'
 
+    @extend_schema(responses={200: api_schema.OfficeAnalyticsSerializer},
+                   summary='Office analytics figures')
     def get(self, request):
         """Totals, distributions and the approval trend."""
         from django.conf import settings as django_settings
@@ -421,6 +505,8 @@ class VPSEAReportsView(APIView):
     """Report totals for the office."""
     permission_classes = [IsOfficeStaff]
 
+    @extend_schema(responses={200: api_schema.ReportLinkSerializer(many=True)},
+                   summary='Downloadable masterlists')
     def get(self, request):
         """Scholar counts per programme for the active term."""
         from .models import SystemSettings
@@ -441,6 +527,9 @@ class VPSEAReportsView(APIView):
 class VPSEADashboardView(APIView):
     """The counts behind the office dashboard."""
     permission_classes = [IsOfficeStaff]
+
+    @extend_schema(responses={200: api_schema.OfficeDashboardSerializer},
+                   summary='Office dashboard figures')
     def get(self, request):
         """Applications, renewals and accounts awaiting a decision."""
         apps = Application.objects.all()

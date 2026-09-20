@@ -14,7 +14,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=80" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=86" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -32,24 +32,24 @@
     <div class="auth-card">
       {% if rejected %}
       <div class="flex items-start gap-3 mb-4">
-        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style="background:var(--danger-bg);">
-          <svg class="h-5 w-5" style="color:var(--danger);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0 u-bg-danger">
+          <svg class="h-5 w-5 u-text-danger" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </div>
         <div>
-          <p class="font-semibold" style="color:var(--text);">Your registration was not accepted</p>
+          <p class="font-semibold u-text-base">Your registration was not accepted</p>
           {% if email %}
-          <p class="text-sm mt-0.5" style="color:var(--text-muted);">{{ email }}</p>
+          <p class="text-sm mt-0.5 u-text-muted">{{ email }}</p>
           {% endif %}
         </div>
       </div>
       {% if note %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
+      <div class="p-3 rounded-lg text-sm mb-4 u-bg-danger u-text-danger u-border-1px-solid-danger-border">
         <span class="font-medium">Reason from the SDSO:</span> {{ note }}
       </div>
       {% endif %}
-      <p class="text-sm" style="color:var(--text-soft);">
+      <p class="text-sm u-text-soft">
         If something was simply wrong — a mistyped student number, the wrong course —
-        <a href="/register/" style="color:var(--brand);font-weight:600;">register again with it corrected</a>.
+        <a class="u-text-brand u-fw-600" href="/register/">register again with it corrected</a>.
         This email address is free to use. Otherwise contact the SDSO office; they can verify
         the account as it stands, and this same email and password will get you in.
       </p>
@@ -58,36 +58,36 @@
       </a>
       {% else %}
       <div class="flex items-start gap-3 mb-4">
-        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style="background:var(--ok-bg);">
-          <svg class="h-5 w-5" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="h-9 w-9 rounded-full flex items-center justify-center shrink-0 u-bg-ok">
+          <svg class="h-5 w-5 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <p class="font-semibold" style="color:var(--text);">Registration received</p>
+          <p class="font-semibold u-text-base">Registration received</p>
           {% if email %}
-          <p class="text-sm mt-0.5" style="color:var(--text-muted);">Registered as <span class="font-medium" id="registeredEmail" style="color:var(--text-soft);">{{ email }}</span>
+          <p class="text-sm mt-0.5 u-text-muted">Registered as <span class="font-medium u-text-soft" id="registeredEmail">{{ email }}</span>
           <button type="button" class="copy-btn" data-copy-target="#registeredEmail" aria-label="Copy the registered email address"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span data-copy-label>Copy</span></button></p>
           {% endif %}
         </div>
       </div>
       {% if confirm_error %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
+      <div class="p-3 rounded-lg text-sm mb-4 u-bg-danger u-text-danger u-border-1px-solid-danger-border">
         {{ confirm_error }}
       </div>
       {% endif %}
       {% if confirmed %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
+      <div class="p-3 rounded-lg text-sm mb-4 u-bg-ok u-text-ok u-border-1px-solid-ok-border">
         <span class="font-semibold">Email address confirmed.</span>
         The office can reach you at this address now. Your registration is still waiting on their review.
       </div>
       {% endif %}
       {% if resent %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:var(--info-bg);color:#1d4ed8;border:1px solid var(--info-border);">
+      <div class="p-3 rounded-lg text-sm mb-4 u-bg-info u-text-hex1d4ed8 u-border-1px-solid-info-border">
         A new confirmation link is on its way to {{ email }}. It can take a minute to arrive.
       </div>
       {% endif %}
       
       {% if confirm_email %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:var(--info-bg);color:#1d4ed8;border:1px solid var(--info-border);">
+      <div class="p-3 rounded-lg text-sm mb-4 u-bg-info u-text-hex1d4ed8 u-border-1px-solid-info-border">
         <p class="font-semibold">Confirm your email address</p>
         <p class="mt-1">
           We sent a link to <span class="font-medium">{{ email }}</span>. Opening it is how we know the
@@ -96,49 +96,49 @@
         </p>
         <form method="post" action="/register/resend/" class="mt-2">
           {% csrf_token %}
-          <button type="submit" class="text-sm font-semibold" style="color:#1d4ed8;text-decoration:underline;">
+          <button type="submit" class="text-sm font-semibold u-text-hex1d4ed8 u-underline">
             Send the link again
           </button>
         </form>
       </div>
       {% endif %}
       {% if waiting %}
-      <div class="p-3 rounded-lg text-sm mb-4 flex items-start gap-2" style="background:var(--warn-bg);color:var(--warn);border:1px solid #fdea2b;">
-        <span class="waiting-dot h-2 w-2 rounded-full shrink-0 mt-1.5" style="background:#fdea2b;"></span>
+      <div class="p-3 rounded-lg text-sm mb-4 flex items-start gap-2 u-bg-warn u-text-warn u-border-1px-solid-hexfdea2b">
+        <span class="waiting-dot h-2 w-2 rounded-full shrink-0 mt-1.5 u-bg-hexfdea2b"></span>
         <span>
           <span class="font-semibold">Waiting for the Student Development and Services Office (SDSO) to verify your account.</span><br />
           Keep this page open — it checks every few seconds and takes you straight into your
           portal the moment they release it. You will not have to sign in again.
         </span>
       </div>
-      <p class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:var(--brand);">If you would rather not wait here</p>
-      <ol class="space-y-3 text-sm" style="color:var(--text-soft);">
+      <p class="text-xs font-semibold uppercase tracking-wider mb-3 u-text-brand">If you would rather not wait here</p>
+      <ol class="space-y-3 text-sm u-text-soft">
         <li class="flex gap-3">
-          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">1</span>
+          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">1</span>
           <span>Close the page and come back to this site later, on this same browser.</span>
         </li>
         <li class="flex gap-3">
-          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">2</span>
+          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">2</span>
           <span>If you have been verified by then, you are signed in already — nothing to type.</span>
         </li>
         <li class="flex gap-3">
-          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">3</span>
+          <span class="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">3</span>
           <span>On another device, or after a few days, sign in with the email and password you just chose. That page tells you where your account stands.</span>
         </li>
       </ol>
       {% else %}
-      <div class="p-3 rounded-lg text-sm mb-4" style="background:var(--warn-bg);color:var(--warn);border:1px solid #fdea2b;">
+      <div class="p-3 rounded-lg text-sm mb-4 u-bg-warn u-text-warn u-border-1px-solid-hexfdea2b">
         We could not find a registration on this browser. Sign in with the email and
         password you registered with — that page will tell you where your account stands.
       </div>
       {% endif %}
-      <a href="/login/" class="mt-5 block text-center" class="btn btn-outline" style="padding:0.6rem 1rem;">
+      <a href="/login/" class="mt-5 block text-center u-p-0-6rem-1rem" class="btn btn-outline">
         Go to Sign In
       </a>
       {% endif %}
     </div>
     <p class="auth-footnote">Something wrong in your details? Contact the SDSO office.</p>
-    <p class="auth-footnote" style="margin-top:0.5rem;"><a href="/" style="color:rgba(255,255,255,0.86);font-weight:500;">← Back to Main Page</a></p>
+    <p class="auth-footnote u-mt-0-5rem"><a class="u-text-rgba-255-255-255-0-86 u-fw-500" href="/">← Back to Main Page</a></p>
   </div>
 <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
 <script src="{% static 'js/loading.js' %}?v=2" defer></script>

@@ -7,24 +7,24 @@
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
 {% block content %}
 {% if blocked %}
-<div class="card p-5 flex items-start gap-3 mb-6" style="border-color:var(--danger);background:var(--danger-bg);">
-  <svg class="h-5 w-5 shrink-0 mt-0.5" style="color:var(--danger);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+<div class="card p-5 flex items-start gap-3 mb-6 u-bc-danger u-bg-danger">
+  <svg class="h-5 w-5 shrink-0 mt-0.5 u-text-danger" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
   <div>
-    <p class="text-sm font-semibold" style="color:var(--danger);">Application Not Allowed</p>
-    <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
+    <p class="text-sm font-semibold u-text-danger">Application Not Allowed</p>
+    <p class="text-xs mt-0.5 u-text-hexc92a2a">{{ blocked_reason }}</p>
     {% if existing %}
-    <a href="/nsu-staff/profile/" class="text-xs mt-2 inline-block" style="color:var(--brand);">View your scholarship record →</a>
+    <a href="/nsu-staff/profile/" class="text-xs mt-2 inline-block u-text-brand">View your scholarship record →</a>
     {% endif %}
   </div>
 </div>
 {% else %}
 {% if submitted %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">
   ✓ Your Staff Scholarship application has been submitted and is pending validation.
 </div>
 {% endif %}
 {% if errors %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm u-bg-danger u-text-danger u-border-1px-solid-danger-border">
   <p class="font-semibold mb-1">Please fix the following:</p>
   <ul class="list-disc list-inside space-y-0.5">
     {% for e in errors %}<li>{{ e }}</li>{% endfor %}
@@ -36,71 +36,71 @@
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
       <div class="card p-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Personal Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Personal Information</p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>First Name <span style="color:var(--danger);">*</span></label>
-            <input name="first_name" value="{{ prefill.first_name }}" placeholder="First name" required />
+            <label for="f-first-name">First Name <span class="u-text-danger">*</span></label>
+            <input id="f-first-name" name="first_name" value="{{ prefill.first_name }}" placeholder="First name" required />
           </div>
           <div class="space-y-1.5">
-            <label>Last Name <span style="color:var(--danger);">*</span></label>
-            <input name="last_name" value="{{ prefill.last_name }}" placeholder="Last name" required />
+            <label for="f-last-name">Last Name <span class="u-text-danger">*</span></label>
+            <input id="f-last-name" name="last_name" value="{{ prefill.last_name }}" placeholder="Last name" required />
           </div>
           <div class="space-y-1.5">
-            <label>Date of Birth <span style="color:var(--danger);">*</span></label>
+            <label for="birthDateField">Date of Birth <span class="u-text-danger">*</span></label>
             <input name="date_of_birth" type="date" id="birthDateField"
                    value="{{ prefill.date_of_birth }}" required />
           </div>
           <div class="space-y-1.5">
-            <label>Age</label>
-            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
+            <label for="ageField">Age</label>
+            <input class="u-bg-sunken u-text-muted u-cursor-blocked" id="ageField" type="number" readonly/>
           </div>
           <div class="space-y-1.5">
-            <label>Gender <span style="color:var(--danger);">*</span></label>
-            <select name="gender" required>
+            <label for="f-gender">Gender <span class="u-text-danger">*</span></label>
+            <select id="f-gender" name="gender" required>
               <option value="">— Select —</option>
               <option value="Male"   {% if prefill.gender == 'Male' %}selected{% endif %}>Male</option>
               <option value="Female" {% if prefill.gender == 'Female' %}selected{% endif %}>Female</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Contact Number</label>
-            <input name="contact_number" type="tel" autocomplete="tel" placeholder="09XXXXXXXXX"
+            <label for="f-contact-number">Contact Number</label>
+            <input id="f-contact-number" name="contact_number" type="tel" autocomplete="tel" placeholder="09XXXXXXXXX"
                    value="{{ prefill.contact_number }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Email</label>
-            <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
+            <label for="f-input">Email</label>
+            <input id="f-input" class="u-bg-sunken u-text-muted u-cursor-blocked" value="{{ user.email }}" readonly/>
           </div>
         </div>
         <div class="grid sm:grid-cols-3 gap-4 mt-4">
           <div class="space-y-1.5">
-            <label>Barangay / Street</label>
-            <input name="barangay" placeholder="Barangay" value="{{ prefill.barangay }}" />
+            <label for="f-barangay">Barangay / Street</label>
+            <input id="f-barangay" name="barangay" placeholder="Barangay" value="{{ prefill.barangay }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Municipality</label>
-            <input name="municipality" placeholder="Municipality" value="{{ prefill.municipality }}" />
+            <label for="f-municipality">Municipality</label>
+            <input id="f-municipality" name="municipality" placeholder="Municipality" value="{{ prefill.municipality }}" />
           </div>
           <div class="space-y-1.5">
-            <label>Province</label>
-            <input name="province" placeholder="Province" value="{{ prefill.province }}" />
+            <label for="f-province">Province</label>
+            <input id="f-province" name="province" placeholder="Province" value="{{ prefill.province }}" />
           </div>
         </div>
       </div>
       <div class="card p-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Academic Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Academic Information</p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>Employee Number <span style="color:var(--danger);">*</span></label>
-            <input name="student_number" placeholder="e.g. 2021-00001"
+            <label for="f-student-number">Employee Number <span class="u-text-danger">*</span></label>
+            <input id="f-student-number" name="student_number" placeholder="e.g. 2021-00001"
                    value="{{ prefill.student_number }}" required />
           </div>
           <div class="space-y-1.5 sm:col-span-2">
-            <label>Course / Program <span style="color:var(--danger);">*</span></label>
-            <input name="course" placeholder="e.g. BSCS" list="bipsuCourses"
+            <label for="f-course">Course / Program <span class="u-text-danger">*</span></label>
+            <input id="f-course" name="course" placeholder="e.g. BSCS" list="bipsuCourses"
                    value="{{ prefill.course }}" autocomplete="off" required />
-            <p class="text-xs" style="color:var(--text-muted);">BiPSU's programmes are suggested as you type. A programme not on the list can be typed in full.</p>
+            <p class="text-xs u-text-muted">BiPSU's programmes are suggested as you type. A programme not on the list can be typed in full.</p>
             <datalist id="bipsuCourses">
               {% for school, courses in bipsu_courses.items %}{% for c in courses %}
               <option value="{{ c }}"></option>
@@ -110,11 +110,11 @@
         </div>
       </div>
       <div class="card p-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:var(--brand);">Employment Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Employment Information</p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label>Employment Status <span style="color:var(--danger);">*</span></label>
-            <select name="employment_status" required>
+            <label for="f-employment-status">Employment Status <span class="u-text-danger">*</span></label>
+            <select id="f-employment-status" name="employment_status" required>
               <option value="">— Select —</option>
               {% for value, label in employment_statuses %}
               <option value="{{ value }}" {% if prefill.employment_status == value %}selected{% endif %}>{{ label }}</option>
@@ -122,47 +122,44 @@
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Designation <span style="color:var(--danger);">*</span></label>
-            <select name="designation" required>
+            <label for="f-designation">Designation <span class="u-text-danger">*</span></label>
+            <select id="f-designation" name="designation" required>
               <option value="">— Select —</option>
               <option value="Teaching"     {% if prefill.designation == 'Teaching' %}selected{% endif %}>Teaching</option>
               <option value="Non-Teaching" {% if prefill.designation == 'Non-Teaching' %}selected{% endif %}>Non-Teaching</option>
             </select>
           </div>
           <div class="space-y-1.5">
-            <label>Years of Service <span style="color:var(--danger);">*</span></label>
-            <input name="years_of_service" type="number" min="0" step="1" placeholder="e.g. 5"
+            <label for="f-years-of-service">Years of Service <span class="u-text-danger">*</span></label>
+            <input id="f-years-of-service" name="years_of_service" type="number" min="0" step="1" placeholder="e.g. 5"
                    value="{{ prefill.years_of_service }}" required />
           </div>
           <div class="space-y-1.5">
-            <label>Date of Regularization <span style="color:var(--danger);">*</span></label>
-            <input name="date_of_regularization" type="date"
+            <label for="f-date-of-regularization">Date of Regularization <span class="u-text-danger">*</span></label>
+            <input id="f-date-of-regularization" name="date_of_regularization" type="date"
                    value="{{ prefill.date_of_regularization }}" required />
           </div>
         </div>
       </div>
       <div class="card p-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Document Upload</p>
-        <p class="text-xs mb-5" style="color:var(--text-muted);">Accepted formats: PDF, JPG, PNG · Max 5 MB.</p>
-        <div class="rounded-xl border p-4" style="border-color:var(--border);">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">Document Upload</p>
+        <p class="text-xs mb-5 u-text-muted">Accepted formats: PDF, JPG, PNG · Max 5 MB.</p>
+        <div class="rounded-xl border p-4 u-bc-border">
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">1</span>
-            <label class="text-sm font-medium" style="color:var(--text-soft);">
-              Appointment Paper <span style="color:var(--danger);">*</span>
+            <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">1</span>
+            <label for="f-appointment-paper" class="text-sm font-medium u-text-soft">
+              Appointment Paper <span class="u-text-danger">*</span>
             </label>
           </div>
-          <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Official appointment document issued by the university.</p>
+          <p class="text-xs mb-2 ml-7 u-text-muted">Official appointment document issued by the university.</p>
           {% if existing.appointment_paper %}
-          <p class="text-xs mb-2 ml-7" style="color:var(--ok);">
+          <p class="text-xs mb-2 ml-7 u-text-ok">
             ✓ Previously uploaded —
-            <a href="{{ existing.appointment_paper.url }}" data-doc="Appointment Paper" style="color:var(--brand);">view file</a>.
+            <a class="u-text-brand" href="{{ existing.appointment_paper.url }}" data-doc="Appointment Paper">view file</a>.
             Upload a new one below to replace it.
           </p>
           {% endif %}
-          <input type="file" name="appointment_paper"
-                 accept=".pdf,.jpg,.jpeg,.png"
-                 {% if not existing %}required{% endif %}
-                 style="width:100%;" />
+          <input id="f-appointment-paper" class="u-w-full" type="file" name="appointment_paper" accept=".pdf,.jpg,.jpeg,.png" {% if not existing %}required{% endif %}/>
         </div>
       </div>
     </div>
@@ -170,44 +167,44 @@
       <div class="card p-6 sticky top-24 space-y-5">
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <svg class="h-4 w-4" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg class="h-4 w-4 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <h2 class="font-semibold text-sm">Eligibility</h2>
           </div>
-          <p class="text-xs mb-3" style="color:var(--text-muted);">The BiPSU Staff Scholarship is open to permanent faculty and employees and their qualified dependents enrolled at BiPSU.</p>
+          <p class="text-xs mb-3 u-text-muted">The BiPSU Staff Scholarship is open to permanent faculty and employees and their qualified dependents enrolled at BiPSU.</p>
           <div class="space-y-2 text-xs">
             <div class="flex items-start gap-2">
-              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>Permanent BiPSU faculty or employee</span>
             </div>
             <div class="flex items-start gap-2">
-              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>Currently enrolled at BiPSU</span>
             </div>
             <div class="flex items-start gap-2">
-              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>Has not yet earned a baccalaureate degree</span>
             </div>
           </div>
         </div>
-        <hr style="border-color:var(--border);" />
+        <hr class="u-bc-border"/>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--text-muted);">What Happens Next</p>
-          <ol class="space-y-2 text-xs" style="color:var(--text-muted);">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2 u-text-muted">What Happens Next</p>
+          <ol class="space-y-2 text-xs u-text-muted">
             <li class="flex items-start gap-2">
-              <span class="font-bold shrink-0" style="color:var(--brand);">1.</span>
+              <span class="font-bold shrink-0 u-text-brand">1.</span>
               <span>Your application is reviewed by the SDSO.</span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="font-bold shrink-0" style="color:var(--brand);">2.</span>
+              <span class="font-bold shrink-0 u-text-brand">2.</span>
               <span>You will be notified once a decision is made.</span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="font-bold shrink-0" style="color:var(--brand);">3.</span>
+              <span class="font-bold shrink-0 u-text-brand">3.</span>
               <span>If approved, your scholarship record will appear on your profile.</span>
             </li>
           </ol>
         </div>
-        <hr style="border-color:var(--border);" />
+        <hr class="u-bc-border"/>
         <button type="submit" name="action" value="submit" class="btn btn-primary w-full">Submit Application</button>
         <a href="/nsu-staff/" class="btn btn-outline w-full text-center block mt-2">Cancel</a>
       </div>

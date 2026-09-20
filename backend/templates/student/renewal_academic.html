@@ -8,30 +8,30 @@
 {% block content %}
 <div class="space-y-6">
   {% if submitted %}
-  <div class="card p-5 flex items-center gap-3" style="border-color:var(--ok);background:var(--ok-bg);">
-    <svg class="h-5 w-5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <p class="text-sm font-medium" style="color:var(--ok);">Renewal documents submitted successfully. We'll review them shortly.</p>
+  <div class="card p-5 flex items-center gap-3 u-bc-ok u-bg-ok">
+    <svg class="h-5 w-5 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p class="text-sm font-medium u-text-ok">Renewal documents submitted successfully. We'll review them shortly.</p>
   </div>
   {% endif %}
   {% if errors %}
-  <div class="card p-5" style="border-color:var(--danger);background:var(--danger-bg);">
+  <div class="card p-5 u-bc-danger u-bg-danger">
     {% for e in errors %}
-    <p class="text-sm" style="color:var(--danger);">{{ e }}</p>
+    <p class="text-sm u-text-danger">{{ e }}</p>
     {% endfor %}
   </div>
   {% endif %}
   {% if blocked %}
-  <div class="card p-5 flex items-center gap-3" style="border-color:var(--danger);background:var(--danger-bg);">
-    <svg class="h-5 w-5 shrink-0" style="color:var(--danger);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+  <div class="card p-5 flex items-center gap-3 u-bc-danger u-bg-danger">
+    <svg class="h-5 w-5 shrink-0 u-text-danger" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
     <div>
-      <p class="text-sm font-semibold" style="color:var(--danger);">Renewals Are Closed</p>
-      <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
+      <p class="text-sm font-semibold u-text-danger">Renewals Are Closed</p>
+      <p class="text-xs mt-0.5 u-text-hexc92a2a">{{ blocked_reason }}</p>
     </div>
   </div>
   {% elif not open_programmes %}
   <div class="card p-5">
     <p class="text-sm font-semibold">Nothing to renew yet</p>
-    <p class="text-xs mt-0.5" style="color:var(--text-muted);">
+    <p class="text-xs mt-0.5 u-text-muted">
       A renewal continues a scholarship you already hold. Once an award is on your
       record it appears here, and you renew it each semester from this page.
     </p>
@@ -40,23 +40,23 @@
   <div class="card p-6">
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
       <h2 class="font-semibold">{% if replacing %}Replace Renewal Documents{% else %}Submit Renewal Documents{% endif %}</h2>
-      <span class="badge" style="background:var(--brand-soft);color:var(--brand);">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
+      <span class="badge u-bg-brand-soft u-text-brand">{{ semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
     </div>
-    <p class="text-xs mb-5" style="color:var(--text-muted);">Upload the required documents to renew your scholarship for the next semester.</p>
+    <p class="text-xs mb-5 u-text-muted">Upload the required documents to renew your scholarship for the next semester.</p>
     <form method="post" enctype="multipart/form-data" class="space-y-5">
       {% csrf_token %}
       {% if multiple %}
       <div class="space-y-1.5">
-        <label class="block text-sm font-medium mb-1" style="color:var(--text-soft);">Which scholarship are you renewing? <span style="color:var(--danger);">*</span></label>
-        <p class="text-xs mb-2" style="color:var(--text-muted);">You hold more than one. Each is renewed separately, with its own documents — submit this form again for the other.</p>
-        <select name="scholarship_type" required>
+        <label for="f-scholarship-type" class="block text-sm font-medium mb-1 u-text-soft">Which scholarship are you renewing? <span class="u-text-danger">*</span></label>
+        <p class="text-xs mb-2 u-text-muted">You hold more than one. Each is renewed separately, with its own documents — submit this form again for the other.</p>
+        <select id="f-scholarship-type" name="scholarship_type" required>
           <option value="">— Select scholarship —</option>
           {% for p in open_programmes %}
           <option value="{{ p.type }}">{{ p.label }}</option>
           {% endfor %}
         </select>
         {% if editing %}
-        <p class="text-xs mt-1" style="color:var(--text-muted);">
+        <p class="text-xs mt-1 u-text-muted">
           Already in for this semester and not yet reviewed:
           {% for stype, r in editing.items %}{{ r.get_scholarship_type_display }}{% if not forloop.last %}, {% endif %}{% endfor %}.
           Choosing one of those replaces its documents rather than sending a second submission.
@@ -73,22 +73,22 @@
       {% endfor %}
       {% endif %}
       <div>
-        <label class="block text-sm font-medium mb-1" style="color:var(--text-soft);">Certificate of Enrollment <span style="color:var(--danger);">*</span></label>
-        <p class="text-xs mb-2" style="color:var(--text-muted);">Official Certificate of Enrollment from the Registrar's Office for the current semester.</p>
-        <input type="file" name="certificate_of_enrollment" accept=".pdf,.jpg,.jpeg,.png"
+        <label for="f-certificate-of-enrollment" class="block text-sm font-medium mb-1 u-text-soft">Certificate of Enrollment <span class="u-text-danger">*</span></label>
+        <p class="text-xs mb-2 u-text-muted">Official Certificate of Enrollment from the Registrar's Office for the current semester.</p>
+        <input id="f-certificate-of-enrollment" type="file" name="certificate_of_enrollment" accept=".pdf,.jpg,.jpeg,.png"
           class="block w-full text-sm" required />
-        <p class="text-xs mt-1" style="color:var(--text-muted);">Accepted: PDF, JPG, PNG</p>
+        <p class="text-xs mt-1 u-text-muted">Accepted: PDF, JPG, PNG</p>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1" style="color:var(--text-soft);">Certificate of Grades <span style="color:var(--danger);">*</span></label>
-        <p class="text-xs mb-2" style="color:var(--text-muted);">Official Certificate of Grades from the Registrar's Office for the previous semester.</p>
-        <input type="file" name="certificate_of_grades" accept=".pdf,.jpg,.jpeg,.png"
+        <label for="f-certificate-of-grades" class="block text-sm font-medium mb-1 u-text-soft">Certificate of Grades <span class="u-text-danger">*</span></label>
+        <p class="text-xs mb-2 u-text-muted">Official Certificate of Grades from the Registrar's Office for the previous semester.</p>
+        <input id="f-certificate-of-grades" type="file" name="certificate_of_grades" accept=".pdf,.jpg,.jpeg,.png"
           class="block w-full text-sm" required />
-        <p class="text-xs mt-1" style="color:var(--text-muted);">Accepted: PDF, JPG, PNG</p>
+        <p class="text-xs mt-1 u-text-muted">Accepted: PDF, JPG, PNG</p>
       </div>
       <button type="submit" class="btn btn-primary w-full">{% if replacing %}Replace Documents{% else %}Submit Renewal{% endif %}</button>
       {% if replacing %}
-      <p class="text-xs mt-2" style="color:var(--text-muted);">
+      <p class="text-xs mt-2 u-text-muted">
         You already have a renewal in for this semester and the office has not
         reviewed it yet. Uploading here replaces the documents on it rather than
         sending a second one.
@@ -112,15 +112,15 @@
     <h2 class="font-semibold mb-4">Previous Submissions</h2>
     <div class="space-y-3">
       {% for r in renewals %}
-      <div class="flex items-center justify-between p-4 rounded-xl" style="background:#f6f8fc;">
+      <div class="flex items-center justify-between p-4 rounded-xl u-bg-sunken">
         <div>
-          <p class="text-sm font-medium" style="color:var(--text);">{{ r.get_scholarship_type_display }} — {{ r.term_display|default:"term not recorded" }}</p>
-          <p class="text-xs mt-0.5" style="color:var(--text-muted);">Submitted {{ r.submitted_at|date:"M d, Y" }}</p>
-          <p class="text-xs mt-0.5" style="color:var(--text-muted);">
+          <p class="text-sm font-medium u-text-base">{{ r.get_scholarship_type_display }} — {{ r.term_display|default:"term not recorded" }}</p>
+          <p class="text-xs mt-0.5 u-text-muted">Submitted {{ r.submitted_at|date:"M d, Y" }}</p>
+          <p class="text-xs mt-0.5 u-text-muted">
             COE: {{ r.certificate_of_enrollment.name|default:"—" }} &nbsp;·&nbsp;
             COG: {{ r.certificate_of_grades.name|default:"—" }}
           </p>
-          {% if r.remarks %}<p class="text-xs mt-1" style="color:var(--text-muted);">Remarks: {{ r.remarks }}</p>{% endif %}
+          {% if r.remarks %}<p class="text-xs mt-1 u-text-muted">Remarks: {{ r.remarks }}</p>{% endif %}
         </div>
         <span class="badge {% if r.status == 'Approved' %}bg-green-100 text-green-700{% elif r.status == 'Rejected' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
           {{ r.status }}

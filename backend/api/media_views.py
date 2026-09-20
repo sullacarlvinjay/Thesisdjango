@@ -15,7 +15,7 @@ from django.utils.cache import patch_cache_control
 
 PUBLIC_PREFIXES = ('logos/', 'backgrounds/')
 
-OFFICE_ROLES = frozenset({'vpsea', 'super'})
+OFFICE_ROLES = frozenset({'vpsea'})
 
 
 _STUDENT_USER_PATH = {

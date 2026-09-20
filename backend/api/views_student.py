@@ -7,7 +7,7 @@ existing imports keep working.
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from .models import StudentProfile, Scholarship, Application, Notification, Announcement, AcademicRenewal, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES
+from .models import ActivityLog, StudentProfile, Scholarship, Application, Notification, Announcement, AcademicRenewal, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES
 from . import notify
 import logging
 from .views_shared import _declaration_slots, _declared_scholarships, _disability_answer, _disability_fields, _positive_int, _tristate, _unanswered, _validate_proof, application_window_reason, can_hold_alongside, declarable_types, held_scholarship_types, renewal_window_reason
@@ -232,12 +232,20 @@ def student_apply_academic(request):
                 app.status = 'Pending Validation'
                 app.remarks = ''
                 app.save()
+                resubmitted = True
             else:
                 app = Application.objects.create(
                     student=profile, scholarship=scholarship,
                     status='Pending Validation',
                     form_data=request.POST.dict()
                 )
+                resubmitted = False
+            ActivityLog.record(
+                request.user,
+                f'{"Resubmitted" if resubmitted else "Applied"} for '
+                f'{scholarship.name} ({app.term_label})',
+                verb='update' if resubmitted else 'create',
+                target=app, request=request)
             for field, label in _APPLY_ACADEMIC_DOCUMENTS:
                 uploaded = request.FILES.get(field)
                 if uploaded:
@@ -394,9 +402,14 @@ def student_renewal_academic(request):
             pending.certificate_of_enrollment = coe
             pending.save(update_fields=['certificate_of_grades', 'certificate_of_enrollment'])
         else:
-            AcademicRenewal.objects.create(
+            renewal = AcademicRenewal.objects.create(
                 student=profile, certificate_of_grades=cog,
                 certificate_of_enrollment=coe, scholarship_type=chosen['type'])
+            ActivityLog.record(
+                request.user,
+                f"Submitted a {chosen['type']} renewal for "
+                f'{renewal.term_label}',
+                verb='create', target=renewal, request=request)
         return redirect('/student/renewal/academic/?submitted=1')
 
     editing = {}
@@ -445,136 +458,222 @@ def _uploaded_file_errors(files):
     return problems
 
 
+PROFILE_TRISTATE_FIELDS = (
+    'highschool_is_public', 'is_from_depressed_area',
+    'is_listahanan_household', 'is_4ps_beneficiary', 'has_previous_degree',
+    'is_solo_parent_dependent',
+)
+
+
+def _optional_float(raw):
+    """A float from a posted string, or ``None`` where it will not convert."""
+    text = (raw or '').strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _apply_write_once_fields(profile, posted):
+    """Fill the answers a student may set but not later change.
+
+    Locked once answered, because these are the details the office verified
+    on the registration documents. A student correcting one goes through the
+    office rather than through this form.
+    """
+    if not profile.middle_name:
+        profile.middle_name = posted.get('middle_name', '').strip()
+    if not profile.civil_status:
+        profile.civil_status = posted.get('civil_status', profile.civil_status)
+    if not profile.birth_place:
+        profile.birth_place = posted.get('birth_place', profile.birth_place).strip()
+
+    if not (profile.elementary and profile.highschool and profile.last_school):
+        profile.elementary = posted.get('elementary', profile.elementary)
+        profile.highschool = posted.get('highschool', profile.highschool)
+        profile.last_school = posted.get('last_school', profile.last_school)
+
+    if not (profile.father_last_name and profile.father_first_name
+            and profile.mother_last_name and profile.mother_first_name):
+        for parent in ('father', 'mother'):
+            for part in ('last_name', 'first_name', 'middle_name'):
+                field = f'{parent}_{part}'
+                setattr(profile, field,
+                        posted.get(field, getattr(profile, field)).strip())
+        profile.father_occupation = posted.get(
+            'father_occupation', profile.father_occupation)
+        profile.mother_occupation = posted.get(
+            'mother_occupation', profile.mother_occupation)
+
+    if not (profile.barangay and profile.municipality and profile.province):
+        profile.barangay = posted.get('barangay', profile.barangay)
+        profile.municipality = posted.get('municipality', profile.municipality)
+        profile.province = posted.get('province', profile.province)
+
+
+def _apply_eligibility_fields(profile, posted):
+    """Fill the answers the ranking rules read, which stay editable."""
+    profile.suffix = posted.get('suffix', profile.suffix).strip()
+    profile.family_income = float(
+        posted.get('family_income', profile.family_income)
+        or profile.family_income)
+    profile.indigenous_group = posted.get(
+        'indigenous_group', profile.indigenous_group)
+    profile.citizenship = posted.get('citizenship', profile.citizenship)
+    profile.household_size = _positive_int(
+        posted.get('household_size'), profile.household_size)
+    profile.year_first_enrolled = _positive_int(
+        posted.get('year_first_enrolled'), profile.year_first_enrolled)
+
+    for field in PROFILE_TRISTATE_FIELDS:
+        setattr(profile, field,
+                _tristate(posted.get(field), getattr(profile, field)))
+
+    shs = _optional_float(posted.get('shs_gpa'))
+    if shs is not None:
+        profile.shs_gpa = shs
+
+    if (posted.get('suc_exam_total') or '').strip():
+        total = _optional_float(posted.get('suc_exam_total'))
+        if total is not None:
+            profile.suc_exam_total = total if total > 0 else None
+    else:
+        profile.suc_exam_total = None
+
+    score = _optional_float(posted.get('suc_exam_score'))
+    if score is not None:
+        profile.suc_exam_score = score
+
+    profile.is_tes_beneficiary = 'is_tes_beneficiary' in posted
+
+
+def _attach_profile_uploads(profile, user, files):
+    """Save whichever certificates and photo the form carried."""
+    if files.get('shs_gpa_cert'):
+        profile.shs_gpa_cert = files['shs_gpa_cert']
+    if files.get('suc_exam_cert'):
+        profile.suc_exam_cert = files['suc_exam_cert']
+    if files.get('photo'):
+        user.photo = files['photo']
+        user.save(update_fields=['photo'])
+
+
+def _portal_declarations(profile, posted, files):
+    """Scholarships declared from the portal, and what is wrong with them.
+
+    Returns:
+        ``(declarations, errors)``.
+    """
+    if declaration_blocked_reason(profile):
+        return [], []
+
+    declarations, errors = _declared_scholarships(posted, files)
+    held = held_scholarship_types(profile)
+    for declared in declarations:
+        if can_hold_alongside(held, declared['scholarship_type']):
+            continue
+        from .constants import scholarship_type_labels
+
+        label = scholarship_type_labels().get(
+            declared['scholarship_type'], declared['scholarship_type'])
+        errors.append(f'The {label} cannot be added alongside what '
+                      'this account already holds. Reload this page '
+                      'to see what is still open to you.')
+    return declarations, errors
+
+
+def _save_student_profile(request, profile):
+    """Apply a posted profile edit.
+
+    Returns:
+        ``(errors, declared_count)``. Nothing is written when there are
+        errors, so a rejected form leaves the record exactly as it was.
+    """
+    posted = request.POST
+    errors = _uploaded_file_errors(request.FILES)
+
+    _apply_write_once_fields(profile, posted)
+    _apply_eligibility_fields(profile, posted)
+
+    disability, problem = _disability_answer(posted)
+    if problem:
+        errors.append(problem)
+    else:
+        profile.disability_type = disability
+
+    declarations, declaration_errors = _portal_declarations(
+        profile, posted, request.FILES)
+    errors.extend(declaration_errors)
+
+    if errors:
+        return errors, 0
+
+    _attach_profile_uploads(profile, profile.user, request.FILES)
+    profile.save()
+    ActivityLog.record(
+        request.user, 'Updated their own student profile',
+        verb='update', target=profile, request=request)
+    for declared in declarations:
+        request_row = ScholarshipLinkRequest.objects.create(
+            student=profile, filed_in_portal=True, **declared)
+        ActivityLog.record(
+            request.user,
+            f"Declared a {declared['scholarship_type']} award granted elsewhere",
+            verb='create', target=request_row, request=request)
+    if declarations:
+        notify.scholarship_added(profile, declarations)
+    return [], len(declarations)
+
+
+PROFILE_LOCKS = {
+    'address_locked': ('barangay', 'municipality', 'province'),
+    'middle_name_locked': ('middle_name',),
+    'civil_status_locked': ('civil_status',),
+    'birth_place_locked': ('birth_place',),
+    'education_locked': ('elementary', 'highschool', 'last_school'),
+    'family_locked': ('father_last_name', 'father_first_name',
+                      'mother_last_name', 'mother_first_name'),
+}
+
+
+def _profile_locks(profile):
+    """Which write-once sections are already answered and closed.
+
+    A section locks once every field in it is filled, which is the same rule
+    ``_apply_write_once_fields`` saves by. Reading it off one table means the
+    form and the save cannot disagree about which fields are still editable.
+    """
+    return {
+        name: bool(profile) and all(getattr(profile, field) for field in fields)
+        for name, fields in PROFILE_LOCKS.items()
+    }
+
+
 @login_required(login_url='/login/')
 def student_profile(request):
     """View and update a student's own profile."""
+    import json
+
+    from .constants import CIVIL_STATUSES
+    from .models import CHED_TIER_CHOICES
+
     profile = StudentProfile.objects.filter(user=request.user).first()
     errors = []
     saved = False
     declared_count = 0
+
     if request.method == 'POST' and profile:
-        p = request.POST
-        u = profile.user
-        errors += _uploaded_file_errors(request.FILES)
-        if not profile.middle_name:
-            profile.middle_name = p.get('middle_name', '').strip()
-        profile.suffix = p.get('suffix', profile.suffix).strip()
-        if not profile.civil_status:
-            profile.civil_status = p.get('civil_status', profile.civil_status)
-        if not profile.birth_place:
-            profile.birth_place = p.get('birth_place', profile.birth_place).strip()
-        profile.family_income = float(p.get('family_income', profile.family_income) or profile.family_income)
-        profile.indigenous_group = p.get('indigenous_group', profile.indigenous_group)
-        disability, problem = _disability_answer(p)
-        if problem:
-            errors.append(problem)
-        else:
-            profile.disability_type = disability
-        if not (profile.elementary and profile.highschool and profile.last_school):
-            profile.elementary = p.get('elementary', profile.elementary)
-            profile.highschool = p.get('highschool', profile.highschool)
-            profile.last_school = p.get('last_school', profile.last_school)
-        profile.highschool_is_public = _tristate(
-            p.get('highschool_is_public'), profile.highschool_is_public)
-        profile.is_from_depressed_area = _tristate(
-            p.get('is_from_depressed_area'), profile.is_from_depressed_area)
-        if not (profile.father_last_name and profile.father_first_name
-                and profile.mother_last_name and profile.mother_first_name):
-            for parent in ('father', 'mother'):
-                for part in ('last_name', 'first_name', 'middle_name'):
-                    field = f'{parent}_{part}'
-                    setattr(profile, field, p.get(field, getattr(profile, field)).strip())
-            profile.father_occupation = p.get('father_occupation', profile.father_occupation)
-            profile.mother_occupation = p.get('mother_occupation', profile.mother_occupation)
-        profile.citizenship = p.get('citizenship', profile.citizenship)
-        profile.household_size = _positive_int(p.get('household_size'), profile.household_size)
-        profile.year_first_enrolled = _positive_int(
-            p.get('year_first_enrolled'), profile.year_first_enrolled)
-        profile.is_listahanan_household = _tristate(
-            p.get('is_listahanan_household'), profile.is_listahanan_household)
-        profile.is_4ps_beneficiary = _tristate(
-            p.get('is_4ps_beneficiary'), profile.is_4ps_beneficiary)
-        profile.has_previous_degree = _tristate(
-            p.get('has_previous_degree'), profile.has_previous_degree)
-        profile.is_solo_parent_dependent = _tristate(
-            p.get('is_solo_parent_dependent'), profile.is_solo_parent_dependent)
-        raw_shs = p.get('shs_gpa', '').strip()
-        if raw_shs:
-            try: profile.shs_gpa = float(raw_shs)
-            except ValueError: pass
-        raw_total = p.get('suc_exam_total', '').strip()
-        if raw_total:
-            try:
-                total = float(raw_total)
-                profile.suc_exam_total = total if total > 0 else None
-            except ValueError:
-                pass
-        else:
-            profile.suc_exam_total = None
-        raw_suc = p.get('suc_exam_score', '').strip()
-        if raw_suc:
-            try: profile.suc_exam_score = float(raw_suc)
-            except ValueError: pass
-        profile.is_tes_beneficiary = 'is_tes_beneficiary' in p
-        if not errors:
-            if request.FILES.get('shs_gpa_cert'):
-                profile.shs_gpa_cert = request.FILES['shs_gpa_cert']
-            if request.FILES.get('suc_exam_cert'):
-                profile.suc_exam_cert = request.FILES['suc_exam_cert']
-            if request.FILES.get('photo'):
-                u.photo = request.FILES['photo']
-                u.save(update_fields=['photo'])
-        if not (profile.barangay and profile.municipality and profile.province):
-            profile.barangay = p.get('barangay', profile.barangay)
-            profile.municipality = p.get('municipality', profile.municipality)
-            profile.province = p.get('province', profile.province)
+        errors, declared_count = _save_student_profile(request, profile)
+        saved = not errors
 
-        declarations = []
-        if not declaration_blocked_reason(profile):
-            declarations, declaration_errors = _declared_scholarships(
-                p, request.FILES)
-            errors.extend(declaration_errors)
-            held = held_scholarship_types(profile)
-            for declared in declarations:
-                if not can_hold_alongside(held, declared['scholarship_type']):
-                    from .constants import scholarship_type_labels
-                    label = scholarship_type_labels().get(
-                        declared['scholarship_type'], declared['scholarship_type'])
-                    errors.append(f'The {label} cannot be added alongside what '
-                                  'this account already holds. Reload this page '
-                                  'to see what is still open to you.')
-
-        if not errors:
-            profile.save()
-            saved = True
-            for declared in declarations:
-                ScholarshipLinkRequest.objects.create(
-                    student=profile, filed_in_portal=True, **declared)
-            if declarations:
-                notify.scholarship_added(profile, declarations)
-                declared_count = len(declarations)
-    import json
-    from .constants import CIVIL_STATUSES
-    from .models import CHED_TIER_CHOICES
-    address_locked = bool(profile and profile.barangay and profile.municipality and profile.province)
-    civil_status_locked = bool(profile and profile.civil_status)
-    birth_place_locked = bool(profile and profile.birth_place)
-    education_locked = bool(
-        profile and profile.elementary and profile.highschool and profile.last_school)
-    family_locked = bool(
-        profile and profile.father_last_name and profile.father_first_name
-        and profile.mother_last_name and profile.mother_first_name)
     return render(request, 'student/profile.html', {
         'profile': profile, 'errors': errors, 'saved': saved,
         'enrolled': _is_enrolled(profile),
         'bipsu_schools': BIPSU_SCHOOLS,
         'bipsu_courses_json': json.dumps(BIPSU_COURSES),
-        'address_locked': address_locked,
-        'middle_name_locked': bool(profile and profile.middle_name),
-        'civil_status_locked': civil_status_locked,
-        'birth_place_locked': birth_place_locked,
-        'education_locked': education_locked,
-        'family_locked': family_locked,
+        **_profile_locks(profile),
         'civil_statuses': CIVIL_STATUSES,
         'scholarships_held': _scholarship_records(profile),
         'declared_count': declared_count,

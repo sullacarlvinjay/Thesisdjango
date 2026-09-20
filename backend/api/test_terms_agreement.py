@@ -2,7 +2,7 @@ from django.test import Client, TestCase
 
 from api import terms
 from api.models import StudentProfile, SystemSettings, User
-from api.test_registration_payload import a_staff_member, a_student
+from api.fixtures_registration import a_staff_member, a_student
 
 
 def without_consent(payload):

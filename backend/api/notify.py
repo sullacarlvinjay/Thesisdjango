@@ -8,12 +8,22 @@ and none should be rolled back because a mail server was briefly unreachable.
 The outcome of the last attempt is recorded for the office's mail panel, which
 on a deployment with no shell is the only way anyone finds out whether mail
 works.
+
+Mail leaves on the background pool by default — see ``api/jobs.py``. Every send
+costs a round trip to Brevo, and a registration that also has to tell the whole
+office about a declaration makes several of them; paying for those inline put
+the wait in front of the person registering, who gains nothing by it. Where the
+*answer* is shown to somebody, ``background=False`` keeps the send inline, and
+the two places that do that are the mail panel's test message and the account
+decision that warns the office when the applicant could not be reached.
 """
 
 import logging
 
 from django.conf import settings
 from django.core.mail import send_mail
+
+from . import jobs
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +79,22 @@ def _record_attempt(to, subject, error):
         logger.exception('Could not record the outcome of the last mail attempt')
 
 
+def queue_email(to, subject, body):
+    """Hand one message to the background pool.
+
+    The caller gets no outcome because there is not one yet. What there is
+    instead is the row :func:`_record_attempt` writes when the send finishes,
+    which the office's mail panel reads — and which outlives the request,
+    where a return value would only have been true for the length of one.
+    """
+    if not to:
+        return
+    jobs.enqueue(send_email, to, subject, body,
+                 label=f'email to {to}: {subject[:60]}')
+
+
 def send_email(to, subject, body):
-    """Send one message, reporting success rather than raising.
+    """Send one message now, reporting success rather than raising.
 
     Deliberately swallows the error. Every caller is doing something more
     important than the email — recording a decision, creating an account —
@@ -95,12 +119,17 @@ def send_email(to, subject, body):
     return True
 
 
-def notify(target, title, body, tone='info', email=True, email_body=None):
+def notify(target, title, body, tone='info', email=True, email_body=None,
+           background=True):
     """Tell someone something, in the portal and by email.
 
     The in-app notification is the reliable half and is written first; the
-    email is best-effort. Returns both outcomes so a caller can say "we
-    emailed you" only when it is true.
+    email is best-effort.
+
+    Returns ``(in_app, emailed)``. ``emailed`` is ``None`` when the message
+    was queued rather than sent, because at that point nobody knows — pass
+    ``background=False`` wherever that answer is about to be shown to
+    somebody, and read it as "unknown" rather than "no" anywhere else.
     """
     from .models import Notification
 
@@ -113,9 +142,13 @@ def notify(target, title, body, tone='info', email=True, email_body=None):
         )
         in_app = True
 
-    emailed = send_email(
-        address, f'[BiPSU SRMS] {title}', email_body or body) if email else False
-    return in_app, emailed
+    if not email:
+        return in_app, False
+    subject, text = f'[BiPSU SRMS] {title}', email_body or body
+    if background:
+        queue_email(address, subject, text)
+        return in_app, None
+    return in_app, send_email(address, subject, text)
 
 
 def account_decision(account, status, note):
@@ -152,6 +185,7 @@ def account_decision(account, status, note):
         account, title, note,
         tone='success' if approved else 'warning',
         email_body='\n\n'.join(lines),
+        background=False,
     )
 
 
@@ -167,11 +201,21 @@ def broadcast(title, body, tone='info'):
     return len(profiles)
 
 
-def office(subject, body, actor=None):
+def _send_each(addresses, subject, body):
+    """Send one message to every address, counting the ones that landed."""
+    return sum(send_email(to, subject, body) for to in addresses)
+
+
+def office(subject, body, actor=None, background=True):
     """Tell the SDSO something, and log it.
 
     Goes to every active office account rather than a fixed address, so it
-    keeps working when staff change.
+    keeps working when staff change. That fan-out is why this queues by
+    default: it is one round trip per office account, and the caller is
+    normally a student registering, who is made to wait out every one.
+
+    Returns how many addresses the message was aimed at when queued, and how
+    many it reached when sent inline.
     """
     from .models import ActivityLog, User
 
@@ -180,7 +224,12 @@ def office(subject, body, actor=None):
     addresses = list(User.objects.filter(
         role='vpsea', is_active=True,
     ).exclude(email='').values_list('email', flat=True))
-    return sum(send_email(to, f'[BiPSU SRMS] {subject}', body) for to in addresses)
+    line = f'[BiPSU SRMS] {subject}'
+    if background:
+        jobs.enqueue(_send_each, addresses, line, body,
+                     label=f'office mail: {subject[:60]}')
+        return len(addresses)
+    return _send_each(addresses, line, body)
 
 
 def multiple_declarations(profile, declarations):

@@ -1,4 +1,11 @@
 (function () {
+  /* Bound once, whatever a template does. This file was included a second
+     time by the archive pages on top of base.html's copy, so every button
+     carried two click handlers: one opened the menu, the other closed it
+     again, and the scholarship-type picker did nothing at all. */
+  if (window.__dlMenuBound) return;
+  window.__dlMenuBound = true;
+
   var buttons = document.querySelectorAll('[data-dl-menu]');
   if (!buttons.length) return;
 

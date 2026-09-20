@@ -52,6 +52,16 @@ class ImportReadsEverySheetTest(TestCase):
         return self.c.post('/vpsea/archives/import/', {
             'type': 'DOST', 'rollover_label': '26-1', 'file': file})
 
+    def page(self, response):
+        """The archive page the office is sent to, banners and all.
+
+        The count is no longer in the redirect: the import runs on the
+        background pool and the redirect carries the job id instead. What
+        the office is actually told is on the page, which is what this
+        reads.
+        """
+        return self.c.get(response['Location']).content.decode()
+
     def names(self):
         return sorted(ImportedScholar.objects.values_list('last_name', flat=True))
 
@@ -80,7 +90,7 @@ class ImportReadsEverySheetTest(TestCase):
             ('A', [a_row(1, 'Santos', 'Maria')]),
             ('B', [a_row(1, 'Cruz', 'Pedro')]),
         ]))
-        self.assertIn('import_ok=2', r['Location'])
+        self.assertIn('Successfully imported 2 records.', self.page(r))
 
     def test_a_sheet_that_holds_no_scholars_adds_nothing(self):
         self.upload(workbook([

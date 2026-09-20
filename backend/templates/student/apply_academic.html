@@ -6,7 +6,7 @@
 {% block nav %}{% include "student/_nav.html" %}{% endblock %}
 {% block content %}
 {% if editing %}
-<div class="mb-4 rounded-lg px-4 py-3 text-sm" style="background:var(--info-bg,var(--info-bg));color:var(--info);border:1px solid var(--info-border);">
+<div class="mb-4 rounded-lg px-4 py-3 text-sm u-bg-var-info-bg-info-bg u-text-info u-border-1px-solid-info-border">
   <strong>{% if editing.status == 'Needs Revision' %}The office asked for a correction.{% else %}Your application is waiting for review.{% endif %}</strong>
   You can still change it here — sending it again replaces what the office has.
   {% if editing.remarks %}<br />Remarks: {{ editing.remarks }}{% endif %}
@@ -22,11 +22,11 @@
 </div>
 {% endif %}
 {% if blocked %}
-<div class="card p-5 flex items-center gap-3 mb-6" style="border-color:var(--danger);background:var(--danger-bg);">
-  <svg class="h-5 w-5 shrink-0" style="color:var(--danger);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+<div class="card p-5 flex items-center gap-3 mb-6 u-bc-danger u-bg-danger">
+  <svg class="h-5 w-5 shrink-0 u-text-danger" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
   <div>
-    <p class="text-sm font-semibold" style="color:var(--danger);">Application Not Allowed</p>
-    <p class="text-xs mt-0.5" style="color:#c92a2a;">{{ blocked_reason }}</p>
+    <p class="text-sm font-semibold u-text-danger">Application Not Allowed</p>
+    <p class="text-xs mt-0.5 u-text-hexc92a2a">{{ blocked_reason }}</p>
   </div>
 </div>
 {% else %}
@@ -35,86 +35,86 @@
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Personal Information</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Personal Information</h2>
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5"><label>Student Number</label><input name="student_number" value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label class="is-required">Course</label><input name="course" value="{{ form.course }}" required /></div>
-          <div class="space-y-1.5"><label>Name</label><input name="name" value="{{ profile.user.get_full_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label>Age</label><input name="age" id="ageField" type="number" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label>Birth Date</label><input name="birth_date" id="birthDateField" type="date" value="{{ profile.date_of_birth|date:'Y-m-d' }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label>Gender</label><input name="gender" value="{{ profile.gender }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label>Contact Number</label><input name="contact" value="{{ profile.contact_number }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
-          <div class="space-y-1.5"><label>Address</label><input name="address" value="{{ profile.address }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" /></div>
+          <div class="space-y-1.5"><label for="f-student-number">Student Number</label><input id="f-student-number" class="u-bg-sunken u-text-muted u-cursor-blocked" name="student_number" value="{{ profile.student_id }}" readonly/></div>
+          <div class="space-y-1.5"><label for="f-course" class="is-required">Course</label><input id="f-course" name="course" value="{{ form.course }}" required /></div>
+          <div class="space-y-1.5"><label for="f-name">Name</label><input id="f-name" class="u-bg-sunken u-text-muted u-cursor-blocked" name="name" value="{{ profile.user.get_full_name }}" readonly/></div>
+          <div class="space-y-1.5"><label for="ageField">Age</label><input class="u-bg-sunken u-text-muted u-cursor-blocked" name="age" id="ageField" type="number" readonly/></div>
+          <div class="space-y-1.5"><label for="birthDateField">Birth Date</label><input class="u-bg-sunken u-text-muted u-cursor-blocked" name="birth_date" id="birthDateField" type="date" value="{{ profile.date_of_birth|date:'Y-m-d' }}" readonly/></div>
+          <div class="space-y-1.5"><label for="f-gender">Gender</label><input id="f-gender" class="u-bg-sunken u-text-muted u-cursor-blocked" name="gender" value="{{ profile.gender }}" readonly/></div>
+          <div class="space-y-1.5"><label for="f-contact">Contact Number</label><input id="f-contact" class="u-bg-sunken u-text-muted u-cursor-blocked" name="contact" value="{{ profile.contact_number }}" readonly/></div>
+          <div class="space-y-1.5"><label for="f-address">Address</label><input id="f-address" class="u-bg-sunken u-text-muted u-cursor-blocked" name="address" value="{{ profile.address }}" readonly/></div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Educational Background</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Educational Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5"><label class="is-required">Elementary School</label><input name="elementary" value="{{ form.elementary }}" required /></div>
-          <div class="space-y-1.5"><label class="is-required">High School</label><input name="highschool" value="{{ form.highschool }}" required /></div>
-          <div class="space-y-1.5"><label class="is-required">Last School Attended</label><input name="last_school" value="{{ form.last_school }}" required /></div>
+          <div class="space-y-1.5"><label for="f-elementary" class="is-required">Elementary School</label><input id="f-elementary" name="elementary" value="{{ form.elementary }}" required /></div>
+          <div class="space-y-1.5"><label for="f-highschool" class="is-required">High School</label><input id="f-highschool" name="highschool" value="{{ form.highschool }}" required /></div>
+          <div class="space-y-1.5"><label for="f-last-school" class="is-required">Last School Attended</label><input id="f-last-school" name="last_school" value="{{ form.last_school }}" required /></div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Family Background</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Family Background</h2>
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5"><label class="is-required">Father's Name</label><input name="father_name" value="{{ form.father_name }}" required /></div>
-          <div class="space-y-1.5"><label class="is-required">Father's Occupation</label><input name="father_occupation" value="{{ form.father_occupation }}" required /></div>
-          <div class="space-y-1.5"><label class="is-required">Mother's Name</label><input name="mother_name" value="{{ form.mother_name }}" required /></div>
-          <div class="space-y-1.5"><label class="is-required">Mother's Occupation</label><input name="mother_occupation" value="{{ form.mother_occupation }}" required /></div>
+          <div class="space-y-1.5"><label for="f-father-name" class="is-required">Father's Name</label><input id="f-father-name" name="father_name" value="{{ form.father_name }}" required /></div>
+          <div class="space-y-1.5"><label for="f-father-occupation" class="is-required">Father's Occupation</label><input id="f-father-occupation" name="father_occupation" value="{{ form.father_occupation }}" required /></div>
+          <div class="space-y-1.5"><label for="f-mother-name" class="is-required">Mother's Name</label><input id="f-mother-name" name="mother_name" value="{{ form.mother_name }}" required /></div>
+          <div class="space-y-1.5"><label for="f-mother-occupation" class="is-required">Mother's Occupation</label><input id="f-mother-occupation" name="mother_occupation" value="{{ form.mother_occupation }}" required /></div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--brand);">Academic Information</h2>
+        <h2 class="text-sm font-semibold mb-4 uppercase tracking-wider u-text-brand">Academic Information</h2>
         <div class="grid sm:grid-cols-3 gap-4 mb-4">
-          <div class="space-y-1.5"><label class="is-required">GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" value="{{ form.gwa }}" id="gwaInput" placeholder="e.g. 1.25" required oninput="validateGWA(this.value)" /></div>
-          <div class="space-y-1.5"><label class="is-required">Semester</label><input name="semester" value="{{ form.semester }}" readonly required /></div>
-          <div class="space-y-1.5"><label class="is-required">School Year</label><input name="school_year" value="{{ form.school_year }}" readonly required /></div>
+          <div class="space-y-1.5"><label for="gwaInput" class="is-required">GWA</label><input name="gwa" type="number" step="0.01" min="1" max="5" value="{{ form.gwa }}" id="gwaInput" placeholder="e.g. 1.25" required oninput="validateGWA(this.value)" /></div>
+          <div class="space-y-1.5"><label for="f-semester" class="is-required">Semester</label><input id="f-semester" name="semester" value="{{ form.semester }}" readonly required /></div>
+          <div class="space-y-1.5"><label for="f-school-year" class="is-required">School Year</label><input id="f-school-year" name="school_year" value="{{ form.school_year }}" readonly required /></div>
         </div>
       </div>
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h2>
-        <p class="text-xs mb-5" style="color:var(--text-muted);">All documents are required. Accepted formats: PDF, JPG, PNG · Max 5MB each.</p>
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider u-text-brand">Document Upload</h2>
+        <p class="text-xs mb-5 u-text-muted">All documents are required. Accepted formats: PDF, JPG, PNG · Max 5MB each.</p>
         <div class="space-y-4">
-          <div class="rounded-xl border p-4" style="border-color:var(--border);">
+          <div class="rounded-xl border p-4 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">1</span>
-              <label class="text-sm font-medium is-required" style="color:var(--text-soft);">Certificate of Grades</label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">1</span>
+              <label for="f-doc-certificate-of-grades" class="text-sm font-medium is-required u-text-soft">Certificate of Grades</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Official COG from the Registrar for the previous semester.</p>
-            <input type="file" name="doc_certificate_of_grades" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+            <p class="text-xs mb-2 ml-7 u-text-muted">Official COG from the Registrar for the previous semester.</p>
+            <input id="f-doc-certificate-of-grades" class="u-w-full" type="file" name="doc_certificate_of_grades" accept=".pdf,.jpg,.jpeg,.png" required/>
           </div>
-          <div class="rounded-xl border p-4" style="border-color:var(--border);">
+          <div class="rounded-xl border p-4 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">2</span>
-              <label class="text-sm font-medium is-required" style="color:var(--text-soft);">Certificate of Enrollment</label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">2</span>
+              <label for="f-doc-certificate-of-enrollment" class="text-sm font-medium is-required u-text-soft">Certificate of Enrollment</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Official COE from the Registrar for the current semester.</p>
-            <input type="file" name="doc_certificate_of_enrollment" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+            <p class="text-xs mb-2 ml-7 u-text-muted">Official COE from the Registrar for the current semester.</p>
+            <input id="f-doc-certificate-of-enrollment" class="u-w-full" type="file" name="doc_certificate_of_enrollment" accept=".pdf,.jpg,.jpeg,.png" required/>
           </div>
-          <div class="rounded-xl border p-4" style="border-color:var(--border);">
+          <div class="rounded-xl border p-4 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">3</span>
-              <label class="text-sm font-medium is-required" style="color:var(--text-soft);">Prospectus / Subject Checklist</label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">3</span>
+              <label for="f-doc-prospectus" class="text-sm font-medium is-required u-text-soft">Prospectus / Subject Checklist</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Program prospectus or subject checklist showing your enrolled subjects.</p>
-            <input type="file" name="doc_prospectus" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+            <p class="text-xs mb-2 ml-7 u-text-muted">Program prospectus or subject checklist showing your enrolled subjects.</p>
+            <input id="f-doc-prospectus" class="u-w-full" type="file" name="doc_prospectus" accept=".pdf,.jpg,.jpeg,.png" required/>
           </div>
-          <div class="rounded-xl border p-4" style="border-color:var(--border);">
+          <div class="rounded-xl border p-4 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">4</span>
-              <label class="text-sm font-medium is-required" style="color:var(--text-soft);">2×2 ID Photo</label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">4</span>
+              <label for="f-doc-id-photo" class="text-sm font-medium is-required u-text-soft">2×2 ID Photo</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Recent 2×2 ID photo with white background.</p>
-            <input type="file" name="doc_id_photo" accept=".jpg,.jpeg,.png" required style="width:100%;" />
+            <p class="text-xs mb-2 ml-7 u-text-muted">Recent 2×2 ID photo with white background.</p>
+            <input id="f-doc-id-photo" class="u-w-full" type="file" name="doc_id_photo" accept=".jpg,.jpeg,.png" required/>
           </div>
-          <div class="rounded-xl border p-4" style="border-color:var(--border);">
+          <div class="rounded-xl border p-4 u-bc-border">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">5</span>
-              <label class="text-sm font-medium is-required" style="color:var(--text-soft);">Application Form</label>
+              <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 u-bg-brand-soft u-text-brand">5</span>
+              <label for="f-doc-application-form" class="text-sm font-medium is-required u-text-soft">Application Form</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Signed and accomplished scholarship application form.</p>
-            <input type="file" name="doc_application_form" accept=".pdf,.jpg,.jpeg,.png" required style="width:100%;" />
+            <p class="text-xs mb-2 ml-7 u-text-muted">Signed and accomplished scholarship application form.</p>
+            <input id="f-doc-application-form" class="u-w-full" type="file" name="doc_application_form" accept=".pdf,.jpg,.jpeg,.png" required/>
           </div>
         </div>
       </div>
@@ -122,10 +122,10 @@
     <div>
       <div class="card p-6 sticky top-24">
         <div class="flex items-center gap-2 mb-3">
-          <svg class="h-4 w-4" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          <svg class="h-4 w-4 u-text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
           <h2 class="font-semibold">Auto-Validation</h2>
         </div>
-        <p class="text-xs mb-4" style="color:var(--text-muted);">Real-time eligibility evaluation based on submitted data.</p>
+        <p class="text-xs mb-4 u-text-muted">Real-time eligibility evaluation based on submitted data.</p>
         
         <div id="validationResult" class="p-4 rounded-xl {% if eligible %}bg-green-50{% else %}bg-red-50{% endif %}">
           <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
@@ -142,12 +142,12 @@
         </div>
         <button type="submit" name="action" value="submit" class="btn btn-primary w-full mt-6">{% if editing %}Update Application{% else %}Submit Application{% endif %}</button>
         {% if editing %}
-        <p class="text-xs mt-2" style="color:var(--text-muted);">
+        <p class="text-xs mt-2 u-text-muted">
           Re-uploading a document replaces the one on file. You can keep correcting
           this until the office decides on it.
         </p>
         {% endif %}
-        <p class="text-xs mt-3 text-center" style="color:var(--text-muted);" id="cacheStatus"></p>
+        <p class="text-xs mt-3 text-center u-text-muted" id="cacheStatus"></p>
       </div>
     </div>
   </div>

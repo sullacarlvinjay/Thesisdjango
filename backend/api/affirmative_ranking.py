@@ -9,8 +9,12 @@ them is a fact about the applicant.
 """
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from .tes_ranking import _stated
+
+if TYPE_CHECKING:
+    from .models import StudentProfile
 
 INDIGENOUS = 'Indigenous group'
 PWD = 'Person with a disability'
@@ -26,21 +30,21 @@ class TargetGroups:
     "nobody has answered yet" would rank the same if they were merged, and
     only one of them is a fact about the applicant.
     """
-    markers: tuple = ()
-    unknown: tuple = ()
+    markers: tuple[str, ...] = ()
+    unknown: tuple[str, ...] = ()
 
     @property
-    def count(self):
+    def count(self) -> int:
         """How many target groups the applicant is in."""
         return len(self.markers)
 
     @property
-    def summary(self):
+    def summary(self) -> str:
         """The markers as one readable line."""
         return ' · '.join(self.markers)
 
 
-def target_groups(profile):
+def target_groups(profile: 'StudentProfile') -> TargetGroups:
     """Read an applicant's target-group membership off their profile.
 
     The four groups come from the PASUC-8 proposal: indigenous community,

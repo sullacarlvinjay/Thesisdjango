@@ -75,46 +75,138 @@ PORTAL_FOR_ROLE = {
     'nsu_staff': '/nsu-staff/',
     'vpsea': '/vpsea/',
     'partner': '/partner/',
-    'super': '/super/',
 }
 
 def _portal_for(user):
     """The landing path for an account, by role."""
     return PORTAL_FOR_ROLE.get(user.role, '/')
 
+PENDING_MFA_USER = 'pending_mfa_user'
+PENDING_MFA_SINCE = 'pending_mfa_since'
+
+MFA_WINDOW_SECONDS = 300
+
+MFA_REFUSED = ('That code did not match. Authenticator codes change every 30 '
+               'seconds — read the current one, or use a recovery code.')
+
+
+def _start_mfa_challenge(request, user):
+    """Hold a signed-in-but-unconfirmed account and ask for its code.
+
+    The account is not signed in at this point. Only its id is held, and only
+    because its password has already checked out.
+    """
+    from django.utils import timezone
+
+    request.session[PENDING_MFA_USER] = user.pk
+    request.session[PENDING_MFA_SINCE] = timezone.now().isoformat()
+    return render(request, 'login.html', {
+        'mfa_stage': True,
+        'email': user.email,
+    })
+
+
+def _pending_mfa_account(request):
+    """The account waiting on a code, or ``None`` once the window has passed."""
+    from django.utils import timezone
+
+    user_id = request.session.get(PENDING_MFA_USER)
+    stamp = request.session.get(PENDING_MFA_SINCE)
+    if not user_id or not stamp:
+        return None
+    started = timezone.datetime.fromisoformat(stamp)
+    if timezone.is_naive(started):
+        started = timezone.make_aware(started)
+    if (timezone.now() - started).total_seconds() > MFA_WINDOW_SECONDS:
+        _forget_mfa_challenge(request)
+        return None
+    return User.objects.filter(pk=user_id, mfa_enabled=True).first()
+
+
+def _forget_mfa_challenge(request):
+    """Drop the pending-code marks from the session."""
+    request.session.pop(PENDING_MFA_USER, None)
+    request.session.pop(PENDING_MFA_SINCE, None)
+
+
+def _finish_mfa_challenge(request):
+    """Check the submitted code and sign the waiting account in."""
+    account = _pending_mfa_account(request)
+    if account is None:
+        _forget_mfa_challenge(request)
+        return render(request, 'login.html', {
+            'error': 'That sign-in timed out. Enter your email and password again.',
+        }, status=401)
+
+    wait = ratelimit.retry_after(ratelimit.MFA_CODE, request, account.email)
+    if wait is not None:
+        return render(request, 'login.html', {
+            'mfa_stage': True,
+            'email': account.email,
+            'error': ratelimit.wait_message(wait, 'code attempts'),
+        }, status=429)
+
+    if not account.check_mfa(request.POST.get('mfa_code')):
+        ratelimit.register_failure(ratelimit.MFA_CODE, request, account.email)
+        return render(request, 'login.html', {
+            'mfa_stage': True,
+            'email': account.email,
+            'error': MFA_REFUSED,
+        }, status=401)
+
+    ratelimit.clear(ratelimit.MFA_CODE, request, account.email)
+    _forget_mfa_challenge(request)
+    login(request, account, backend='django.contrib.auth.backends.ModelBackend')
+    _record_sign_in(request, account, 'password and authenticator code')
+    return redirect(_portal_for(account))
+
+
 def login_view(request):
-    """Sign a caller in, throttling and refusing without naming who exists."""
+    """Sign a caller in, throttling and refusing without naming who exists.
+
+    Accounts with a second factor stop halfway: the password is checked here
+    and the account is held by id in the session while the code is asked for,
+    so a correct password alone never produces a signed-in session.
+    """
     if request.user.is_authenticated:
         return redirect(_portal_for(request.user))
 
-    if request.method == 'POST':
-        email = (request.POST.get('email') or '').strip()
-        password = request.POST.get('password') or ''
+    if request.method != 'POST':
+        _forget_mfa_challenge(request)
+        return render(request, 'login.html')
 
-        wait = ratelimit.retry_after(ratelimit.LOGIN, request, email)
-        if wait is not None:
-            return render(request, 'login.html', {
-                'email': email,
-                'error': ratelimit.wait_message(wait, 'sign-in attempts'),
-            }, status=429)
+    if request.POST.get('mfa_code') is not None:
+        return _finish_mfa_challenge(request)
 
-        user = authenticate(request, username=email, password=password)
-        if user and not user.can_sign_in:
-            ratelimit.clear(ratelimit.LOGIN, request, email)
-            return render(request, 'login.html', {
-                'verification_status': user.verification_status,
-                'verification_note': user.verification_note,
-            })
-        if user:
-            ratelimit.clear(ratelimit.LOGIN, request, email)
-            login(request, user)
-            return redirect(_portal_for(user))
+    email = (request.POST.get('email') or '').strip()
+    password = request.POST.get('password') or ''
 
-        if email and password:
-            ratelimit.register_failure(ratelimit.LOGIN, request, email)
-        return render(request, 'login.html', _sign_in_error(email, password),
-                      status=401)
-    return render(request, 'login.html')
+    wait = ratelimit.retry_after(ratelimit.LOGIN, request, email)
+    if wait is not None:
+        return render(request, 'login.html', {
+            'email': email,
+            'error': ratelimit.wait_message(wait, 'sign-in attempts'),
+        }, status=429)
+
+    user = authenticate(request, username=email, password=password)
+    if user and not user.can_sign_in:
+        ratelimit.clear(ratelimit.LOGIN, request, email)
+        return render(request, 'login.html', {
+            'verification_status': user.verification_status,
+            'verification_note': user.verification_note,
+        })
+    if user:
+        ratelimit.clear(ratelimit.LOGIN, request, email)
+        if user.mfa_enabled:
+            return _start_mfa_challenge(request, user)
+        login(request, user)
+        _record_sign_in(request, user, 'password')
+        return redirect(_portal_for(user))
+
+    if email and password:
+        ratelimit.register_failure(ratelimit.LOGIN, request, email)
+    return render(request, 'login.html', _sign_in_error(email, password),
+                  status=401)
 
 SIGN_IN_REFUSED = (
     'Invalid email or password. Check both and try again — passwords are '
@@ -162,8 +254,28 @@ def _sign_in_error(email, password):
 
 def logout_view(request):
     """Sign out and return to the public page."""
+    from .models import ActivityLog
+
+    if request.user.is_authenticated:
+        ActivityLog.record(
+            request.user, 'Signed out', verb='sign-in',
+            target=request.user, request=request)
     logout(request)
     return redirect('/')
+
+
+def _record_sign_in(request, user, how):
+    """Record a successful sign-in, with the address it came from.
+
+    Every portal writes this, not only the API. Tracing who performed an
+    operation starts with knowing who was signed in and from where, and an
+    audit trail that begins after sign-in cannot answer that.
+    """
+    from .models import ActivityLog
+
+    ActivityLog.record(
+        user, f'Signed in with {how} ({user.get_role_display()})',
+        verb='sign-in', target=user, request=request)
 
 def _await_verification(request, user):
     """Show a new registrant that the office has their details."""
@@ -477,6 +589,146 @@ def _remember_registration_source(request, email):
     except Exception:
         logger.exception('registration: could not record the signup source for %s', email)
 
+def _account_errors(posted):
+    """Problems with the parts of the form every account carries."""
+    from . import email_verify, terms
+
+    errors = _unanswered(posted, _REQUIRED_OF_EVERYONE)
+
+    if not posted.get('accept_terms'):
+        errors.append('You must read and accept the Terms of Use and Data '
+                      'Privacy Notice before an account can be created.')
+    posted_version = (posted.get('terms_version') or '').strip()
+    if posted_version and posted_version != terms.VERSION:
+        errors.append('The Terms of Use and Data Privacy Notice was updated '
+                      'while you were filling this form in. Please read the '
+                      'current version and agree to it.')
+
+    if not (posted.get('password') or ''):
+        errors.append('Password is required.')
+    elif posted.get('password') != posted.get('confirm_password'):
+        errors.append('Passwords do not match.')
+
+    address_problem = email_verify.address_error(posted.get('email'))
+    if address_problem:
+        errors.append(address_problem)
+    elif User.objects.filter(email=posted.get('email')).exclude(
+            verification_status='rejected').exists():
+        errors.append('Email already registered.')
+    return errors
+
+
+def _student_registration_errors(posted, files):
+    """Problems with a student registration, and what it declared.
+
+    Returns:
+        ``(errors, declarations, disability)``.
+    """
+    errors = _unanswered(posted, _REQUIRED_OF_A_STUDENT)
+    errors += _unanswered_tes(posted, _REQUIRED_AFFIRMATIVE_ANSWERS)
+
+    if not posted.get('student_id'):
+        errors.append('Student ID is required.')
+    elif StudentProfile.objects.filter(
+            student_id=posted.get('student_id')).exclude(
+            user__verification_status='rejected').exists():
+        errors.append('Student ID already registered.')
+
+    if not (posted.get('disability_type') or '').strip():
+        errors.append('Disability Type is required — choose "NO" if you are '
+                      'not a person with disability.')
+    disability, problem = _disability_answer(posted)
+    if problem:
+        errors.append(problem)
+
+    declarations, link_errors = _declared_scholarships(posted, files)
+    errors.extend(link_errors)
+    errors.extend(_certificate_errors(files))
+
+    if not any(f'has_scholarship{slot}' in posted for slot in DECLARATION_SLOTS):
+        errors += _unanswered(posted, _REQUIRED_ELIGIBILITY)
+        errors += _missing_certificates(files, _REQUIRED_CERTIFICATES)
+        errors += _unanswered(posted, _REQUIRED_OF_AN_APPLICANT)
+        errors += _unanswered_tes(posted, _REQUIRED_TES_ANSWERS)
+    return errors, declarations, disability
+
+
+def _staff_registration_errors(posted, files):
+    """Problems with a staff registration, and what it declared.
+
+    Returns:
+        ``(errors, declared)``.
+    """
+    errors = _unanswered(posted, _REQUIRED_OF_STAFF)
+    declared, link_errors = _declared_staff_scholarship(posted, files)
+    errors.extend(link_errors)
+    return errors, declared
+
+
+def _new_account(posted, account_type):
+    """Create the user row a registration asked for."""
+    from django.utils import timezone
+
+    from . import terms
+
+    return User.objects.create_user(
+        username=posted.get('email'),
+        email=posted.get('email'),
+        password=posted.get('password'),
+        first_name=posted.get('first_name', '').strip(),
+        last_name=posted.get('last_name', '').strip(),
+        role=account_type,
+        verification_status='pending',
+        email_verified=False,
+        terms_version=terms.VERSION,
+        terms_accepted_at=timezone.now(),
+    )
+
+
+def _create_student_profile(request, posted, user, declarations, disability):
+    """Attach a student profile and its declarations to a new account."""
+    profile = StudentProfile.objects.create(
+        user=user,
+        student_id=posted.get('student_id'),
+        **_registration_profile_fields(posted, request.FILES, disability),
+    )
+    for declaration in declarations:
+        ScholarshipLinkRequest.objects.create(student=profile, **declaration)
+    if len(declarations) > 1:
+        notify.multiple_declarations(profile, declarations)
+
+
+def _create_staff_profile(request, posted, user, declared):
+    """Attach a staff profile and its declaration to a new account."""
+    from .models import (ActivityLog, StaffProfile,
+                         StaffScholarshipDeclaration)
+
+    staff_school = posted.get('staff_school', '').strip()
+    StaffProfile.objects.create(
+        user=user,
+        middle_name=posted.get('middle_name', '').strip(),
+        suffix=posted.get('suffix', '').strip(),
+        contact_number=posted.get('contact_number', '').strip(),
+        date_of_birth=posted.get('date_of_birth') or None,
+        gender=posted.get('gender', ''),
+        employee_id=posted.get('school_id', '').strip(),
+        school=staff_school,
+        department=posted.get('department', '').strip(),
+        position=posted.get('position', '').strip(),
+    )
+    if declared:
+        StaffScholarshipDeclaration.objects.create(staff_user=user, **declared)
+    ActivityLog.record(
+        user,
+        f"Staff account created — "
+        f"School ID: {posted.get('school_id','—')} | "
+        f"School: {staff_school or '—'} | "
+        f"Department: {posted.get('department','—')} | "
+        f"Position: {posted.get('position','—')} | "
+        f"Contact: {posted.get('contact_number','—')}",
+        verb='create', request=request, target=user)
+
+
 def register_view(request):
     """Create an account, throttled so the form cannot be driven in bulk.
 
@@ -485,138 +737,44 @@ def register_view(request):
     arbitrary addresses on the university's behalf, and both of those are done
     with submissions that succeed.
     """
-    if request.method == 'POST':
-        p = request.POST
-        errors = []
-        account_type = p.get('account_type', 'student')
+    from . import email_verify
 
-        wait = ratelimit.retry_after(ratelimit.REGISTER, request,
-                                     (p.get('email') or '').strip())
-        if wait is not None:
-            ctx = _register_context(p)
-            ctx['errors'] = [ratelimit.wait_message(wait, 'registrations')]
-            return render(request, 'register.html', ctx, status=429)
-        ratelimit.register_failure(ratelimit.REGISTER, request,
-                                   (p.get('email') or '').strip())
+    if request.method != 'POST':
+        return render(request, 'register.html',
+                      dict(_register_context(), post={}))
 
-        from django.utils import timezone
+    p = request.POST
+    account_type = p.get('account_type', 'student')
+    email = (p.get('email') or '').strip()
 
-        from . import email_verify, terms
+    wait = ratelimit.retry_after(ratelimit.REGISTER, request, email)
+    if wait is not None:
+        context = _register_context(p)
+        context['errors'] = [ratelimit.wait_message(wait, 'registrations')]
+        return render(request, 'register.html', context, status=429)
+    ratelimit.register_failure(ratelimit.REGISTER, request, email)
 
-        errors += _unanswered(p, _REQUIRED_OF_EVERYONE)
+    errors = _account_errors(p)
+    declarations, declared, disability = [], None, ''
+    if account_type == 'student':
+        student_errors, declarations, disability = _student_registration_errors(
+            p, request.FILES)
+        errors += student_errors
+    else:
+        staff_errors, declared = _staff_registration_errors(p, request.FILES)
+        errors += staff_errors
 
-        if not p.get('accept_terms'):
-            errors.append('You must read and accept the Terms of Use and Data '
-                          'Privacy Notice before an account can be created.')
-        posted_version = (p.get('terms_version') or '').strip()
-        if posted_version and posted_version != terms.VERSION:
-            errors.append('The Terms of Use and Data Privacy Notice was updated '
-                          'while you were filling this form in. Please read the '
-                          'current version and agree to it.')
+    if errors:
+        return render(request, 'register.html',
+                      dict(_register_context(p), errors=errors, post=p))
 
-        if not (p.get('password') or ''):
-            errors.append('Password is required.')
-        elif p.get('password') != p.get('confirm_password'):
-            errors.append('Passwords do not match.')
-        address_problem = email_verify.address_error(p.get('email'))
-        if address_problem:
-            errors.append(address_problem)
-        elif User.objects.filter(email=p.get('email')).exclude(
-                verification_status='rejected').exists():
-            errors.append('Email already registered.')
+    _release_rejected_registration(p.get('email'), p.get('student_id'))
+    user = _new_account(p, account_type)
+    email_verify.send_confirmation(user, request)
+    _remember_registration_source(request, user.email)
 
-        declarations, declared, disability = [], None, ''
-        if account_type == 'student':
-            errors += _unanswered(p, _REQUIRED_OF_A_STUDENT)
-            errors += _unanswered_tes(p, _REQUIRED_AFFIRMATIVE_ANSWERS)
-            if not p.get('student_id'):
-                errors.append('Student ID is required.')
-            elif StudentProfile.objects.filter(
-                    student_id=p.get('student_id')).exclude(
-                    user__verification_status='rejected').exists():
-                errors.append('Student ID already registered.')
-
-            if not (p.get('disability_type') or '').strip():
-                errors.append('Disability Type is required — choose "NO" if you are '
-                              'not a person with disability.')
-            disability, problem = _disability_answer(p)
-            if problem:
-                errors.append(problem)
-
-            declarations, link_errors = _declared_scholarships(p, request.FILES)
-            errors.extend(link_errors)
-            errors.extend(_certificate_errors(request.FILES))
-            if not any(f'has_scholarship{slot}' in p for slot in DECLARATION_SLOTS):
-                errors += _unanswered(p, _REQUIRED_ELIGIBILITY)
-                errors += _missing_certificates(request.FILES, _REQUIRED_CERTIFICATES)
-                errors += _unanswered(p, _REQUIRED_OF_AN_APPLICANT)
-                errors += _unanswered_tes(p, _REQUIRED_TES_ANSWERS)
-        else:
-            errors += _unanswered(p, _REQUIRED_OF_STAFF)
-            declared, link_errors = _declared_staff_scholarship(p, request.FILES)
-            errors.extend(link_errors)
-
-        if errors:
-            return render(request, 'register.html',
-                          dict(_register_context(p), errors=errors, post=p))
-
-        _release_rejected_registration(p.get('email'), p.get('student_id'))
-
-        user = User.objects.create_user(
-            username=p.get('email'),
-            email=p.get('email'),
-            password=p.get('password'),
-            first_name=p.get('first_name', '').strip(),
-            last_name=p.get('last_name', '').strip(),
-            role=account_type,
-            verification_status='pending',
-            email_verified=False,
-            terms_version=terms.VERSION,
-            terms_accepted_at=timezone.now(),
-        )
-        email_verify.send_confirmation(user, request)
-        _remember_registration_source(request, user.email)
-
-        if account_type == 'student':
-            profile = StudentProfile.objects.create(
-                user=user,
-                student_id=p.get('student_id'),
-                **_registration_profile_fields(p, request.FILES, disability),
-            )
-            for declaration in declarations:
-                ScholarshipLinkRequest.objects.create(student=profile, **declaration)
-            if len(declarations) > 1:
-                notify.multiple_declarations(profile, declarations)
-            return _await_verification(request, user)
-
-        else:
-            from .models import StaffProfile
-            staff_school = p.get('staff_school', '').strip()
-            StaffProfile.objects.create(
-                user=user,
-                middle_name=p.get('middle_name', '').strip(),
-                suffix=p.get('suffix', '').strip(),
-                contact_number=p.get('contact_number', '').strip(),
-                date_of_birth=p.get('date_of_birth') or None,
-                gender=p.get('gender', ''),
-                employee_id=p.get('school_id', '').strip(),
-                school=staff_school,
-                department=p.get('department', '').strip(),
-                position=p.get('position', '').strip(),
-            )
-            if declared:
-                from .models import StaffScholarshipDeclaration
-                StaffScholarshipDeclaration.objects.create(staff_user=user, **declared)
-            from .models import ActivityLog
-            ActivityLog.record(
-                user,
-                f"Staff account created — "
-                f"School ID: {p.get('school_id','—')} | "
-                f"School: {staff_school or '—'} | "
-                f"Department: {p.get('department','—')} | "
-                f"Position: {p.get('position','—')} | "
-                f"Contact: {p.get('contact_number','—')}",
-                verb='create', request=request, target=user)
-            return _await_verification(request, user)
-
-    return render(request, 'register.html', dict(_register_context(), post={}))
+    if account_type == 'student':
+        _create_student_profile(request, p, user, declarations, disability)
+    else:
+        _create_staff_profile(request, p, user, declared)
+    return _await_verification(request, user)

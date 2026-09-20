@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
 from api.models import SystemSettings
-from api.test_registration_payload import a_declared_scholar, a_student
+from api.fixtures_registration import a_declared_scholar, a_student
 
 
 def _card(html, element_id):
@@ -132,7 +132,7 @@ class RegisterEligibilityOrderTest(TestCase):
         for name in ('shs_gpa', 'shs_gpa_cert',
                      'suc_exam_score', 'suc_exam_total', 'suc_exam_cert'):
             with self.subTest(field=name):
-                field = re.search(r'<input[^>]*name="%s"[^>]*>' % name,
+                field = re.search(rf'<input[^>]*name="{name}"[^>]*>',
                                   html).group(0)
                 self.assertRegex(field, r'\brequired\b')
 

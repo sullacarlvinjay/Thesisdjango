@@ -2,7 +2,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
 from api.models import Scholarship, ScholarshipLinkRequest, SystemSettings
-from api.test_registration_payload import a_declared_scholar
+from api.fixtures_registration import a_declared_scholar
 
 CATALOGUE = (
     ('Academic Scholarship', 'Academic'),

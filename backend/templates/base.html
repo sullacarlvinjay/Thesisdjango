@@ -15,7 +15,7 @@
   </script>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=80" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=86" />
   
   <script src="{% static 'js/skeleton.js' %}?v=4"></script>
   {% block extra_head %}{% endblock %}
@@ -95,63 +95,53 @@
     </div>
   </aside>
   <div class="flex flex-1 flex-col min-w-0">
-    <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 lg:gap-4 px-4 lg:px-8" style="background:color-mix(in srgb, var(--surface) 85%, transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);">
+    <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 lg:gap-4 px-4 lg:px-8 u-bg-color-mix-in-srgb-surface-85pct-transparent u-backdrop-blur-8px u-bb-1px-solid-border">
       <button type="button" id="sidebarToggle" class="lg:hidden p-2 -ml-2 rounded-lg shrink-0 sidebar-toggle"
               aria-label="Open menu" aria-controls="appSidebar" aria-expanded="false">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <div class="min-w-0">
-        <h1 class="text-lg font-semibold truncate" style="color:var(--text);">{% block page_title %}{% endblock %}</h1>
-        <p class="text-xs truncate" style="color:var(--text-muted);">{% block page_subtitle %}{% endblock %}</p>
+        <h1 class="text-lg font-semibold truncate u-text-base">{% block page_title %}{% endblock %}</h1>
+        <p class="text-xs truncate u-text-muted">{% block page_subtitle %}{% endblock %}</p>
       </div>
       <div class="flex items-center gap-3">
         {% if academic_year %}
-        <div class="hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1" style="background:var(--brand-soft);border:1px solid var(--brand);">
-          <svg class="h-3.5 w-3.5" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span class="text-xs font-semibold" style="color:var(--brand);">{{ active_semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
+        <div class="hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1 u-bg-brand-soft u-border-1px-solid-brand">
+          <svg class="h-3.5 w-3.5 u-text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span class="text-xs font-semibold u-text-brand">{{ active_semester }} &nbsp;·&nbsp; SY {{ academic_year }}</span>
         </div>
         {% endif %}
-        <button id="dark-toggle" onclick="toggleDark()" class="relative p-2 rounded-lg hover:bg-muted" style="background:transparent;border:none;cursor:pointer;" title="Toggle dark mode"
-                aria-label="Toggle dark mode" aria-pressed="false">
+        <button id="dark-toggle" onclick="toggleDark()" class="relative p-2 rounded-lg hover:bg-muted u-bg-transparent u-border-none u-cursor-pointer" title="Toggle dark mode" aria-label="Toggle dark mode" aria-pressed="false">
           <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
           <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
         </button>
         
         {% if user.role == 'vpsea' %}
-        <a href="/vpsea/announcements/"
-           class="relative p-2 rounded-lg hover:bg-muted" style="display:inline-flex;align-items:center;justify-content:center;" title="Announcements">
+        <a href="/vpsea/announcements/" class="relative p-2 rounded-lg hover:bg-muted u-d-inline-flex u-ai-center u-jc-center" title="Announcements">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
           <span class="sr-only">Announcements</span>
         </a>
         {% elif user.role == 'nsu_staff' or user.role == 'student' %}
-        <a href="{% if user.role == 'nsu_staff' %}/nsu-staff/notifications/{% else %}/student/notifications/{% endif %}"
-           class="relative p-2 rounded-lg hover:bg-muted" style="display:inline-flex;align-items:center;justify-content:center;" title="Notifications">
+        <a href="{% if user.role == 'nsu_staff' %}/nsu-staff/notifications/{% else %}/student/notifications/{% endif %}" class="relative p-2 rounded-lg hover:bg-muted u-d-inline-flex u-ai-center u-jc-center" title="Notifications">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
           <span class="sr-only">Notifications</span>
           {% if unread_count %}
-          <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style="background:var(--danger);"></span>
+          <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full u-bg-danger-solid"></span>
           {% endif %}
         </a>
         {% endif %}
-        <a href="{% if user.role == 'student' %}/student/profile/{% elif user.role == 'nsu_staff' %}/nsu-staff/profile/{% elif user.role == 'vpsea' %}/vpsea/profile/{% elif user.role == 'partner' %}/partner/profile/{% else %}#{% endif %}"
-           class="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-muted"
-           style="text-decoration:none;" title="My Profile">
+        <a href="{% if user.role == 'student' %}/student/profile/{% elif user.role == 'nsu_staff' %}/nsu-staff/profile/{% elif user.role == 'vpsea' %}/vpsea/profile/{% elif user.role == 'partner' %}/partner/profile/{% else %}#{% endif %}" class="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-muted u-no-underline" title="My Profile">
           {% if profile_photo_url %}
-          <img src="{{ profile_photo_url }}" alt="{{ user.initials|default:'U' }}"
-               class="h-8 w-8 rounded-full object-cover shrink-0"
-               style="border:2px solid var(--brand);" />
+          <img src="{{ profile_photo_url }}" alt="{{ user.initials|default:'U' }}" class="h-8 w-8 rounded-full object-cover shrink-0 u-border-2px-solid-brand"/>
           {% else %}
-          <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
-               style="background:var(--brand);color:var(--on-brand);">{{ user.initials|default:"U" }}</div>
+          <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 u-bg-brand u-text-on-brand">{{ user.initials|default:"U" }}</div>
           {% endif %}
           <div class="hidden md:block text-left">
             <p class="text-xs font-medium leading-tight">{{ user.get_full_name|default:user.username }}</p>
-            <p class="text-xs leading-tight" style="color:var(--text-muted);"
-               title="{% if user.role == 'vpsea' %}Student Development and Services Office{% endif %}">
+            <p class="text-xs leading-tight u-text-muted" title="{% if user.role == 'vpsea' %}Student Development and Services Office{% endif %}">
               {% if user.role == 'vpsea' %}SDSO
               {% elif user.role == 'nsu_staff' %}BiPSU Staff
               {% elif user.role == 'student' %}Student
-              {% elif user.role == 'super' %}Super Admin
               {% else %}{{ user.role }}{% endif %}
             </p>
           </div>
@@ -180,29 +170,35 @@
 </script>
 <div id="sidebarBackdrop" class="sidebar-backdrop lg:hidden" hidden></div>
 <script src="{% static 'js/mobile-nav.js' %}?v=1" defer></script>
-<div id="confirmDialog" class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+<div id="confirmDialog" class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage" hidden>
   <div class="confirm-backdrop"></div>
   <div class="confirm-panel">
-    <p id="confirmTitle" class="confirm-title"></p>
+    <div class="confirm-head">
+      <svg id="confirmIcon" class="confirm-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <p id="confirmTitle" class="confirm-title"></p>
+    </div>
     <p id="confirmMessage" class="confirm-message"></p>
+    <p id="confirmConsequence" class="confirm-consequence" hidden></p>
     <div class="confirm-actions">
       <button type="button" id="confirmCancel" class="btn btn-outline">Cancel</button>
       <button type="button" id="confirmGo" class="btn confirm-go">Confirm</button>
     </div>
   </div>
 </div>
-<script src="{% static 'js/confirm-dialog.js' %}?v=1" defer></script>
+<script src="{% static 'js/confirm-dialog.js' %}?v=2" defer></script>
 <div id="docViewer" class="doc-viewer" role="dialog" aria-modal="true" aria-labelledby="docViewerTitle" hidden>
   <div class="doc-viewer-backdrop" data-doc-close></div>
   <div class="doc-viewer-panel">
     <header class="doc-viewer-bar">
-      <div style="min-width:0;">
+      <div class="u-minw-0">
         <p id="docViewerTitle" class="doc-viewer-title">Document</p>
         <p id="docViewerName" class="doc-viewer-sub"></p>
       </div>
       <div class="doc-viewer-actions">
-        <a id="docViewerOpen" href="#" target="_blank" rel="noopener" class="btn btn-outline" style="padding:0.3rem 0.7rem;font-size:0.75rem;">Open in new tab</a>
-        <a id="docViewerDownload" href="#" download class="btn btn-outline" style="padding:0.3rem 0.7rem;font-size:0.75rem;">Download</a>
+        <a id="docViewerOpen" href="#" target="_blank" rel="noopener" class="btn btn-outline u-p-0-3rem-0-7rem u-fs-0-75rem">Open in new tab</a>
+        <a id="docViewerDownload" href="#" download class="btn btn-outline u-p-0-3rem-0-7rem u-fs-0-75rem">Download</a>
         <button type="button" class="doc-viewer-close" data-doc-close aria-label="Close">&#10005;</button>
       </div>
     </header>
@@ -287,9 +283,10 @@
 {% include '_cookie_banner.html' %}
 <script src="{% static 'js/loading.js' %}?v=2" defer></script>
 <script src="{% static 'js/chrome.js' %}?v=1" defer></script>
+<script src="{% static 'js/meter.js' %}?v=1" defer></script>
 <script src="{% static 'js/consent.js' %}?v=3" defer></script>
 <script src="{% static 'js/search.js' %}?v=2" defer></script>
-<script src="{% static 'js/dl-menu.js' %}?v=1" defer></script>
+<script src="{% static 'js/dl-menu.js' %}?v=2" defer></script>
 <script src="{% static 'js/table-priority.js' %}?v=1" defer></script>
 </body>
 </html>

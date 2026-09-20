@@ -6,7 +6,7 @@ from django.test import TestCase, Client, override_settings
 
 from api import email_verify
 from api.models import User, StudentProfile, SystemSettings
-from api.test_registration_payload import a_student
+from api.fixtures_registration import a_student
 
 
 class BrokenBackend:

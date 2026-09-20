@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
 
 from api.models import StaffProfile, StudentProfile, User
-from api.test_registration_payload import a_staff_member, a_student
+from api.fixtures_registration import a_staff_member, a_student
 
 
 class RegistrationFormMixin:

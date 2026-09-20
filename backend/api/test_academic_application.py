@@ -182,7 +182,7 @@ class NothingMayBeMissingWhenApplyingTest(ApplyingStudentTestCase):
                      'father_name', 'father_occupation', 'mother_name',
                      'mother_occupation', 'gwa'):
             with self.subTest(field=name):
-                field = re.search(r'<input[^>]*name="%s"[^>]*>' % name,
+                field = re.search(rf'<input[^>]*name="{name}"[^>]*>',
                                   html).group(0)
                 self.assertRegex(field, r'\brequired\b')
 
@@ -190,7 +190,7 @@ class NothingMayBeMissingWhenApplyingTest(ApplyingStudentTestCase):
         html = self._page()
         for name in DOCUMENTS:
             with self.subTest(document=name):
-                field = re.search(r'<input[^>]*name="%s"[^>]*>' % name,
+                field = re.search(rf'<input[^>]*name="{name}"[^>]*>',
                                   html).group(0)
                 self.assertRegex(field, r'\brequired\b')
 

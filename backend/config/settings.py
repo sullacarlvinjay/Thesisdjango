@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'drf_spectacular',
     'storages',
     'api',
 ]
@@ -62,6 +63,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'api.middleware.SecurityHeadersMiddleware',
     'api.middleware.SelectiveGZipMiddleware',
     'django.middleware.http.ConditionalGetMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -233,6 +235,52 @@ MAX_UPLOAD_SIZE_MB = int(os.environ.get('MAX_UPLOAD_SIZE_MB', '10'))
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 
+CHART_CDN = 'https://cdn.jsdelivr.net'
+
+CONTENT_SECURITY_POLICY = {
+    'default-src': ["'self'"],
+    # 'unsafe-inline' is still here for scripts: several templates carry a
+    # <script> block of their own. It is gone from styles, which took moving
+    # 1,186 inline declarations into the utility layer at the foot of
+    # static/css/srms.css. A page can no longer be repainted by anything that
+    # manages to write into an attribute.
+    'script-src': ["'self'", "'unsafe-inline'", CHART_CDN],
+    'style-src': ["'self'"],
+    'img-src': ["'self'", 'data:'],
+    'font-src': ["'self'", 'data:'],
+    'connect-src': ["'self'"],
+    'frame-src': ["'self'"],
+    'frame-ancestors': ["'self'"],
+    'form-action': ["'self'"],
+    'base-uri': ["'self'"],
+    'object-src': ["'none'"],
+}
+
+CSP_REPORT_ONLY = _env_bool('CSP_REPORT_ONLY', False)
+
+MFA_REQUIRED_ROLES = tuple(_env_list('MFA_REQUIRED_ROLES', 'vpsea'))
+
+MFA_ENFORCED = _env_bool('MFA_ENFORCED', False)
+
+PERMISSIONS_POLICY = {
+    'accelerometer': [],
+    'autoplay': [],
+    'camera': [],
+    'display-capture': [],
+    'encrypted-media': [],
+    'fullscreen': ['self'],
+    'geolocation': [],
+    'gyroscope': [],
+    'interest-cohort': [],
+    'magnetometer': [],
+    'microphone': [],
+    'midi': [],
+    'payment': [],
+    'screen-wake-lock': [],
+    'usb': [],
+    'xr-spatial-tracking': [],
+}
+
 if not DEBUG:
     SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', True)
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -245,7 +293,7 @@ if not DEBUG:
     SESSION_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SAMESITE = 'Lax'
 
-    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600'))
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', False)
     SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', False)
 
@@ -311,6 +359,16 @@ else:
         },
     }
 
+# Mail, imports and report renders run on the thread pool in api/jobs.py
+# rather than inside the request. Two workers, not more: each one can be
+# holding a workbook or a rendered PDF, and the free instance has 512 MB for
+# all of it. The queue limit is a memory ceiling too -- past it, jobs run
+# inline again, which is only as bad as it was before the pool existed.
+BACKGROUND_JOBS_SYNCHRONOUS = _env_bool('BACKGROUND_JOBS_SYNCHRONOUS',
+                                        _RUNNING_TESTS)
+BACKGROUND_WORKERS = int(os.environ.get('BACKGROUND_WORKERS', '2'))
+BACKGROUND_QUEUE_LIMIT = int(os.environ.get('BACKGROUND_QUEUE_LIMIT', '50'))
+
 CATALOGUE_CACHE_SECONDS = int(os.environ.get('CATALOGUE_CACHE_SECONDS', '300'))
 ANALYTICS_CACHE_SECONDS = int(os.environ.get('ANALYTICS_CACHE_SECONDS', '600'))
 
@@ -333,6 +391,37 @@ REST_FRAMEWORK = {
     # results} rather than a bare array.
     'DEFAULT_PAGINATION_CLASS': 'api.pagination.SRMSPagination',
     'PAGE_SIZE': 50,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # The schema is published, so every endpoint under /api/ is discoverable by
+    # anyone holding a token. These are the floor: a ceiling on how fast one
+    # address or one account can work through the surface, not a substitute for
+    # the credential throttles, which are far stricter. See api/ratelimit.py.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': os.environ.get('API_ANON_RATE', '60/hour'),
+        'user': os.environ.get('API_USER_RATE', '1000/hour'),
+    },
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'BiPSU SRMS API',
+    'DESCRIPTION': (
+        'The REST surface of the Biliran Province State University Scholarship '
+        'Records Management System. Every endpoint is behind a token and most '
+        'return one person\'s data, so none of it is safe for a shared cache.\n\n'
+        'Obtain a token from `POST /api/auth/login/` and send it as '
+        '`Authorization: Token <key>`.'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api',
+    'SORT_OPERATIONS': False,
+    'CONTACT': {'name': 'BiPSU SDSO'},
 }
 
 
