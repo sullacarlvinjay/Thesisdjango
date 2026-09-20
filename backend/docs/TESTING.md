@@ -58,9 +58,10 @@ python -m coverage run manage.py test api
 python -m coverage report
 ```
 
-Per-file figures in `quality/coverage/report.txt`. Line-by-line detail in
-`quality/coverage/html/index.html` — that is the artefact to open to check any
-individual claim about a statement being reached.
+Per-file figures in `quality/coverage/report.txt`, which is committed.
+Line-by-line detail — the artefact to open to check any individual claim about
+a statement being reached — is `quality/coverage/html/index.html`, which is
+built by the command above rather than committed.
 
 Deliberately uncovered, and why:
 

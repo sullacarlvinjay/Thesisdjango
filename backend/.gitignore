@@ -65,3 +65,11 @@ htmlcov/
 
 # Scratch output from the split tooling
 .split_plan.json
+
+# The generated coverage HTML and its JSON. Both are rebuilt by
+# tools/quality_report.py in one command, and together they are 7 MB that git
+# would store again in full on every regeneration. The text reports beside
+# them — SUMMARY.md, coverage/report.txt, complexity.txt — are committed,
+# because those are what a reviewer reads.
+docs/quality/coverage/html/
+docs/quality/coverage/coverage.json

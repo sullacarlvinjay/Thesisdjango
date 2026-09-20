@@ -3554,25 +3554,6 @@ html.dark .chart-tabs { background: rgba(255, 255, 255, 0.07); }
   .pagination__count { width: 100%; text-align: center; }
 }
 
-/* Action column ---------------------------------------------------------
-   Wide office tables pushed the View control past the right edge, so it could
-   only be reached by scrolling the table sideways. Pinning the last column
-   keeps it in view at any width. */
-.table-actions-pinned th:last-child,
-.table-actions-pinned td:last-child {
-  position: sticky;
-  right: 0;
-  background: var(--surface);
-  box-shadow: -8px 0 8px -8px rgba(15, 23, 42, 0.25);
-}
-
-.dark .table-actions-pinned th:last-child,
-.dark .table-actions-pinned td:last-child {
-  background: var(--surface);
-  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.55);
-}
-
-
 /* Column priority --------------------------------------------------------
    Wide office tables drop their least useful columns as the viewport
    narrows, so the identifying column, the status and the action stay on

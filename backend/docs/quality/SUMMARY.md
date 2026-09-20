@@ -7,12 +7,12 @@ tool run, not from an estimate; the raw output sits beside this file.
 
 | Measure | Value |
 |---|---|
-| Statements | 0 |
-| Statements covered | 0 (n/a) |
-| Branches | 0 |
-| Branches covered | 0 (n/a) |
-| Partially covered branches | 0 |
-| Overall (statement + branch) | n/a% |
+| Statements | 7447 |
+| Statements covered | 6386 (85.75%) |
+| Branches | 2036 |
+| Branches covered | 1569 (77.06%) |
+| Partially covered branches | 201 |
+| Overall (statement + branch) | 83.89% |
 
 Per-file figures are in `coverage/report.txt`. `coverage/html/index.html` shows
 every line and every branch outcome, and is the artefact to open when checking
