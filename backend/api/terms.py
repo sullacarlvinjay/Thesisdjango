@@ -1,3 +1,9 @@
+"""The Terms of Use and Data Privacy Notice.
+
+Versioned: an account records which version it accepted, so a change can be
+re-presented rather than applied retroactively.
+"""
+
 VERSION = '1.0'
 EFFECTIVE = 'September 2026'
 
@@ -178,6 +184,7 @@ SECTIONS = [
 
 
 def context():
+    """The Terms of Use and Data Privacy Notice, for rendering."""
     return {
         'terms_version': VERSION,
         'terms_effective': EFFECTIVE,

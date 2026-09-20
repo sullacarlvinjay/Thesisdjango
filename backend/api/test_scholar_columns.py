@@ -24,7 +24,9 @@ def custom_column_names(html):
 
 def headings_of(html, index=0):
     import re
-    tables = re.findall(r'<table class="scholar-table".*?</thead>', html, re.S)
+    tables = re.findall(
+        r'<table[^>]*\bclass="[^"]*\bscholar-table\b[^"]*".*?</thead>',
+        html, re.S)
     if index >= len(tables):
         return []
     return [h.strip()

@@ -19,12 +19,12 @@
 </div>
 {% else %}
 {% if submitted %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
   ✓ Your Staff Scholarship application has been submitted and is pending validation.
 </div>
 {% endif %}
 {% if errors %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
   <p class="font-semibold mb-1">Please fix the following:</p>
   <ul class="list-disc list-inside space-y-0.5">
     {% for e in errors %}<li>{{ e }}</li>{% endfor %}
@@ -53,7 +53,7 @@
           </div>
           <div class="space-y-1.5">
             <label>Age</label>
-            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
           </div>
           <div class="space-y-1.5">
             <label>Gender <span style="color:var(--danger);">*</span></label>
@@ -70,7 +70,7 @@
           </div>
           <div class="space-y-1.5">
             <label>Email</label>
-            <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+            <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
           </div>
         </div>
         <div class="grid sm:grid-cols-3 gap-4 mt-4">
@@ -100,7 +100,7 @@
             <label>Course / Program <span style="color:var(--danger);">*</span></label>
             <input name="course" placeholder="e.g. BSCS" list="bipsuCourses"
                    value="{{ prefill.course }}" autocomplete="off" required />
-            <p class="text-xs" style="color:#6b7a99;">BiPSU's programmes are suggested as you type. A programme not on the list can be typed in full.</p>
+            <p class="text-xs" style="color:var(--text-muted);">BiPSU's programmes are suggested as you type. A programme not on the list can be typed in full.</p>
             <datalist id="bipsuCourses">
               {% for school, courses in bipsu_courses.items %}{% for c in courses %}
               <option value="{{ c }}"></option>
@@ -143,17 +143,17 @@
       </div>
       <div class="card p-6">
         <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Document Upload</p>
-        <p class="text-xs mb-5" style="color:#6b7a99;">Accepted formats: PDF, JPG, PNG · Max 5 MB.</p>
-        <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
+        <p class="text-xs mb-5" style="color:var(--text-muted);">Accepted formats: PDF, JPG, PNG · Max 5 MB.</p>
+        <div class="rounded-xl border p-4" style="border-color:var(--border);">
           <div class="flex items-center gap-2 mb-1">
             <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">1</span>
-            <label class="text-sm font-medium" style="color:#374151;">
+            <label class="text-sm font-medium" style="color:var(--text-soft);">
               Appointment Paper <span style="color:var(--danger);">*</span>
             </label>
           </div>
-          <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">Official appointment document issued by the university.</p>
+          <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">Official appointment document issued by the university.</p>
           {% if existing.appointment_paper %}
-          <p class="text-xs mb-2 ml-7" style="color:#0000c4;">
+          <p class="text-xs mb-2 ml-7" style="color:var(--ok);">
             ✓ Previously uploaded —
             <a href="{{ existing.appointment_paper.url }}" data-doc="Appointment Paper" style="color:var(--brand);">view file</a>.
             Upload a new one below to replace it.
@@ -170,29 +170,29 @@
       <div class="card p-6 sticky top-24 space-y-5">
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <svg class="h-4 w-4" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg class="h-4 w-4" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <h2 class="font-semibold text-sm">Eligibility</h2>
           </div>
-          <p class="text-xs mb-3" style="color:#6b7a99;">The BiPSU Staff Scholarship is open to permanent faculty and employees and their qualified dependents enrolled at BiPSU.</p>
+          <p class="text-xs mb-3" style="color:var(--text-muted);">The BiPSU Staff Scholarship is open to permanent faculty and employees and their qualified dependents enrolled at BiPSU.</p>
           <div class="space-y-2 text-xs">
             <div class="flex items-start gap-2">
-              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>Permanent BiPSU faculty or employee</span>
             </div>
             <div class="flex items-start gap-2">
-              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>Currently enrolled at BiPSU</span>
             </div>
             <div class="flex items-start gap-2">
-              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg class="h-3.5 w-3.5 mt-0.5 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>Has not yet earned a baccalaureate degree</span>
             </div>
           </div>
         </div>
-        <hr style="border-color:#e8ecf0;" />
+        <hr style="border-color:var(--border);" />
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7a99;">What Happens Next</p>
-          <ol class="space-y-2 text-xs" style="color:#6b7a99;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--text-muted);">What Happens Next</p>
+          <ol class="space-y-2 text-xs" style="color:var(--text-muted);">
             <li class="flex items-start gap-2">
               <span class="font-bold shrink-0" style="color:var(--brand);">1.</span>
               <span>Your application is reviewed by the SDSO.</span>
@@ -207,7 +207,7 @@
             </li>
           </ol>
         </div>
-        <hr style="border-color:#e8ecf0;" />
+        <hr style="border-color:var(--border);" />
         <button type="submit" name="action" value="submit" class="btn btn-primary w-full">Submit Application</button>
         <a href="/nsu-staff/" class="btn btn-outline w-full text-center block mt-2">Cancel</a>
       </div>

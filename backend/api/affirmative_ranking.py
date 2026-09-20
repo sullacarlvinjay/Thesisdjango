@@ -1,3 +1,13 @@
+"""Affirmative Action target groups.
+
+The four groups come from the PASUC-8 proposal: indigenous community, person
+with a disability, public high school, depressed area.
+
+Membership and unanswered questions are kept apart. "Not in this group" and
+"nobody has answered yet" would rank identically if merged, and only one of
+them is a fact about the applicant.
+"""
+
 from dataclasses import dataclass
 
 from .tes_ranking import _stated
@@ -10,19 +20,41 @@ DEPRESSED_AREA = 'Depressed area'
 
 @dataclass(frozen=True)
 class TargetGroups:
+    """Which Affirmative Action target groups an applicant falls into.
+
+    Markers and unknowns are kept apart on purpose. "Not in this group" and
+    "nobody has answered yet" would rank the same if they were merged, and
+    only one of them is a fact about the applicant.
+    """
     markers: tuple = ()
     unknown: tuple = ()
 
     @property
     def count(self):
+        """How many target groups the applicant is in."""
         return len(self.markers)
 
     @property
     def summary(self):
+        """The markers as one readable line."""
         return ' · '.join(self.markers)
 
 
 def target_groups(profile):
+    """Read an applicant's target-group membership off their profile.
+
+    The four groups come from the PASUC-8 proposal: indigenous community,
+    person with a disability, public high school, depressed area.
+
+    An unanswered question is recorded as unknown rather than as a "no". The
+    distinction decides whether the office chases the applicant for an answer
+    or rules on what it has, and collapsing the two would quietly downgrade
+    everyone whose form was incomplete.
+
+    Returns:
+        A :class:`TargetGroups` carrying the markers earned and the questions
+        still outstanding.
+    """
     markers, unknown = [], []
 
     group = _stated(profile.indigenous_group)

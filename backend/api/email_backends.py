@@ -1,3 +1,14 @@
+"""Sending mail over Brevo's HTTPS API.
+
+Render blocks outbound SMTP on free web services, so a perfectly correct SMTP
+configuration connects to nothing there: every send waits out the timeout and
+is swallowed, and the site looks like it is emailing people while it is not.
+This route is ordinary HTTPS.
+
+Brevo also verifies a single sender address rather than a whole domain, which
+matters because nobody on this project can add DNS records to bipsu.edu.ph.
+"""
+
 import json
 import logging
 import urllib.error
@@ -15,10 +26,12 @@ CREATED = 201
 
 
 class BrevoSendError(Exception):
+    """Raised when Brevo refuses a message."""
     pass
 
 
 def _address(value):
+    """Split ``Name <a@b>`` into the shape Brevo expects."""
     name, email = parseaddr(value or '')
     entry = {'email': email or value or ''}
     if name:
@@ -27,6 +40,13 @@ def _address(value):
 
 
 class BrevoEmailBackend(BaseEmailBackend):
+    """Send mail through Brevo's HTTPS API instead of SMTP.
+
+    Render blocks outbound SMTP on free web services, so a correct SMTP
+    configuration connects to nothing there: every send waits out the
+    timeout and is swallowed, and the site looks like it is emailing
+    people while it is not. This route is ordinary HTTPS.
+    """
     def __init__(self, fail_silently=False, api_key=None, timeout=None, **kwargs):
         super().__init__(fail_silently=fail_silently, **kwargs)
         self.api_key = (getattr(settings, 'BREVO_API_KEY', '')
@@ -35,6 +55,12 @@ class BrevoEmailBackend(BaseEmailBackend):
                         if timeout is None else timeout)
 
     def send_messages(self, email_messages):
+        """Send each message, honouring ``fail_silently``.
+
+        Returns the number that went out. A refusal is logged with the
+        recipient, because a silent failure here means an applicant is never
+        told what the office decided.
+        """
         if not email_messages:
             return 0
         if not self.api_key:
@@ -56,6 +82,12 @@ class BrevoEmailBackend(BaseEmailBackend):
         return sent
 
     def _payload(self, message):
+        """Build the JSON body for one message.
+
+        Brevo verifies a single sender address rather than a domain, so the
+        From line is whatever address was verified — it cannot be set per
+        message.
+        """
         recipients = [_address(a) for a in message.to if a]
         if not recipients:
             raise BrevoSendError('The message named no recipient.')
@@ -84,6 +116,7 @@ class BrevoEmailBackend(BaseEmailBackend):
         return payload
 
     def _send(self, message):
+        """Post one prepared message to the Brevo API."""
         request = urllib.request.Request(
             API_URL,
             data=json.dumps(self._payload(message)).encode('utf-8'),

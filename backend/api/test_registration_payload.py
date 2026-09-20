@@ -31,7 +31,7 @@ ELIGIBILITY = ('shs_gpa', 'suc_exam_score', 'suc_exam_total',
                'is_listahanan_household', 'is_4ps_beneficiary',
                'is_solo_parent_dependent', 'has_previous_degree')
 
-CERTIFICATES = ('shs_gpa_cert', 'suc_exam_cert')
+CERTIFICATES = ('shs_gpa_cert', 'suc_exam_cert', 'study_load')
 
 
 def a_certificate(name):

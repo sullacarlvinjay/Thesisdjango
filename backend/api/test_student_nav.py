@@ -1,5 +1,4 @@
 import glob
-import io
 import os
 import re
 
@@ -90,7 +89,7 @@ class StudentNavTest(TestCase):
             name = os.path.basename(path)
             if name == '_nav.html':
                 continue
-            html = io.open(path, encoding='utf-8').read()
+            html = open(path, encoding='utf-8').read()
             self.assertIn('{% include "student/_nav.html"', html, name)
             self.assertNotIn('/student/renewal/academic/" class="sidebar-link',
                              html, f'{name} still has its own copy of the nav')

@@ -7,12 +7,12 @@
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
 {% block content %}
 {% if saved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
   ✓ Profile saved successfully.
 </div>
 {% endif %}
 {% for e in errors %}
-<div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ e }}</div>
+<div class="mb-3 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">{{ e }}</div>
 {% endfor %}
 {% include "_staff_units_datalist.html" %}
 <form method="post" enctype="multipart/form-data" class="space-y-6">
@@ -39,14 +39,14 @@
       </label>
       <div>
         <p class="text-sm font-medium">{{ user.get_full_name }}</p>
-        <p class="text-xs mt-0.5" style="color:#6b7a99;">Click your photo to upload a new one. JPG, PNG or WebP, square crop recommended.</p>
+        <p class="text-xs mt-0.5" style="color:var(--text-muted);">Click your photo to upload a new one. JPG, PNG or WebP, square crop recommended.</p>
       </div>
     </div>
   </div>
 
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Account Information</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Email is managed by the administrator and cannot be changed here.</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">Email is managed by the administrator and cannot be changed here.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>First Name</label>
@@ -58,17 +58,17 @@
       </div>
       <div class="space-y-1.5">
         <label>Email</label>
-        <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ user.email }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Role</label>
-        <input value="BiPSU Staff" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="BiPSU Staff" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
     </div>
   </div>
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Personal Details</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Kept on your own record, not on any one application. Correcting something here never changes an application the office already reviewed.</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">Kept on your own record, not on any one application. Correcting something here never changes an application the office already reviewed.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>Middle Name</label>
@@ -76,8 +76,8 @@
       </div>
       <div class="space-y-1.5">
         <label>Middle Initial</label>
-        <input value="{{ staff.middle_initial }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        <p class="text-xs" style="color:#6b7a99;">Taken from your middle name.</p>
+        <input value="{{ staff.middle_initial }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
+        <p class="text-xs" style="color:var(--text-muted);">Taken from your middle name.</p>
       </div>
       <div class="space-y-1.5">
         <label>Suffix</label>
@@ -126,7 +126,7 @@
   </div>
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Employment Details</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Your appointment as it stands today. The Staff Scholarship is open to regular employees, so keep this current.</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">Your appointment as it stands today. The Staff Scholarship is open to regular employees, so keep this current.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>School / Employee ID</label>
@@ -136,7 +136,7 @@
         <label>Office / College / Unit</label>
         <input name="school" value="{{ staff.school }}" list="bipsuStaffUnits"
                placeholder="Start typing, or pick from the list" autocomplete="off" />
-        <p class="text-xs" style="color:#6b7a99;">BiPSU's own offices, colleges and units are suggested as you type. If yours has been renamed or is not listed, type it in full.</p>
+        <p class="text-xs" style="color:var(--text-muted);">BiPSU's own offices, colleges and units are suggested as you type. If yours has been renamed or is not listed, type it in full.</p>
       </div>
       <div class="space-y-1.5">
         <label>Department</label>
@@ -167,13 +167,13 @@
       <div class="space-y-1.5">
         <label>Date Hired</label>
         <input name="date_hired" type="date" value="{{ staff.date_hired|date:'Y-m-d'|default:'' }}" />
-        <p class="text-xs" style="color:#6b7a99;">Fill this in and your years of service are counted for you.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Fill this in and your years of service are counted for you.</p>
       </div>
       <div class="space-y-1.5">
         <label>Years of Service</label>
         {% if staff.date_hired %}
-        <input value="{{ staff.years_of_service }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
-        <p class="text-xs" style="color:#6b7a99;">Counted from your date hired.</p>
+        <input value="{{ staff.years_of_service }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
+        <p class="text-xs" style="color:var(--text-muted);">Counted from your date hired.</p>
         {% else %}
         <input name="years_of_service" type="number" min="0" step="1" placeholder="e.g. 5"
                value="{{ staff.declared_years_of_service|default_if_none:'' }}" />
@@ -206,60 +206,60 @@
   {% if aff_app %}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">BiPSU Staff Scholarship Record</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">The application the SDSO reviewed, as it was submitted. Contact the SDSO to have it corrected — editing your profile above does not change it.</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">The application the SDSO reviewed, as it was submitted. Contact the SDSO to have it corrected — editing your profile above does not change it.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>Full Name (on record)</label>
-        <input value="{{ aff_app.full_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.full_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Application Status</label>
-        <input value="{{ aff_app.status }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.status }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Course</label>
-        <input value="{{ aff_app.course }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.course }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Year Level</label>
-        <input value="{{ aff_app.year_level }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.year_level }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Staff / Dependent</label>
         <input value="{% if aff_app.is_nsu_staff %}BiPSU Staff (Direct){% else %}BiPSU Staff Dependent{% endif %}"
-               readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+               readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       {% if aff_app.is_nsu_dependent %}
       <div class="space-y-1.5">
         <label>Staff Name</label>
-        <input value="{{ aff_app.staff_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.staff_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Employee ID</label>
-        <input value="{{ aff_app.staff_employee_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.staff_employee_id }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Relationship</label>
-        <input value="{{ aff_app.relationship_to_staff }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ aff_app.relationship_to_staff }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       {% endif %}
       {% if aff_app.remarks %}
       <div class="space-y-1.5 sm:col-span-2">
         <label>Remarks from the office</label>
-        <textarea readonly rows="2" style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;">{{ aff_app.remarks }}</textarea>
+        <textarea readonly rows="2" style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;">{{ aff_app.remarks }}</textarea>
       </div>
       {% endif %}
     </div>
   </div>
   {% else %}
-  <div class="card p-6" style="background:#fffbe0;border-color:#fdea2b;">
-    <p class="text-sm font-medium" style="color:#6b5600;">You have not applied for the BiPSU Staff Scholarship yet.</p>
-    <p class="text-xs mt-1 mb-3" style="color:#6b5600;">
+  <div class="card p-6" style="background:var(--warn-bg);border-color:#fdea2b;">
+    <p class="text-sm font-medium" style="color:var(--warn);">You have not applied for the BiPSU Staff Scholarship yet.</p>
+    <p class="text-xs mt-1 mb-3" style="color:var(--warn);">
       Your employment details above are saved either way — the apply form reads them,
       so you only have to fill them in once.
     </p>
     <a href="/nsu-staff/apply/" class="btn btn-primary" style="display:inline-flex;">Apply for the Staff Scholarship</a>
-    <p class="text-xs mt-3" style="color:#6b5600;">If you believe a record already exists, contact the SDSO — it may be filed under a different email address.</p>
+    <p class="text-xs mt-3" style="color:var(--warn);">If you believe a record already exists, contact the SDSO — it may be filed under a different email address.</p>
   </div>
   {% endif %}
   <div class="flex justify-end">

@@ -111,7 +111,7 @@ class Command(BaseCommand):
             ('liza.torres@bipsu.edu.ph', 'Liza', 'Torres', '2022-00107', 'BS Criminology', 4, 1.55, 'Female', 'Maripipi', 'Biliran', 160000, {}),
         ]
         scholarship_types = ['Academic', 'TDP', 'DOST', 'CHED', 'CoScho', 'Sports', 'GSIS']
-        for (email, first, last, sid, course, yr, gwa, gender, mun, prov, income, extra), stype in zip(archive_students, scholarship_types):
+        for (email, first, last, sid, course, yr, gwa, gender, mun, prov, income, extra), stype in zip(archive_students, scholarship_types, strict=False):
             u, _ = User.objects.get_or_create(
                 email=email,
                 defaults={'username': email, 'first_name': first, 'last_name': last, 'role': 'student'}

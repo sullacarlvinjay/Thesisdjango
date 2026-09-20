@@ -5,10 +5,11 @@
 {% block page_subtitle %}Track and manage your submitted applications{% endblock %}
 {% block nav %}{% include "student/_nav.html" %}{% endblock %}
 {% block content %}
+{% include "_window_notice.html" %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
     <div class="relative flex-1" style="min-width:16rem;">
-      <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style="color:#6b7a99;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+      <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style="color:var(--text-muted);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
       <input id="search" placeholder="Search applications…" style="padding-left:2.25rem;" oninput="filterTable(this.value)" />
     </div>
   </div>
@@ -31,7 +32,7 @@
             {% elif a.status == "Needs Revision" %}<span class="badge badge-info">{{ a.status }}</span>
             {% else %}<span class="badge badge-warning">{{ a.status }}</span>{% endif %}
           </td>
-          <td style="color:#6b7a99;">{{ a.remarks|default:"—" }}</td>
+          <td style="color:var(--text-muted);">{{ a.remarks|default:"—" }}</td>
           <td>{{ a.updated_at|date:"M d, Y" }}</td>
           <td>
             <button class="btn btn-outline" style="padding:0.25rem 0.75rem;font-size:0.75rem;" onclick="openModal('app-{{ a.id }}')">
@@ -41,7 +42,7 @@
         </tr>
         {% endfor %}
         {% if not applications %}
-        <tr><td colspan="7" class="text-center py-8" style="color:#6b7a99;">No applications yet.</td></tr>
+        <tr><td colspan="7" class="text-center py-8" style="color:var(--text-muted);">No applications yet.</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -51,7 +52,7 @@
   <div class="modal">
     <div class="modal-header">
       <h2 class="font-semibold text-base" id="modalTitle"></h2>
-      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7a99;font-size:1.25rem;line-height:1;">✕</button>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.25rem;line-height:1;">✕</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
@@ -60,7 +61,7 @@
   {% for a in applications %}
   <div id="app-{{ a.id }}">
     {% if a.remarks %}
-    <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:#fffbe0;border:1px solid #fdea2b;color:#6b5600;">
+    <div class="rounded-xl px-4 py-3 mb-1 text-sm" style="background:var(--warn-bg);border:1px solid #fdea2b;color:var(--warn);">
       <span class="font-semibold">Admin Remarks:</span> {{ a.remarks }}
     </div>
     {% endif %}

@@ -1,9 +1,9 @@
 <div class="space-y-6">
   <div class="card p-4 flex flex-wrap items-center gap-4">
-    <span class="text-sm font-medium" style="color:#374151;">Viewing: <strong>{{ selected_sy_display }}</strong></span>
+    <span class="text-sm font-medium" style="color:var(--text-soft);">Viewing: <strong>{{ selected_sy_display }}</strong></span>
     <form method="get" class="flex flex-wrap items-center gap-3 ml-auto" data-auto-submit>
       <div class="flex items-center gap-2">
-        <label class="text-sm" style="color:#6b7a99;">Period:</label>
+        <label class="text-sm" style="color:var(--text-muted);">Period:</label>
         <select name="sy" class="select-inline">
           {% for group in sy_groups %}
           <optgroup label="{{ group.sy }}">
@@ -15,7 +15,7 @@
         </select>
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm" style="color:#6b7a99;">Program:</label>
+        <label class="text-sm" style="color:var(--text-muted);">Program:</label>
         <select name="stype" class="select-inline">
           <option value="" {% if not selected_type %}selected{% endif %}>All Programs</option>
           {% for t in all_types %}
@@ -36,7 +36,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
       <div>
         <h2 class="font-semibold">Scholars by Semester <span data-trend-scope>&mdash; {% if whole_year %}{{ selected_academic_year }}{% else %}{{ selected_term_display }}{% endif %}</span></h2>
-        <p class="text-xs mt-0.5" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one bar per scholarship program and award level{% endif %}</p>
+        <p class="text-xs mt-0.5" style="color:var(--text-muted);">{% if selected_type %}{{ selected_type }} scholars enrolled per semester{% else %}Scholars enrolled per semester, one bar per scholarship program and award level{% endif %}</p>
       </div>
       <div class="flex items-center gap-2">
         {% if show_trend %}
@@ -75,7 +75,7 @@
         <button type="button" class="chart-toggle-btn chart-png-btn" data-png="gwaChart" data-png-name="gwa-distribution">&#8681; PNG</button>
       </div>
     </div>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Academic scholars from rollover list</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">Academic scholars from rollover list</p>
     <figure class="xl-figure">
       <canvas id="gwaChart" width="600" height="420"></canvas>
       <figcaption class="xl-figure__caption" data-figure>General weighted average of academic scholars — {{ selected_sy_display }}</figcaption>
@@ -90,7 +90,7 @@
         {% if course_dist %}<button type="button" class="chart-toggle-btn chart-png-btn" data-png="courseChart" data-png-name="scholars-by-program">&#8681; PNG</button>{% endif %}
       </div>
     </div>
-    <p class="text-xs mb-4" style="color:#6b7a99;">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">{% if selected_type %}{{ selected_type }}{% else %}All programs{% endif %} — {{ selected_sy_display }}</p>
     {% if course_dist %}
     <figure class="xl-figure">
       <canvas id="courseChart" width="900" height="{{ course_chart_height }}"></canvas>

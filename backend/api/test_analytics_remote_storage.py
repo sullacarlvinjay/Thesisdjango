@@ -100,5 +100,5 @@ class RolloverOnRemoteStorageTest(TestCase):
             scholarship_type='CHED', term_label='25-2', scholar_count=1)
         record.excel_file.save('CHED_25-2.xlsx', ContentFile(b'not a workbook'),
                                save=True)
-        with self.assertLogs('api.student_views', level='ERROR'):
+        with self.assertLogs('api', level='ERROR'):
             self.assertEqual(self.page('25-2').context['course_dist'], [])

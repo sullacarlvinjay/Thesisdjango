@@ -1,3 +1,13 @@
+"""Upload validators.
+
+An extension allow-list and a size ceiling read from ``SystemSettings``, so the
+office can change the limit without a redeploy.
+
+These run during ``full_clean()``, which a plain ``save()`` does not call. A
+view that assigns an upload straight to a field and saves gets no validation at
+all, and must call the checks itself.
+"""
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
@@ -10,11 +20,20 @@ SPREADSHEET_EXTENSIONS = ['xlsx', 'xls', 'csv']
 
 @deconstructible
 class MaxFileSize:
+    """Reject an upload larger than the configured ceiling.
+
+    Deconstructible and comparing by limit so Django does not write a new
+    migration every time it is used.
+
+    The limit is read at validation time, not at import: ``None`` defers to
+    ``MAX_UPLOAD_SIZE_MB``, so the office can change it without a redeploy.
+    """
     def __init__(self, limit_mb=None):
         self.limit_mb = limit_mb
 
     @property
     def _limit(self):
+        """The ceiling in megabytes, read fresh from settings."""
         return self.limit_mb or getattr(settings, 'MAX_UPLOAD_SIZE_MB', 10)
 
     def __call__(self, value):

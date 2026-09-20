@@ -1,9 +1,24 @@
+"""Django system checks for configuration that fails quietly.
+
+Everything here is a warning rather than an error: the site runs fine without
+it. That is exactly why it is worth reporting at deploy time instead of
+discovering when an applicant says they were never told anything.
+"""
+
 from django.conf import settings
 from django.core.checks import Warning, register
 
 
 @register()
 def email_is_configured_in_production(app_configs, **kwargs):
+    """Warn when nothing will actually send mail.
+
+    A warning rather than an error, because the site runs perfectly
+    without mail: the console backend accepts every message, writes it to
+    the log and delivers it to nobody, raising nothing. That is the
+    failure worth catching at deploy time instead of discovering when an
+    applicant says they were never told.
+    """
     backend = getattr(settings, 'EMAIL_BACKEND', '')
     if (settings.DEBUG
             or getattr(settings, 'EMAIL_ENABLED', False)

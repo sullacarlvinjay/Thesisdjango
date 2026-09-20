@@ -289,15 +289,28 @@ class MasterlistTermTest(MasterlistFixtures, TestCase):
         self.assertEqual([r['last_name'] for r in context['program1']['female']],
                          ['Lim'])
 
-    def test_an_awarded_scholar_is_on_every_terms_list(self):
+    def test_an_awarded_scholar_appears_only_in_the_term_they_were_awarded(self):
+        """Portal awards are term-scoped, exactly as imported rows are.
+
+        They were not. Imported scholars were filtered by term while portal
+        applications and applicant records were not, so choosing a semester
+        moved only part of the report and every list silently carried every
+        approved award ever made.
+        """
         self._scholar('Academic', 'Cruz', 'Ana', 'F', '2024-0001')
         self._imported('Academic', 'Reyes', '25-1')
 
-        for term in ('25-1', '26-1'):
-            with self.subTest(term=term):
-                context, _ = masterlist_report.build_context(term_label=term)
-                self.assertIn('Cruz',
-                              [r['last_name'] for r in context['program1']['female']])
+        def surnames(term):
+            context, _ = masterlist_report.build_context(term_label=term)
+            return [r['last_name'] for r in context['program1']['female']]
+
+        self.assertIn('Cruz', surnames('26-1'),
+                      'the award is missing from the term it was filed in')
+        self.assertNotIn(
+            'Cruz', surnames('25-1'),
+            "a 26-1 award appeared on the 25-1 list, so the term selector "
+            "does not actually scope the report")
+        self.assertIn('Reyes', surnames('25-1'))
 
     def test_the_tab_offers_every_term_and_stamps_the_one_chosen(self):
         self._imported('Academic', 'Reyes', '25-1')

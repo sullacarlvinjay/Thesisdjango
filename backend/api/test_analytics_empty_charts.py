@@ -48,7 +48,7 @@ class EmptyChartsTest(TestCase):
     def test_the_cards_are_still_there_and_say_why_they_are_empty(self):
         html = self.page().content.decode()
         self.assertIn('Scholars by Semester', html)
-        self.assertIn('Scholars by Course', html)
+        self.assertIn('Scholars by Program', html)
         self.assertIn('No rollover data available for this selection.', html)
         self.assertNotIn('Scholars per Scholarship Program', html,
                          'that card was retired; its numbers are in the by-semester '

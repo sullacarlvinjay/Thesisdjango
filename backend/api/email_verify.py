@@ -1,3 +1,11 @@
+"""Confirming that a registrant's email address is real.
+
+The address is signed into the token along with the account ID, so a link stops
+working once the address changes. Confirming does not sign anyone in — the
+office still reviews every registration — it establishes only that the address
+is reachable, which is how the applicant will be told the decision.
+"""
+
 import logging
 import re
 
@@ -18,6 +26,12 @@ _DOMAIN = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?'
 
 
 def address_error(email):
+    """Why this address cannot be written to, or '' if it can.
+
+    Checked beyond Django's own validator because the address is the only
+    way the office reaches an applicant. A typo here does not surface as
+    an error later; it surfaces as a scholar who was never told anything.
+    """
     email = (email or '').strip()
     if not email:
         return 'Enter your email address — it is how the office reaches you.'
@@ -36,10 +50,23 @@ def address_error(email):
 
 
 def make_token(user):
+    """A signed, expiring token identifying the user and their address.
+
+    The address is signed into the token as well as the ID, so a link
+    stops working once the address changes — see :func:`read_token`.
+    """
     return TimestampSigner(salt=SALT).sign(f'{user.pk}:{user.email}')
 
 
 def read_token(token, max_age=None):
+    """Read a confirmation token back to the user who was sent it.
+
+    Returns:
+        ``(user, '')`` when the link is good, otherwise ``(None, reason)``
+        where reason is ``'expired'``, ``'invalid'`` or ``'stale'``.
+        ``'stale'`` means the address changed after the link was sent, so
+        confirming it would confirm an address nobody now holds.
+    """
     from .models import User
 
     if max_age is None:
@@ -61,6 +88,12 @@ def read_token(token, max_age=None):
 
 
 def confirmation_url(user, request=None):
+    """The absolute link to put in the confirmation email.
+
+    Falls back to the request's host when ``SITE_URL`` is unset, and to a
+    bare path when there is no request either — a relative link is useless
+    in an inbox, but it is better than a link to the wrong host.
+    """
     path = f'/register/verify/{make_token(user)}/'
     base = getattr(settings, 'SITE_URL', '')
     if base:
@@ -71,6 +104,11 @@ def confirmation_url(user, request=None):
 
 
 def send_confirmation(user, request=None):
+    """Email the address-confirmation link and record the attempt.
+
+    The timestamp is written whether or not the send succeeded, because it
+    is what rate-limits the resend button. Returns whether it went out.
+    """
     from django.utils import timezone
     from . import notify
 

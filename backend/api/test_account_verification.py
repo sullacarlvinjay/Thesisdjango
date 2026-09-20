@@ -41,6 +41,37 @@ class RegistrationLeavesTheAccountPendingTest(TestCase):
         self.assertTrue(office.can_sign_in)
 
 
+def _message_of(response):
+    """The refusal text a visitor actually reads, stripped of the address echo.
+
+    Two refusals must be indistinguishable. Comparing whole pages would not
+    show that: the form echoes back whatever address was typed, so the bodies
+    differ for an innocent reason. This pulls out the message alone.
+    """
+    import re
+    found = re.search(r'badge-destructive[^>]*>\s*([^<]+)',
+                      response.content.decode())
+    return ' '.join(found.group(1).split()) if found else ''
+
+
+def with_certificates(base, **overrides):
+    """A registration payload carrying the two certificates the form demands.
+
+    Both are mandatory, so a POST that leaves them out is refused before
+    anything is written and the account never exists. A test aimed at some
+    other field still has to send them, or it ends up asserting against a
+    registration that failed for a reason it was not testing.
+
+    Overrides are applied last, so a case that deliberately sends a bad
+    certificate still gets the one it asked for.
+    """
+    from api.test_registration_payload import CERTIFICATES, a_certificate
+    posted = dict(base)
+    posted.update({name: a_certificate(name) for name in CERTIFICATES})
+    posted.update(overrides)
+    return posted
+
+
 class SigningInWhileUnverifiedTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -75,17 +106,27 @@ class SigningInWhileUnverifiedTest(TestCase):
 
     def test_a_wrong_password_never_reveals_the_account_standing(self):
         r = self._sign_in(password='not-the-password')
-        self.assertContains(r, 'password does not match')
-        self.assertNotContains(r, 'waiting for verification')
+        self.assertContains(r, 'Invalid email or password', status_code=401)
+        self.assertNotContains(r, 'waiting for verification', status_code=401)
 
-    def test_an_unknown_address_says_so_rather_than_blaming_the_password(self):
-        r = self._sign_in(email='nobody@bipsu.edu.ph')
-        self.assertContains(r, 'No account is registered')
-        self.assertContains(r, 'Register an account')
+    def test_an_unknown_address_is_refused_in_the_same_words(self):
+        unknown = self._sign_in(email='nobody@bipsu.edu.ph')
+        wrong_password = self._sign_in(password='not-the-password')
+        self.assertContains(unknown, 'Invalid email or password', status_code=401)
+        self.assertNotContains(unknown, 'nobody@bipsu.edu.ph is', status_code=401)
+        self.assertEqual(
+            _message_of(unknown), _message_of(wrong_password),
+            'the refusal reveals whether the address has an account')
+
+    def test_the_offer_to_register_appears_either_way(self):
+        unknown = self._sign_in(email='nobody@bipsu.edu.ph')
+        wrong_password = self._sign_in(password='not-the-password')
+        self.assertContains(unknown, 'Register an account', status_code=401)
+        self.assertContains(wrong_password, 'Register an account', status_code=401)
 
     def test_a_wrong_password_keeps_the_address_on_the_form(self):
         r = self._sign_in(password='not-the-password')
-        self.assertContains(r, self.user.email)
+        self.assertContains(r, self.user.email, status_code=401)
 
 
 class SDSOVerificationQueueTest(TestCase):
@@ -433,11 +474,7 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         User.objects.create_user(
             username='sdso@bipsu.edu.ph', email='sdso@bipsu.edu.ph', password='pw',
             first_name='Rosario', last_name='Bayhon', role='vpsea')
-        from api.test_registration_payload import CERTIFICATES, a_certificate
-
-        posted = dict(self.REGISTRATION)
-        posted.update({name: a_certificate(name) for name in CERTIFICATES})
-        Client().post('/register/', posted)
+        Client().post('/register/', with_certificates(self.REGISTRATION))
         self.profile = StudentProfile.objects.get(student_id='2022-00777')
         self.c = Client()
         self.assertTrue(self.c.login(email='sdso@bipsu.edu.ph', password='pw'))
@@ -469,7 +506,7 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         self.assertTrue(self.profile.is_pwd)
 
     def test_declining_the_disability_question_is_an_answer_not_a_pwd(self):
-        Client().post('/register/', dict(
+        Client().post('/register/', with_certificates(
             self.REGISTRATION, email='noel@bipsu.edu.ph',
             student_id='2022-00778', disability_type='NO'))
         other = StudentProfile.objects.get(student_id='2022-00778')
@@ -477,13 +514,13 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
         self.assertFalse(other.is_pwd)
 
     def test_other_needs_the_disability_spelled_out(self):
-        r = Client().post('/register/', dict(
+        r = Client().post('/register/', with_certificates(
             self.REGISTRATION, email='rey@bipsu.edu.ph', student_id='2022-00779',
             disability_type='Other', disability_type_other='  '))
         self.assertContains(r, 'Name the disability')
         self.assertFalse(User.objects.filter(email='rey@bipsu.edu.ph').exists())
 
-        Client().post('/register/', dict(
+        Client().post('/register/', with_certificates(
             self.REGISTRATION, email='rey@bipsu.edu.ph', student_id='2022-00779',
             disability_type='Other',
             disability_type_other='Speech and language impairment'))
@@ -503,7 +540,7 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
             self.assertContains(r, value)
 
     def test_a_registration_cannot_leave_a_three_state_unanswered(self):
-        r = Client().post('/register/', dict(
+        r = Client().post('/register/', with_certificates(
             self.REGISTRATION, email='mia@bipsu.edu.ph', student_id='2022-00780',
             is_listahanan_household='unknown', is_4ps_beneficiary='',
             has_previous_degree='unknown'))
@@ -517,7 +554,7 @@ class TheQueueShowsWhatTheRegistrationSentTest(TestCase):
 
     def test_the_certificates_are_checked_before_anything_is_written(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
-        r = Client().post('/register/', dict(
+        r = Client().post('/register/', with_certificates(
             self.REGISTRATION, email='ivy@bipsu.edu.ph', student_id='2022-00781',
             shs_gpa_cert=SimpleUploadedFile('grades.exe', b'MZ',
                                             content_type='application/octet-stream')))
@@ -537,7 +574,7 @@ class TheDecidedListShowsTheWholeRecordTest(TestCase):
         self.officer = User.objects.create_user(
             username='sdso@bipsu.edu.ph', email='sdso@bipsu.edu.ph', password='pw',
             first_name='Rosario', last_name='Bayhon', role='vpsea')
-        Client().post('/register/', dict(self.REGISTRATION))
+        Client().post('/register/', with_certificates(self.REGISTRATION))
         self.student = User.objects.get(email='lita@bipsu.edu.ph')
         self.c = Client()
         self.assertTrue(self.c.login(email='sdso@bipsu.edu.ph', password='pw'))

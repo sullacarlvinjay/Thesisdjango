@@ -1,0 +1,59 @@
+[tool.coverage.run]
+branch = true
+source = ["api", "config"]
+parallel = true
+concurrency = ["multiprocessing", "thread"]
+omit = [
+    "*/migrations/*",
+    "*/venv/*",
+    "*/node_modules/*",
+    "api/test_*.py",
+    "manage.py",
+    "config/wsgi.py",
+    "config/asgi.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2
+exclude_also = [
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if settings.DEBUG:",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "docs/quality/coverage/html"
+
+[tool.coverage.xml]
+output = "docs/quality/coverage/coverage.xml"
+
+[tool.coverage.json]
+output = "docs/quality/coverage/coverage.json"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["venv", "node_modules", "staticfiles", "*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "C90", "UP", "DJ"]
+ignore = [
+    "E501",
+    "B008",
+    "UP038",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"api/apps.py" = ["F401"]
+"api/student_views.py" = ["F401", "E501"]
+"api/test_*.py" = ["C90"]
+"tests_browser/base.py" = ["E402"]

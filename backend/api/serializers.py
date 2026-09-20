@@ -1,3 +1,9 @@
+"""Serializers for the REST API.
+
+The profile serializers flatten the satellite detail tables into one object:
+the split is a storage decision, not something a client should have to know.
+"""
+
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import (
@@ -8,6 +14,12 @@ from .models import (
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    """Create an account from the API.
+
+    The web form is the main route; this exists so a client can register
+    without scraping the page. Both end in the same place: an account the
+    SDSO still has to verify.
+    """
     password = serializers.CharField(write_only=True)
     student_id = serializers.CharField()
     course = serializers.CharField()
@@ -44,6 +56,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        """Create the account and its profile together."""
         profile_fields = [
             'student_id', 'course', 'year_level', 'gwa', 'contact_number',
             'barangay', 'municipality', 'province',
@@ -70,10 +83,17 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
+    """Check credentials and hand back the authenticated user."""
     email = serializers.EmailField()
     password = serializers.CharField()
 
     def validate(self, data):
+        """Authenticate, refusing without saying which half was wrong.
+
+        One message for an unknown address and for a wrong password, for the
+        same reason the web form does it: the difference would let anyone test
+        an address and learn whether it belongs to a scholar.
+        """
         user = authenticate(username=data['email'], password=data['password'])
         if not user:
             raise serializers.ValidationError('Invalid credentials')
@@ -82,12 +102,19 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """An account, as the API represents it."""
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'role']
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
+    """A student profile, flattened across its detail tables.
+
+    The model spreads its fields over several one-to-one tables; the API
+    presents one object, because the split is a storage decision and not
+    something a client should have to know.
+    """
     name = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
     avatar = serializers.SerializerMethodField()
@@ -150,14 +177,17 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_name(self, obj):
+        """The student's full name."""
         return obj.user.get_full_name()
 
     def get_avatar(self, obj):
+        """The profile photo URL, or ''."""
         name = obj.user.get_full_name().split()
         return ''.join([n[0] for n in name[:2]]).upper()
 
 
 class ScholarshipSerializer(serializers.ModelSerializer):
+    """A catalogue programme, with this student's fit score."""
     match = serializers.SerializerMethodField()
 
     class Meta:
@@ -165,6 +195,11 @@ class ScholarshipSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_match(self, obj):
+        """How well the signed-in student matches this programme.
+
+        A rough score for ordering the catalogue, not an eligibility verdict —
+        that comes from the recommender modules, which state their reasons.
+        """
         request = self.context.get('request')
         if not request or not hasattr(request.user, 'profile'):
             return 0
@@ -172,12 +207,14 @@ class ScholarshipSerializer(serializers.ModelSerializer):
 
 
 class ApplicationDocumentSerializer(serializers.ModelSerializer):
+    """One document attached to an application."""
     class Meta:
         model = ApplicationDocument
         fields = ['id', 'name', 'file', 'uploaded_at']
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
+    """An application, its programme and its documents."""
     scholarship_name = serializers.CharField(source='scholarship.name', read_only=True)
     documents = ApplicationDocumentSerializer(many=True, read_only=True)
 
@@ -187,6 +224,12 @@ class ApplicationSerializer(serializers.ModelSerializer):
         read_only_fields = ['student', 'submitted_at', 'updated_at']
 
     def validate_scholarship(self, scholarship):
+        """Refuse an application to a programme that is not applied for here.
+
+        Externally funded programmes are applied for through the agency. Letting
+        one through would record an award this office never granted and cannot
+        honour.
+        """
         if (self.instance is None
                 and scholarship is not None and scholarship.group == 'external'):
             raise serializers.ValidationError(
@@ -197,6 +240,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    """One notification."""
     time = serializers.SerializerMethodField()
 
     class Meta:
@@ -204,12 +248,14 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = ['id', 'type', 'title', 'body', 'is_read', 'time']
 
     def get_time(self, obj):
+        """How long ago it arrived, in words."""
         from django.utils import timezone
         from django.utils.timesince import timesince
         return timesince(obj.created_at, timezone.now()) + ' ago'
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
+    """One announcement."""
     date = serializers.DateTimeField(source='created_at', format='%b %d, %Y', read_only=True)
 
     class Meta:
@@ -218,6 +264,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 
 
 class AcademicRenewalSerializer(serializers.ModelSerializer):
+    """One academic renewal submission."""
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
     student_id = serializers.CharField(source='student.student_id', read_only=True)
     course = serializers.CharField(source='student.course', read_only=True)
@@ -233,6 +280,7 @@ class AcademicRenewalSerializer(serializers.ModelSerializer):
 
 
 class ImportedScholarSerializer(serializers.ModelSerializer):
+    """One scholar imported from a funder spreadsheet."""
     class Meta:
         model = ImportedScholar
         fields = '__all__'
@@ -240,6 +288,7 @@ class ImportedScholarSerializer(serializers.ModelSerializer):
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
+    """One audit entry."""
     who = serializers.CharField(source='user.get_full_name', read_only=True)
     time = serializers.SerializerMethodField()
 
@@ -248,18 +297,21 @@ class ActivityLogSerializer(serializers.ModelSerializer):
         fields = ['id', 'who', 'action', 'time']
 
     def get_time(self, obj):
+        """How long ago it happened, in words."""
         from django.utils import timezone
         from django.utils.timesince import timesince
         return timesince(obj.created_at, timezone.now()) + ' ago'
 
 
 class SystemSettingsSerializer(serializers.ModelSerializer):
+    """The system settings row."""
     class Meta:
         model = SystemSettings
         fields = '__all__'
 
 
 class AdminUserSerializer(serializers.ModelSerializer):
+    """An account as the office sees it, with its standing."""
     status = serializers.SerializerMethodField()
 
     class Meta:
@@ -267,4 +319,5 @@ class AdminUserSerializer(serializers.ModelSerializer):
         fields = ['id', 'first_name', 'last_name', 'email', 'role', 'status']
 
     def get_status(self, obj):
+        """Verification standing in a word."""
         return 'Active' if obj.is_active else 'Inactive'

@@ -22,7 +22,7 @@ STUDENT_REQUIRED = {
     'highschool_is_public', 'is_from_depressed_area',
     'family_income',
     'shs_gpa', 'shs_gpa_cert', 'suc_exam_score', 'suc_exam_total',
-    'suc_exam_cert',
+    'suc_exam_cert', 'study_load',
     'citizenship', 'household_size', 'year_first_enrolled',
     'is_listahanan_household', 'is_4ps_beneficiary',
     'is_solo_parent_dependent', 'has_previous_degree',
@@ -30,7 +30,9 @@ STUDENT_REQUIRED = {
 STAFF_REQUIRED = {'school_id', 'staff_school', 'department', 'position'}
 CONDITIONALLY_REQUIRED = ({'disability_type_other', 'staff_proof_document'}
                           | per_card('scholarship_type', 'award_tier',
-                                     'proof_document'))
+                                     'proof_document',
+                                     'staff_name', 'staff_employee_id',
+                                     'relationship_to_staff'))
 CHECKBOXES = ({'has_staff_scholarship', 'is_tes_beneficiary', 'terms_version'}
               | per_card('has_scholarship'))
 

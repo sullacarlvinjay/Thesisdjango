@@ -17,8 +17,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         try:
             from PIL import Image
-        except ImportError:
-            raise CommandError('Pillow is not installed.')
+        except ImportError as missing:
+            raise CommandError('Pillow is not installed.') from missing
 
         source = os.path.join(settings.BASE_DIR, SOURCE)
         out = os.path.join(settings.BASE_DIR, DESTINATION)

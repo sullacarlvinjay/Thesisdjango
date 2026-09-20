@@ -24,6 +24,7 @@
         <svg class="h-3 w-3" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </span>
       <input id="photoInput" type="file" name="photo" accept="image/*"
+             form="studentProfileForm"
              style="display:none;" onchange="this.form.submit()" />
     </label>
     <div class="min-w-0">
@@ -37,12 +38,12 @@
   </div>
 </div>
 {% if errors %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid #fecaca;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
   {% for e in errors %}<p>{{ e }}</p>{% endfor %}
 </div>
 {% endif %}
 {% if saved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
   ✓ Profile saved. Your applications will now be pre-filled with this information.
   {% if declared_count %}
   The {% if declared_count > 1 %}{{ declared_count }} scholarships you added are{% else %}scholarship you added is{% endif %}
@@ -64,28 +65,28 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
   });
 }
 </script>
-<form method="post" enctype="multipart/form-data" class="space-y-6">
+<form id="studentProfileForm" method="post" enctype="multipart/form-data" class="space-y-6">
   {% csrf_token %}
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Personal Information</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">First name, last name, Student ID, Email, GWA, School, and Course are managed by the admin and cannot be changed here. Your middle name is yours to enter — it is saved once, then locked like your address.</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">First name, last name, Student ID, Email, GWA, School, and Course are managed by the admin and cannot be changed here. Your middle name is yours to enter — it is saved once, then locked like your address.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>First Name</label>
-        <input value="{{ profile.user.first_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.user.first_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Last Name</label>
-        <input value="{{ profile.user.last_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.user.last_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Middle Name</label>
         {% if middle_name_locked %}
-        <input value="{{ profile.middle_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.middle_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="middle_name" value="{{ profile.middle_name }}" />
         {% else %}
         <input name="middle_name" value="{{ profile.middle_name }}" placeholder="e.g. Ramirez" />
-        <p class="text-xs" style="color:#6b7a99;">Contact the SDSO to change this after it is saved.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Contact the SDSO to change this after it is saved.</p>
         {% endif %}
       </div>
       <div class="space-y-1.5">
@@ -95,17 +96,17 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Birth Place</label>
         {% if birth_place_locked %}
-        <input value="{{ profile.birth_place }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.birth_place }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="birth_place" value="{{ profile.birth_place }}" />
         {% else %}
         <input name="birth_place" value="{{ profile.birth_place }}" placeholder="e.g. Naval, Biliran" />
-        <p class="text-xs" style="color:#6b7a99;">Contact the SDSO to change this after it is saved.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Contact the SDSO to change this after it is saved.</p>
         {% endif %}
       </div>
       <div class="space-y-1.5">
         <label>Civil Status</label>
         {% if civil_status_locked %}
-        <input value="{{ profile.civil_status }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.civil_status }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="civil_status" value="{{ profile.civil_status }}" />
         {% else %}
         <select name="civil_status">
@@ -118,36 +119,36 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </div>
       <div class="space-y-1.5">
         <label>Student ID</label>
-        <input value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.student_id }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Email</label>
-        <input value="{{ profile.user.email }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.user.email }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>School</label>
-        <input value="{{ profile.school }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.school }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Course</label>
-        <input value="{{ profile.course }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.course }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Date of Birth</label>
-        <input value="{{ profile.date_of_birth|date:'Y-m-d' }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.date_of_birth|date:'Y-m-d' }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Gender</label>
-        <input value="{{ profile.gender }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.gender }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Contact Number</label>
-        <input value="{{ profile.contact_number }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.contact_number }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
       </div>
       <div class="space-y-1.5">
         <label>Barangay / Street</label>
         {% if address_locked %}
-        <input value="{{ profile.barangay }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.barangay }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="barangay" value="{{ profile.barangay }}" />
         {% else %}
         <input name="barangay" value="{{ profile.barangay }}" placeholder="e.g. Brgy. Larrazabal" />
@@ -156,7 +157,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Municipality</label>
         {% if address_locked %}
-        <input value="{{ profile.municipality }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.municipality }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="municipality" value="{{ profile.municipality }}" />
         {% else %}
         <input name="municipality" value="{{ profile.municipality }}" placeholder="e.g. Naval" />
@@ -165,7 +166,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Province</label>
         {% if address_locked %}
-        <input value="{{ profile.province }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.province }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="province" value="{{ profile.province }}" />
         {% else %}
         <input name="province" value="{{ profile.province }}" placeholder="e.g. Biliran" />
@@ -183,7 +184,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           </option>
           {% endfor %}
         </select>
-        <p class="text-xs" style="color:#6b7a99;">Used for the PWD priority group on TES and the office's reports.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Used for the PWD priority group on TES and the office's reports.</p>
       </div>
       <div class="space-y-1.5" id="disabilityOther" {% if disability_value != other_option %}hidden{% endif %}>
         <label>Please specify the disability</label>
@@ -192,7 +193,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </div>
       {% if address_locked %}
       <div class="sm:col-span-2">
-        <p class="text-xs" style="color:#6b7a99;">⚠ Address is locked after first save. Contact the admin to update.</p>
+        <p class="text-xs" style="color:var(--text-muted);">⚠ Address is locked after first save. Contact the admin to update.</p>
       </div>
       {% endif %}
     </div>
@@ -203,7 +204,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Elementary School</label>
         {% if education_locked %}
-        <input value="{{ profile.elementary }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.elementary }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="elementary" value="{{ profile.elementary }}" />
         {% else %}
         <input name="elementary" value="{{ profile.elementary }}" />
@@ -212,7 +213,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>High School</label>
         {% if education_locked %}
-        <input value="{{ profile.highschool }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.highschool }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="highschool" value="{{ profile.highschool }}" />
         {% else %}
         <input name="highschool" value="{{ profile.highschool }}" />
@@ -221,7 +222,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Last School Attended</label>
         {% if education_locked %}
-        <input value="{{ profile.last_school }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.last_school }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="last_school" value="{{ profile.last_school }}" />
         {% else %}
         <input name="last_school" value="{{ profile.last_school }}" />
@@ -234,11 +235,11 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           <option value="yes" {% if profile.highschool_is_public %}selected{% endif %}>Yes</option>
           <option value="no" {% if profile.highschool_is_public is False %}selected{% endif %}>No</option>
         </select>
-        <p class="text-xs" style="color:#6b7a99;">One of the groups the Affirmative Action programme is for.</p>
+        <p class="text-xs" style="color:var(--text-muted);">One of the groups the Affirmative Action programme is for.</p>
       </div>
       {% if education_locked %}
       <div class="sm:col-span-2">
-        <p class="text-xs" style="color:#6b7a99;">&#9888; Educational background is locked after first save. Contact the admin to update.</p>
+        <p class="text-xs" style="color:var(--text-muted);">&#9888; Educational background is locked after first save. Contact the admin to update.</p>
       </div>
       {% endif %}
     </div>
@@ -254,7 +255,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Last Name</label>
         {% if family_locked %}
-        <input value="{{ profile.father_last_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.father_last_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="father_last_name" value="{{ profile.father_last_name }}" />
         {% else %}
         <input name="father_last_name" value="{{ profile.father_last_name }}" placeholder="e.g. Dela Cruz" />
@@ -263,7 +264,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Given Name</label>
         {% if family_locked %}
-        <input value="{{ profile.father_first_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.father_first_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="father_first_name" value="{{ profile.father_first_name }}" />
         {% else %}
         <input name="father_first_name" value="{{ profile.father_first_name }}" placeholder="e.g. Juan" />
@@ -272,7 +273,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Middle Name</label>
         {% if family_locked %}
-        <input value="{{ profile.father_middle_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.father_middle_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="father_middle_name" value="{{ profile.father_middle_name }}" />
         {% else %}
         <input name="father_middle_name" value="{{ profile.father_middle_name }}" placeholder="e.g. Ramirez" />
@@ -284,7 +285,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Last Name</label>
         {% if family_locked %}
-        <input value="{{ profile.mother_last_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.mother_last_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="mother_last_name" value="{{ profile.mother_last_name }}" />
         {% else %}
         <input name="mother_last_name" value="{{ profile.mother_last_name }}" placeholder="e.g. Santos" />
@@ -293,7 +294,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Given Name</label>
         {% if family_locked %}
-        <input value="{{ profile.mother_first_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.mother_first_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="mother_first_name" value="{{ profile.mother_first_name }}" />
         {% else %}
         <input name="mother_first_name" value="{{ profile.mother_first_name }}" placeholder="e.g. Maria" />
@@ -302,7 +303,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Middle Name</label>
         {% if family_locked %}
-        <input value="{{ profile.mother_middle_name }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.mother_middle_name }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="mother_middle_name" value="{{ profile.mother_middle_name }}" />
         {% else %}
         <input name="mother_middle_name" value="{{ profile.mother_middle_name }}" placeholder="e.g. Reyes" />
@@ -313,7 +314,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Father's Occupation</label>
         {% if family_locked %}
-        <input value="{{ profile.father_occupation }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.father_occupation }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="father_occupation" value="{{ profile.father_occupation }}" />
         {% else %}
         <input name="father_occupation" value="{{ profile.father_occupation }}" />
@@ -322,7 +323,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       <div class="space-y-1.5">
         <label>Mother's Occupation</label>
         {% if family_locked %}
-        <input value="{{ profile.mother_occupation }}" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+        <input value="{{ profile.mother_occupation }}" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
         <input type="hidden" name="mother_occupation" value="{{ profile.mother_occupation }}" />
         {% else %}
         <input name="mother_occupation" value="{{ profile.mother_occupation }}" />
@@ -330,7 +331,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
       </div>
     </div>
     {% if family_locked %}
-    <p class="text-xs mt-4" style="color:#6b7a99;">&#9888; Family background is locked after first save. Contact the admin to update.</p>
+    <p class="text-xs mt-4" style="color:var(--text-muted);">&#9888; Family background is locked after first save. Contact the admin to update.</p>
     {% endif %}
   </div>
   <div class="card p-6">
@@ -341,7 +342,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         <input name="family_income" type="number" step="0.01" value="{{ profile.family_income }}" />
       </div>
       <div class="space-y-1.5">
-        <label>Indigenous Group <span class="font-normal" style="color:#6b7a99;">(if applicable)</span></label>
+        <label>Indigenous Group <span class="font-normal" style="color:var(--text-muted);">(if applicable)</span></label>
         <input name="indigenous_group" value="{{ profile.indigenous_group }}" />
       </div>
       <div class="space-y-1.5">
@@ -351,13 +352,13 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           <option value="yes" {% if profile.is_from_depressed_area %}selected{% endif %}>Yes</option>
           <option value="no" {% if profile.is_from_depressed_area is False %}selected{% endif %}>No</option>
         </select>
-        <p class="text-xs" style="color:#6b7a99;">A depressed or economically disadvantaged barangay or municipality. The SDSO verifies this answer.</p>
+        <p class="text-xs" style="color:var(--text-muted);">A depressed or economically disadvantaged barangay or municipality. The SDSO verifies this answer.</p>
       </div>
     </div>
   </div>
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">TES Eligibility Information</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">
+    <p class="text-xs mb-4" style="color:var(--text-muted);">
       What the SDSO checks the TES rules against when it recommends students to UniFAST.
       Leave anything you are unsure of as <em>Not answered yet</em> — an unanswered question is recorded as
       needing verification, and never counts against you. Guessing does.
@@ -375,13 +376,13 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         <label>Household Size</label>
         <input name="household_size" type="number" min="1" step="1" placeholder="e.g. 5"
                value="{{ profile.household_size|default_if_none:'' }}" />
-        <p class="text-xs" style="color:#6b7a99;">Everyone your annual family income supports, including you.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Everyone your annual family income supports, including you.</p>
       </div>
       <div class="space-y-1.5">
         <label>Year You First Enrolled in This Course</label>
         <input name="year_first_enrolled" type="number" min="1980" step="1" placeholder="e.g. 2023"
                value="{{ profile.year_first_enrolled|default_if_none:'' }}" />
-        <p class="text-xs" style="color:#6b7a99;">Not the current year — the year you started the programme.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Not the current year — the year you started the programme.</p>
       </div>
       <div class="space-y-1.5">
         <label>Listed in the DSWD Listahanan?</label>
@@ -390,7 +391,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           <option value="yes" {% if profile.is_listahanan_household %}selected{% endif %}>Yes</option>
           <option value="no" {% if profile.is_listahanan_household is False %}selected{% endif %}>No</option>
         </select>
-        <p class="text-xs" style="color:#6b7a99;">The DSWD list of poor households. Ask your barangay if unsure.</p>
+        <p class="text-xs" style="color:var(--text-muted);">The DSWD list of poor households. Ask your barangay if unsure.</p>
       </div>
       <div class="space-y-1.5">
         <label>4Ps (Pantawid Pamilya) Beneficiary?</label>
@@ -399,7 +400,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           <option value="yes" {% if profile.is_4ps_beneficiary %}selected{% endif %}>Yes</option>
           <option value="no" {% if profile.is_4ps_beneficiary is False %}selected{% endif %}>No</option>
         </select>
-        <p class="text-xs" style="color:#6b7a99;">Used when the Listahanan listing is unavailable.</p>
+        <p class="text-xs" style="color:var(--text-muted);">Used when the Listahanan listing is unavailable.</p>
       </div>
       <div class="space-y-1.5">
         <label>Dependent of a solo parent?</label>
@@ -408,7 +409,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           <option value="yes" {% if profile.is_solo_parent_dependent %}selected{% endif %}>Yes</option>
           <option value="no" {% if profile.is_solo_parent_dependent is False %}selected{% endif %}>No</option>
         </select>
-        <p class="text-xs" style="color:#6b7a99;">A solo parent listed on the DSWD registry.</p>
+        <p class="text-xs" style="color:var(--text-muted);">A solo parent listed on the DSWD registry.</p>
       </div>
       <div class="space-y-1.5">
         <label>Do you already hold a college degree?</label>
@@ -417,25 +418,25 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
           <option value="yes" {% if profile.has_previous_degree %}selected{% endif %}>Yes</option>
           <option value="no" {% if profile.has_previous_degree is False %}selected{% endif %}>No</option>
         </select>
-        <p class="text-xs" style="color:#6b7a99;">TES is for a first undergraduate degree.</p>
+        <p class="text-xs" style="color:var(--text-muted);">TES is for a first undergraduate degree.</p>
       </div>
     </div>
   </div>
   <div class="card p-6">
     <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Scholarship Eligibility Information</p>
-    <p class="text-xs mb-4" style="color:#6b7a99;">Used for scholarship matching. Upload certified documents as proof.</p>
+    <p class="text-xs mb-4" style="color:var(--text-muted);">Used for scholarship matching. Upload certified documents as proof.</p>
     <div class="grid sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label>SHS Grade Point Average (%) <span class="label-optional">Optional</span></label>
         <input name="shs_gpa" type="number" step="0.01" min="0" max="100"
           value="{% if profile.shs_gpa %}{{ profile.shs_gpa }}{% endif %}"
           placeholder="e.g. 88.5" />
-        <p class="text-xs" style="color:#6b7a99;">As certified by your high school principal.</p>
+        <p class="text-xs" style="color:var(--text-muted);">As certified by your high school principal.</p>
       </div>
       <div class="space-y-1.5">
-        <label>SHS GPA Certificate <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>
+        <label>SHS GPA Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
         {% if profile.shs_gpa_cert %}
-        <p class="text-xs" style="color:#0000c4;">✓ File uploaded — <a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:var(--brand);">view</a></p>
+        <p class="text-xs" style="color:var(--ok);">✓ File uploaded — <a href="{{ profile.shs_gpa_cert.url }}" data-doc="SHS GPA Certificate" style="color:var(--brand);">view</a></p>
         {% endif %}
         <input name="shs_gpa_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>
@@ -451,7 +452,7 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
             value="{% if profile.suc_exam_total %}{{ profile.suc_exam_total|floatformat:'-2' }}{% endif %}"
             placeholder="total, e.g. 50" aria-label="Total items" />
         </div>
-        <p class="text-xs" style="color:#6b7a99;">
+        <p class="text-xs" style="color:var(--text-muted);">
           As certified by the SUC Admission Office. Leave the total blank if your
           certificate already gives a percentage.
           {% if profile.suc_exam_percent is not None %}
@@ -460,9 +461,9 @@ function updateCourses(schoolVal, courseSelectId, currentCourse) {
         </p>
       </div>
       <div class="space-y-1.5">
-        <label>SUC Exam Certificate <span class="font-normal" style="color:#6b7a99;">(PDF/JPG/PNG)</span></label>
+        <label>SUC Exam Certificate <span class="font-normal" style="color:var(--text-muted);">(PDF/JPG/PNG)</span></label>
         {% if profile.suc_exam_cert %}
-        <p class="text-xs" style="color:#0000c4;">✓ File uploaded — <a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:var(--brand);">view</a></p>
+        <p class="text-xs" style="color:var(--ok);">✓ File uploaded — <a href="{{ profile.suc_exam_cert.url }}" data-doc="SUC Exam Certificate" style="color:var(--brand);">view</a></p>
         {% endif %}
         <input name="suc_exam_cert" type="file" accept=".pdf,.jpg,.jpeg,.png" />
       </div>

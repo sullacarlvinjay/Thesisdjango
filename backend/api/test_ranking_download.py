@@ -63,7 +63,7 @@ class RankingDownloadFixtures:
                 head = line
                 continue
             if head is not None and line[0] is not None or (head and any(line)):
-                yield dict(zip(head, line))
+                yield dict(zip(head, line, strict=True))
 
 
 class TheFileIsOfferedTest(RankingDownloadFixtures, TestCase):

@@ -1,0 +1,39 @@
+warning: The following rules have been removed and ignoring them has no effect:
+    - UP038
+
+api\masterlist_report.py:462:5: C901 `_drop_unused_sections` is too complex (16 > 15)
+api\models.py:165:5: DJ012 Order of model's inner classes, methods, and fields does not follow the Django Style Guide: `save` method should come before custom method
+api\models.py:341:5: DJ012 Order of model's inner classes, methods, and fields does not follow the Django Style Guide: `save` method should come before custom method
+api\models.py:980:5: DJ012 Order of model's inner classes, methods, and fields does not follow the Django Style Guide: Magic method should come before custom method
+api\models.py:1024:5: DJ012 Order of model's inner classes, methods, and fields does not follow the Django Style Guide: Magic method should come before `save` method
+api\models.py:1182:5: DJ012 Order of model's inner classes, methods, and fields does not follow the Django Style Guide: Magic method should come before custom method
+api\models.py:1256:5: DJ012 Order of model's inner classes, methods, and fields does not follow the Django Style Guide: Magic method should come before custom method
+api\test_academic_application.py:185:35: UP031 Use format specifiers instead of percent format
+api\test_academic_application.py:193:35: UP031 Use format specifiers instead of percent format
+api\test_register_eligibility_order.py:135:35: UP031 Use format specifiers instead of percent format
+api\test_register_optional_labels.py:111:36: UP031 Use format specifiers instead of percent format
+api\views_analytics.py:17:5: C901 `_build_analytics_context` is too complex (101 > 15)
+api\views_archives.py:279:5: C901 `vpsea_archive_add` is too complex (28 > 15)
+api\views_auth.py:480:5: C901 `register_view` is too complex (20 > 15)
+api\views_reports.py:176:5: C901 `vpsea_report_download_excel` is too complex (30 > 15)
+api\views_reports.py:276:27: E701 Multiple statements on one line (colon)
+api\views_reports.py:277:27: E701 Multiple statements on one line (colon)
+api\views_reports.py:278:27: E701 Multiple statements on one line (colon)
+api\views_reports.py:279:25: E702 Multiple statements on one line (semicolon)
+api\views_reports.py:315:28: E702 Multiple statements on one line (semicolon)
+api\views_reports.py:381:28: E702 Multiple statements on one line (semicolon)
+api\views_reports.py:427:28: E702 Multiple statements on one line (semicolon)
+api\views_staff.py:305:5: C901 `nsu_staff_apply` is too complex (22 > 15)
+api\views_student.py:449:5: C901 `student_profile` is too complex (27 > 15)
+api\views_student.py:503:16: E701 Multiple statements on one line (colon)
+api\views_student.py:504:30: E701 Multiple statements on one line (colon)
+api\views_student.py:516:16: E701 Multiple statements on one line (colon)
+api\views_student.py:517:30: E701 Multiple statements on one line (colon)
+api\views_vpsea.py:407:5: C901 `vpsea_accounts` is too complex (23 > 15)
+api\views_vpsea.py:1094:20: E701 Multiple statements on one line (colon)
+api\views_vpsea.py:1095:21: E701 Multiple statements on one line (colon)
+api\views_vpsea.py:1140:22: E701 Multiple statements on one line (colon)
+api\views_vpsea.py:1141:22: E701 Multiple statements on one line (colon)
+api\views_vpsea.py:1164:5: C901 `vpsea_partners` is too complex (18 > 15)
+Found 34 errors.
+No fixes available (4 hidden fixes can be enabled with the `--unsafe-fixes` option).

@@ -67,7 +67,9 @@ class TheApplicationApiRefusesAnExternalProgrammeTest(TestCase):
             student=self.profile, scholarship=tes, status='Approved')
         self.assertEqual(Application.objects.get(), award)
         body = self.c.get('/api/student/applications/').json()
-        self.assertEqual([row['scholarship'] for row in body], [tes.pk])
+        self.assertEqual(
+            [row['scholarship'] for row in body['results']], [tes.pk],
+            'the list endpoint is paged, so the rows are under "results"')
 
 
 class NoPageOffersToStartOneTest(TestCase):

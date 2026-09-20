@@ -1,3 +1,15 @@
+"""Telling people things, in the portal and by email.
+
+Two channels with different guarantees. The in-app notification is reliable and
+is written first; the email is best-effort and its failure is swallowed
+deliberately — every caller is doing something more important than the message,
+and none should be rolled back because a mail server was briefly unreachable.
+
+The outcome of the last attempt is recorded for the office's mail panel, which
+on a deployment with no shell is the only way anyone finds out whether mail
+works.
+"""
+
 import logging
 
 from django.conf import settings
@@ -15,6 +27,13 @@ _TONE = {
 
 
 def _recipient(target):
+    """Resolve any notification target to ``(profile, address)``.
+
+    Callers hold a profile, a user or a bare address depending on where
+    they sit, and a person may have an address but no profile — an
+    imported scholar, say — so both halves are returned and either may be
+    empty.
+    """
     from .models import StudentProfile, User
 
     if isinstance(target, StudentProfile):
@@ -27,6 +46,12 @@ def _recipient(target):
 
 
 def _record_attempt(to, subject, error):
+    """Remember the outcome of the last send, for the office's mail panel.
+
+    The deployment has no shell, so this row is how anyone finds out
+    whether mail is working. Wrapped in its own try: failing to record a
+    failure must not raise on top of it.
+    """
     from django.utils import timezone
 
     try:
@@ -45,6 +70,13 @@ def _record_attempt(to, subject, error):
 
 
 def send_email(to, subject, body):
+    """Send one message, reporting success rather than raising.
+
+    Deliberately swallows the error. Every caller is doing something more
+    important than the email — recording a decision, creating an account —
+    and none of them should be rolled back because a mail server was
+    briefly unreachable. The outcome is recorded for the office instead.
+    """
     if not to:
         return False
     try:
@@ -64,6 +96,12 @@ def send_email(to, subject, body):
 
 
 def notify(target, title, body, tone='info', email=True, email_body=None):
+    """Tell someone something, in the portal and by email.
+
+    The in-app notification is the reliable half and is written first; the
+    email is best-effort. Returns both outcomes so a caller can say "we
+    emailed you" only when it is true.
+    """
     from .models import Notification
 
     profile, address = _recipient(target)
@@ -81,6 +119,7 @@ def notify(target, title, body, tone='info', email=True, email_body=None):
 
 
 def account_decision(account, status, note):
+    """Tell an applicant the office's verdict on their registration."""
     approved = status == 'approved'
     title = 'Account verified' if approved else 'Account not verified'
 
@@ -117,6 +156,7 @@ def account_decision(account, status, note):
 
 
 def broadcast(title, body, tone='info'):
+    """Send one announcement to many students at once."""
     from .models import Notification, StudentProfile
 
     profiles = list(StudentProfile.objects.only('id'))
@@ -128,9 +168,14 @@ def broadcast(title, body, tone='info'):
 
 
 def office(subject, body, actor=None):
+    """Tell the SDSO something, and log it.
+
+    Goes to every active office account rather than a fixed address, so it
+    keeps working when staff change.
+    """
     from .models import ActivityLog, User
 
-    ActivityLog.objects.create(user=actor, action=f'{subject} — {body}')
+    ActivityLog.record(actor, f'{subject} — {body}', verb='other')
 
     addresses = list(User.objects.filter(
         role='vpsea', is_active=True,
@@ -139,6 +184,7 @@ def office(subject, body, actor=None):
 
 
 def multiple_declarations(profile, declarations):
+    """Warn the office that one registrant declared several awards."""
     from .constants import scholarship_type_labels
 
     labels = scholarship_type_labels()
@@ -162,6 +208,7 @@ def multiple_declarations(profile, declarations):
 
 
 def scholarship_added(profile, declarations):
+    """Tell a student the office recorded a scholarship for them."""
     from .constants import scholarship_type_labels
 
     labels = scholarship_type_labels()
@@ -185,6 +232,7 @@ def scholarship_added(profile, declarations):
 
 
 def decision(target, subject, status, remarks='', detail='', link=''):
+    """Tell an applicant their application was approved or refused."""
     tone, phrase = _TONE.get(status, ('info', f'was marked {status}'))
 
     title = f'{subject} {phrase}'

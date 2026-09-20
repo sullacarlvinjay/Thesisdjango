@@ -21,7 +21,7 @@
   {% endif %}
   <div class="card p-6">
     <h2 class="report-gen-title mb-1">Add a partner</h2>
-    <p class="text-xs mb-4" style="color:#6b7a99;">
+    <p class="text-xs mb-4" style="color:var(--text-muted);">
       This creates the office and the account that signs in as it, together — an office
       nobody can log into is not something the SDSO ever wants.
     </p>
@@ -48,17 +48,17 @@
           <label for="partnerPassword">Password</label>
           <input type="password" name="password" id="partnerPassword" required minlength="8"
                  placeholder="At least 8 characters" />
-          <p class="text-xs" style="color:#6b7a99;">Tell them this yourself — the system does not email it.</p>
+          <p class="text-xs" style="color:var(--text-muted);">Tell them this yourself — the system does not email it.</p>
         </div>
       </div>
       <div class="partner-access">
         <p class="partner-access__title">Programmes they may read</p>
-        <p class="text-xs mb-2" style="color:#6b7a99;">Leave every box clear to create the account with no access yet.</p>
+        <p class="text-xs mb-2" style="color:var(--text-muted);">Leave every box clear to create the account with no access yet.</p>
         <div class="partner-access__grid">
           {% for s in scholarships %}
           <label class="partner-access__option">
             <input type="checkbox" name="scholarships" value="{{ s.pk }}" />
-            <span>{{ s.name }} <span style="color:#6b7a99;">· {{ s.type }}</span></span>
+            <span>{{ s.name }} <span style="color:var(--text-muted);">· {{ s.type }}</span></span>
           </label>
           {% endfor %}
         </div>
@@ -74,7 +74,7 @@
           {{ office.name }}
           {% if not office.is_active %}<span class="badge badge-destructive">Suspended</span>{% endif %}
         </h2>
-        <p class="text-xs mt-1" style="color:#6b7a99;">
+        <p class="text-xs mt-1" style="color:var(--text-muted);">
           {% for a in office.accounts.all %}{{ a.email }}{% if not forloop.last %}, {% endif %}{% empty %}
           No account signs in as this partner.{% endfor %}
         </p>
@@ -103,7 +103,7 @@
           <label class="partner-access__option">
             <input type="checkbox" name="scholarships" value="{{ s.pk }}"
                    {% if s in office.scholarships.all %}checked{% endif %} />
-            <span>{{ s.name }} <span style="color:#6b7a99;">· {{ s.type }}</span></span>
+            <span>{{ s.name }} <span style="color:var(--text-muted);">· {{ s.type }}</span></span>
           </label>
           {% endfor %}
         </div>
@@ -127,7 +127,7 @@
                  {% if office.may_add_scholarships %}checked{% endif %} />
           <span>
             May add programmes of their own
-            <span class="block text-xs" style="color:#6b7a99;">
+            <span class="block text-xs" style="color:var(--text-muted);">
               A programme they add appears in your archives and reports too — this lends
               out part of the SDSO's own catalogue.
             </span>

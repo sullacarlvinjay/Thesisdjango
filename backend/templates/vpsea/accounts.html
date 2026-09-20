@@ -7,13 +7,13 @@
 {% block content %}
 
 {% if approved %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
   ✓ Account verified. They can sign in now.
   {% if emailed == '1' and email_enabled %}They have been emailed.{% endif %}
 </div>
 {% endif %}
 {% if rejected %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#fffbe0;color:#6b5600;border:1px solid #fdea2b;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--warn-bg);color:var(--warn);border:1px solid #fdea2b;">
   Account rejected. Your reason is what they will read when they try to sign in.
   {% if emailed == '1' and email_enabled %}They have been emailed the same words.{% endif %}
 </div>
@@ -31,19 +31,19 @@
 {% endif %}
 
 {% if emailed == '0' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
   <span class="font-semibold">The decision was saved, but the email did not go out.</span>
   The mail server refused or timed out — the server log has the reason. Tell them another way.
 </div>
 {% endif %}
 {% if tested == '1' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:#e8f0ff;color:#0000c4;border:1px solid #b3ceff;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);">
   ✓ Test message accepted for delivery to {{ tested_to }}. If it does not arrive, it left
   this server and the problem is beyond it — check the spam folder, then the provider's own log.
 </div>
 {% endif %}
 {% if tested == '0' %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">
   <span class="font-semibold">The test message did not go out.</span>
   The reason is in <strong>Last attempt</strong> below, in the provider's own words.
 </div>
@@ -110,11 +110,11 @@
   </div>
 </details>
 {% if error %}
-<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">{{ error }}</div>
+<div class="mb-5 rounded-lg px-4 py-3 text-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">{{ error }}</div>
 {% endif %}
 <div class="card p-6 mb-6">
   <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Waiting for you</p>
-  <p class="text-xs mb-4" style="color:#6b7a99;">
+  <p class="text-xs mb-4" style="color:var(--text-muted);">
     Someone who registers on the public form cannot sign in until you decide here. Check what they entered
     against your records — an unverified account is the only thing standing between a stranger and a student portal.
     A registration that declares a scholarship is decided here too: verifying the account records the award.
@@ -122,25 +122,25 @@
   {% if pending %}
   <div class="space-y-4">
     {% for account in pending %}
-    <div style="border:1px solid #e8ecf0;border-radius:0.75rem;padding:1rem;">
+    <div style="border:1px solid var(--border);border-radius:0.75rem;padding:1rem;">
       <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div class="min-w-0">
-          <p class="font-semibold text-sm" style="color:#1e2a3a;">
+          <p class="font-semibold text-sm" style="color:var(--text);">
             {{ account.get_full_name|default:account.email }}
             <span class="badge {% if account.role == 'nsu_staff' %}badge-success{% else %}badge-info{% endif %}" style="margin-left:0.35rem;">{{ account.get_role_display }}</span>
           </p>
-          <p class="text-xs mt-0.5" style="color:#6b7a99;">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}
+          <p class="text-xs mt-0.5" style="color:var(--text-muted);">{{ account.email }} · registered {{ account.date_joined|date:"M j, Y" }}
             <button type="button" class="copy-btn" data-copy="{{ account.email }}" aria-label="Copy this email address"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span data-copy-label>Copy</span></button></p>
           
           {% if account.email_verified %}
-          <p class="text-xs mt-1" style="color:#0000c4;">✓ Email address confirmed by them</p>
+          <p class="text-xs mt-1" style="color:var(--ok);">✓ Email address confirmed by them</p>
           {% elif account.awaiting_email_confirmation %}
-          <p class="text-xs mt-1" style="color:#6b5600;">
+          <p class="text-xs mt-1" style="color:var(--warn);">
             ⚠ Email address not confirmed — the link sent {{ account.email_confirmation_sent_at|timesince }} ago
             has not been opened. Anything you write to this address may reach nobody.
           </p>
           {% else %}
-          <p class="text-xs mt-1" style="color:#6b5600;">⚠ Email address not confirmed — no link was ever sent.</p>
+          <p class="text-xs mt-1" style="color:var(--warn);">⚠ Email address not confirmed — no link was ever sent.</p>
           {% endif %}
         </div>
       </div>
@@ -151,56 +151,56 @@
         <input type="hidden" name="user_id" value="{{ account.id }}" />
         
         {% if account.staff_declared %}
-        <div class="p-4 rounded-xl" style="background:#fffbe0;border:1px solid #fdea2b;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b5600;">BiPSU Staff Scholarship declared at registration</p>
-          <p class="text-xs mb-3" style="color:#374151;">
+        <div class="p-4 rounded-xl" style="background:var(--warn-bg);border:1px solid #fdea2b;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--warn);">BiPSU Staff Scholarship declared at registration</p>
+          <p class="text-xs mb-3" style="color:var(--text-soft);">
             Verifying this account records the award for {{ active_label }} and they will
             not need to apply for it. Rejecting turns the declaration down in the same
             words, and writes no award.
           </p>
-          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:#374151;">
-            <div><span style="color:#6b7a99;">Programme</span><br />BiPSU Staff Scholarship</div>
-            <div><span style="color:#6b7a99;">Declared</span><br />{{ account.staff_declared.submitted_at|date:"M d, Y" }}</div>
+          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:var(--text-soft);">
+            <div><span style="color:var(--text-muted);">Programme</span><br />BiPSU Staff Scholarship</div>
+            <div><span style="color:var(--text-muted);">Declared</span><br />{{ account.staff_declared.submitted_at|date:"M d, Y" }}</div>
             <div>
-              <span style="color:#6b7a99;">Proof</span><br />
+              <span style="color:var(--text-muted);">Proof</span><br />
               {% if account.staff_declared.proof_document %}
               <a href="{{ account.staff_declared.proof_document.url }}" data-doc="BiPSU Staff Scholarship — proof" style="color:var(--brand);">View document</a>
               {% else %}&mdash;{% endif %}
             </div>
           </div>
           {% if account.staff_declared.notes %}
-          <p class="text-xs" style="color:#6b7a99;"><strong>Their note:</strong> {{ account.staff_declared.notes }}</p>
+          <p class="text-xs" style="color:var(--text-muted);"><strong>Their note:</strong> {{ account.staff_declared.notes }}</p>
           {% endif %}
         </div>
         {% endif %}
         {% if account.declarations|length > 1 %}
-        <p class="text-xs font-semibold" style="color:#6b5600;">
+        <p class="text-xs font-semibold" style="color:var(--warn);">
           This registration declared {{ account.declarations|length }} scholarships.
           Read every card — verifying the account records all of them.
         </p>
         {% endif %}
         {% for declared in account.declarations %}
-        <div class="p-4 rounded-xl" style="background:#fffbe0;border:1px solid #fdea2b;">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b5600;">
+        <div class="p-4 rounded-xl" style="background:var(--warn-bg);border:1px solid #fdea2b;">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--warn);">
             Scholarship declared at registration{% if account.declarations|length > 1 %} · {{ forloop.counter }} of {{ account.declarations|length }}{% endif %}
           </p>
-          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:#374151;">
-            <div><span style="color:#6b7a99;">Scholarship</span><br />{{ declared.get_scholarship_type_display }}</div>
-            <div><span style="color:#6b7a99;">Award Number</span><br /><span class="font-mono">{{ declared.award_number|default:"—" }}</span></div>
+          <div class="grid sm:grid-cols-3 gap-3 text-xs mb-3" style="color:var(--text-soft);">
+            <div><span style="color:var(--text-muted);">Scholarship</span><br />{{ declared.get_scholarship_type_display }}</div>
+            <div><span style="color:var(--text-muted);">Award Number</span><br /><span class="font-mono">{{ declared.award_number|default:"—" }}</span></div>
             <div>
-              <span style="color:#6b7a99;">Proof</span><br />
+              <span style="color:var(--text-muted);">Proof</span><br />
               {% if declared.proof_document %}
               <a href="{{ declared.proof_document.url }}" data-doc="{{ declared.get_scholarship_type_display }} — proof" style="color:var(--brand);">View document</a>
               {% else %}—{% endif %}
             </div>
           </div>
           {% if declared.notes %}
-          <p class="text-xs mb-3" style="color:#6b7a99;"><strong>Their note:</strong> {{ declared.notes }}</p>
+          <p class="text-xs mb-3" style="color:var(--text-muted);"><strong>Their note:</strong> {{ declared.notes }}</p>
           {% endif %}
           {% if declared.scholarship_type == 'CHED' %}
           <div class="space-y-1.5 mb-3">
             <label>CHED Award Tier</label>
-            <p class="text-xs" style="color:#6b5600;">
+            <p class="text-xs" style="color:var(--warn);">
               The student declared
               <strong>{{ declared.get_award_tier_display|default:"nothing" }}</strong>.
               Correct it here if the proof says otherwise — the masterlists report the two tiers separately.
@@ -214,8 +214,8 @@
           {% endif %}
           {% if declared.archive_candidates %}
           <div class="space-y-1.5">
-            <label>Merge with an imported row <span style="color:#6b7a99;font-weight:400;">(optional)</span></label>
-            <p class="text-xs" style="color:#6b7a99;">Rows from this term's uploaded list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
+            <label>Merge with an imported row <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+            <p class="text-xs" style="color:var(--text-muted);">Rows from this term's uploaded list that match their name, student number or award number. Choosing one marks it claimed, so the scholar is not counted twice.</p>
             <select name="archive_id_{{ declared.pk }}">
               <option value="">— No imported row —</option>
               {% for row in declared.archive_candidates %}
@@ -224,10 +224,10 @@
             </select>
           </div>
           {% else %}
-          <p class="text-xs" style="color:#6b5600;">No row in this term's {{ declared.get_scholarship_type_display }} import ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
+          <p class="text-xs" style="color:var(--warn);">No row in this term's {{ declared.get_scholarship_type_display }} import ({{ active_label }}) matches them. Verifying still records the award; nothing is claimed.</p>
           {% endif %}
           {% if declared.other_semester_rows %}
-          <p class="text-xs mt-2" style="color:#6b7a99;">
+          <p class="text-xs mt-2" style="color:var(--text-muted);">
             Same scholar in earlier imports, as evidence only:
             {% for row in declared.other_semester_rows %}{{ row.term_label }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </p>
@@ -236,25 +236,26 @@
         {% endfor %}
         <div class="flex flex-wrap items-end gap-2">
           <div class="space-y-1.5" style="flex:1 1 20rem;min-width:14rem;">
-            <label>Message to them <span style="color:#6b7a99;font-weight:400;">(required to reject)</span></label>
+            <label>Message to them <span style="color:var(--text-muted);font-weight:400;">(required to reject)</span></label>
             <input name="message" placeholder="e.g. Student ID does not match our enrolment list for this semester." />
           </div>
           <button type="submit" name="action" value="approve" class="btn btn-primary">Verify</button>
-          <button type="submit" name="action" value="reject" class="btn btn-outline" style="color:#dc2626;border-color:#fecaca;">Reject</button>
+          <button type="submit" name="action" value="reject" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger-border);">Reject</button>
         </div>
       </form>
     </div>
     {% endfor %}
   </div>
+  {% include "_pagination.html" with page=pending_page.page page_param=pending_page.page_param querystring=pending_page.querystring label="Pending registrations" %}
   {% else %}
-  <p class="text-sm" style="color:#6b7a99;">Nothing waiting. New registrations land here.</p>
+  <p class="text-sm" style="color:var(--text-muted);">Nothing waiting. New registrations land here.</p>
   {% endif %}
 </div>
 
 {% if added_scholarships %}
 <div class="card p-6 mb-4">
-  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#6b5600;">Scholarships added by verified students</p>
-  <p class="text-xs mb-4" style="color:#6b7a99;">
+  <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--warn);">Scholarships added by verified students</p>
+  <p class="text-xs mb-4" style="color:var(--text-muted);">
     A student who registered before they won something adds it from their own portal. These accounts
     are already verified, so each scholarship is a decision on its own. Verifying one records the
     Approved award for <strong>{{ active_label }}</strong> — it flows into the archives, reports,
@@ -355,39 +356,39 @@
 <div class="card p-6">
   <div class="filter-scheme mb-4" data-filter-bar></div>
   <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--brand);">Recently decided</p>
-  <p class="text-xs mb-4" style="color:#6b7a99;">The last 25 decisions. <strong>View record</strong> reopens everything the decision was made on — what they registered with, and what became of any scholarship they declared. Verifying a rejected account here lets them straight in.</p>
+  <p class="text-xs mb-4" style="color:var(--text-muted);">The last 25 decisions. <strong>View record</strong> reopens everything the decision was made on — what they registered with, and what became of any scholarship they declared. Verifying a rejected account here lets them straight in.</p>
   {% if decided %}
   <div style="overflow-x:auto;">
     <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
       <thead>
         <tr>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Name</th>
-          <th data-filter="Role" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Role</th>
-          <th data-filter="Registered" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Registered</th>
-          <th data-filter="Decision" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Decision</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">Message they see</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;">By</th>
-          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:#6b7a99;font-weight:600;"></th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Name</th>
+          <th data-filter="Role" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Role</th>
+          <th data-filter="Registered" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Registered</th>
+          <th data-filter="Decision" style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Decision</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">Message they see</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;">By</th>
+          <th style="text-align:left;padding:0.55rem 0.75rem;background:#f6f8fc;color:var(--text-muted);font-weight:600;"></th>
         </tr>
       </thead>
       <tbody>
         {% for account in decided %}
         <tr>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);">
             {{ account.get_full_name|default:account.email }}
-            <br /><span style="color:#6b7a99;font-size:0.75rem;">{{ account.email }}</span>
+            <br /><span style="color:var(--text-muted);font-size:0.75rem;">{{ account.email }}</span>
           </td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.get_role_display }}</td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.student_profile.term_display|default:"—" }}</td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">{{ account.get_role_display }}</td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">{{ account.student_profile.term_display|default:"—" }}</td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);">
             <span class="badge {% if account.verification_status == 'approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ account.get_verification_status_display }}</span>
           </td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">{{ account.verification_note|default:"—" }}</td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;color:#6b7a99;">
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">{{ account.verification_note|default:"—" }}</td>
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);color:var(--text-muted);">
             {{ account.verified_by.get_full_name|default:"—" }}<br />
             <span style="font-size:0.75rem;">{{ account.verified_at|date:"M j, Y" }}</span>
           </td>
-          <td style="padding:0.55rem 0.75rem;border-top:1px solid #e8ecf0;">
+          <td style="padding:0.55rem 0.75rem;border-top:1px solid var(--border);">
             <div class="record-actions">
               <button type="button" class="btn btn-outline record-actions__btn"
                       data-preview-open="record-{{ account.id }}">View record</button>
@@ -405,8 +406,9 @@
       </tbody>
     </table>
   </div>
+  {% include "_pagination.html" with page=decided_page.page page_param=decided_page.page_param querystring=decided_page.querystring label="Decided registrations" %}
   {% else %}
-  <p class="text-sm" style="color:#6b7a99;">No decisions yet.</p>
+  <p class="text-sm" style="color:var(--text-muted);">No decisions yet.</p>
   {% endif %}
 </div>
 

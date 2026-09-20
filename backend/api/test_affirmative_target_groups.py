@@ -200,7 +200,7 @@ class TheWorkbookCarriesTheGroupsTest(Fixtures, TestCase):
                 head = line
                 continue
             if head is not None and line[0] is not None:
-                yield dict(zip(head, line))
+                yield dict(zip(head, line, strict=True))
 
     def book(self):
         response = self.c.get('/vpsea/ranking/download/?type=Affirmative')

@@ -1,3 +1,9 @@
+"""The disability options offered on the forms.
+
+``NO`` is one of them on purpose — it is an answer, and the recommender must
+tell declining apart from never having been asked.
+"""
+
 import os
 
 TEMPLATE_PATH = os.path.join(
@@ -13,6 +19,11 @@ _CACHE = {}
 
 
 def disability_types():
+    """The disability options offered on the forms.
+
+    ``NO`` is one of them on purpose. It is an answer, and the recommender
+    has to tell "declines to claim a disability" apart from "nobody asked".
+    """
     if SHEET in _CACHE:
         return _CACHE[SHEET] + [OTHER]
 

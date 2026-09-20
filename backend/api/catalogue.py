@@ -1,3 +1,10 @@
+"""The built-in scholarship catalogue.
+
+The programmes BiPSU runs, with their eligibility, requirements and benefits as
+the citizens charter and the funders' guidelines word them.
+:func:`ensure_scholarships` writes them into the database and is safe to re-run.
+"""
+
 SCHOLARSHIPS = [   {   'name': 'Academic Scholarship',
         'type': 'Academic',
         'category': 'application',
@@ -552,6 +559,13 @@ OFFICE_OWNED_FIELDS = frozenset({'is_active'})
 
 
 def ensure_scholarships():
+    """Create or refresh the built-in scholarship catalogue.
+
+    Idempotent: matched on ``type``, so re-running updates the wording of
+    an existing programme rather than adding a duplicate. Called from
+    ``bootstrap`` and ``seed``, so a fresh database has something to apply
+    for.
+    """
     from .models import Scholarship
 
     added, updated = [], []

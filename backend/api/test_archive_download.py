@@ -14,7 +14,9 @@ URL = '/vpsea/archives/download/'
 
 
 def headings_of(html, index=0):
-    tables = re.findall(r'<table class="scholar-table".*?</thead>', html, re.S)
+    tables = re.findall(
+        r'<table[^>]*class="[^"]*scholar-table[^"]*".*?</thead>',
+        html, re.S)
     if index >= len(tables):
         return []
     return [h.strip()
@@ -36,6 +38,14 @@ def header_rows(rows):
 def flat(rows):
     return {str(value) for row in rows for value in row if value is not None}
 
+
+def _as_date(value):
+    """A ``date`` from either a ``date`` or a ``datetime``.
+
+    openpyxl returns one or the other depending on how the cell was written,
+    and the comparison below only cares about the day.
+    """
+    return value.date() if hasattr(value, 'date') else value
 
 class ArchiveFixtures:
     term = '26-1'
@@ -212,5 +222,5 @@ class TheOfficesOwnColumnsComeDownTooTest(ArchiveFixtures, TestCase):
         values = [value for row in self.sheet() for value in row]
         self.assertIn(2500, values, 'a Number column came down as text')
         dates = [value for value in values if isinstance(value, (date, datetime))]
-        self.assertEqual([getattr(value, 'date', lambda: value)() for value in dates],
+        self.assertEqual([_as_date(value) for value in dates],
                          [date(2026, 6, 15)])

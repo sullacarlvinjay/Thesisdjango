@@ -252,6 +252,8 @@ if not DEBUG:
 SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', 60 * 60 * 24 * 14))
 SESSION_SAVE_EVERY_REQUEST = True
 
+TRUST_FORWARDED_FOR = _env_bool('TRUST_FORWARDED_FOR', not DEBUG)
+
 
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '').strip()
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '').strip()
@@ -326,6 +328,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Every list endpoint used to return its whole queryset. See
+    # api/pagination.py; list responses are now {count, next, previous,
+    # results} rather than a bare array.
+    'DEFAULT_PAGINATION_CLASS': 'api.pagination.SRMSPagination',
+    'PAGE_SIZE': 50,
 }
 
 

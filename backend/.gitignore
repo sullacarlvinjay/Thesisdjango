@@ -53,3 +53,15 @@ q-dev-chat-*.html
 # Tailwind toolchain. The generated static/css/tailwind.css IS committed, so
 # Render never needs Node at build time.
 node_modules/
+
+# Coverage's raw data files. The generated REPORTS under docs/quality are
+# committed on purpose — they are the evidence a reviewer opens — but the
+# binary .coverage database they are built from is machine-local and changes
+# on every run.
+.coverage
+.coverage.*
+htmlcov/
+.report_cache/
+
+# Scratch output from the split tooling
+.split_plan.json

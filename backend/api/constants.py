@@ -1,3 +1,11 @@
+"""Fixed choices and the lookups over them.
+
+Holds the university's own structure — schools, courses, staff units — and the
+scholarship type vocabulary. The functions here prefer the live catalogue over
+the built-in choices, so a programme the office renames reads correctly
+everywhere at once.
+"""
+
 USER_ROLES = [
     ('student', 'Student'),
     ('nsu_staff', 'BiPSU Staff'),
@@ -89,6 +97,11 @@ STAFF_DECLARABLE_LABEL = dict(SCHOLARSHIP_TYPE_CHOICES)[STAFF_DECLARABLE_TYPE]
 
 
 def scholarship_type_labels():
+    """Display name for every scholarship type.
+
+    The catalogue in the database wins over the built-in choices, so a
+    programme the office renamed reads correctly everywhere at once.
+    """
     from .models import Scholarship
 
     labels = dict(SCHOLARSHIP_TYPE_CHOICES)
@@ -97,6 +110,12 @@ def scholarship_type_labels():
 
 
 def live_declarable_types():
+    """Types a student may declare, in a sensible order.
+
+    The curated spine first, then anything else active, alphabetically.
+    Falls back to the spine when the catalogue is empty, so a fresh
+    database still offers the usual programmes.
+    """
     from .models import Scholarship
 
     live = {t for t in Scholarship.objects.filter(is_active=True)
@@ -109,6 +128,12 @@ def live_declarable_types():
 
 
 def declarable_type_values():
+    """Every type a declaration may name, for validation.
+
+    Wider than :func:`live_declarable_types`: a student may declare an
+    award from a programme that is no longer accepting applications,
+    because they already hold it.
+    """
     from .models import Scholarship
 
     values = {value for value, _ in DECLARABLE_SCHOLARSHIP_TYPES}
@@ -133,6 +158,7 @@ SCHOLARSHIP_GROUPS = [
 ]
 
 def available_logos():
+    """Scholarship seal filenames present in ``media/logos``."""
     import os
 
     from django.conf import settings
@@ -283,6 +309,7 @@ BIPSU_STAFF_UNIT_GROUPS = [
 
 
 def school_for_course(course):
+    """The school a course belongs to, or ''."""
     course = (course or '').strip()
     if not course:
         return ''
@@ -293,6 +320,12 @@ def school_for_course(course):
 
 
 def academic_classification(gwa):
+    """University Scholar, College Scholar, or neither.
+
+    Lower GWA is better on this scale, so the thresholds read as ceilings.
+    A missing or zero GWA returns '' rather than a classification — it has
+    not been earned, and it has not been refused either.
+    """
     if not gwa or gwa <= 0:
         return ''
     if gwa <= UNIVERSITY_SCHOLAR_MAX_GWA:

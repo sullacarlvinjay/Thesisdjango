@@ -105,7 +105,8 @@ class Command(BaseCommand):
             try:
                 connection.open()
             except Exception as exc:
-                raise CommandError(self._explain('Could not connect', exc))
+                raise CommandError(
+                    self._explain('Could not connect', exc)) from exc
             self.stdout.write(self.style.SUCCESS('  connected and authenticated'))
 
         self.stdout.write(f'Sending to {to}...')
@@ -124,7 +125,8 @@ class Command(BaseCommand):
                 connection=connection,
             )
         except Exception as exc:
-            raise CommandError(self._explain('The message was refused', exc))
+            raise CommandError(
+                self._explain('The message was refused', exc)) from exc
         finally:
             connection.close()
 

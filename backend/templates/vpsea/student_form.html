@@ -7,8 +7,8 @@
 {% block nav %}{% include "vpsea/_nav.html" with active="students" %}{% endblock %}
 {% block content %}
 {% if errors %}
-<div class="mb-4 p-3 rounded-lg" style="background:#fef2f2;border:1px solid #fecaca;">
-  {% for e in errors %}<p class="text-sm" style="color:#dc2626;">{{ e }}</p>{% endfor %}
+<div class="mb-4 p-3 rounded-lg" style="background:var(--danger-bg);border:1px solid var(--danger-border);">
+  {% for e in errors %}<p class="text-sm" style="color:var(--danger);">{{ e }}</p>{% endfor %}
 </div>
 {% endif %}
 <form method="post" enctype="multipart/form-data">
@@ -39,7 +39,7 @@
             <input name="email" type="email" required value="{{ v_email }}" placeholder="student@gmail.com" />
           </div>
           <div class="space-y-1.5">
-            <label>Password {% if action == 'Edit' %}<span style="color:#6b7a99;font-weight:400;">(blank = keep current)</span>{% else %}<span style="color:var(--danger);">*</span>{% endif %}</label>
+            <label>Password {% if action == 'Edit' %}<span style="color:var(--text-muted);font-weight:400;">(blank = keep current)</span>{% else %}<span style="color:var(--danger);">*</span>{% endif %}</label>
             <input name="password" type="password" {% if action == 'Add' %}required{% endif %} placeholder="{% if action == 'Edit' %}Leave blank to keep unchanged{% else %}Set a password{% endif %}" />
           </div>
         </div>
@@ -57,7 +57,7 @@
           </div>
           <div class="space-y-1.5">
             <label>Age</label>
-            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:#6b7a99;cursor:not-allowed;" />
+            <input id="ageField" type="number" readonly style="background:#f6f8fc;color:var(--text-muted);cursor:not-allowed;" />
           </div>
           <div class="space-y-1.5">
             <label>Gender</label>
@@ -231,22 +231,22 @@
       {% if show_application_fields %}
       <div class="card p-6">
         <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--brand);">Document Upload</h2>
-        <p class="text-xs mb-5" style="color:#6b7a99;">
+        <p class="text-xs mb-5" style="color:var(--text-muted);">
           {% if action == 'Edit' %}Upload a new file to replace the existing one. Leave blank to keep the current file.{% else %}All documents are required. Accepted: PDF, JPG, PNG · Max 5MB each.{% endif %}
         </p>
         <div class="space-y-4">
           {% for doc_key, doc_label, doc_hint in doc_list %}
-          <div class="rounded-xl border p-4" style="border-color:#e8ecf0;">
+          <div class="rounded-xl border p-4" style="border-color:var(--border);">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0" style="background:var(--brand-soft);color:var(--brand);">{{ forloop.counter }}</span>
-              <label class="text-sm font-medium" style="color:#374151;">{{ doc_label }} {% if action == 'Add' %}<span style="color:var(--danger);">*</span>{% endif %}</label>
+              <label class="text-sm font-medium" style="color:var(--text-soft);">{{ doc_label }} {% if action == 'Add' %}<span style="color:var(--danger);">*</span>{% endif %}</label>
             </div>
-            <p class="text-xs mb-2 ml-7" style="color:#6b7a99;">{{ doc_hint }}</p>
+            <p class="text-xs mb-2 ml-7" style="color:var(--text-muted);">{{ doc_hint }}</p>
             {% if action == 'Edit' and app %}
               {% for d in app.documents.all %}{% if d.name == doc_label %}
               <div class="flex items-center gap-2 mb-2 ml-7">
-                <svg class="h-4 w-4 shrink-0" style="color:#0000c4;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                <a href="{{ d.file.url }}" data-doc="{{ d.name }}" class="text-xs" style="color:#3a57af;">Current file on record</a>
+                <svg class="h-4 w-4 shrink-0" style="color:var(--ok);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <a href="{{ d.file.url }}" data-doc="{{ d.name }}" class="text-xs" style="color:var(--info);">Current file on record</a>
               </div>
               {% endif %}{% endfor %}
             {% endif %}
@@ -261,8 +261,8 @@
     <div class="space-y-6">
       {% if action == 'Edit' %}
       <div class="card p-6">
-        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:#6b7a99;">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h2>
-        <p class="text-xs mb-4" style="color:#6b7a99;">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
+        <h2 class="text-sm font-semibold mb-1 uppercase tracking-wider" style="color:var(--text-muted);">Profile Info <span style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0;">(read-only — set by student)</span></h2>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">These fields are entered by the student on their own profile page. Edit them there, or contact the student directly.</p>
         <div class="space-y-3">
           <div class="section-title" style="margin-top:0;">Identity &amp; Status</div>
           <div class="detail-grid">
@@ -277,7 +277,7 @@
           </div>
           <div class="flex flex-wrap gap-2 mt-1">
             {% if v_is_pwd %}<span class="badge badge-info">PWD — {{ v_disability_type }}</span>
-            {% else %}<span class="text-xs" style="color:#6b7a99;">No priority group on record</span>{% endif %}
+            {% else %}<span class="text-xs" style="color:var(--text-muted);">No priority group on record</span>{% endif %}
           </div>
           <div class="section-title">TES Eligibility</div>
           <div class="detail-grid">
@@ -316,10 +316,10 @@
           <svg class="h-4 w-4" style="color:var(--brand);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
           <h2 class="font-semibold">Auto-Validation</h2>
         </div>
-        <p class="text-xs mb-4" style="color:#6b7a99;">Real-time eligibility based on GWA.</p>
-        <div id="validationResult" class="p-4 rounded-xl" style="background:#f1f3f9;">
+        <p class="text-xs mb-4" style="color:var(--text-muted);">Real-time eligibility based on GWA.</p>
+        <div id="validationResult" class="p-4 rounded-xl" style="background:var(--surface-2);">
           <p class="text-xs uppercase tracking-wider opacity-70">Result</p>
-          <p class="text-xl font-bold mt-1" id="classificationText" style="color:#6b7a99;">Enter GWA</p>
+          <p class="text-xl font-bold mt-1" id="classificationText" style="color:var(--text-muted);">Enter GWA</p>
         </div>
         <div class="mt-4 space-y-2 text-xs">
           <div class="flex justify-between"><span>Rule: GWA ≤ 1.29</span><span class="badge badge-muted" id="rule1">—</span></div>

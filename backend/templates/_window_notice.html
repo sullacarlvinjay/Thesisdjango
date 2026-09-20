@@ -1,0 +1,17 @@
+{% if not applications_open or not renewals_open %}
+<div class="window-notice" role="status">
+  <svg class="window-notice__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  <div>
+    {% if not applications_open and applications_closed_reason %}
+    <p><strong>Applications are closed.</strong> {{ applications_closed_reason }}</p>
+    {% endif %}
+    {% if not renewals_open and renewals_closed_reason %}
+    <p><strong>Renewals are closed.</strong> {{ renewals_closed_reason }}</p>
+    {% endif %}
+    <p class="window-notice__hint">
+      The links return on their own once the office opens the period — there is
+      nothing you need to do in the meantime.
+    </p>
+  </div>
+</div>
+{% endif %}

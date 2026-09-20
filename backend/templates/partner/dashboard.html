@@ -22,21 +22,21 @@
   {% else %}
   <div class="grid sm:grid-cols-3 gap-4">
     <div class="card p-5">
-      <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Programmes shared</p>
+      <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Programmes shared</p>
       <p class="text-3xl font-bold mt-1">{{ programmes|length }}</p>
     </div>
     <div class="card p-5">
-      <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Scholars on file</p>
+      <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Scholars on file</p>
       <p class="text-3xl font-bold mt-1">{{ total }}</p>
     </div>
     <div class="card p-5">
-      <p class="text-xs uppercase tracking-wider" style="color:#6b7a99;">Active term</p>
+      <p class="text-xs uppercase tracking-wider" style="color:var(--text-muted);">Active term</p>
       <p class="text-3xl font-bold mt-1">{{ term }}</p>
     </div>
   </div>
   <div class="card p-6">
     <h2 class="report-gen-title mb-1">Your programmes</h2>
-    <p class="text-xs mb-4" style="color:#6b7a99;">
+    <p class="text-xs mb-4" style="color:var(--text-muted);">
       Counted across every term on record, not only the active one.
     </p>
     <div class="table-scroll">

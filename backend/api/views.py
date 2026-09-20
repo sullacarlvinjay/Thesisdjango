@@ -1,3 +1,12 @@
+"""The REST API.
+
+Token-authenticated, mounted under ``/api/``. It serves clients that are not
+the server-rendered portals; the portals themselves use the view modules.
+
+List endpoints are paged — responses are ``{count, next, previous, results}``
+rather than bare arrays. See ``api/pagination.py``.
+"""
+
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -23,9 +32,11 @@ OFFICE_ROLES = ('vpsea', 'super')
 
 
 class IsOfficeStaff(BasePermission):
+    """Allow only SDSO office accounts and superusers."""
     message = 'This endpoint is for SDSO office accounts.'
 
     def has_permission(self, request, view):
+        """Whether this request comes from the office."""
         user = request.user
         return bool(
             user and user.is_authenticated
@@ -34,9 +45,11 @@ class IsOfficeStaff(BasePermission):
 
 
 class RegisterView(APIView):
+    """Register an account and send the confirmation email."""
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Create the account; it still needs SDSO verification."""
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -50,9 +63,15 @@ class RegisterView(APIView):
 
 
 class LoginView(APIView):
+    """Exchange credentials for an API token."""
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Issue a token, unless the account may not sign in yet.
+
+        An unverified account is refused with its standing, so a client can say
+        what is happening rather than showing a bare failure.
+        """
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
@@ -63,66 +82,83 @@ class LoginView(APIView):
                     'This account is waiting for SDSO verification.'),
             }, status=status.HTTP_403_FORBIDDEN)
         token, _ = Token.objects.get_or_create(user=user)
-        ActivityLog.objects.create(user=user, action='Logged in')
+        ActivityLog.record(
+            user, 'Logged in',
+            verb='sign-in', request=request)
         return Response({'token': token.key, 'role': user.role})
 
 
 class LogoutView(APIView):
+    """Discard the caller's API token."""
     def post(self, request):
+        """Delete the token, ending every session using it."""
         request.user.auth_token.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):
+    """Read and update the signed-in student's own profile."""
     serializer_class = StudentProfileSerializer
 
     def get_object(self):
+        """Always the caller's own profile, never another's."""
         return self.request.user.profile
 
 
 class ScholarshipListView(generics.ListAPIView):
+    """The active scholarship catalogue."""
     serializer_class = ScholarshipSerializer
     queryset = Scholarship.objects.filter(is_active=True)
 
     def get_serializer_context(self):
+        """Pass the request so match scores can be computed."""
         return {'request': self.request}
 
 
 class StudentApplicationListCreateView(generics.ListCreateAPIView):
+    """The student's own applications."""
     serializer_class = ApplicationSerializer
 
     def get_queryset(self):
+        """Only the caller's applications."""
         return Application.objects.filter(student=self.request.user.profile)
 
     def perform_create(self, serializer):
+        """File the application and record it in the audit log."""
         app = serializer.save(student=self.request.user.profile)
-        ActivityLog.objects.create(
-            user=self.request.user,
-            action=f"Submitted application for {app.scholarship.name}"
-        )
+        ActivityLog.record(
+            self.request.user, f"Submitted application for {app.scholarship.name}",
+            verb='other')
 
 
 class StudentApplicationDetailView(generics.RetrieveUpdateAPIView):
+    """One of the student's own applications."""
     serializer_class = ApplicationSerializer
 
     def get_queryset(self):
+        """Only the caller's applications."""
         return Application.objects.filter(student=self.request.user.profile)
 
 
 class NotificationListView(generics.ListAPIView):
+    """The student's notifications, newest first."""
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
+        """Only the caller's notifications."""
         return Notification.objects.filter(student=self.request.user.profile).order_by('-created_at')
 
 
 class StudentAnnouncementListView(generics.ListAPIView):
+    """Announcements, newest first."""
     serializer_class = AnnouncementSerializer
     queryset = Announcement.objects.all().order_by('-created_at')
 
 
 class StudentDashboardView(APIView):
+    """The counts and match scores behind the student dashboard."""
     def get(self, request):
+        """Summarise this student's standing."""
         profile = request.user.profile
         apps = Application.objects.filter(student=profile)
         scholarships = Scholarship.objects.filter(is_active=True)
@@ -139,11 +175,36 @@ class StudentDashboardView(APIView):
 
 
 class VPSEAStudentRankingView(APIView):
+    """The Affirmative Action ranking, a page at a time.
+
+    This one is paged by hand rather than through ``SRMSPagination``. The
+    response is an envelope — the ranking plus the counts the office reads
+    alongside it — and DRF's ``{count, next, previous, results}`` would
+    replace that envelope, taking the summary with it. So the rows are sliced
+    and the totals kept.
+    """
+
     permission_classes = [IsOfficeStaff]
 
+    DEFAULT_LIMIT = 50
+    MAX_LIMIT = 200
+
+    def _window(self, request):
+        """``?limit=`` and ``?offset=``, clamped rather than refused."""
+        def number(name, fallback, lowest=0):
+            """A bounded integer from a query parameter, falling back when absent."""
+            try:
+                return max(lowest, int(request.query_params.get(name, fallback)))
+            except (TypeError, ValueError):
+                return fallback
+
+        limit = min(number('limit', self.DEFAULT_LIMIT, 1), self.MAX_LIMIT)
+        return limit, number('offset', 0)
+
     def get(self, request):
+        """Recompute and return the ranking for a threshold."""
         from .models import AffirmativeRecommendation
-        from .student_views import _affirmative_ranking_data
+        from .views_ranking import _affirmative_ranking_data
 
         try:
             passing = float(request.query_params.get('passing', 75.0))
@@ -175,8 +236,14 @@ class VPSEAStudentRankingView(APIView):
             'eligible': row['eligible'],
         } for row in data['rows']]
 
+        limit, offset = self._window(request)
+        page = rec_data[offset:offset + limit]
+
         return Response({
-            'recommendations': rec_data,
+            'recommendations': page,
+            'recommendation_count': len(rec_data),
+            'limit': limit,
+            'offset': offset,
             'passing_threshold': passing,
             'eligible_count': data['eligible_count'],
             'ineligible_count': data['ineligible_count'],
@@ -185,56 +252,65 @@ class VPSEAStudentRankingView(APIView):
 
 
 class VPSEAApplicationListView(generics.ListAPIView):
+    """Every application, for the office."""
     permission_classes = [IsOfficeStaff]
     serializer_class = ApplicationSerializer
     queryset = Application.objects.select_related('student__user', 'scholarship', *STUDENT_DETAILS).all()
 
 
 class VPSEAApplicationDetailView(generics.RetrieveUpdateAPIView):
+    """One application, for the office to decide."""
     permission_classes = [IsOfficeStaff]
     serializer_class = ApplicationSerializer
     queryset = Application.objects.all()
 
     def perform_update(self, serializer):
+        """Save the decision, notify the student and log it."""
         app = serializer.save()
-        ActivityLog.objects.create(
-            user=self.request.user,
-            action=f"{serializer.validated_data.get('status', 'Updated')} application {app.id}"
-        )
+        ActivityLog.record(
+            self.request.user, f"{serializer.validated_data.get('status', 'Updated')} application {app.id}",
+            verb='other')
 
 
 class VPSEARenewalListView(generics.ListAPIView):
+    """Every renewal submission, for the office."""
     permission_classes = [IsOfficeStaff]
     serializer_class = AcademicRenewalSerializer
 
     def get_queryset(self):
+        """Every renewal, newest first."""
         return AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).order_by('-submitted_at')
 
 
 class VPSEARenewalDetailView(generics.RetrieveUpdateAPIView):
+    """One renewal, for the office to decide."""
     permission_classes = [IsOfficeStaff]
     serializer_class = AcademicRenewalSerializer
     queryset = AcademicRenewal.objects.select_related('student__user', *STUDENT_DETAILS).all()
 
     def perform_update(self, serializer):
+        """Save the decision, notify the student and log it."""
         renewal = serializer.save()
-        ActivityLog.objects.create(
-            user=self.request.user,
-            action=f"Updated renewal {renewal.id} to {renewal.status} for {renewal.student}"
-        )
+        ActivityLog.record(
+            self.request.user, f"Updated renewal {renewal.id} to {renewal.status} for {renewal.student}",
+            verb='other')
 
 
 class VPSEAArchiveListView(generics.ListAPIView):
+    """Imported scholars for one programme."""
     permission_classes = [IsOfficeStaff]
     serializer_class = ImportedScholarSerializer
 
     def get_queryset(self):
+        """Scholars of the programme named in the URL."""
         return ImportedScholar.objects.filter(scholarship_type=self.kwargs['type'])
 
 
 class VPSEAArchiveUploadView(APIView):
+    """Import a scholar list from a spreadsheet."""
     permission_classes = [IsOfficeStaff]
     def post(self, request, type):
+        """Read the workbook and record what it created."""
         import openpyxl
         file = request.FILES.get('file')
         if not file:
@@ -252,11 +328,14 @@ class VPSEAArchiveUploadView(APIView):
                     imported_from=file.name,
                 )
                 created += 1
-        ActivityLog.objects.create(user=request.user, action=f"Imported {file.name} ({created} rows) for {type}")
+        ActivityLog.record(
+            request.user, f"Imported {file.name} ({created} rows) for {type}",
+            verb='import', request=request)
         return Response({'imported': created})
 
 
 def _approval_trend():
+    """Approvals per month, for the dashboard chart."""
     from django.utils import timezone
     import datetime
     months = []
@@ -274,10 +353,12 @@ def _approval_trend():
 
 
 class VPSEAAnalyticsView(APIView):
+    """The figures behind the analytics dashboard."""
     permission_classes = [IsOfficeStaff]
     CACHE_KEY = 'api-vpsea-analytics'
 
     def get(self, request):
+        """Totals, distributions and the approval trend."""
         from django.conf import settings as django_settings
         from django.core.cache import cache
 
@@ -289,6 +370,11 @@ class VPSEAAnalyticsView(APIView):
         return Response(payload)
 
     def _payload(self):
+        """Compute the dashboard figures.
+
+        Separate from :meth: so the cached and uncached paths cannot
+        diverge: the response is built here and only here.
+        """
         course_dist = [
             {'course': row['enrollment__course'], 'scholars': row['scholars']}
             for row in StudentProfile.objects.filter(applications__status='Approved')
@@ -318,19 +404,25 @@ class VPSEAAnalyticsView(APIView):
 
 
 class VPSEAAnnouncementListCreateView(generics.ListCreateAPIView):
+    """Read and publish announcements."""
     permission_classes = [IsOfficeStaff]
     serializer_class = AnnouncementSerializer
     queryset = Announcement.objects.all().order_by('-created_at')
 
     def perform_create(self, serializer):
+        """Publish, recording who wrote it."""
         ann = serializer.save(published_by=self.request.user)
-        ActivityLog.objects.create(user=self.request.user, action=f"Published announcement: {ann.title}")
+        ActivityLog.record(
+            self.request.user, f"Published announcement: {ann.title}",
+            verb='other')
 
 
 class VPSEAReportsView(APIView):
+    """Report totals for the office."""
     permission_classes = [IsOfficeStaff]
 
     def get(self, request):
+        """Scholar counts per programme for the active term."""
         from .models import SystemSettings
         from . import masterlist_report
 
@@ -347,8 +439,10 @@ class VPSEAReportsView(APIView):
 
 
 class VPSEADashboardView(APIView):
+    """The counts behind the office dashboard."""
     permission_classes = [IsOfficeStaff]
     def get(self, request):
+        """Applications, renewals and accounts awaiting a decision."""
         apps = Application.objects.all()
         return Response({
             'total_applicants': apps.count(),

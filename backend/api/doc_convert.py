@@ -1,3 +1,14 @@
+"""Converting office documents to PDF with LibreOffice.
+
+Used for the masterlist preview, so the office sees its own DOCX template
+rendered exactly rather than an approximation. LibreOffice is not installed on
+the deployed container, so every caller has to cope with it being absent —
+``available()`` says so, and the reports fall back to the ReportLab layout.
+
+Conversions are cached by a hash of the input, because the same report is
+previewed repeatedly while it is read.
+"""
+
 import hashlib
 import os
 import shutil
@@ -17,14 +28,21 @@ POSIX_NAMES = ['soffice', 'libreoffice']
 
 
 class ConversionUnavailable(RuntimeError):
+    """Raised when LibreOffice is not installed at all."""
     pass
 
 
 class ConversionFailed(RuntimeError):
+    """Raised when LibreOffice ran but produced no PDF."""
     pass
 
 
 def soffice_path():
+    """Locate the LibreOffice executable, or ``None``.
+
+    Checked at call time rather than at import: the deployed container
+    does not have it, and the application has to start there anyway.
+    """
     override = os.environ.get(ENV_VAR)
     if override and os.path.exists(override):
         return override
@@ -42,10 +60,16 @@ def soffice_path():
 
 
 def available():
+    """Whether a DOCX can be converted to PDF on this machine."""
     return soffice_path() is not None
 
 
 def _cache_dir():
+    """The on-disk conversion cache, created if needed.
+
+    Writes its own ``.gitignore`` so a developer's rendered reports never
+    reach a commit.
+    """
     from django.conf import settings
 
     path = os.path.join(str(settings.BASE_DIR), '.report_cache')
@@ -58,6 +82,20 @@ def _cache_dir():
 
 
 def to_pdf(data, suffix):
+    """Convert an office document to PDF bytes.
+
+    Cached by a hash of the input, because conversion takes seconds and
+    the same masterlist is previewed repeatedly while the office reads it.
+    The cache is written to a temporary name and renamed into place, so a
+    reader never opens a half-written PDF.
+
+    Each run gets a private LibreOffice profile in a throwaway directory:
+    two conversions at once would otherwise fight over the shared one.
+
+    Raises:
+        ConversionUnavailable: LibreOffice is not installed.
+        ConversionFailed: it ran but produced nothing, or timed out.
+    """
     executable = soffice_path()
     if executable is None:
         raise ConversionUnavailable(
@@ -86,10 +124,10 @@ def to_pdf(data, suffix):
             result = subprocess.run(
                 command, capture_output=True, timeout=TIMEOUT_SECONDS,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as expired:
             raise ConversionFailed(
                 f'LibreOffice did not finish converting within '
-                f'{TIMEOUT_SECONDS} seconds.')
+                f'{TIMEOUT_SECONDS} seconds.') from expired
 
         produced = os.path.join(work, 'report.pdf')
         if not os.path.exists(produced):

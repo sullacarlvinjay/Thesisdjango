@@ -129,7 +129,8 @@ class LegendLabelsFitTest(AnalyticsScriptParsesTest):
     ]
 
     def test_every_reported_label_fits_without_being_cut(self):
-        for label, short in zip(self.REPORTED, self.run_legend(self.REPORTED)):
+        for label, short in zip(self.REPORTED, self.run_legend(self.REPORTED),
+                            strict=True):
             with self.subTest(label=label):
                 self.assertNotIn('…', short)
                 self.assertLessEqual(len(short), 26)

@@ -1,3 +1,13 @@
+"""Rendering the masterlist to PDF with ReportLab.
+
+The fallback for when LibreOffice is unavailable, which on the deployed
+container is always, and the only route for a single-programme report — the
+DOCX template cannot express one.
+
+Column widths are measured from the content rather than fixed, so a column of
+initials does not take the same room as a column of addresses.
+"""
+
 import os
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -25,6 +35,7 @@ _STYLES = getSampleStyleSheet()
 
 
 def _style(name, **kwargs):
+    """Build a named paragraph style, once, for reuse across the document."""
     return ParagraphStyle(name, parent=_STYLES['Normal'], **kwargs)
 
 
@@ -68,6 +79,7 @@ LOGO_PATH = os.path.join(
 
 
 def _text(value):
+    """Escape a value for ReportLab and render ``None`` as blank."""
     if value is None or value == '':
         return ''
     if hasattr(value, 'strftime'):
@@ -76,10 +88,17 @@ def _text(value):
 
 
 def _cell(value, style=CELL):
+    """One table cell as a wrapped paragraph."""
     return Paragraph(escape(_text(value)), style)
 
 
 def _column_widths(headers, rows, total=CONTENT_WIDTH):
+    """Share the page width out between columns by their content.
+
+    Measured from the widest value actually present, so a column of initials
+    does not take the same room as a column of addresses. Fixed widths would
+    either clip names or waste half the page.
+    """
     weights = []
     for i, header in enumerate(headers):
         longest_word = max((len(w) for w in _text(header).split()), default=4)
@@ -90,6 +109,7 @@ def _column_widths(headers, rows, total=CONTENT_WIDTH):
 
 
 def _table(headers, rows, widths=None):
+    """A styled table with a repeating header row."""
     data = [[_cell(h, CELL_HEAD) for h in headers]]
     for row in rows:
         data.append([_cell(v) for v in row])
@@ -119,6 +139,7 @@ def _table(headers, rows, widths=None):
 
 
 def _banner(text):
+    """A programme's heading bar."""
     banner = Table([[Paragraph(escape(text), SECTION)]],
                    colWidths=[CONTENT_WIDTH], hAlign='LEFT')
     banner.setStyle(TableStyle([
@@ -133,6 +154,11 @@ _LOGO_CACHE = {}
 
 
 def _logo(size=0.55 * inch):
+    """The university seal, or ``None`` if it cannot be read.
+
+    Returns ``None`` rather than raising: a missing image should cost the
+    report its letterhead, not the report.
+    """
     if not os.path.exists(LOGO_PATH):
         return None
     if 'png' not in _LOGO_CACHE:
@@ -157,6 +183,7 @@ def _logo(size=0.55 * inch):
 
 
 def _letterhead(lines, legend=None):
+    """The heading block that opens the report."""
     story = [Paragraph(escape(STANDIN_NOTICE), STANDIN), Spacer(1, 6)]
     if legend:
         story.append(Paragraph(escape(legend), LEGEND))
@@ -170,6 +197,7 @@ def _letterhead(lines, legend=None):
 
 
 def _signatories(blocks):
+    """The prepared, checked and approved block that closes it."""
     width = CONTENT_WIDTH / len(blocks)
     columns = []
     for label, name, role in blocks:
@@ -197,6 +225,7 @@ def _signatories(blocks):
 
 
 def _page_number(canvas, doc):
+    """Draw the page number in the footer."""
     canvas.saveState()
     canvas.setFont('Helvetica', 7)
     canvas.setFillColor(colors.HexColor('#64748B'))
@@ -206,6 +235,7 @@ def _page_number(canvas, doc):
 
 
 def _build(story, title):
+    """Run the document through ReportLab and return the bytes."""
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=PAGE_SIZE,
@@ -227,16 +257,29 @@ MASTERLIST_SIGNATORIES = [
 ]
 
 
-def masterlist_blocks(term_label=None):
+def masterlist_blocks(term_label=None, only=None):
+    """The masterlist as render-ready blocks, optionally one programme only.
+
+    Args:
+        term_label: the term to report on, e.g. ``'26-1'``.
+        only: a programme key from ``masterlist_report.PROGRAM_SLOTS`` — for
+            instance ``'TES'`` or ``'CHED_FULL'``. ``None`` returns every
+            programme, which is the whole masterlist.
+
+    Returns:
+        ``(blocks, summary)``, both narrowed to ``only`` when it is given.
+    """
     from . import masterlist_report
 
     context, summary = masterlist_report.build_context(term_label=term_label)
+    if only:
+        summary = [e for e in summary if e['key'] == only]
     blocks = []
     for entry in summary:
         slot = context[entry['slot']]
         headers = entry['headers']
 
-        def cells(rows):
+        def cells(rows, headers=headers):
             return [masterlist_report.cells_for(r, headers) for r in rows]
 
         if entry['layout'] == 'gendered':
@@ -254,8 +297,9 @@ def masterlist_blocks(term_label=None):
     return blocks, summary
 
 
-def masterlist_pdf(academic_year, semester, term_label=None):
-    blocks, summary = masterlist_blocks(term_label)
+def masterlist_pdf(academic_year, semester, term_label=None, only=None):
+    """Render the masterlist to PDF, for one programme or for all of them."""
+    blocks, summary = masterlist_blocks(term_label, only=only)
 
     story = _letterhead(
         [

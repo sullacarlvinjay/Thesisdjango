@@ -1,3 +1,11 @@
+"""Serving uploaded files, with an access check on each one.
+
+Branding is public. Everything else is a scholar's document, and is served only
+to its owner or to the office. A refused request gets 404 rather than 403,
+because a 403 confirms the file exists — and for a document named after a
+person, that is itself a disclosure.
+"""
+
 import posixpath
 
 from django.conf import settings
@@ -22,6 +30,7 @@ _STUDENT_USER_PATH = {
 _OWNER_RESOLVERS = {
     'profile/shs_cert/':   [('StudentProfile', 'affirmative_eligibility__shs_gpa_cert')],
     'profile/suc_cert/':   [('StudentProfile', 'affirmative_eligibility__suc_exam_cert')],
+    'profile/study_load/': [('StudentProfile', 'enrollment__study_load')],
     'documents/':          [('ApplicationDocument', 'file')],
     'renewals/academic/':  [('AcademicRenewal', 'certificate_of_grades'),
                             ('AcademicRenewal', 'certificate_of_enrollment')],
@@ -39,6 +48,12 @@ _EMAIL_OWNED = {
 
 
 def _normalise(path):
+    """Reduce a requested path to a safe relative one, or refuse it.
+
+    Traversal is rejected here rather than filtered, because a request
+    that tried to climb out of the media root is not one to serve a
+    corrected version of.
+    """
     clean = posixpath.normpath(path.replace('\\', '/')).lstrip('/')
     if clean.startswith('../') or clean == '..' or clean.startswith('/'):
         raise Http404
@@ -46,6 +61,11 @@ def _normalise(path):
 
 
 def _owner_user_ids(path):
+    """Account IDs allowed to read this file, or ``None`` if unknown.
+
+    ``None`` means no resolver claims the prefix, which the caller must
+    treat as "refuse", not as "no restriction".
+    """
     from django.apps import apps
     for prefix, pairs in _OWNER_RESOLVERS.items():
         if not path.startswith(prefix):
@@ -62,6 +82,12 @@ def _owner_user_ids(path):
 
 
 def _owner_emails(path):
+    """Addresses allowed to read this file, or ``None`` if unknown.
+
+    Affirmative and staff records belong to people who often have no
+    portal account, so ownership is matched on the address the record
+    carries rather than on a foreign key.
+    """
     from django.apps import apps
     for prefix, (model_name, field) in _EMAIL_OWNED.items():
         if not path.startswith(prefix):
@@ -77,6 +103,13 @@ def _owner_emails(path):
 
 
 def _may_read(user, path):
+    """Whether this user may read this path.
+
+    Refuses by default. The office sees everything; everyone else sees
+    only files an owner resolver ties to them, and the office-only
+    prefixes — imports and masterlists, which are lists of other people —
+    are closed to applicants outright.
+    """
     if not user.is_authenticated:
         return False
     if user.role in OFFICE_ROLES or user.is_superuser:
@@ -96,6 +129,16 @@ def _may_read(user, path):
 
 
 def serve_media(request, path):
+    """Serve an uploaded file, after checking who is asking.
+
+    Branding is public and cached for a week. Everything else is a scholar
+    document: checked against the requester, then sent with ``no-store``
+    so it does not sit in a shared browser cache.
+
+    A file the caller may not read raises 404, not 403. A 403 would
+    confirm the file exists, which for a document named after a person is
+    itself a disclosure.
+    """
     path = _normalise(path)
 
     if path.startswith(PUBLIC_PREFIXES):

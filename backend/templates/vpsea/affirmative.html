@@ -37,25 +37,25 @@
   </div>
   {% if active_tab == 'academic' %}
   <div style="overflow-x:auto;">
-    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
+    <table class="table-actions-pinned" data-priority-columns data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="appTable">
       <thead>
-        <tr style="border-bottom:1px solid #e8ecf0;">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Student</th>
-          <th data-filter="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">School</th>
-          <th data-filter="Course" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">GWA</th>
-          <th data-filter="Type" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Type</th>
-          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Semester</th>
-          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Date</th>
+        <tr style="border-bottom:1px solid var(--border);">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">ID</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Student</th>
+          <th data-priority="low" data-filter="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">School</th>
+          <th data-filter="Course" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Course</th>
+          <th data-priority="medium" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Year</th>
+          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">GWA</th>
+          <th data-priority="medium" data-filter="Type" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Type</th>
+          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Semester</th>
+          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Status</th>
+          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Date</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for app in academic_apps %}
-        <tr style="border-bottom:1px solid #f1f3f9;" class="app-row"
+        <tr style="border-bottom:1px solid var(--surface-2);" class="app-row"
           data-name="{{ app.student.user.get_full_name|lower }}"
           data-id="{{ app.student.student_id|lower }}"
           data-status="{{ app.status }}"
@@ -75,7 +75,7 @@
           data-remarks="{{ app.remarks }}"
           data-docs="{% for doc in app.documents.all %}{{ doc.name }}::{{ doc.file.url }}{% if not forloop.last %}||{% endif %}{% endfor %}"
           data-formdata-id="{{ app.id }}">
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">APP-{{ app.id|stringformat:"07d" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:var(--text-muted);">APP-{{ app.id|stringformat:"07d" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <div class="flex items-center gap-2">
               <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--brand);">
@@ -83,22 +83,22 @@
               </div>
               <div>
                 <p class="font-medium leading-tight">{{ app.student.user.get_full_name }}</p>
-                <p class="text-xs" style="color:#6b7a99;">{{ app.student.student_id }}</p>
+                <p class="text-xs" style="color:var(--text-muted);">{{ app.student.student_id }}</p>
               </div>
             </div>
           </td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.student.school|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ app.student.school|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.student.course }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.student.year_level }}</td>
           <td style="padding:0.6rem 0.75rem;"><span class="badge badge-muted">{{ app.student.gwa }}</span></td>
           <td style="padding:0.6rem 0.75rem;">{{ app.scholarship.name }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.term_display|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ app.term_display|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% else %}badge-warning{% endif %}">
               {{ app.status }}
             </span>
           </td>
-          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
+          <td style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <button onclick="openAcademicModal(this.closest('tr'))" class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
               <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -107,7 +107,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" style="padding:2rem;text-align:center;color:#6b7a99;">No academic applications found.</td></tr>
+        <tr><td colspan="11" style="padding:2rem;text-align:center;color:var(--text-muted);">No academic applications found.</td></tr>
         {% endfor %}
         {% for app in academic_apps %}{{ app.form_data|json_script:app.id }}{% endfor %}
       </tbody>
@@ -115,25 +115,25 @@
   </div>
   {% else %}
   <div style="overflow-x:auto;">
-    <table data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+    <table class="table-actions-pinned" data-priority-columns data-filterable data-sortable style="width:100%;border-collapse:collapse;font-size:0.875rem;">
       <thead>
-        <tr style="border-bottom:1px solid #e8ecf0;">
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">ID</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Name</th>
-          <th data-filter="Course" data-filter-group="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Course</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Year</th>
-          <th data-filter="Employment" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Employment</th>
-          <th data-filter="Designation" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Designation</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Date of Reg.</th>
-          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Semester</th>
-          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Status</th>
-          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:#6b7a99;font-weight:500;">Submitted</th>
+        <tr style="border-bottom:1px solid var(--border);">
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">ID</th>
+          <th style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Name</th>
+          <th data-filter="Course" data-filter-group="School" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Course</th>
+          <th data-priority="medium" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Year</th>
+          <th data-filter="Employment" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Employment</th>
+          <th data-priority="medium" data-filter="Designation" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Designation</th>
+          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Date of Reg.</th>
+          <th data-filter="Semester" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Semester</th>
+          <th data-filter="Status" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Status</th>
+          <th data-priority="low" style="text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:500;">Submitted</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for app in staff_apps %}
-        <tr style="border-bottom:1px solid #f1f3f9;" class="app-row"
+        <tr style="border-bottom:1px solid var(--surface-2);" class="app-row"
           data-name="{{ app.full_name|lower }}"
           data-id="{{ app.student_id|lower }}"
           data-status="{{ app.status }}"
@@ -146,15 +146,15 @@
           data-doreg="{{ app.date_of_regularization|date:'Y-m-d'|default:'' }}"
           data-remarks="{{ app.remarks }}"
           data-docurl="{% if app.appointment_paper %}{{ app.appointment_paper.url }}{% endif %}">
-          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:#6b7a99;">STF-{{ app.id|stringformat:"05d" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-family:monospace;font-size:0.75rem;color:var(--text-muted);">STF-{{ app.id|stringformat:"05d" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <div class="flex items-center gap-2">
-              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:#0000c4;">
+              <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:var(--ok);">
                 {{ app.full_name|first }}
               </div>
               <div>
                 <p class="font-medium leading-tight">{{ app.full_name }}</p>
-                <p class="text-xs" style="color:#6b7a99;">{{ app.email }}</p>
+                <p class="text-xs" style="color:var(--text-muted);">{{ app.email }}</p>
               </div>
             </div>
           </td>
@@ -163,13 +163,13 @@
           <td style="padding:0.6rem 0.75rem;">{{ app.employment_status|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">{{ app.designation|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;font-size:0.8rem;">{{ app.date_of_regularization|date:"M d, Y"|default:"—" }}</td>
-          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:#6b7a99;">{{ app.term_display|default:"—" }}</td>
+          <td style="padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text-muted);">{{ app.term_display|default:"—" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <span class="badge {% if app.status == 'Approved' %}badge-success{% elif app.status == 'Rejected' %}badge-destructive{% elif app.status == 'Needs Revision' %}badge-info{% else %}badge-warning{% endif %}">
               {{ app.status }}
             </span>
           </td>
-          <td style="padding:0.6rem 0.75rem;color:#6b7a99;font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
+          <td style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.8rem;">{{ app.submitted_at|date:"M d, Y" }}</td>
           <td style="padding:0.6rem 0.75rem;">
             <button onclick="openStaffModal(this.closest('tr'))"
               class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
@@ -179,7 +179,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" style="padding:2rem;text-align:center;color:#6b7a99;">No BiPSU Staff applications found.</td></tr>
+        <tr><td colspan="11" style="padding:2rem;text-align:center;color:var(--text-muted);">No BiPSU Staff applications found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -223,7 +223,7 @@
         <div class="flex gap-2">
           <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
           <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Send Back</button>
-          <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
+          <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">✕ Reject</button>
         </div>
       </form>
     </div>
@@ -255,7 +255,7 @@
       <div class="flex gap-2">
         <button type="submit" name="status" value="Approved" class="btn btn-primary flex-1">✓ Approve</button>
         <button type="submit" name="status" value="Needs Revision" class="btn btn-outline flex-1">↺ Send Back</button>
-        <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">✕ Reject</button>
+        <button type="submit" name="status" value="Rejected" class="btn" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);">✕ Reject</button>
       </div>
     </form>
     </div>
@@ -270,7 +270,7 @@
 <script>
 function field(label, value) {
   if (!value && value !== 0) return '';
-  return '<div><p style="font-size:0.7rem;color:#6b7a99;margin-bottom:0.1rem;">' + label +
+  return '<div><p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:0.1rem;">' + label +
          '</p><p class="font-medium" style="word-break:break-word;">' + value + '</p></div>';
 }
 function openAcademicModal(row) {
@@ -308,7 +308,7 @@ function openAcademicModal(row) {
   if (d.docs) {
     docsEl.innerHTML = d.docs.split('||').map(p => {
       const [name, url] = p.split('::');
-      return '<a href="' + url + '" data-doc="' + name + '" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#3a57af;text-decoration:none;">' +
+      return '<a href="' + url + '" data-doc="' + name + '" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;color:var(--info);text-decoration:none;">' +
         '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
         name + '</a>';
     }).join('');
@@ -350,7 +350,7 @@ function openStaffModal(row) {
   const docSec = document.getElementById('affModalDocSection');
   const docEl  = document.getElementById('affModalDoc');
   if (d.docurl) {
-    docEl.innerHTML = '<a href="' + d.docurl + '" data-doc="Appointment Paper" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid #e8ecf0;border-radius:6px;font-size:0.82rem;color:#3a57af;text-decoration:none;">' +
+    docEl.innerHTML = '<a href="' + d.docurl + '" data-doc="Appointment Paper" class="flex items-center gap-2" style="padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;color:var(--info);text-decoration:none;">' +
       '<svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>' +
       'View Appointment Paper</a>';
     docSec.style.display = '';

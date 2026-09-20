@@ -1,3 +1,14 @@
+"""The BiPSU Staff Scholarship qualification rules.
+
+Three outcomes rather than two. Alongside qualified and not qualified there is
+*for verification*, for an application whose rules could not be run because the
+record is incomplete. That is not a refusal, and an applicant must not be
+turned down over a question nobody asked them.
+
+Which rules apply at all depends on whether the applicant is the employee or
+their dependent, so that is settled first.
+"""
+
 from dataclasses import dataclass, field
 
 PASS = 'PASS'
@@ -17,6 +28,21 @@ PERMANENT_APPOINTMENTS = ('Regular', 'Permanent')
 
 @dataclass(frozen=True)
 class RuleResult:
+    """One qualification's verdict on one staff application.
+
+    Carries a third outcome the TES rules do not need: ``NEEDS VERIFICATION``,
+    for a rule that could not be run because the record is incomplete. That is
+    not the same as failing, and an applicant must not be refused for a
+    question nobody asked them.
+
+    Attributes:
+        key: stable identifier, e.g. ``'permanent'``.
+        label: the qualification as the office words it.
+        verdict: :data:`PASS`, :data:`FAIL` or :data:`NEEDS_VERIFICATION`.
+        detail: the sentence explaining the verdict.
+        source: the field the answer was read from.
+        missing: what the office has to obtain before the rule can be run.
+    """
     key: str
     label: str
     verdict: str
@@ -26,19 +52,38 @@ class RuleResult:
 
     @property
     def passed(self):
+        """Whether this qualification was met."""
         return self.verdict == PASS
 
     @property
     def failed(self):
+        """Whether this qualification refused the applicant."""
         return self.verdict == FAIL
 
     @property
     def unverified(self):
+        """Whether the rule could not be run for want of an answer.
+
+        Distinct from failing: the applicant has not been refused, the office has
+        simply not been given what it needs to decide.
+        """
         return self.verdict == NEEDS_VERIFICATION
 
 
 @dataclass
 class Evaluation:
+    """The full verdict on one staff application.
+
+    Attributes:
+        application: the ``ApplicantRecord`` judged.
+        standing: :data:`STAFF`, :data:`DEPENDENT` or :data:`UNSTATED`, which
+            decides which qualifications apply at all.
+        rules: every verdict, in the order they were run.
+        status: :data:`QUALIFIED`, :data:`NOT_QUALIFIED` or
+            :data:`FOR_VERIFICATION`.
+        missing: what the office must obtain, collected from the rules.
+        rank: position in the ranked list, filled in by :func:`rank`.
+    """
     application: object
     standing: str
     rules: list
@@ -48,18 +93,22 @@ class Evaluation:
 
     @property
     def applicant_name(self):
+        """The applicant's name as the application records it."""
         return self.application.full_name
 
     @property
     def qualified(self):
+        """Whether every qualification was met outright."""
         return self.status == QUALIFIED
 
     @property
     def needs_verification(self):
+        """Whether a decision is waiting on missing information."""
         return self.status == FOR_VERIFICATION
 
     @property
     def recommendation(self):
+        """The verdict in the words the office uses."""
         if self.status == NOT_QUALIFIED:
             return 'Not Recommended'
         if self.status == FOR_VERIFICATION:
@@ -67,6 +116,7 @@ class Evaluation:
         return 'Recommended'
 
     def rule(self, key):
+        """The result for one rule key, or ``None`` if it was not run."""
         for r in self.rules:
             if r.key == key:
                 return r
@@ -74,19 +124,37 @@ class Evaluation:
 
     @property
     def permanent_verdict(self):
+        """The appointment rule's verdict, for the ranking table."""
         return self.rule('permanent').verdict
 
     @property
     def baccalaureate_verdict(self):
+        """The prior-degree rule's verdict, for the ranking table."""
         return self.rule('baccalaureate').verdict
 
     @property
     def sort_key(self):
+        """Ranking order: qualified first, then by name.
+
+        There is no score to sort on. The qualifications are pass or fail, so the
+        list groups by status and orders alphabetically within each group, which
+        is stable and is what the office reads down.
+        """
         status_rank = {QUALIFIED: 0, FOR_VERIFICATION: 1, NOT_QUALIFIED: 2}[self.status]
         return (status_rank, (self.application.full_name or '').lower())
 
 
 def _standing_rule(application):
+    """Decide whether this is an employee applying or their dependent.
+
+    Everything else depends on the answer, so it is settled first. Both flags
+    set is treated as unverified rather than picking one: an employee is
+    judged on their own appointment and a dependent on their parent's, and
+    guessing would apply the wrong test.
+
+    Returns:
+        ``(standing, RuleResult)``.
+    """
     staff = bool(application.is_nsu_staff)
     dependent = bool(application.is_nsu_dependent)
 
@@ -118,6 +186,13 @@ def _standing_rule(application):
 
 
 def _permanent_appointment_rule(application, standing):
+    """Whether the appointment behind the claim is permanent.
+
+    Qualification (a) for an employee, (b) for a dependent. For a dependent
+    the appointment belongs to the employee they claim through, so the staff
+    record is looked up by employee ID — and a missing or unfindable record is
+    reported as unverified, because the dependent has not failed anything.
+    """
     if standing == STAFF:
         status = (application.employment_status or '').strip()
         if not status:
@@ -187,6 +262,13 @@ def _permanent_appointment_rule(application, standing):
 
 
 def _legitimate_dependent_rule(application, standing):
+    """Whether a dependent has stated the relationship in full.
+
+    Not applicable to an employee applying for themselves. For a dependent,
+    both the relationship and the employee's name are required: half a
+    declaration does not establish dependency, but it is missing information
+    rather than a refusal.
+    """
     if standing == STAFF:
         return RuleResult(
             'dependency', 'Legitimate dependent', PASS,
@@ -220,6 +302,11 @@ def _legitimate_dependent_rule(application, standing):
 
 
 def _no_baccalaureate_rule(application, standing):
+    """Qualification (c): a dependent must not already hold a degree.
+
+    Applies to dependents only. An employee who already has a baccalaureate is
+    not disqualified — the programme exists partly so staff can study further.
+    """
     if standing == STAFF:
         return RuleResult(
             'baccalaureate', 'No baccalaureate already', PASS,
@@ -244,6 +331,15 @@ def _no_baccalaureate_rule(application, standing):
 
 
 def evaluate(application):
+    """Judge one staff application against every qualification.
+
+    A single failure refuses the application. Absent a failure, any rule that
+    could not be run leaves the application for verification rather than
+    approving it on incomplete information.
+
+    Returns:
+        An :class:`Evaluation` carrying every verdict and what is still needed.
+    """
     standing, standing_rule = _standing_rule(application)
     rules = [
         standing_rule,
@@ -274,6 +370,15 @@ def evaluate(application):
 
 
 def rank(applications):
+    """Evaluate and order a set of staff applications.
+
+    Unlike TES, nothing is screened out first: an incomplete application is
+    ranked as "For Verification" so the office can see it and chase it, rather
+    than disappearing from the list.
+
+    Returns:
+        Evaluations in recommendation order, each with ``rank`` filled in.
+    """
     evaluations = [evaluate(a) for a in applications]
     evaluations.sort(key=lambda e: e.sort_key)
     for position, evaluation in enumerate(evaluations, start=1):

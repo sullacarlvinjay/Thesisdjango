@@ -1,3 +1,26 @@
+"""Every model in the system.
+
+Three shapes are worth knowing before reading further.
+
+**Two record types, deliberately distinct.** :class:`Application` is a student
+applying through the portal for a catalogue programme. :class:`ApplicantRecord`
+is a person in a programme the office administers directly — Affirmative
+Action, the Staff Scholarship, or anything arriving by spreadsheet — and
+carries its own name and email because most of those people never had an
+account. Merging them is what produced phantom student records in earlier
+versions.
+
+**Detail rows.** The profiles spread their fields across satellite tables
+reached through :class:`DetailField`, which reads and writes like a local
+attribute. It is a Python property, not a model field, so it cannot be used in
+a queryset — filter through the relation instead. This is the easiest mistake
+to make in this codebase.
+
+**Terms.** Anything happening in a semester inherits :class:`TermStamped`. Any
+query deciding whether someone may act *now* must filter on the term; one that
+matches on identity alone keeps finding last semester's row.
+"""
+
 from datetime import date
 
 from django.contrib.auth.models import AbstractUser
@@ -40,6 +63,7 @@ __all__ = [
 
 
 class PhilippineAddress(models.Model):
+    """Barangay, municipality and province, shared by several models."""
     barangay = models.CharField(max_length=100, blank=True)
     municipality = models.CharField(max_length=100, blank=True)
     province = models.CharField(max_length=100, blank=True)
@@ -49,6 +73,7 @@ class PhilippineAddress(models.Model):
 
     @property
     def address(self):
+        """The address as one line, skipping blanks."""
         parts = [p for p in [self.barangay, self.municipality, self.province] if p]
         return ', '.join(parts)
 
@@ -58,15 +83,22 @@ NO_DISABILITY = frozenset({'', 'n/a', 'na', 'n.a.', 'none', 'no', 'not applicabl
 
 
 def states_a_disability(value):
+    """Whether this answer claims a disability.
+
+    "NO" is a real answer and must not read as one. The recommender has to
+    tell declining apart from never being asked.
+    """
     return (value or '').strip().casefold() not in NO_DISABILITY
 
 
 def middle_initial_of(middle_name):
+    """A middle initial with its full stop, or ''."""
     name = (middle_name or '').strip()
     return f'{name[0].upper()}.' if name else ''
 
 
 def format_full_name(last, first, middle_name='', suffix=''):
+    """Last, First M. — the order the reports print."""
     last = (last or '').strip()
     first = (first or '').strip()
     suffix = (suffix or '').strip()
@@ -80,6 +112,7 @@ def format_full_name(last, first, middle_name='', suffix=''):
 
 
 class PersonalInfo(models.Model):
+    """Personal details shared by student and staff profiles."""
     middle_name = models.CharField(max_length=100, blank=True)
     suffix = models.CharField(max_length=20, blank=True, help_text='Jr., Sr., III …')
     date_of_birth = models.DateField(null=True, blank=True)
@@ -92,10 +125,18 @@ class PersonalInfo(models.Model):
 
     @property
     def middle_initial(self):
+        """The middle initial with its full stop, or ''."""
         return middle_initial_of(self.middle_name)
 
 
 class TermStamped(models.Model):
+    """Base for anything that happens in one semester.
+
+    **Any query deciding whether someone may act now must filter on the
+    term.** A lookup matching on identity alone keeps finding last
+    semester's row — the cause of employees being told they had already
+    applied when they had not.
+    """
     term_label = models.CharField(
         max_length=20, blank=True, db_index=True,
         help_text="Term as '<yy>-<sem>', e.g. '26-1'.")
@@ -108,6 +149,7 @@ class TermStamped(models.Model):
         abstract = True
 
     def fill_term(self):
+        """Stamp a new row with the active term if it carries none."""
         if not self.term_label and not self.school_year:
             active = SystemSettings.objects.filter(pk=1).values_list(
                 'academic_year', flat=True).first()
@@ -121,16 +163,24 @@ class TermStamped(models.Model):
             self.term_label = SystemSettings.make_label(self.school_year, self.semester)
 
     def save(self, *args, **kwargs):
+        """Stamp the term, then save."""
         self.fill_term()
         super().save(*args, **kwargs)
 
     @property
     def term_display(self):
+        """The term as "2026-2027 — 1st Semester"."""
         both = f'{self.school_year} {self.semester}'.strip()
         return both or self.term_label
 
 
 class User(AbstractUser):
+    """An account. One model for students, employees, the office and partners.
+
+    ``role`` decides which portal they land in and what they may reach.
+    Verification is separate from ``is_active``: a new registration is real
+    but cannot sign in until the office has looked at it.
+    """
     role = models.CharField(max_length=20, choices=USER_ROLES, default='student')
     email = models.EmailField(unique=True)
 
@@ -163,17 +213,21 @@ class User(AbstractUser):
 
     @property
     def awaiting_verification(self):
+        """Whether the office has still to decide on this account."""
         return self.verification_status == 'pending'
 
     @property
     def awaiting_email_confirmation(self):
+        """Whether the address has still to be confirmed."""
         return not self.email_verified and self.email_confirmation_sent_at is not None
 
     @property
     def accepted_terms(self):
+        """Whether this account accepted the current terms."""
         return bool(self.terms_version and self.terms_accepted_at)
 
     def mark_email_verified(self):
+        """Record that the address was confirmed."""
         if self.email_verified:
             return False
         self.email_verified = True
@@ -182,21 +236,25 @@ class User(AbstractUser):
 
     @property
     def can_sign_in(self):
+        """Whether this account may sign in yet."""
         return self.is_active and self.verification_status == 'approved'
 
     @property
     def initials(self):
-        f = (self.first_name or '').strip()[:1].upper()
-        l = (self.last_name or '').strip()[:1].upper()
-        return (f + l) or (self.email[:1].upper())
+        """Initials for the avatar, falling back to the address."""
+        first = (self.first_name or '').strip()[:1].upper()
+        last = (self.last_name or '').strip()[:1].upper()
+        return (first + last) or (self.email[:1].upper())
 
     @property
     def photo_url(self):
+        """The profile photo URL, or ''."""
         if self.photo:
             return self.photo.url
         return ''
 
     def decide_verification(self, status, note, reviewer):
+        """Record the office's decision, who made it and when."""
         from django.utils import timezone
         self.verification_status = status
         self.verification_note = (note or '').strip() or (
@@ -210,15 +268,26 @@ class User(AbstractUser):
 
 
 class DetailField(property):
+    """A field that lives on a satellite table but reads like a local one.
+
+    ``profile.gwa`` reads and writes ``profile.enrollment.gwa``, creating the
+    row on first write.
+
+    **It is a Python property, not a model field.** ``filter(gwa=...)`` raises
+    ``FieldError``; filter through the relation — ``enrollment__gwa`` —
+    instead. This is the easiest mistake to make in this codebase.
+    """
     def __init__(self, related, field):
         self.related = related
         self.field = field
         super().__init__(self._read, self._write)
 
     def __set_name__(self, owner, name):
+        """Register this field in the owner's ``DETAIL_FIELDS`` map."""
         owner.DETAIL_FIELDS[name] = (self.related, self.field)
 
     def _read(self, profile):
+        """Read through to the detail row, or the field default."""
         row = profile.detail(self.related)
         if row is not None:
             return getattr(row, self.field)
@@ -226,10 +295,18 @@ class DetailField(property):
         return model._meta.get_field(self.field).get_default()
 
     def _write(self, profile, value):
+        """Write through to the detail row, creating it if needed."""
         setattr(profile.detail(self.related, create=True), self.field, value)
 
 
 class DetailRows(models.Model):
+    """Base for a model whose fields are spread over satellite tables.
+
+    The profiles carry a hundred-odd fields each, most of them read rarely.
+    Splitting them keeps the main row narrow and lets a list query skip the
+    columns it does not need, while :class:`DetailField` hides the split from
+    everything that just wants a value.
+    """
     DETAIL_FIELDS = {}
     DETAIL_RELATIONS = ()
     DETAIL_LINK = ''
@@ -239,9 +316,15 @@ class DetailRows(models.Model):
 
     @property
     def _detail_cache(self):
+        """Per-instance cache of loaded detail rows."""
         return self.__dict__.setdefault('_detail_rows', {})
 
     def detail(self, related, create=False):
+        """Get one detail row, optionally creating it in memory.
+
+        A created row is not saved here — it is written by :meth:`save`, so a
+        read that touches a missing row does not write to the database.
+        """
         cache = self._detail_cache
         if related not in cache:
             row = None
@@ -256,6 +339,7 @@ class DetailRows(models.Model):
         return cache[related]
 
     def save(self, *args, **kwargs):
+        """Save this row and any detail rows that were touched."""
         creating = self._state.adding
         update_fields = kwargs.pop('update_fields', None)
         detail_fields = None
@@ -276,6 +360,7 @@ class DetailRows(models.Model):
             self.ensure_details()
 
     def save_details(self, only=None):
+        """Save the loaded detail rows, optionally a named subset."""
         for related, row in self._detail_cache.items():
             if row is None or (only is not None and related not in only):
                 continue
@@ -284,6 +369,7 @@ class DetailRows(models.Model):
             row.save(update_fields=fields if (fields and row.pk) else None)
 
     def ensure_details(self):
+        """Create every detail row, so later writes have somewhere to go."""
         for related in self.DETAIL_RELATIONS:
             row = self.detail(related, create=True)
             if row.pk is None:
@@ -291,16 +377,23 @@ class DetailRows(models.Model):
                 row.save()
 
     def refresh_from_db(self, *args, **kwargs):
+        """Reload, discarding cached detail rows so they are re-read."""
         self.__dict__.pop('_detail_rows', None)
         super().refresh_from_db(*args, **kwargs)
 
     @classmethod
     def with_details(cls, queryset=None):
+        """A queryset that fetches every detail row in one go.
+
+        Without it, reading a detail field on each of a hundred profiles is a
+        hundred extra queries.
+        """
         queryset = cls.objects.all() if queryset is None else queryset
         return queryset.select_related(*cls.DETAIL_RELATIONS)
 
 
 class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
+    """A student, their enrolment, background and eligibility answers."""
     DETAIL_RELATIONS = (
         'enrollment', 'personal', 'affirmative_eligibility', 'socioeconomic',
         'tes_eligibility', 'education', 'family',
@@ -322,6 +415,7 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
     entry_date = DetailField('enrollment', 'entry_date')
     exam_score = DetailField('enrollment', 'exam_score')
     gwa = DetailField('enrollment', 'gwa')
+    study_load = DetailField('enrollment', 'study_load')
 
     middle_name = DetailField('personal', 'middle_name')
     suffix = DetailField('personal', 'suffix')
@@ -371,32 +465,39 @@ class StudentProfile(PhilippineAddress, DetailRows, TermStamped):
 
     @property
     def is_pwd(self):
+        """Whether the disability answer claims a disability."""
         return states_a_disability(self.disability_type)
 
     @property
     def middle_initial(self):
+        """The student's middle initial."""
         return middle_initial_of(self.middle_name)
 
     @property
     def full_name(self):
+        """The student's full name."""
         return format_full_name(self.user.last_name, self.user.first_name,
                                 self.middle_name, self.suffix)
 
     @property
     def suc_exam_percent(self):
+        """The entrance exam score as a percentage."""
         return suc_exam_percent(self.suc_exam_score, self.suc_exam_total)
 
     @property
     def suc_exam_display(self):
+        """The entrance exam score as a readable string."""
         return format_exam_score(self.suc_exam_score, self.suc_exam_total)
 
     @property
     def father_name(self):
+        """The father's name, assembled from its parts."""
         return join_parent_name(self.father_last_name, self.father_first_name,
                                 self.father_middle_name)
 
     @property
     def mother_name(self):
+        """The mother's name, assembled from its parts."""
         return join_parent_name(self.mother_last_name, self.mother_first_name,
                                 self.mother_middle_name)
 
@@ -405,6 +506,7 @@ STUDENT_DETAILS = tuple(f'student__{name}' for name in StudentProfile.DETAIL_REL
 
 
 class StudentDetail(models.Model):
+    """Base for a satellite table hanging off a student profile."""
     class Meta:
         abstract = True
 
@@ -413,6 +515,7 @@ class StudentDetail(models.Model):
 
 
 class EnrollmentData(StudentDetail):
+    """The student's enrolment, and their proof of it."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='enrollment')
     school = models.CharField(max_length=100, blank=True)
@@ -437,6 +540,13 @@ class EnrollmentData(StudentDetail):
                    'scholarship is judged on is the certified one the student '
                    'submits — see AffirmativeEligibility.suc_exam_score.'))
     gwa = models.FloatField(default=0.0)
+    study_load = models.FileField(
+        upload_to='profile/study_load/', null=True, blank=True,
+        validators=validate_document,
+        help_text=("Certificate of registration or study load for the current "
+                   "term. The office checks it to confirm the applicant is a "
+                   "bonafide, currently enrolled student — a student number "
+                   "alone survives a student leaving."))
 
     class Meta:
         verbose_name = 'enrollment data'
@@ -444,6 +554,7 @@ class EnrollmentData(StudentDetail):
 
 
 class PersonalInformation(PersonalInfo, StudentDetail):
+    """A student's personal details."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='personal')
     birth_place = models.CharField(max_length=200, blank=True)
@@ -457,6 +568,7 @@ class PersonalInformation(PersonalInfo, StudentDetail):
 
 
 class AffirmativeEligibility(StudentDetail):
+    """Grades and exam scores for the Affirmative Action rules."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='affirmative_eligibility')
     shs_gpa = models.FloatField(null=True, blank=True)
@@ -478,14 +590,17 @@ class AffirmativeEligibility(StudentDetail):
 
     @property
     def suc_exam_percent(self):
+        """The entrance exam score as a percentage."""
         return suc_exam_percent(self.suc_exam_score, self.suc_exam_total)
 
     @property
     def suc_exam_display(self):
+        """The entrance exam score as a readable string."""
         return format_exam_score(self.suc_exam_score, self.suc_exam_total)
 
 
 class SocioEconomicProfile(StudentDetail):
+    """Household income and the programmes it is listed under."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='socioeconomic')
     family_income = models.FloatField(default=0.0)
@@ -503,6 +618,7 @@ class SocioEconomicProfile(StudentDetail):
 
 
 class TESEligibility(StudentDetail):
+    """The answers the TES rules read."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='tes_eligibility')
     citizenship = models.CharField(max_length=50, blank=True,
@@ -529,6 +645,7 @@ class TESEligibility(StudentDetail):
 
 
 class EducationalBackground(StudentDetail):
+    """Schools this student attended before BiPSU."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='education')
     elementary = models.CharField(max_length=200, blank=True)
@@ -544,6 +661,7 @@ class EducationalBackground(StudentDetail):
 
 
 class FamilyBackground(StudentDetail):
+    """The student's parents and household."""
     student = models.OneToOneField(StudentProfile, on_delete=models.CASCADE,
                                    related_name='family')
     father_last_name = models.CharField(max_length=100, blank=True)
@@ -561,16 +679,19 @@ class FamilyBackground(StudentDetail):
 
     @property
     def father_name(self):
+        """The father's name, assembled from its parts."""
         return join_parent_name(self.father_last_name, self.father_first_name,
                                 self.father_middle_name)
 
     @property
     def mother_name(self):
+        """The mother's name, assembled from its parts."""
         return join_parent_name(self.mother_last_name, self.mother_first_name,
                                 self.mother_middle_name)
 
 
 class StaffProfile(PhilippineAddress, DetailRows):
+    """An employee, their appointment and their qualifications."""
     DETAIL_RELATIONS = ('employment', 'personal', 'education')
     DETAIL_LINK = 'staff'
     DETAIL_FIELDS = {}
@@ -617,15 +738,22 @@ class StaffProfile(PhilippineAddress, DetailRows):
 
     @property
     def middle_initial(self):
+        """The employee's middle initial."""
         return middle_initial_of(self.middle_name)
 
     @property
     def full_name(self):
+        """The employee's full name."""
         return format_full_name(self.user.last_name, self.user.first_name,
                                 self.middle_name, self.suffix)
 
     @property
     def years_of_service(self):
+        """Years of service, measured or declared.
+
+        Measured from the date of regularisation where there is one, because a
+        declared figure goes stale the moment it is typed.
+        """
         if not self.date_hired:
             return self.declared_years_of_service
         today = date.today()
@@ -636,10 +764,12 @@ class StaffProfile(PhilippineAddress, DetailRows):
 
     @property
     def is_regular(self):
+        """Whether the appointment is a permanent one."""
         return self.employment_status == 'Regular'
 
 
 class StaffDetail(models.Model):
+    """Base for a satellite table hanging off a staff profile."""
     class Meta:
         abstract = True
 
@@ -648,6 +778,7 @@ class StaffDetail(models.Model):
 
 
 class StaffEmployment(StaffDetail):
+    """An employee's appointment."""
     staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
                                  related_name='employment')
     school = models.CharField(max_length=100, blank=True)
@@ -671,6 +802,7 @@ class StaffEmployment(StaffDetail):
 
 
 class StaffPersonalInformation(PersonalInfo, StaffDetail):
+    """An employee's personal details."""
     staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
                                  related_name='personal')
 
@@ -680,6 +812,7 @@ class StaffPersonalInformation(PersonalInfo, StaffDetail):
 
 
 class StaffEducation(StaffDetail):
+    """An employee's qualifications."""
     staff = models.OneToOneField(StaffProfile, on_delete=models.CASCADE,
                                  related_name='education')
     highest_education = models.CharField(max_length=200, blank=True)
@@ -694,6 +827,12 @@ class StaffEducation(StaffDetail):
 
 
 class Scholarship(models.Model):
+    """One programme in the catalogue.
+
+    ``category`` says whether it is applied for here or only recorded;
+    ``group`` says who funds it. Externally funded programmes are applied for
+    through the agency, and the API refuses an application to one.
+    """
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=50, db_index=True)
     category = models.CharField(max_length=20, choices=SCHOLARSHIP_CATEGORIES)
@@ -742,12 +881,14 @@ class Scholarship(models.Model):
 
     @property
     def logo_url(self):
+        """The programme's seal, or the university's."""
         return '/media/logos/' + (
             self.logo
             or SCHOLARSHIP_LOGOS.get(self.type, SCHOLARSHIP_LOGO_DEFAULT))
 
     @staticmethod
     def _window_end(opens, days):
+        """The last day of a window that opens on a date and runs N days."""
         from datetime import timedelta
         if not opens or not days:
             return None
@@ -755,6 +896,11 @@ class Scholarship(models.Model):
 
     @staticmethod
     def _window_open(enabled, opens, days, day):
+        """Whether a window is open on a given day.
+
+        A window with no opening date is open whenever it is enabled — the office
+        often runs one with no fixed dates at all.
+        """
         if not enabled:
             return False
         if not opens:
@@ -766,6 +912,12 @@ class Scholarship(models.Model):
 
     @staticmethod
     def _window_reason(noun, enabled, opens, days, day):
+        """Why a window is shut, phrased for the reader.
+
+        Returns '' when it is open. Three different closures — switched off, not
+        yet open, already past — read as three different sentences, because
+        "closed" alone leaves the applicant nothing to do.
+        """
         if Scholarship._window_open(enabled, opens, days, day):
             return ''
         if not enabled:
@@ -777,33 +929,45 @@ class Scholarship(models.Model):
 
     @property
     def applications_close_on(self):
+        """The last day applications are accepted."""
         return self._window_end(self.applications_open_on,
                                 self.applications_open_days)
 
     def accepts_applications_on(self, day):
+        """Whether applications are open on a day."""
         return self._window_open(self.accepting_applications,
                                  self.applications_open_on,
                                  self.applications_open_days, day)
 
     def window_closed_reason(self, day):
+        """Why applications are closed, or ''."""
         return self._window_reason(
             f'Applications for the {self.name}', self.accepting_applications,
             self.applications_open_on, self.applications_open_days, day)
 
     @property
     def renewals_close_on(self):
+        """The last day renewals are accepted."""
         return self._window_end(self.renewals_open_on, self.renewals_open_days)
 
     def accepts_renewals_on(self, day):
+        """Whether renewals are open on a day."""
         return self._window_open(self.accepting_renewals, self.renewals_open_on,
                                  self.renewals_open_days, day)
 
     def renewal_closed_reason(self, day):
+        """Why renewals are closed, or ''."""
         return self._window_reason(
             f'Renewals for the {self.name}', self.accepting_renewals,
             self.renewals_open_on, self.renewals_open_days, day)
 
     def match_score(self, profile):
+        """A rough fit between a programme and a student.
+
+        Orders the catalogue so the likeliest programmes surface first. Not an
+        eligibility verdict — those come from the recommender modules, which give
+        reasons.
+        """
         if not profile:
             return 0
         score = 50
@@ -818,6 +982,7 @@ class Scholarship(models.Model):
 
 
 class Application(TermStamped):
+    """A student applying, through the portal, for a catalogue programme."""
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='applications')
     scholarship = models.ForeignKey(Scholarship, on_delete=models.CASCADE, related_name='applications')
     status = models.CharField(max_length=30, choices=APPLICATION_STATUSES, default='Pending Validation')
@@ -851,6 +1016,7 @@ class Application(TermStamped):
         ]
 
     def save(self, *args, **kwargs):
+        """Stamp the term, then save."""
         if isinstance(self.form_data, dict):
             self.form_data.pop('csrfmiddlewaretoken', None)
         super().save(*args, **kwargs)
@@ -860,6 +1026,7 @@ class Application(TermStamped):
 
 
 class ApplicationDocument(models.Model):
+    """A file attached to an application."""
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='documents')
     name = models.CharField(max_length=100)
     file = models.FileField(upload_to='documents/', validators=validate_document)
@@ -873,6 +1040,7 @@ class ApplicationDocument(models.Model):
 
 
 class Notification(models.Model):
+    """One message to one person, shown in their portal."""
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='notifications')
     type = models.CharField(max_length=10, choices=NOTIFICATION_TYPES, default='info')
     title = models.CharField(max_length=200)
@@ -889,6 +1057,7 @@ class Notification(models.Model):
 
 
 class Announcement(models.Model):
+    """A notice from the office to everyone."""
     title = models.CharField(max_length=200)
     body = models.TextField()
     published_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,
@@ -909,6 +1078,7 @@ SIGNUP_KINDS = (
 
 
 class SignupSource(models.Model):
+    """Where a registration came from, for the office to read."""
     email = models.EmailField()
     kind = models.CharField(max_length=20, choices=SIGNUP_KINDS, default='alert')
     is_active = models.BooleanField(default=True)
@@ -933,11 +1103,17 @@ class SignupSource(models.Model):
 
     @property
     def campaign_label(self):
+        """The campaign in a phrase, or where they came from."""
         parts = [self.utm_source, self.utm_medium, self.utm_campaign]
         return ' / '.join(p for p in parts if p) or 'direct'
 
     @classmethod
     def record(cls, email, kind, payload):
+        """Record how one address reached the register form.
+
+        Keyed by address, so a person who arrives twice is one row. Never raises
+        — losing a campaign attribution must not cost someone their account.
+        """
         email = (email or '').strip().lower()
         if not email:
             return None
@@ -966,6 +1142,11 @@ class SignupSource(models.Model):
 
 
 class ImportedScholar(PhilippineAddress):
+    """One scholar from a funder's spreadsheet.
+
+    ``claimed_by`` links the row to a portal account once someone declares
+    it, so the same person is not counted twice.
+    """
     scholarship_type = models.CharField(max_length=20, choices=SCHOLARSHIP_TYPE_CHOICES)
     term_label = models.CharField(max_length=20, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
@@ -995,6 +1176,7 @@ class ImportedScholar(PhilippineAddress):
 
     @property
     def full_name(self):
+        """The scholar's full name, assembled from its parts."""
         return f'{self.first_name} {self.last_name}'.strip()
 
     def __str__(self):
@@ -1002,6 +1184,16 @@ class ImportedScholar(PhilippineAddress):
 
 
 class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
+    """A person in a programme the office administers directly.
+
+    Affirmative Action, the Staff Scholarship, and anything arriving by
+    spreadsheet. Carries its own name and email rather than requiring a
+    portal account, because most of these people never had one.
+
+    Kept separate from :class:`Application` because an imported scholar has
+    no account, no profile and no application, and inventing them is what
+    produced phantom student records in earlier versions.
+    """
     DETAIL_RELATIONS = (
         'applicant', 'enrollment', 'staff_eligibility', 'employment',
         'affirmative_eligibility',
@@ -1053,10 +1245,12 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
 
     @property
     def suc_exam_percent(self):
+        """The entrance exam score as a percentage."""
         return suc_exam_percent(self.suc_exam_score, self.suc_exam_total)
 
     @property
     def suc_exam_display(self):
+        """The entrance exam score as a readable string."""
         return format_exam_score(self.suc_exam_score, self.suc_exam_total)
 
     def __str__(self):
@@ -1064,6 +1258,7 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
 
     @property
     def name_parts(self):
+        """Last, first and middle, split out of the full name."""
         parts = (self.full_name or '').strip().split()
         if len(parts) >= 3:
             return parts[-1], parts[0], ' '.join(parts[1:-1])
@@ -1073,26 +1268,37 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
 
     @property
     def last_name(self):
+        """Surname, split out of the full name."""
         return self.name_parts[0]
 
     @property
     def first_name(self):
+        """First name, split out of the full name."""
         return self.name_parts[1]
 
     @property
     def middle_name(self):
+        """Middle name, split out of the full name."""
         return self.name_parts[2]
 
     @property
     def middle_initial(self):
+        """Middle initial, split out of the full name."""
         return middle_initial_of(self.middle_name)
 
     @property
     def course_school(self):
+        """The school this record's course belongs to."""
         return self.school or school_for_course(self.course)
 
     @property
     def is_regular_staff(self):
+        """Whether the appointment behind this record is permanent.
+
+        For an employee, their own appointment. For a dependent, the fact that
+        an employee was named at all — the appointment itself is checked against
+        the staff record by the recommender.
+        """
         if self.is_nsu_staff:
             return self.employment_status == 'Regular'
         if self.is_nsu_dependent:
@@ -1104,6 +1310,7 @@ STAFF_APPLICATION_DETAILS = ApplicantRecord.DETAIL_RELATIONS
 
 
 class StaffApplicationDetail(models.Model):
+    """Base for a satellite table hanging off an applicant record."""
     class Meta:
         abstract = True
 
@@ -1112,6 +1319,7 @@ class StaffApplicationDetail(models.Model):
 
 
 class ApplicantInformation(StaffApplicationDetail):
+    """Contact details for an applicant record."""
     application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='applicant')
     contact_number = models.CharField(max_length=20, blank=True)
@@ -1124,6 +1332,7 @@ class ApplicantInformation(StaffApplicationDetail):
 
 
 class ApplicantEnrollment(StaffApplicationDetail):
+    """Enrolment details for an applicant record."""
     application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='enrollment')
     school = models.CharField(max_length=100, blank=True)
@@ -1137,6 +1346,7 @@ class ApplicantEnrollment(StaffApplicationDetail):
 
 
 class ApplicantStaffEligibility(StaffApplicationDetail):
+    """Whether an applicant record is an employee or a dependent."""
     application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='staff_eligibility')
     is_nsu_staff = models.BooleanField(default=False)
@@ -1152,6 +1362,7 @@ class ApplicantStaffEligibility(StaffApplicationDetail):
 
 
 class ApplicantEmployment(StaffApplicationDetail):
+    """Appointment details for an employee applicant."""
     application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='employment')
     employment_status = models.CharField(max_length=30, choices=EMPLOYMENT_STATUSES, blank=True)
@@ -1168,6 +1379,7 @@ class ApplicantEmployment(StaffApplicationDetail):
 
 
 class ApplicantAffirmativeEligibility(StaffApplicationDetail):
+    """Grades and exam scores for an applicant record."""
     application = models.OneToOneField(ApplicantRecord, on_delete=models.CASCADE,
                                        related_name='affirmative_eligibility')
     shs_gpa = models.FloatField(null=True, blank=True)
@@ -1187,6 +1399,7 @@ class ApplicantAffirmativeEligibility(StaffApplicationDetail):
 
 
 class AcademicRenewal(TermStamped):
+    """A renewal submission for an academic scholarship."""
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='academic_renewals')
     scholarship_type = models.CharField(
         max_length=50, choices=SCHOLARSHIP_TYPE_CHOICES, default='Academic',
@@ -1207,6 +1420,7 @@ class AcademicRenewal(TermStamped):
 
 
 class StaffRenewal(TermStamped):
+    """A renewal submission for a staff award."""
     staff_user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='staff_renewals',
         limit_choices_to={'role': 'nsu_staff'},
@@ -1225,6 +1439,12 @@ class StaffRenewal(TermStamped):
 
 
 class ScholarshipLinkRequest(TermStamped):
+    """A student declaring an award granted elsewhere.
+
+    ``filed_in_portal`` says which queue reviews it: one filed during
+    registration is decided alongside the account, and one filed later goes
+    to the declarations queue.
+    """
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='link_requests')
     scholarship_type = models.CharField(max_length=50, choices=SCHOLARSHIP_TYPE_CHOICES)
     proof_document = models.FileField(upload_to='link_requests/', validators=validate_document)
@@ -1272,6 +1492,7 @@ class ScholarshipLinkRequest(TermStamped):
 
 
 class StaffScholarshipDeclaration(TermStamped):
+    """An employee declaring a staff award granted elsewhere."""
     staff_user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='staff_declarations',
         limit_choices_to={'role': 'nsu_staff'},
@@ -1302,6 +1523,7 @@ class StaffScholarshipDeclaration(TermStamped):
 
 
 class ScholarListImport(TermStamped):
+    """One uploaded spreadsheet, and the scholars it created."""
     scholarship_type = models.CharField(max_length=20, choices=SCHOLARSHIP_TYPE_CHOICES)
     scholar_count = models.IntegerField(default=0)
     excel_file = models.FileField(upload_to='rollovers/', validators=validate_spreadsheet)
@@ -1319,6 +1541,7 @@ class ScholarListImport(TermStamped):
 
 
 class PartnerOffice(models.Model):
+    """An external office with its own portal and its own scholar lists."""
     name = models.CharField(max_length=120, unique=True)
     logo = models.CharField(
         max_length=100, blank=True,
@@ -1342,13 +1565,16 @@ class PartnerOffice(models.Model):
 
     @property
     def logo_url(self):
+        """The office's seal, or the university's."""
         return '/media/logos/' + (self.logo or SCHOLARSHIP_LOGO_DEFAULT)
 
     def visible_types(self):
+        """The programme types this office may see."""
         return list(self.scholarships.values_list('type', flat=True))
 
 
 class PartnerTableColumns(models.Model):
+    """One office's column choice for one programme."""
     office = models.ForeignKey(
         'PartnerOffice', on_delete=models.CASCADE, related_name='table_columns_set')
     scholarship = models.ForeignKey(
@@ -1372,6 +1598,7 @@ class PartnerTableColumns(models.Model):
 
 
 class AffirmativeRecommendation(models.Model):
+    """A stored Affirmative Action fit score for one student."""
     student = models.OneToOneField(
         StudentProfile, on_delete=models.CASCADE,
         related_name='affirmative_recommendation',
@@ -1393,6 +1620,7 @@ class AffirmativeRecommendation(models.Model):
 
     @staticmethod
     def compute_fit_score(shs_gpa, suc_exam_score):
+        """Score this student against the Affirmative criteria."""
         score = 0.0
         if shs_gpa is not None:
             score += min((shs_gpa / 100.0) * 50.0, 50.0)
@@ -1402,6 +1630,12 @@ class AffirmativeRecommendation(models.Model):
 
     @classmethod
     def evaluate_and_sync(cls, passing_threshold=75.0):
+        """Recompute every recommendation against a passing mark.
+
+        The threshold is the office's to set, so the scores are recomputed rather
+        than trusted: a stored verdict silently belongs to whatever threshold was
+        in force when it was written.
+        """
         created = disqualified = 0
         profiles = StudentProfile.objects.select_related(
             'affirmative_eligibility', 'affirmative_recommendation')
@@ -1444,19 +1678,143 @@ class AffirmativeRecommendation(models.Model):
         return created, disqualified
 
 
+AUDIT_VERBS = [
+    ('approve', 'Approved'),
+    ('reject', 'Rejected'),
+    ('create', 'Created'),
+    ('update', 'Updated'),
+    ('delete', 'Deleted'),
+    ('import', 'Imported'),
+    ('export', 'Exported'),
+    ('sign-in', 'Signed in'),
+    ('other', 'Other'),
+]
+
+
 class ActivityLog(models.Model):
+    """Who did what, when, to which record, and what changed.
+
+    The free-text ``action`` on its own could say that something was approved
+    but not which row, nor what the values were beforehand, so it could not
+    answer the question an audit actually asks. The structured columns beside
+    it can, and they are queryable: every decision on one record, or
+    everything one officer did in a week.
+
+    Entries are written through :meth:`record` and never updated or deleted by
+    application code.
+    """
+
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     action = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    verb = models.CharField(max_length=20, choices=AUDIT_VERBS,
+                            default='other', db_index=True)
+    target_type = models.CharField(max_length=60, blank=True, db_index=True)
+    target_id = models.CharField(max_length=40, blank=True, db_index=True)
+    target_label = models.CharField(max_length=200, blank=True)
+    changes = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['target_type', 'target_id']),
+            models.Index(fields=['user', '-created_at']),
+        ]
 
     def __str__(self):
         return self.action[:80]
 
+    @staticmethod
+    def identify(target):
+        """Snapshot a row's identity so it can still be audited once deleted.
+
+        ``record(target=...)`` reads the primary key off a live instance, and
+        Django clears that key during ``delete()``. A deletion therefore has to
+        capture the identity first and hand the snapshot over afterwards —
+        which is the one case where the audit entry matters most, because the
+        row it describes no longer exists to be looked up.
+        """
+        return {
+            'target_type': type(target).__name__,
+            'target_id': str(getattr(target, 'pk', '') or ''),
+            'target_label': str(target)[:200],
+        }
+
+    @classmethod
+    def record(cls, user, action, verb='other', target=None, changes=None,
+               request=None, identity=None):
+        """Write one audit entry.
+
+        Args:
+            user: who acted. ``None`` for something the system did alone.
+            action: the human-readable summary, as it will be read back.
+            verb: one of :data:`AUDIT_VERBS`.
+            target: the model instance acted on, if there is one. Its type,
+                primary key and ``str()`` are stored, not a reference — the
+                entry has to survive the row being deleted, which is exactly
+                the case a deletion audit exists for.
+            changes: ``{field: [before, after]}``, usually from :meth:`diff`.
+            request: the current request, read only for the caller's address.
+            identity: a snapshot from :meth:`identify`, for a row that has
+                already been deleted. Takes precedence over ``target``.
+
+        Returns:
+            The saved ``ActivityLog``.
+        """
+        address = None
+        if request is not None:
+            from . import ratelimit
+            address = ratelimit.client_address(request)
+            if address in ('', 'unknown'):
+                address = None
+
+        known = identity or (cls.identify(target) if target is not None else {})
+
+        return cls.objects.create(
+            user=user if getattr(user, 'pk', None) else None,
+            action=action,
+            verb=verb,
+            target_type=known.get('target_type', ''),
+            target_id=known.get('target_id', ''),
+            target_label=known.get('target_label', ''),
+            changes=changes or {},
+            ip_address=address,
+        )
+
+    @staticmethod
+    def diff(before, after, fields):
+        """Field-level ``{name: [old, new]}`` between two snapshots.
+
+        Both arguments are mappings, not model instances, so a caller can
+        capture the old values before a form overwrites them — by then the
+        instance holds only the new ones. Fields that did not move are left
+        out, so an entry records the change rather than the whole row.
+        """
+        moved = {}
+        for name in fields:
+            old = before.get(name)
+            new = after.get(name)
+            if old != new:
+                moved[name] = [
+                    None if old is None else str(old),
+                    None if new is None else str(new),
+                ]
+        return moved
+
+    @staticmethod
+    def snapshot(instance, fields):
+        """Current values of ``fields`` on ``instance``, for :meth:`diff`."""
+        return {name: getattr(instance, name, None) for name in fields}
+
 
 class SystemSettings(models.Model):
+    """The single settings row, ``pk=1``.
+
+    Holds the active term, the upload ceiling, and what became of the last
+    email — which is the only way anyone finds out whether mail works on a
+    deployment with no shell.
+    """
     academic_year = models.CharField(
         max_length=20, default='26-1',
         help_text="Active term as '<yy>-<sem>', e.g. '26-1'. Must parse — see parse_label.",
@@ -1482,6 +1840,7 @@ class SystemSettings(models.Model):
 
     @staticmethod
     def parse_label(label):
+        """Split '26-1' into school year and semester."""
         try:
             yy, sem = label.split('-')
             start = 2000 + int(yy)
@@ -1496,6 +1855,7 @@ class SystemSettings(models.Model):
 
     @staticmethod
     def make_label(school_year, semester):
+        """Build '26-1' from a school year and semester."""
         try:
             start = int(str(school_year).split('-')[0])
         except (ValueError, IndexError, AttributeError):
@@ -1503,16 +1863,19 @@ class SystemSettings(models.Model):
         return f"{start - 2000}-{'1' if semester == '1st Semester' else '2'}"
 
     def next_label(self):
+        """The term after this one."""
         yy, sem = self.academic_year.split('-')
         return f'{yy}-2' if sem == '1' else f'{int(yy) + 1}-1'
 
 
 def join_parent_name(last, first, middle):
+    """A parent name from its parts, skipping the blanks."""
     middle_initial = middle_initial_of(middle)
     return ' '.join(p for p in (first.strip(), middle_initial, last.strip()) if p)
 
 
 def suc_exam_percent(score, total):
+    """An exam score as a percentage, or ``None`` if unusable."""
     if score is None:
         return None
     if total:
@@ -1521,6 +1884,7 @@ def suc_exam_percent(score, total):
 
 
 def format_exam_score(score, total):
+    """An exam score as "score / total (pct%)"."""
     pct = suc_exam_percent(score, total)
     if pct is None:
         return ''
@@ -1530,6 +1894,7 @@ def format_exam_score(score, total):
 
 
 def ched_tier(app):
+    """Full or Half from however a CHED award was recorded."""
     declared = ((getattr(app, 'form_data', None) or {}).get('scholar_type') or '').lower()
     name = (app.scholarship.name or '').lower() if getattr(app, 'scholarship_id', None) else ''
     for text in (declared, name):
@@ -1541,6 +1906,11 @@ def ched_tier(app):
 
 
 def split_ched(apps):
+    """Split CHED awards into Full Merit and Half Merit.
+
+    They are one programme in the catalogue and two sections on every report,
+    so the split happens here rather than in each renderer.
+    """
     tiers = [(a, ched_tier(a)) for a in apps]
     return ([a for a, tier in tiers if tier != 'Half'],
             [a for a, tier in tiers if tier == 'Half'])

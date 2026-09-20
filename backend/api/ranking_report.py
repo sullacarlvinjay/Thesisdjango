@@ -1,3 +1,11 @@
+"""The eligibility ranking workbooks.
+
+One sheet per programme, each carrying the ranking and, beneath it, the
+per-rule verdicts. The detail is the point: the office has to be able to answer
+"why was this person not recommended?" from the file alone, months later,
+without re-running anything.
+"""
+
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -39,6 +47,7 @@ SUB = Font(name='Arial', size=10)
 
 
 def _sheet(wb, name, title, subtitles, headers, first=False):
+    """Start a worksheet with its title, subtitles and header row."""
     ws = wb.active if first else wb.create_sheet()
     ws.title = name[:31]
 
@@ -60,6 +69,7 @@ def _sheet(wb, name, title, subtitles, headers, first=False):
 
 
 def _write(ws, head, rows):
+    """Write one row of values, styled as body text."""
     for line, row in enumerate(rows, start=head + 1):
         for col, value in enumerate(row, start=1):
             cell = ws.cell(row=line, column=col, value=value)
@@ -69,11 +79,18 @@ def _write(ws, head, rows):
 
 
 def _verdict(evaluation, key):
+    """A rule verdict as the spreadsheet spells it."""
     rule = evaluation.rule(key)
     return rule.verdict if rule else '—'
 
 
 def _reason_rows(evaluations, name_of, id_of):
+    """The per-rule detail rows that follow a recommendation.
+
+    The office has to be able to answer "why was this person not
+    recommended?" from the file alone, months later, without re-running
+    anything.
+    """
     rows = []
     for evaluation in evaluations:
         for rule in evaluation.rules:
@@ -85,6 +102,7 @@ def _reason_rows(evaluations, name_of, id_of):
 
 
 def _affirmative(wb, data, passing_threshold, stamp):
+    """Write the Affirmative Action ranking sheet."""
     ws, head = _sheet(
         wb, 'Affirmative Action', 'Affirmative Action — Rule-Based Recommendation',
         [
@@ -136,6 +154,7 @@ def _affirmative(wb, data, passing_threshold, stamp):
 
 
 def _tes(wb, data, stamp):
+    """Write the TES ranking sheet, one column per eligibility rule."""
     rules = RULE_COLUMNS['TES']
     ws, head = _sheet(
         wb, 'TES Recommendation', 'TES — Rule-Based Recommendation',
@@ -180,6 +199,7 @@ def _tes(wb, data, stamp):
 
 
 def _staff(wb, data, stamp):
+    """Write the Faculty and Staff ranking sheet."""
     rules = RULE_COLUMNS['Staff']
     ws, head = _sheet(
         wb, 'Faculty and Staff', 'Faculty and Staff Scholars — Rule-Based Recommendation',
@@ -223,6 +243,11 @@ def _staff(wb, data, stamp):
 
 
 def build(tab, data, passing_threshold=None, generated=None):
+    """Build the ranking workbook for one programme.
+
+    Returns:
+        ``(buffer, filename)``, the buffer positioned at the start.
+    """
     from django.utils import timezone
 
     when = generated or timezone.localtime()

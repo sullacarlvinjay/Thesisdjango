@@ -1,26 +1,43 @@
-from django.urls import path
-from . import views
-from . import student_views
-from . import seo
+"""URL map.
+
+Views are imported from the module that owns them rather than through the
+``student_views`` re-export surface, so this file doubles as an index of where
+each area of the system lives.
+"""
+
 from django.shortcuts import redirect
+from django.urls import path
+
+from . import health, seo, views
+from . import views_analytics as analytics
+from . import views_archives as archives
+from . import views_auth as auth
+from . import views_partner as partner
+from . import views_ranking as ranking
+from . import views_reports as reports
+from . import views_staff as staff
+from . import views_student as student
+from . import views_vpsea as vpsea
 
 urlpatterns = [
-    path('', student_views.landing_view),
+    path('', auth.landing_view),
     path('robots.txt', seo.robots_txt),
+    path('healthz/', health.healthz),
+    path('readyz/', health.readyz),
 
-    path('login/', student_views.login_view),
-    path('logout/', student_views.logout_view),
-    path('register/', student_views.register_view),
-    path('register/received/', student_views.registration_received),
-    path('register/verify/<str:token>/', student_views.verify_email),
-    path('register/resend/', student_views.resend_confirmation),
+    path('login/', auth.login_view),
+    path('logout/', auth.logout_view),
+    path('register/', auth.register_view),
+    path('register/received/', auth.registration_received),
+    path('register/verify/<str:token>/', auth.verify_email),
+    path('register/resend/', auth.resend_confirmation),
 
     path('student/', lambda r: redirect('/student/applications/')),
-    path('student/apply/academic/', student_views.student_apply_academic),
-    path('student/applications/', student_views.student_applications),
-    path('student/notifications/', student_views.student_notifications),
-    path('student/renewal/academic/', student_views.student_renewal_academic),
-    path('student/profile/', student_views.student_profile),
+    path('student/apply/academic/', student.student_apply_academic),
+    path('student/applications/', student.student_applications),
+    path('student/notifications/', student.student_notifications),
+    path('student/renewal/academic/', student.student_renewal_academic),
+    path('student/profile/', student.student_profile),
 
     path('api/auth/register/', views.RegisterView.as_view()),
     path('api/auth/login/', views.LoginView.as_view()),
@@ -43,53 +60,60 @@ urlpatterns = [
     path('api/vpsea/announcements/', views.VPSEAAnnouncementListCreateView.as_view()),
     path('api/vpsea/reports/', views.VPSEAReportsView.as_view()),
     path('api/vpsea/ranking/', views.VPSEAStudentRankingView.as_view()),
-    path('vpsea/', student_views.vpsea_dashboard),
-    path('vpsea/affirmative/', student_views.vpsea_affirmative_applications),
-    path('vpsea/renewals/', student_views.vpsea_renewals),
-    path('vpsea/archives/', student_views.vpsea_archives),
-    path('vpsea/archives/add/', student_views.vpsea_archive_add),
-    path('vpsea/archives/imported/<int:pk>/delete/', student_views.vpsea_imported_delete),
-    path('vpsea/archives/rollover/<int:pk>/delete/', student_views.vpsea_rollover_delete),
-    path('vpsea/archives/import/', student_views.vpsea_archive_import),
-    path('vpsea/archives/new-semester/', student_views.vpsea_new_semester),
-    path('vpsea/archives/undo-semester/', student_views.vpsea_undo_semester),
-    path('vpsea/archives/columns/', student_views.vpsea_archive_columns),
-    path('vpsea/archives/download/', student_views.vpsea_archive_download),
-    path('vpsea/archives/student/<int:pk>/edit/', student_views.vpsea_student_record_edit),
-    path('vpsea/archives/student/<int:pk>/delete/', student_views.vpsea_student_record_delete),
-    path('vpsea/archives/<int:pk>/edit/', student_views.vpsea_archive_edit),
-    path('vpsea/archives/<int:pk>/delete/', student_views.vpsea_archive_delete),
-    path('vpsea/analytics/', student_views.vpsea_analytics),
-    path('vpsea/announcements/', student_views.vpsea_announcements),
-    path('vpsea/reports/', student_views.vpsea_reports),
-    path('vpsea/reports/preview/', student_views.vpsea_report_preview_pdf),
-    path('vpsea/reports/download/', student_views.vpsea_report_download),
-    path('vpsea/reports/download/excel/', student_views.vpsea_report_download_excel),
-    path('vpsea/scholarships/', student_views.vpsea_scholarships),
-    path('vpsea/scholarships/add/', student_views.vpsea_scholarship_add),
-    path('vpsea/scholarships/<int:pk>/edit/', student_views.vpsea_scholarship_edit),
-    path('vpsea/scholarships/<int:pk>/toggle/', student_views.vpsea_scholarship_toggle),
-    path('vpsea/ranking/', student_views.vpsea_ranking),
-    path('vpsea/ranking/download/', student_views.vpsea_ranking_download),
-    path('vpsea/accounts/', student_views.vpsea_accounts),
-    path('vpsea/profile/', student_views.vpsea_profile),
-    path('vpsea/students/', student_views.vpsea_students),
-    path('vpsea/students/add/', student_views.vpsea_student_add),
-    path('vpsea/students/<int:pk>/edit/', student_views.vpsea_student_edit),
-    path('vpsea/students/<int:pk>/delete/', student_views.vpsea_student_delete),
-    path('nsu-staff/', student_views.nsu_staff_dashboard),
-    path('nsu-staff/apply/', student_views.nsu_staff_apply),
-    path('nsu-staff/applications/', student_views.nsu_staff_applications),
-    path('nsu-staff/profile/', student_views.nsu_staff_profile),
-    path('nsu-staff/notifications/', student_views.nsu_staff_notifications),
-    path('nsu-staff/renewal/', student_views.nsu_staff_renewal),
 
-    path('vpsea/partners/', student_views.vpsea_partners),
-    path('partner/', student_views.partner_dashboard),
-    path('partner/profile/', student_views.partner_profile),
-    path('partner/archives/', student_views.partner_archives),
-    path('partner/archives/import/', student_views.partner_archive_import),
-    path('partner/columns/', student_views.partner_columns),
-    path('partner/scholars/', student_views.partner_scholars),
-    path('partner/reports/download/', student_views.partner_report_download),
+    path('vpsea/', vpsea.vpsea_dashboard),
+    path('vpsea/affirmative/', vpsea.vpsea_affirmative_applications),
+    path('vpsea/renewals/', vpsea.vpsea_renewals),
+    path('vpsea/announcements/', vpsea.vpsea_announcements),
+    path('vpsea/accounts/', vpsea.vpsea_accounts),
+    path('vpsea/profile/', vpsea.vpsea_profile),
+    path('vpsea/students/', vpsea.vpsea_students),
+    path('vpsea/students/add/', vpsea.vpsea_student_add),
+    path('vpsea/students/<int:pk>/edit/', vpsea.vpsea_student_edit),
+    path('vpsea/students/<int:pk>/delete/', vpsea.vpsea_student_delete),
+    path('vpsea/scholarships/', vpsea.vpsea_scholarships),
+    path('vpsea/scholarships/add/', vpsea.vpsea_scholarship_add),
+    path('vpsea/scholarships/<int:pk>/edit/', vpsea.vpsea_scholarship_edit),
+    path('vpsea/scholarships/<int:pk>/toggle/', vpsea.vpsea_scholarship_toggle),
+    path('vpsea/partners/', vpsea.vpsea_partners),
+
+    path('vpsea/archives/', archives.vpsea_archives),
+    path('vpsea/archives/add/', archives.vpsea_archive_add),
+    path('vpsea/archives/imported/<int:pk>/delete/', archives.vpsea_imported_delete),
+    path('vpsea/archives/rollover/<int:pk>/delete/', archives.vpsea_rollover_delete),
+    path('vpsea/archives/import/', archives.vpsea_archive_import),
+    path('vpsea/archives/new-semester/', archives.vpsea_new_semester),
+    path('vpsea/archives/undo-semester/', archives.vpsea_undo_semester),
+    path('vpsea/archives/columns/', archives.vpsea_archive_columns),
+    path('vpsea/archives/download/', archives.vpsea_archive_download),
+    path('vpsea/archives/student/<int:pk>/edit/', archives.vpsea_student_record_edit),
+    path('vpsea/archives/student/<int:pk>/delete/', archives.vpsea_student_record_delete),
+    path('vpsea/archives/<int:pk>/edit/', archives.vpsea_archive_edit),
+    path('vpsea/archives/<int:pk>/delete/', archives.vpsea_archive_delete),
+
+    path('vpsea/analytics/', analytics.vpsea_analytics),
+
+    path('vpsea/reports/', reports.vpsea_reports),
+    path('vpsea/reports/preview/', reports.vpsea_report_preview_pdf),
+    path('vpsea/reports/download/', reports.vpsea_report_download),
+    path('vpsea/reports/download/pdf/', reports.vpsea_report_download_pdf),
+    path('vpsea/reports/download/excel/', reports.vpsea_report_download_excel),
+
+    path('vpsea/ranking/', ranking.vpsea_ranking),
+    path('vpsea/ranking/download/', ranking.vpsea_ranking_download),
+
+    path('nsu-staff/', staff.nsu_staff_dashboard),
+    path('nsu-staff/apply/', staff.nsu_staff_apply),
+    path('nsu-staff/applications/', staff.nsu_staff_applications),
+    path('nsu-staff/profile/', staff.nsu_staff_profile),
+    path('nsu-staff/notifications/', staff.nsu_staff_notifications),
+    path('nsu-staff/renewal/', staff.nsu_staff_renewal),
+
+    path('partner/', partner.partner_dashboard),
+    path('partner/profile/', partner.partner_profile),
+    path('partner/archives/', partner.partner_archives),
+    path('partner/archives/import/', partner.partner_archive_import),
+    path('partner/columns/', partner.partner_columns),
+    path('partner/scholars/', partner.partner_scholars),
+    path('partner/reports/download/', partner.partner_report_download),
 ]
