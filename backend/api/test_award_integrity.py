@@ -111,14 +111,21 @@ class AwardIntegrityTest(TestCase):
             Application.objects.filter(
                 award_number='CHED-2026-0001').count(), 2)
 
-    def test_an_imported_list_cannot_carry_one_award_number_twice(self):
-        ImportedScholar.objects.create(
-            scholarship_type='CHED', term_label='26-1', last_name='Santos',
-            award_number='CHED-2026-0100')
-        with self.assertRaises(IntegrityError), transaction.atomic():
+    def test_an_imported_list_may_carry_one_award_number_twice(self):
+        """The archive is a copy, so it records the repeat rather than
+        refusing it. ``find_duplicate_awards`` is what surfaces it."""
+        for last_name in ('Santos', 'Cruz'):
             ImportedScholar.objects.create(
-                scholarship_type='CHED', term_label='26-1', last_name='Cruz',
-                award_number='CHED-2026-0100')
+                scholarship_type='CHED', term_label='26-1',
+                last_name=last_name, award_number='CHED-2026-0100')
+
+        self.assertEqual(
+            ImportedScholar.objects.filter(
+                award_number='CHED-2026-0100').count(), 2)
+
+        listed = StringIO()
+        call_command('find_duplicate_awards', stdout=listed)
+        self.assertIn('CHED-2026-0100', listed.getvalue())
 
     def test_two_students_may_both_claim_one_number_until_one_is_approved(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -205,7 +212,6 @@ class MigrationGuardTest(TestCase):
 
     CONSTRAINTS = (
         'one_award_number_per_programme_term',
-        'one_imported_award_number_per_term',
         'one_approved_link_award_number_per_term',
     )
 
@@ -263,7 +269,14 @@ class MigrationGuardTest(TestCase):
             self._guard()
         self.assertIn('(blank)', str(refused.exception))
 
-    def test_two_different_people_under_one_imported_number_are_found(self):
+    def test_a_repeated_imported_number_does_not_stop_the_migration(self):
+        """The archive is exempt, and the repeat is reported instead.
+
+        These rows are the shape that stopped a deploy: a funder's sheet with
+        one value repeated down the column read as the award number. The
+        guard has to let them through, or the archive holds the release
+        hostage over a document nobody here wrote.
+        """
         for last_name, first_name in (('Dela Cruz', 'Juan'),
                                       ('Bagasbas', 'Maria')):
             ImportedScholar.objects.create(
@@ -271,25 +284,23 @@ class MigrationGuardTest(TestCase):
                 scholarship_type='CHED', term_label='26-1',
                 award_number='IMP-1')
 
-        with self.assertRaises(RuntimeError) as refused:
-            self._guard()
-        message = str(refused.exception)
-        self.assertIn('ImportedScholar', message)
-        self.assertIn('IMP-1', message)
-        self.assertIn('recorded 2 times', message)
+        self._guard()
 
         out = StringIO()
         call_command('find_duplicate_awards', stdout=out)
         self.assertIn('repeated award numbers in ImportedScholar',
                       out.getvalue())
+        self.assertIn('IMP-1', out.getvalue())
 
     def test_a_wholesale_clash_is_cut_short_with_a_count(self):
         module = import_module('api.migrations.0096_award_integrity')
         over = module.CLASH_LIMIT + 3
-        ImportedScholar.objects.bulk_create([
-            ImportedScholar(last_name=f'Scholar{n}', scholarship_type='CHED',
-                            term_label='26-1', award_number=f'IMP-{n}')
-            for n in range(over) for _ in range(2)
+        both = [self._student('2026-0100'), self._student('2026-0101')]
+        Application.objects.bulk_create([
+            Application(student=student, scholarship=self.ched,
+                        status='Approved', school_year=f'{n:02d}-{n:02d}',
+                        semester='1st Semester', award_number=f'CHED-{n}')
+            for n in range(over) for student in both
         ])
 
         with self.assertRaises(RuntimeError) as refused:

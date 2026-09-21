@@ -10,13 +10,13 @@ from . import scholar_columns
 from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile, Scholarship, Application, User, ApplicantRecord, BIPSU_SCHOOLS, BIPSU_COURSES, split_ched
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from . import notify
 from django.http import HttpResponse
 from datetime import date
 from io import BytesIO
 import logging
-from .views_shared import CHED_ARCHIVE_TIERS, COLUMN_HINTS, COLUMN_MAPS, DUPLICATE_AWARD_NUMBERS, IMPORT_ABANDONED, IMPORT_FAILED, _scholar_groups, _scholars_from_sheet, _vpsea_required
+from .views_shared import CHED_ARCHIVE_TIERS, COLUMN_HINTS, COLUMN_MAPS, IMPORT_ABANDONED, IMPORT_FAILED, _scholar_groups, _scholars_from_sheet, _vpsea_required
 from .views_declarations import _archive_back
 
 logger = logging.getLogger(__name__)
@@ -1069,11 +1069,6 @@ def run_archive_import(job_id, payload, filename, stype, rollover_label,
             ActivityLog.record(
                 who, f'Imported {filename} ({created} rows) for {stype} as "{rollover_label}"',
                 verb='import', request=ratelimit.as_caller(address))
-    except IntegrityError:
-        logger.exception(
-            'Scholar list import repeated an award number for %s term %r',
-            stype, rollover_label)
-        job.fail(DUPLICATE_AWARD_NUMBERS)
     except Exception:
         logger.exception(
             'Scholar list import failed for %s term %r', stype, rollover_label)

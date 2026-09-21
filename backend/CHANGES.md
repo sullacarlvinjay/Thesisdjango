@@ -84,33 +84,25 @@ solve. It was checked in `tes_ranking._other_assistance_rule` — advisory, for
 one programme — which meant a second award could always be written, and
 `award_number` was a plain non-unique `CharField` on three models.
 
-Migration `0096_award_integrity` adds four constraints:
+Migration `0096_award_integrity` adds two constraints:
 
 | Constraint | Refuses |
 |---|---|
-| `one_exclusive_benefit_per_student_term` | A student holding two approved awards in one term |
 | `one_award_number_per_programme_term` | One award number issued twice for a programme and term |
-| `one_imported_award_number_per_term` | A spreadsheet recording one award number twice |
 | `one_approved_link_award_number_per_term` | Two students both approved against one declared award |
 
-The first needs a column the constraint can key on, because a partial unique
-constraint cannot traverse a foreign key to read `scholarship.type`.
-`Application.holds_exclusive_benefit` is derived in `save()` from the status
-and the programme, and Free Higher Education stays the standing exception —
-it neither takes the slot nor is blocked by one, which is the rule
-`views_shared.can_hold_alongside` already encoded in Python.
+Both bind records this system writes for itself, where it can promise what
+goes in. Two things about the migration are deliberate:
 
-Two things about the migration are deliberate:
-
-- **The backfill lets sleeping duplicates lie.** Where a student already holds
-  two approved awards, the earliest keeps the flag and the rest are left
-  unflagged, so the invariant holds from here on without the migration
-  refusing to apply over history the office has not settled. They are still
-  reported.
-- **Repeated award numbers stop it.** Those cannot be tolerated the same way —
-  a unique index will not build over them — so a `RunPython` step checks first
-  and raises a message naming `manage.py find_duplicate_awards` instead of
-  letting an opaque `IntegrityError` surface mid-deploy.
+- **A student holding two benefits is not refused.** A student who really
+  does hold a DOST award and a CHED award is the problem this system exists
+  to surface, and a database that would not store the second one could not
+  show the office the first thing about it. That case is warned about before
+  approval and listed afterwards.
+- **Repeated award numbers stop it.** A unique index will not build over
+  them, so a `RunPython` step checks first and raises a message naming
+  `manage.py find_duplicate_awards` instead of letting an opaque
+  `IntegrityError` surface mid-deploy.
 
 `find_duplicate_awards` is that command; `build.sh` runs it after `migrate` so
 anything predating the constraints is reported rather than hidden.
@@ -137,7 +129,7 @@ of them answers the question no better than the one naming a command did.
 
 The guard had no test of its own, being the one path the suite cannot reach
 by ordinary means: the constraints are on the test database too, so no test
-can write the rows that trip it. `MigrationGuardTest` drops the three indexes
+can write the rows that trip it. `MigrationGuardTest` drops the indexes
 first — a partial `UniqueConstraint` is a named index on SQLite and Postgres
 alike, so plain `DROP INDEX` does it inside the test transaction, where the
 schema editor refuses to run.
@@ -147,6 +139,27 @@ grouped `Application` by `scholarship__type` while the constraint keys on
 `scholarship`, so two programmes of one type sharing an award number were
 reported as a clash the database would in fact have allowed. It groups by the
 programme now, and prints its name rather than its type.
+
+#### The archive is a copy, so it is not held to the rule
+
+The mis-keyed spreadsheet the cap was written for turned out to be real. The
+next deploy stopped on the imported DOST list: thirty-three rows carrying
+`BS`, `RA 10612` and `RA 7687` in the column read as the award number. Those
+are DOST tracks. The office's workbook did not follow the layout the import
+page asks for, and every scholar on one track came out sharing a number.
+
+`ImportedScholar` is a copy of a document nobody here wrote. Enforcing an
+award number's uniqueness on a copy means refusing to record what the funder
+actually sent, and a copy that will not hold its source cannot show the
+office that the source is wrong. Worse, it is not a one-time refusal: with
+the constraint on, no DOST list of that shape could ever be filed again, and
+migrations `0097` through `0099` sat undeployed behind a spreadsheet.
+
+So the constraint comes off `ImportedScholar` and the guard no longer counts
+it. `find_duplicate_awards` still reports it, because a repeated number in a
+funder's list is a real question — just one for the office to take back to
+the funder, not one for the database to answer by refusing the file. The rule
+stays where the system writes its own records.
 
 ### There was no backup procedure at all
 

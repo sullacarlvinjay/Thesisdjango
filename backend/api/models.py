@@ -1267,6 +1267,11 @@ class ImportedScholar(PhilippineAddress):
 
     ``claimed_by`` links the row to a portal account once someone declares
     it, so the same person is not counted twice.
+
+    Award numbers are not unique here, deliberately. This table is a copy of
+    a document the office did not write, and a copy that refuses the rows it
+    was given cannot show anyone that the document repeats itself.
+    ``manage.py find_duplicate_awards`` reports the repeats instead.
     """
     scholarship_type = models.CharField(max_length=20, choices=SCHOLARSHIP_TYPE_CHOICES)
     term_label = models.CharField(max_length=20, blank=True)
@@ -1293,13 +1298,6 @@ class ImportedScholar(PhilippineAddress):
         ordering = ['last_name', 'first_name']
         indexes = [
             models.Index(fields=['scholarship_type', 'term_label', 'claimed_by']),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['scholarship_type', 'term_label', 'award_number'],
-                condition=~models.Q(award_number=''),
-                name='one_imported_award_number_per_term',
-            ),
         ]
 
     def __str__(self):

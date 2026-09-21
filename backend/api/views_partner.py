@@ -7,10 +7,10 @@ existing imports keep working.
 
 from django.shortcuts import render, redirect
 from .models import STUDENT_DETAILS, Scholarship
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.http import HttpResponse
 import logging
-from .views_shared import COLUMN_HINTS, DUPLICATE_AWARD_NUMBERS, _change_own_password, _column_picker_context, _custom_columns_for, _posted_custom_columns, _scholar_groups, _scholars_from_sheet
+from .views_shared import COLUMN_HINTS, _change_own_password, _column_picker_context, _custom_columns_for, _posted_custom_columns, _scholar_groups, _scholars_from_sheet
 
 logger = logging.getLogger(__name__)
 
@@ -340,33 +340,26 @@ def partner_archive_import(request, office):
             f'That file could not be read as a {stype} list. Nothing was saved — '
             'check the column headings and try again.'))
 
-    try:
-        with transaction.atomic():
-            replaced = ImportedScholar.objects.filter(
-                scholarship_type=stype, term_label=term, claimed_by__isnull=True,
-            ).delete()[0]
-            ImportedScholar.objects.bulk_create(records)
+    with transaction.atomic():
+        replaced = ImportedScholar.objects.filter(
+            scholarship_type=stype, term_label=term, claimed_by__isnull=True,
+        ).delete()[0]
+        ImportedScholar.objects.bulk_create(records)
 
-            saved = ScholarListImport.objects.filter(
-                scholarship_type=stype, term_label=term).first()
-            if saved:
-                saved.scholar_count = len(records)
-                saved.save(update_fields=['scholar_count'])
-            else:
-                ScholarListImport.objects.create(
-                    scholarship_type=stype,
-                    school_year=term_parsed['sy'],
-                    semester=term_parsed.get('semester', parsed['semester']),
-                    term_label=term,
-                    scholar_count=len(records),
-                    imported_by=request.user,
-                )
-    except IntegrityError:
-        logger.exception(
-            '%s import repeated an award number for %s term %r',
-            office.name, stype, term)
-        return redirect(f'{here}&sy={quote(term)}&import_error='
-                        + quote(DUPLICATE_AWARD_NUMBERS))
+        saved = ScholarListImport.objects.filter(
+            scholarship_type=stype, term_label=term).first()
+        if saved:
+            saved.scholar_count = len(records)
+            saved.save(update_fields=['scholar_count'])
+        else:
+            ScholarListImport.objects.create(
+                scholarship_type=stype,
+                school_year=term_parsed['sy'],
+                semester=term_parsed.get('semester', parsed['semester']),
+                term_label=term,
+                scholar_count=len(records),
+                imported_by=request.user,
+            )
 
     ActivityLog.record(
         request.user, f'{office.name} imported {file.name} ({len(records)} rows) for '

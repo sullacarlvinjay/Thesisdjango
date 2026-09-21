@@ -15,11 +15,6 @@ logger = logging.getLogger(__name__)
 IMPORT_FAILED = ('That spreadsheet could not be filed. Nothing was saved — check the '
                  'file and try again, or ask IT to read the server log.')
 
-DUPLICATE_AWARD_NUMBERS = ('That spreadsheet records the same award number twice for '
-                           'this programme and term. Nothing was saved — an award '
-                           'number identifies one award, so the duplicate has to be '
-                           'settled before the list can be filed.')
-
 IMPORT_ABANDONED = ('That import was interrupted before it finished — the server '
                     'restarted while it was reading. Nothing was saved. Upload '
                     'the same file again.')

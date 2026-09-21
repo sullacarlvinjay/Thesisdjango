@@ -50,14 +50,21 @@ group by a.scholarship_id, s.name, a.school_year, a.semester, a.award_number
 having count(*) > 1;
 
 select scholarship_type, term_label, award_number, count(*)
-from api_importedscholar
-where award_number <> ''
-group by scholarship_type, term_label, award_number
-having count(*) > 1;
-
-select scholarship_type, term_label, award_number, count(*)
 from api_scholarshiplinkrequest
 where status = 'Approved' and award_number <> ''
+group by scholarship_type, term_label, award_number
+having count(*) > 1;
+```
+
+The imported archive is not one of them. It is a copy of a funder's
+spreadsheet, so it holds whatever the funder sent and no constraint is built
+over it — `find_duplicate_awards` reports the repeats and the build carries
+on. This query finds them, but nothing it returns will ever stop a deploy:
+
+```sql
+select scholarship_type, term_label, award_number, count(*)
+from api_importedscholar
+where award_number <> ''
 group by scholarship_type, term_label, award_number
 having count(*) > 1;
 ```

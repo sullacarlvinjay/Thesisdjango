@@ -29,7 +29,6 @@ def refuse_duplicate_award_numbers(apps, schema_editor):
     from django.db.models import Count
 
     Application = apps.get_model('api', 'Application')
-    ImportedScholar = apps.get_model('api', 'ImportedScholar')
     Scholarship = apps.get_model('api', 'Scholarship')
     ScholarshipLinkRequest = apps.get_model('api', 'ScholarshipLinkRequest')
 
@@ -38,8 +37,6 @@ def refuse_duplicate_award_numbers(apps, schema_editor):
     checks = (
         ('Application', Application.objects.exclude(award_number=''),
          ['scholarship_id', 'school_year', 'semester', 'award_number']),
-        ('ImportedScholar', ImportedScholar.objects.exclude(award_number=''),
-         ['scholarship_type', 'term_label', 'award_number']),
         ('ScholarshipLinkRequest',
          ScholarshipLinkRequest.objects.filter(status='Approved')
          .exclude(award_number=''),
@@ -72,6 +69,13 @@ class Migration(migrations.Migration):
     that refused to store the second one could not show the office the first
     thing about it. That case is warned about before the office approves it,
     and listed afterwards by ``manage.py find_duplicate_awards``.
+
+    The rule binds the records this system writes for itself. The imported
+    archive is exempt for the same reason: it is a copy of a funder's
+    spreadsheet, and a copy that refuses to hold what the funder actually
+    sent cannot show the office that the sheet is wrong. A number repeated
+    there is reported by ``find_duplicate_awards`` and settled with the
+    office, not enforced against the archive.
     """
 
     dependencies = [
@@ -87,13 +91,6 @@ class Migration(migrations.Migration):
                 condition=models.Q(('award_number', ''), _negated=True),
                 fields=('scholarship', 'school_year', 'semester', 'award_number'),
                 name='one_award_number_per_programme_term'),
-        ),
-        migrations.AddConstraint(
-            model_name='importedscholar',
-            constraint=models.UniqueConstraint(
-                condition=models.Q(('award_number', ''), _negated=True),
-                fields=('scholarship_type', 'term_label', 'award_number'),
-                name='one_imported_award_number_per_term'),
         ),
         migrations.AddConstraint(
             model_name='scholarshiplinkrequest',

@@ -158,14 +158,30 @@ class ArchiveImportTest(TestCase):
             self._import()
         self.assertIn(SECRET_LOOKING_TEXT, '\n'.join(logged.output))
 
-    def test_a_sheet_repeating_one_award_number_is_refused_whole(self):
+    def test_a_sheet_repeating_one_award_number_is_filed_and_reported(self):
+        """The archive holds what the funder sent, and the repeat is listed.
+
+        Refusing the whole file would leave the office with no record of a
+        list it was actually given, and nothing to take back to the funder.
+        """
+        from io import StringIO
+
+        from django.core.management import call_command
+
         response = self._import([
             a_ched_scholar(1, 'CHED-2026-0007', 'Santos'),
             a_ched_scholar(2, 'CHED-2026-0007', 'Cruz', 'Jose'),
         ])
-        self.assertEqual(ImportedScholar.objects.count(), 0)
-        self.assertEqual(ScholarListImport.objects.count(), 0)
-        self.assertIn('same award number twice', self._error_from(response))
+        self.assertEqual(ImportedScholar.objects.count(), 2)
+        self.assertEqual(ScholarListImport.objects.count(), 1)
+
+        job_id = parse_qs(urlparse(response['Location']).query)['import_job'][0]
+        self.assertNotEqual(BackgroundJob.objects.get(pk=job_id).status,
+                            BackgroundJob.FAILED)
+
+        listed = StringIO()
+        call_command('find_duplicate_awards', stdout=listed)
+        self.assertIn('CHED-2026-0007', listed.getvalue())
 
 
 class ReportErrorTest(TestCase):
