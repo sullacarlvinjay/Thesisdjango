@@ -4,11 +4,6 @@
   var FORM = '[data-steps]';
   var STEP = '[data-step]';
 
-  /* A form re-rendered with server errors carries no data-steps attribute, so
-     no stepper is built and every section is shown at once. Grouping is for
-     the first pass through a long form; once something is wrong, hiding any
-     of it behind a Continue button hides the thing that needs fixing. */
-
   function stepsIn(form) {
     return Array.prototype.filter.call(
       form.querySelectorAll(STEP),
@@ -54,6 +49,36 @@
       if (reachable(fields[i]) && !fields[i].checkValidity()) return fields[i];
     }
     return null;
+  }
+
+  function cardHolding(step, field) {
+    var node = field;
+    while (node && node.parentNode !== step) node = node.parentNode;
+    return node;
+  }
+
+  function placeServerErrors(form) {
+    var banner = document.querySelector('[data-form-errors]');
+    if (!banner) return false;
+    var carried = false;
+    Array.prototype.forEach.call(
+      banner.querySelectorAll('[data-error-field]'), function (note) {
+        var named = form.querySelector(
+          '[name="' + note.getAttribute('data-error-field') + '"]');
+        var step = named ? named.closest(STEP) : null;
+        var card = step ? cardHolding(step, named) : null;
+        if (!card) return;
+        if (!card.stepErrorBox) {
+          card.stepErrorBox = banner.cloneNode(false);
+          card.stepErrorBox.removeAttribute('data-form-errors');
+          card.insertBefore(card.stepErrorBox, card.firstChild);
+        }
+        card.stepErrorBox.appendChild(note);
+        step.dataset.stepError = 'true';
+        carried = true;
+      });
+    banner.hidden = !banner.querySelector('p');
+    return carried;
   }
 
   function label(step, index) {
@@ -111,6 +136,8 @@
     this.form = form;
     this.steps = stepsIn(form);
     this.index = 0;
+    this.rejected = placeServerErrors(form)
+      || form.hasAttribute('data-steps-errors');
     if (this.steps.length < 2) return;
 
     this.track = buildProgress(form, this.steps);
@@ -151,6 +178,16 @@
       }
     });
     this.form.addEventListener('change', function () { self.refresh(); });
+    var reported = false;
+    this.form.addEventListener('invalid', function (event) {
+      if (reported) return;
+      reported = true;
+      setTimeout(function () { reported = false; }, 0);
+      var step = event.target.closest(STEP);
+      if (!step || step.dataset.stepActive === 'true') return;
+      self.show(self.steps.indexOf(step));
+      event.target.focus({ preventScroll: true });
+    }, true);
 
     if (window.MutationObserver) {
       this.watcher = new MutationObserver(function () { self.refresh(); });
@@ -211,7 +248,7 @@
 
     this.back.disabled = position <= 0;
     this.next.hidden = last;
-    if (this.submit) this.submit.hidden = !last;
+    if (this.submit) this.submit.hidden = !last && !this.rejected;
     this.count.textContent = 'Step ' + (position + 1) + ' of ' + live.length;
 
     var self = this;
@@ -224,6 +261,8 @@
       if (mark && place > -1) mark.textContent = String(place + 1);
       dot.classList.toggle('is-current', i === self.index);
       dot.classList.toggle('is-done', place > -1 && place < position);
+      dot.classList.toggle('is-error',
+                           step.dataset.stepError === 'true' && i !== self.index);
     });
   };
 

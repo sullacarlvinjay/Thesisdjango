@@ -6,10 +6,11 @@ existing imports keep working.
 """
 
 from django.shortcuts import render, redirect
+from django.db.models import Q
 from .models import STAFF_APPLICATION_DETAILS, STUDENT_DETAILS, StudentProfile
 from django.http import HttpResponse
 import logging
-from .views_shared import _vpsea_required
+from .views_shared import _active_term, _vpsea_required
 
 logger = logging.getLogger(__name__)
 
@@ -20,21 +21,76 @@ RANKING_TABS = [
     ('Staff', 'Faculty and Staff Scholars'),
 ]
 
+def _applicant_identity(application):
+    """What makes two staff applications the same applicant.
+
+    The applicant's own number first, because that is what the office reads
+    down the list. ``staff_employee_id`` is deliberately not used: on a
+    dependent's record it holds the *parent's* number, so two children of one
+    employee would collapse into one row.
+
+    Falling back to the name happens only where neither a number nor an
+    address was recorded. Two strangers can share a name, and merging them
+    would hide a real applicant — worse than showing a duplicate — so it is
+    the last resort rather than the first test.
+    """
+    own_number = (application.student_id or '').strip().lower()
+    if own_number:
+        return ('number', own_number)
+    email = (application.email or '').strip().lower()
+    if email:
+        return ('email', email)
+    return ('name', ' '.join((application.full_name or '').lower().split()))
+
+
+def _one_per_applicant(applications):
+    """The newest application each applicant has on file.
+
+    One person legitimately holds several records: every write path scopes
+    itself to a term so a new semester files a new one, a refusal is left
+    behind when they resubmit, and the archive form adds a roster record
+    without checking whether they already applied. All of that is correct
+    where it happens — but the ranking is a list of who to recommend, so the
+    same person appearing twice is a list the office cannot count.
+
+    ``submitted_at`` decides, matching ``_staff_application_for`` in
+    ``views_staff``: the record they most recently stood behind is the one
+    they are asking to be judged on.
+    """
+    newest = {}
+    for application in sorted(applications,
+                              key=lambda a: (a.submitted_at, a.pk),
+                              reverse=True):
+        newest.setdefault(_applicant_identity(application), application)
+    return list(newest.values())
+
+
 def _staff_ranking_data():
     """Rank the staff applications for the office's ranking page.
 
     Applications needing verification are ranked too but numbered
     separately, so an incomplete application stays visible instead of
     vanishing from the list the office works from.
+
+    Scoped to the active term, because the list answers "who do we recommend
+    now" and last semester's applications are not up for a decision. Records
+    carrying no term at all are kept: ``ApplicantRecord`` only gained the term
+    columns in 0049 and nothing backfilled them, so a blank is an unstamped
+    old row rather than evidence it belongs elsewhere, and dropping it would
+    quietly lose a scholar from the office's working list.
     """
     from . import staff_ranking
     from .models import ApplicantRecord
 
+    term = _active_term()
     applications = (ApplicantRecord.objects
                     .filter(qualified_for='Staff')
+                    .filter(Q(school_year=term['sy'], semester=term['semester'])
+                            | Q(school_year=''))
+                    .exclude(status='Rejected')
                     .select_related(*STAFF_APPLICATION_DETAILS))
 
-    evaluations = staff_ranking.rank(applications)
+    evaluations = staff_ranking.rank(_one_per_applicant(applications))
 
     decided = [e for e in evaluations if e.status != staff_ranking.FOR_VERIFICATION]
     needs_info = [e for e in evaluations if e.status == staff_ranking.FOR_VERIFICATION]

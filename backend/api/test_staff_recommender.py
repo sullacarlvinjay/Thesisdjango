@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.test import Client, TestCase
+from django.utils import timezone
 
 from api import staff_ranking
 from api.models import (
@@ -228,3 +231,100 @@ class TheTabTest(TestCase):
         an_application(full_name='Not A Staff Applicant', qualified_for='Affirmative')
         self.assertNotContains(self.c.get('/vpsea/ranking/?type=Staff'),
                                'Not A Staff Applicant')
+
+
+class OneRowPerApplicantTest(TestCase):
+    def setUp(self):
+        SystemSettings.objects.create(pk=1, academic_year='26-1',
+                                      active_semester='1st Semester')
+
+    def _data(self):
+        from api.views_ranking import _staff_ranking_data
+        return _staff_ranking_data()
+
+    def _names(self):
+        data = self._data()
+        return [e.applicant_name for e in data['rows'] + data['needs_info']]
+
+    def _an_employee_application(self, **overrides):
+        data = {'is_nsu_staff': True, 'employment_status': 'Regular',
+                'student_id': '32-1-000001'}
+        data.update(overrides)
+        return an_application(**data)
+
+    def _backdate(self, record, when):
+        ApplicantRecord.objects.filter(pk=record.pk).update(submitted_at=when)
+        record.refresh_from_db()
+        return record
+
+    def test_one_applicant_with_two_records_is_one_row(self):
+        older = self._an_employee_application(designation='Faculty')
+        self._backdate(older, timezone.now() - timedelta(days=30))
+        self._an_employee_application(designation='Staff')
+        self.assertEqual(self._names(), ['Juan Dela Cruz'])
+        self.assertEqual(self._data()['total'], 1)
+
+    def test_the_row_kept_is_the_one_they_filed_most_recently(self):
+        older = self._an_employee_application(employment_status='Job Order')
+        self._backdate(older, timezone.now() - timedelta(days=30))
+        newer = self._an_employee_application(employment_status='Regular')
+        rows = self._data()['rows']
+        self.assertEqual([e.application.pk for e in rows], [newer.pk])
+        self.assertEqual(rows[0].recommendation, 'Recommended')
+
+    def test_a_refusal_they_have_already_resubmitted_past_does_not_rank(self):
+        rejected = self._an_employee_application(status='Rejected',
+                                                 employment_status='Job Order')
+        self._backdate(rejected, timezone.now() - timedelta(days=30))
+        resubmitted = self._an_employee_application(status='Pending Validation')
+        self.assertEqual([e.application.pk for e in self._data()['rows']],
+                         [resubmitted.pk])
+
+    def test_a_refusal_on_its_own_does_not_rank_either(self):
+        self._an_employee_application(status='Rejected')
+        self.assertEqual(self._names(), [])
+
+    def test_last_terms_application_is_not_up_for_a_decision_now(self):
+        self._an_employee_application(full_name='Last Term Applicant',
+                                      email='last@bipsu.edu.ph',
+                                      student_id='32-1-000002',
+                                      school_year='2025-2026',
+                                      semester='1st Semester')
+        self.assertEqual(self._names(), [])
+
+    def test_a_record_stamped_with_no_term_at_all_still_shows(self):
+        unstamped = self._an_employee_application(full_name='Unstamped Applicant')
+        ApplicantRecord.objects.filter(pk=unstamped.pk).update(
+            term_label='', school_year='', semester='')
+        self.assertEqual(self._names(), ['Unstamped Applicant'])
+
+    def test_two_dependents_of_one_employee_are_two_people_not_one(self):
+        employee = an_employee()
+        for name, student_id in (('Ana Santos', '2024-0001'),
+                                 ('Ben Santos', '2024-0002')):
+            an_application(full_name=name, email=f'{student_id}@bipsu.edu.ph',
+                           student_id=student_id, is_nsu_dependent=True,
+                           staff_employee_id=employee.employee_id,
+                           staff_name='Maria Santos',
+                           relationship_to_staff='Child')
+        self.assertEqual(sorted(self._names()), ['Ana Santos', 'Ben Santos'])
+
+    def test_two_applicants_sharing_no_number_or_address_stay_apart(self):
+        an_application(full_name='Ana Cruz', email='', student_id='',
+                       is_nsu_staff=True, employment_status='Regular')
+        an_application(full_name='Ben Cruz', email='', student_id='',
+                       is_nsu_staff=True, employment_status='Regular')
+        self.assertEqual(sorted(self._names()), ['Ana Cruz', 'Ben Cruz'])
+
+    def test_the_page_counts_the_applicant_once(self):
+        User.objects.create_user(
+            username='v@bipsu.edu.ph', email='v@bipsu.edu.ph', password='pw',
+            first_name='V', last_name='Officer', role='vpsea')
+        client = Client()
+        self.assertTrue(client.login(email='v@bipsu.edu.ph', password='pw'))
+        older = self._an_employee_application()
+        self._backdate(older, timezone.now() - timedelta(days=30))
+        self._an_employee_application()
+        html = ' '.join(client.get('/vpsea/ranking/?type=Staff')
+                        .content.decode().split())
+        self.assertIn('1 application screened', html)

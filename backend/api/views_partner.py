@@ -265,10 +265,11 @@ def partner_scholars(request, office):
 
     if action == 'delete':
         name = scholar.full_name or scholar.student_id or f'row #{scholar.pk}'
+        identity = ActivityLog.identify(scholar)
         scholar.delete()
         ActivityLog.record(
             request.user, f'{office.name} deleted the {stype} scholar {name} ({term})',
-            verb='delete', request=request)
+            verb='delete', request=request, identity=identity)
         return redirect(f'{here}&scholar=deleted')
 
     if action not in ('add', 'edit'):
@@ -285,7 +286,7 @@ def partner_scholars(request, office):
         ActivityLog.record(
             request.user, f'{office.name} edited the {stype} scholar '
                        f'{scholar.full_name} ({term})',
-            verb='update', request=request)
+            verb='update', target=scholar, request=request)
         return redirect(f'{here}&scholar=saved')
 
     scholar = ImportedScholar.objects.create(
@@ -296,7 +297,7 @@ def partner_scholars(request, office):
     ActivityLog.record(
         request.user, f'{office.name} added the {stype} scholar '
                    f'{scholar.full_name} ({term})',
-        verb='create', request=request)
+        verb='create', target=scholar, request=request)
     return redirect(f'{here}&scholar=added')
 
 @_partner_required
@@ -346,13 +347,14 @@ def partner_archive_import(request, office):
         ).delete()[0]
         ImportedScholar.objects.bulk_create(records)
 
-        saved = ScholarListImport.objects.filter(
+        sheet = ScholarListImport.objects.filter(
             scholarship_type=stype, term_label=term).first()
-        if saved:
-            saved.scholar_count = len(records)
-            saved.save(update_fields=['scholar_count'])
+        if sheet:
+            sheet.scholar_count = len(records)
+            sheet.imported_by = request.user
+            sheet.save(update_fields=['scholar_count', 'imported_by'])
         else:
-            ScholarListImport.objects.create(
+            sheet = ScholarListImport.objects.create(
                 scholarship_type=stype,
                 school_year=term_parsed['sy'],
                 semester=term_parsed.get('semester', parsed['semester']),
@@ -364,7 +366,7 @@ def partner_archive_import(request, office):
     ActivityLog.record(
         request.user, f'{office.name} imported {file.name} ({len(records)} rows) for '
                    f'{stype} as "{term}", replacing {replaced} of its own row(s)',
-        verb='import', request=request)
+        verb='import', target=sheet, request=request)
     target = f'{here}&sy={quote(term)}&import_ok={len(records)}'
     if refused:
         target += f'&columns_bad={refused}'

@@ -11,7 +11,7 @@ from . import ratelimit
 from .models import StudentProfile, Scholarship, User, ScholarshipLinkRequest, BIPSU_SCHOOLS, BIPSU_COURSES
 from . import notify
 import logging
-from .views_shared import DECLARATION_SLOTS, _declaration_slots, _declared_scholarships, _disability_answer, _disability_fields, _positive_int, _tristate, _unanswered, _validate_proof, declarable_types
+from .views_shared import DECLARATION_SLOTS, FormError, _declaration_slots, _declared_scholarships, _disability_answer, _disability_fields, _positive_int, _tristate, _unanswered, _validate_proof, declarable_types
 
 logger = logging.getLogger(__name__)
 
@@ -481,7 +481,7 @@ def _certificate_errors(files):
     for field, label in _REQUIRED_CERTIFICATES:
         upload = files.get(field)
         if upload:
-            errors += [f'{label}: {problem}'
+            errors += [FormError(f'{label}: {problem}', field)
                        for problem in _validate_proof(upload, settings_obj)]
     return errors
 
@@ -497,7 +497,8 @@ def _declared_staff_scholarship(p, files):
         return None, []
 
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
-    errors = _validate_proof(files.get('staff_proof_document'), settings_obj)
+    errors = [FormError(problem, 'staff_proof_document') for problem in
+              _validate_proof(files.get('staff_proof_document'), settings_obj)]
     if errors:
         return None, errors
 
@@ -570,12 +571,14 @@ _REQUIRED_OF_STAFF = (
 
 def _unanswered_tes(posted, questions):
     """Which TES eligibility questions were left unanswered."""
-    return [f'{label} — please answer Yes or No.' for name, label in questions
+    return [FormError(f'{label} — please answer Yes or No.', name)
+            for name, label in questions
             if (posted.get(name) or '').strip().casefold() not in ('yes', 'no')]
 
 def _missing_certificates(files, questions):
     """Which required certificates the form did not carry."""
-    return [f'{label} is required.' for name, label in questions
+    return [FormError(f'{label} is required.', name)
+            for name, label in questions
             if not files.get(name)]
 
 def _remember_registration_source(request, email):
@@ -596,25 +599,27 @@ def _account_errors(posted):
     errors = _unanswered(posted, _REQUIRED_OF_EVERYONE)
 
     if not posted.get('accept_terms'):
-        errors.append('You must read and accept the Terms of Use and Data '
-                      'Privacy Notice before an account can be created.')
+        errors.append(FormError('You must read and accept the Terms of Use and '
+                                'Data Privacy Notice before an account can be '
+                                'created.', 'accept_terms'))
     posted_version = (posted.get('terms_version') or '').strip()
     if posted_version and posted_version != terms.VERSION:
-        errors.append('The Terms of Use and Data Privacy Notice was updated '
-                      'while you were filling this form in. Please read the '
-                      'current version and agree to it.')
+        errors.append(FormError('The Terms of Use and Data Privacy Notice was '
+                                'updated while you were filling this form in. '
+                                'Please read the current version and agree to '
+                                'it.', 'accept_terms'))
 
     if not (posted.get('password') or ''):
-        errors.append('Password is required.')
+        errors.append(FormError('Password is required.', 'password'))
     elif posted.get('password') != posted.get('confirm_password'):
-        errors.append('Passwords do not match.')
+        errors.append(FormError('Passwords do not match.', 'confirm_password'))
 
     address_problem = email_verify.address_error(posted.get('email'))
     if address_problem:
-        errors.append(address_problem)
+        errors.append(FormError(address_problem, 'email'))
     elif User.objects.filter(email=posted.get('email')).exclude(
             verification_status='rejected').exists():
-        errors.append('Email already registered.')
+        errors.append(FormError('Email already registered.', 'email'))
     return errors
 
 
@@ -628,15 +633,17 @@ def _student_registration_errors(posted, files):
     errors += _unanswered_tes(posted, _REQUIRED_AFFIRMATIVE_ANSWERS)
 
     if not posted.get('student_id'):
-        errors.append('Student ID is required.')
+        errors.append(FormError('Student ID is required.', 'student_id'))
     elif StudentProfile.objects.filter(
             student_id=posted.get('student_id')).exclude(
             user__verification_status='rejected').exists():
-        errors.append('Student ID already registered.')
+        errors.append(FormError('Student ID already registered.',
+                                'student_id'))
 
     if not (posted.get('disability_type') or '').strip():
-        errors.append('Disability Type is required — choose "NO" if you are '
-                      'not a person with disability.')
+        errors.append(FormError('Disability Type is required — choose "NO" if '
+                                'you are not a person with disability.',
+                                'disability_type'))
     disability, problem = _disability_answer(posted)
     if problem:
         errors.append(problem)
@@ -685,6 +692,43 @@ def _new_account(posted, account_type):
     )
 
 
+def _claim_records_filed_for(profile):
+    """Attach awards already filed against this student number.
+
+    An employee may apply for a dependent before that dependent has an
+    account, which leaves the record carrying a student number and no link.
+    Registering with the same number is what the record was waiting for.
+
+    The date of birth is checked the way the staff form checks it, so a number
+    typed wrongly there does not capture the first account that later claims
+    it. Records whose birthday does not match are left alone for the office.
+
+    Returns:
+        How many records were attached.
+    """
+    from .models import ApplicantRecord
+
+    unclaimed = ApplicantRecord.objects.filter(
+        linked_student__isnull=True,
+        enrollment__student_id=profile.student_id,
+        staff_eligibility__is_nsu_dependent=True,
+    )
+    from .views_staff import _as_date
+
+    claimed = 0
+    born = _as_date(profile.date_of_birth)
+    for record in unclaimed:
+        filed = _as_date(record.date_of_birth)
+        if filed and born and filed != born:
+            continue
+        record.linked_student = profile
+        if not record.email:
+            record.email = profile.user.email
+        record.save()
+        claimed += 1
+    return claimed
+
+
 def _create_student_profile(request, posted, user, declarations, disability):
     """Attach a student profile and its declarations to a new account."""
     profile = StudentProfile.objects.create(
@@ -696,6 +740,12 @@ def _create_student_profile(request, posted, user, declarations, disability):
         ScholarshipLinkRequest.objects.create(student=profile, **declaration)
     if len(declarations) > 1:
         notify.multiple_declarations(profile, declarations)
+    if _claim_records_filed_for(profile):
+        notify.notify(
+            profile, 'A scholarship was already filed for you',
+            'A BiPSU employee applied for the BiPSU Staff Scholarship on your '
+            'behalf as their dependent. It is now on your account and you can '
+            'follow it under My Applications.', tone='info')
 
 
 def _create_staff_profile(request, posted, user, declared):

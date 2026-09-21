@@ -40,6 +40,41 @@ def _scholarship_records(profile):
             'note': req.remarks if req.status == 'Rejected' else
                     'Declared at registration. The SDSO is still verifying your proof.',
         })
+
+    records += _records_filed_for(profile)
+    return records
+
+
+def _records_filed_for(profile):
+    """Awards an office filed against this account rather than the student.
+
+    A dependent's Staff Scholarship is filed by the employee it rests on, so
+    it never passes through the student's own forms. It belongs on their file
+    regardless, and saying who filed it is what stops it reading as something
+    they applied for and forgot.
+    """
+    from .models import STAFF_APPLICATION_DETAILS, ApplicantRecord
+
+    records = []
+    for app in (ApplicantRecord.objects
+                .filter(linked_student=profile)
+                .select_related(*STAFF_APPLICATION_DETAILS)
+                .order_by('-submitted_at')):
+        if app.is_nsu_dependent:
+            filed_by = (f'Filed by {app.staff_name}'
+                        if app.staff_name else 'Filed by the SDSO')
+            note = (app.remarks if app.status == 'Rejected'
+                    else f'{filed_by} as the employee this award rests on.')
+        else:
+            note = app.remarks if app.status == 'Rejected' else ''
+        records.append({
+            'name': app.get_qualified_for_display(),
+            'type': app.qualified_for,
+            'status': app.status,
+            'term': app.term_display,
+            'award_number': '',
+            'note': note,
+        })
     return records
 
 GWA_REQUIRED = ('Enter your GWA before sending this application. The office '

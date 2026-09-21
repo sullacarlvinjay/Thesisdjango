@@ -3,7 +3,7 @@
 {% block logo_src %}/media/logos/BiPSU.png?v=2{% endblock %}
 {% block brand %}BiPSU Staff{% endblock %}
 {% block page_title %}BiPSU Staff Scholarship Application{% endblock %}
-{% block page_subtitle %}For permanent faculty and employees of Biliran Province State University{% endblock %}
+{% block page_subtitle %}For permanent faculty and employees of Biliran Province State University, and their qualified dependents{% endblock %}
 {% block nav %}{% include "nsu_staff/_nav.html" %}{% endblock %}
 {% block content %}
 {% if blocked %}
@@ -15,10 +15,23 @@
     {% if existing %}
     <a href="/nsu-staff/profile/" class="text-xs mt-2 inline-block u-text-brand">View your scholarship record →</a>
     {% endif %}
+    {% if dependent_offer %}
+    <p class="text-xs mt-2">
+      <a href="/nsu-staff/apply/?applicant_kind=dependent" class="inline-block u-text-brand">Apply for a dependent instead →</a>
+    </p>
+    {% endif %}
   </div>
 </div>
 {% else %}
-{% if submitted %}
+{% if submitted == 'linked' %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">
+  ✓ Filed for your dependent and attached to their student account. They can follow it under My Applications, and the SDSO reviews it next.
+</div>
+{% elif submitted == 'unlinked' %}
+<div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">
+  ✓ Filed for your dependent. No student account carries that student number yet — when they register with it, this attaches to their account on its own.
+</div>
+{% elif submitted %}
 <div class="mb-5 rounded-lg px-4 py-3 text-sm font-medium u-bg-ok u-text-ok u-border-1px-solid-ok-border">
   ✓ Your Staff Scholarship application has been submitted and is pending validation.
 </div>
@@ -36,14 +49,36 @@
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
       <div class="card p-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Personal Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">Who Is This For</p>
+        <p class="text-xs mb-3 u-text-muted">The award rests on your appointment either way. Say who is enrolled, because the rest of this form describes them.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="type-card {% if not for_dependent %}is-selected{% endif %}" for="f-kind-self">
+            <div class="flex items-center gap-2 mb-1">
+              <input type="radio" id="f-kind-self" name="applicant_kind" value="self" data-applicant-kind {% if not for_dependent %}checked{% endif %} />
+              <svg class="h-5 w-5 u-text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+              <span class="text-sm font-semibold u-text-base">Myself</span>
+            </div>
+            <p class="text-xs u-text-muted">I am the employee and I am the one enrolled.</p>
+          </label>
+          <label class="type-card {% if for_dependent %}is-selected{% endif %}" for="f-kind-dependent">
+            <div class="flex items-center gap-2 mb-1">
+              <input type="radio" id="f-kind-dependent" name="applicant_kind" value="dependent" data-applicant-kind {% if for_dependent %}checked{% endif %} />
+              <svg class="h-5 w-5 u-text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              <span class="text-sm font-semibold u-text-base">My dependent</span>
+            </div>
+            <p class="text-xs u-text-muted">My son, daughter, spouse or legal ward is enrolled. If they have a student account, the award attaches to it.</p>
+          </label>
+        </div>
+      </div>
+      <div class="card p-6">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">{% if for_dependent %}Your Dependent{% else %}Personal Information{% endif %}</p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label for="f-first-name">First Name <span class="u-text-danger">*</span></label>
+            <label for="f-first-name">{% if for_dependent %}Dependent's First Name{% else %}First Name{% endif %} <span class="u-text-danger">*</span></label>
             <input id="f-first-name" name="first_name" value="{{ prefill.first_name }}" placeholder="First name" required />
           </div>
           <div class="space-y-1.5">
-            <label for="f-last-name">Last Name <span class="u-text-danger">*</span></label>
+            <label for="f-last-name">{% if for_dependent %}Dependent's Last Name{% else %}Last Name{% endif %} <span class="u-text-danger">*</span></label>
             <input id="f-last-name" name="last_name" value="{{ prefill.last_name }}" placeholder="Last name" required />
           </div>
           <div class="space-y-1.5">
@@ -68,10 +103,28 @@
             <input id="f-contact-number" name="contact_number" type="tel" autocomplete="tel" placeholder="09XXXXXXXXX"
                    value="{{ prefill.contact_number }}" />
           </div>
+          {% if for_dependent %}
+          <div class="space-y-1.5">
+            <label for="f-relationship-to-staff">Your Relationship to Them <span class="u-text-danger">*</span></label>
+            <select id="f-relationship-to-staff" name="relationship_to_staff" required>
+              <option value="">— Select —</option>
+              {% for value, label in relationships %}
+              <option value="{{ value }}" {% if prefill.relationship_to_staff == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label for="f-dependent-email">Dependent's Email <span class="label-optional">Optional</span></label>
+            <input id="f-dependent-email" name="dependent_email" type="email" autocomplete="off"
+                   placeholder="name@example.com" value="{{ prefill.dependent_email }}" />
+            <p class="text-xs u-text-muted">Used only until they have a student account. Once one is matched, the decision goes to the address on it.</p>
+          </div>
+          {% else %}
           <div class="space-y-1.5">
             <label for="f-input">Email</label>
             <input id="f-input" class="u-bg-sunken u-text-muted u-cursor-blocked" value="{{ user.email }}" readonly/>
           </div>
+          {% endif %}
         </div>
         <div class="grid sm:grid-cols-3 gap-4 mt-4">
           <div class="space-y-1.5">
@@ -92,12 +145,15 @@
         <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Academic Information</p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <label for="f-student-number">Employee Number <span class="u-text-danger">*</span></label>
+            <label for="f-student-number">{% if for_dependent %}Dependent's Student Number{% else %}Employee Number{% endif %} <span class="u-text-danger">*</span></label>
             <input id="f-student-number" name="student_number" placeholder="e.g. 2021-00001"
                    value="{{ prefill.student_number }}" required />
+            {% if for_dependent %}
+            <p class="text-xs u-text-muted">Exactly as it appears on their registration. It is what attaches this award to their student account, checked against the date of birth above.</p>
+            {% endif %}
           </div>
           <div class="space-y-1.5 sm:col-span-2">
-            <label for="f-course">Course / Program <span class="u-text-danger">*</span></label>
+            <label for="f-course">{% if for_dependent %}Dependent's Course / Program{% else %}Course / Program{% endif %} <span class="u-text-danger">*</span></label>
             <input id="f-course" name="course" placeholder="e.g. BSCS" list="bipsuCourses"
                    value="{{ prefill.course }}" autocomplete="off" required />
             <p class="text-xs u-text-muted">BiPSU's programmes are suggested as you type. A programme not on the list can be typed in full.</p>
@@ -110,8 +166,18 @@
         </div>
       </div>
       <div class="card p-6">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-4 u-text-brand">Employment Information</p>
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-brand">{% if for_dependent %}Your Employment{% else %}Employment Information{% endif %}</p>
+        {% if for_dependent %}
+        <p class="text-xs mb-4 u-text-muted">Back to you: the appointment the award rests on is yours, not your dependent's.</p>
+        {% endif %}
         <div class="grid sm:grid-cols-2 gap-4">
+          {% if for_dependent %}
+          <div class="space-y-1.5 sm:col-span-2">
+            <label for="f-employee-number">Your Employee Number <span class="u-text-danger">*</span></label>
+            <input id="f-employee-number" name="employee_number" placeholder="e.g. EMP-0042"
+                   value="{{ prefill.employee_number }}" required />
+          </div>
+          {% endif %}
           <div class="space-y-1.5">
             <label for="f-employment-status">Employment Status <span class="u-text-danger">*</span></label>
             <select id="f-employment-status" name="employment_status" required>
@@ -151,7 +217,7 @@
               Appointment Paper <span class="u-text-danger">*</span>
             </label>
           </div>
-          <p class="text-xs mb-2 ml-7 u-text-muted">Official appointment document issued by the university.</p>
+          <p class="text-xs mb-2 ml-7 u-text-muted">Official appointment document issued by the university{% if for_dependent %}, in your name — your dependent has none{% endif %}.</p>
           {% if existing.appointment_paper %}
           <p class="text-xs mb-2 ml-7 u-text-ok">
             ✓ Previously uploaded —
@@ -178,7 +244,7 @@
             </div>
             <div class="flex items-start gap-2">
               <svg class="h-3.5 w-3.5 mt-0.5 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              <span>Currently enrolled at BiPSU</span>
+              <span>{% if for_dependent %}Your dependent is{% else %}Currently{% endif %} enrolled at BiPSU</span>
             </div>
             <div class="flex items-start gap-2">
               <svg class="h-3.5 w-3.5 mt-0.5 shrink-0 u-text-ok" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -214,21 +280,6 @@
 {% endif %}
 {% endblock %}
 {% block extra_js %}
-<script>
-  function calcAge(dob) {
-    if (!dob) return '';
-    const today = new Date();
-    const birth = new Date(dob);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age >= 0 ? age : '';
-  }
-  const bdField = document.getElementById('birthDateField');
-  const ageField = document.getElementById('ageField');
-  if (bdField) {
-    if (bdField.value) ageField.value = calcAge(bdField.value);
-    bdField.addEventListener('change', () => { ageField.value = calcAge(bdField.value); });
-  }
-</script>
+{% load static %}
+<script src="{% static 'js/staff-apply.js' %}?v=1"></script>
 {% endblock %}

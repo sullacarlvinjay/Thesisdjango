@@ -94,6 +94,18 @@ def _archive_candidates(req, label=None):
         return qs.none()
     return qs.filter(cond).order_by('last_name', 'first_name')
 
+EDITED_STUDENT_FIELDS = ('student_id', 'course', 'year_level', 'gwa',
+                         'school', 'barangay', 'municipality', 'province')
+
+EDITED_APPLICANT_FIELDS = ('full_name', 'gender', 'course', 'school',
+                           'year_level', 'barangay', 'municipality',
+                           'province', 'student_id', 'contact_number')
+
+EDITED_AWARD_FIELDS = ('award_number', 'congress_district')
+
+ARCHIVE_AUDIT_TARGETS = ('ImportedScholar', 'Application', 'ApplicantRecord',
+                         'ScholarListImport', 'StudentProfile')
+
 UNAWARDED_TAB = 'No Scholarship'
 
 def _unawarded_rows(term_label):
@@ -298,7 +310,10 @@ def vpsea_archives(request):
             (5, 'Application Form', 'Signed and accomplished scholarship application form.', 'doc_application_form'),
         ],
         'col_hint': COLUMN_HINTS.get(stype, ''),
-        'recent_imports': ActivityLog.objects.filter(action__icontains='Imported').order_by('-created_at')[:5],
+        'recent_activity': (ActivityLog.objects
+                            .filter(target_type__in=ARCHIVE_AUDIT_TARGETS)
+                            .select_related('user')
+                            .order_by('-created_at')[:10]),
         **_import_progress(request),
     }
 
@@ -335,6 +350,13 @@ ACADEMIC_PARENT_FIELDS = (
 )
 
 
+def _posted_name(posted):
+    """The scholar a posted form is about, as an audit entry should read it."""
+    named = ' '.join(part for part in (posted.get('first_name', '').strip(),
+                                       posted.get('last_name', '').strip()) if part)
+    return named or posted.get('student_id', '').strip() or 'a scholar'
+
+
 def _posted_number(posted, field, default, cast):
     """One posted number, or the default where it will not convert."""
     try:
@@ -357,7 +379,7 @@ def _add_imported_scholar(posted, stype, tier, term_label):
     """Record a scholar as an import, with no portal account."""
     from .models import ImportedScholar
 
-    ImportedScholar.objects.create(
+    return ImportedScholar.objects.create(
         scholarship_type=stype,
         term_label=term_label,
         last_name=posted.get('last_name', '').strip(),
@@ -401,7 +423,7 @@ def _add_roster_record(posted, stype, supplied_email):
 
     full_name = (f"{posted.get('first_name', '').strip()} "
                  f"{posted.get('last_name', '').strip()}").strip()
-    ApplicantRecord.objects.create(
+    return ApplicantRecord.objects.create(
         full_name=full_name,
         email=_roster_email(posted, stype, supplied_email, full_name),
         contact_number=posted.get('contact_number', ''),
@@ -536,9 +558,10 @@ def _add_student_scholar(request, posted, stype, tier, parsed):
         posted, posted.get('email', '').strip())
 
     scholarship = Scholarship.objects.filter(type=stype).first()
+    made = None
     if scholarship:
-        award = _archive_award(posted, profile, scholarship, stype, tier, parsed)
-        _attach_archive_documents(award, request.FILES)
+        made = _archive_award(posted, profile, scholarship, stype, tier, parsed)
+        _attach_archive_documents(made, request.FILES)
 
     if account_created and posted.get('email', '').strip():
         notify.notify(
@@ -550,6 +573,7 @@ def _add_student_scholar(request, posted, stype, tier, parsed):
             'it changed.',
             tone='success',
         )
+    return made
 
 
 @_vpsea_required
@@ -562,7 +586,7 @@ def vpsea_archive_add(request):
     """
     from urllib.parse import quote
 
-    from .models import SystemSettings
+    from .models import ActivityLog, SystemSettings
 
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
@@ -578,8 +602,14 @@ def vpsea_archive_add(request):
     parsed = SystemSettings.parse_label(settings_obj.academic_year)
     wants_account = posted.get('create_account') == 'yes'
 
+    who = _posted_name(posted)
+
     if not wants_account:
-        _add_imported_scholar(posted, stype, tier, settings_obj.academic_year)
+        added = _add_imported_scholar(
+            posted, stype, tier, settings_obj.academic_year)
+        ActivityLog.record(
+            request.user, f'Added {who} to the {stype} archive as an import',
+            verb='create', target=added, request=request)
         return redirect(f'{back}&added=1')
 
     missing = _account_details_missing(posted, posted.get('email', '').strip())
@@ -591,9 +621,14 @@ def vpsea_archive_add(request):
             'scholar without an account.'))
 
     if stype in ('Affirmative', 'Staff'):
-        _add_roster_record(posted, stype, posted.get('email', '').strip())
+        made = _add_roster_record(posted, stype, posted.get('email', '').strip())
+        how = f'to the {stype} roster'
     else:
-        _add_student_scholar(request, posted, stype, tier, parsed)
+        made = _add_student_scholar(request, posted, stype, tier, parsed)
+        how = f'to {stype} with a portal account'
+    ActivityLog.record(
+        request.user, f'Added {who} {how}', verb='create', target=made,
+        request=request)
     return redirect(f'{back}&added=1')
 
 def _apply_student_record_edits(profile, p):
@@ -642,7 +677,7 @@ def _apply_student_record_edits(profile, p):
 @_vpsea_required
 def vpsea_student_record_edit(request, pk):
     """Edit a portal scholar's record."""
-    from .models import StudentProfile
+    from .models import ActivityLog, StudentProfile
     from urllib.parse import quote
     back = f'/vpsea/archives/?type={quote(UNAWARDED_TAB)}'
     if request.method != 'POST':
@@ -650,9 +685,19 @@ def vpsea_student_record_edit(request, pk):
     profile = StudentProfile.objects.select_related('user').filter(pk=pk).first()
     if not profile:
         return redirect(back)
+    before = ActivityLog.snapshot(profile, EDITED_STUDENT_FIELDS)
     error = _apply_student_record_edits(profile, request.POST)
     if error:
         return redirect(f'{back}&error={quote(error)}')
+    profile.refresh_from_db()
+    ActivityLog.record(
+        request.user,
+        f'Edited the student record for {profile.user.get_full_name() or profile.student_id}',
+        verb='update', target=profile,
+        changes=ActivityLog.diff(
+            before, ActivityLog.snapshot(profile, EDITED_STUDENT_FIELDS),
+            EDITED_STUDENT_FIELDS),
+        request=request)
     return redirect(f'{back}&edited=1')
 
 @_vpsea_required
@@ -678,7 +723,7 @@ def vpsea_student_record_delete(request, pk):
 @_vpsea_required
 def vpsea_archive_edit(request, pk):
     """Edit an imported scholar row."""
-    from .models import Application, ApplicantRecord
+    from .models import ActivityLog, Application, ApplicantRecord
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     p = request.POST
@@ -691,6 +736,7 @@ def vpsea_archive_edit(request, pk):
             obj = ApplicantRecord.objects.get(pk=pk)
         except ApplicantRecord.DoesNotExist:
             return redirect(back)
+        before = ActivityLog.snapshot(obj, EDITED_APPLICANT_FIELDS)
         obj.full_name = f"{p.get('first_name','').strip()} {p.get('last_name','').strip()}".strip()
         obj.gender = p.get('gender', obj.gender)
         obj.course = p.get('course', obj.course)
@@ -718,11 +764,21 @@ def vpsea_archive_edit(request, pk):
             account.set_password(new_pw)
             account.save()
         obj.save()
+        ActivityLog.record(
+            request.user,
+            f'Edited the {stype} archive record for {obj.full_name}',
+            verb='update', target=obj,
+            changes=ActivityLog.diff(
+                before, ActivityLog.snapshot(obj, EDITED_APPLICANT_FIELDS),
+                EDITED_APPLICANT_FIELDS),
+            request=request)
     else:
         try:
             app = Application.objects.select_related('student__user', *STUDENT_DETAILS).get(pk=pk)
         except Application.DoesNotExist:
             return redirect(back)
+        was = dict(ActivityLog.snapshot(app.student, EDITED_STUDENT_FIELDS),
+                   **ActivityLog.snapshot(app, EDITED_AWARD_FIELDS))
         error = _apply_student_record_edits(app.student, p)
         if error:
             from urllib.parse import quote
@@ -732,20 +788,43 @@ def vpsea_archive_edit(request, pk):
         if p.get('congress_district') is not None:
             app.congress_district = p.get('congress_district')
         app.save()
+        app.student.refresh_from_db()
+        moved = dict(ActivityLog.snapshot(app.student, EDITED_STUDENT_FIELDS),
+                     **ActivityLog.snapshot(app, EDITED_AWARD_FIELDS))
+        named = app.student.user.get_full_name() or app.student.student_id
+        ActivityLog.record(
+            request.user, f'Edited the {stype} archive record for {named}',
+            verb='update', target=app,
+            changes=ActivityLog.diff(
+                was, moved,
+                EDITED_STUDENT_FIELDS + EDITED_AWARD_FIELDS),
+            request=request)
     return redirect(f'{back}&edited=1')
 
 @_vpsea_required
 def vpsea_archive_delete(request, pk):
-    """Delete an imported scholar row."""
-    from .models import Application, ApplicantRecord
+    """Delete an imported scholar row.
+
+    The identity is taken before the row goes. ``delete`` clears the primary
+    key off the instance, and an entry written afterwards would name nothing
+    — which is the one case an audit entry exists for.
+    """
+    from .models import ActivityLog, Application, ApplicantRecord
     if request.method != 'POST':
         return redirect('/vpsea/archives/')
     stype = request.POST.get('scholarship_type', 'Academic')
     back = _archive_back(stype, request.POST.get('tier', ''))
-    if stype in ('Affirmative', 'Staff'):
-        ApplicantRecord.objects.filter(pk=pk).delete()
-    else:
-        Application.objects.filter(pk=pk).delete()
+    model = (ApplicantRecord if stype in ('Affirmative', 'Staff')
+             else Application)
+    row = model.objects.filter(pk=pk).first()
+    if row is None:
+        return redirect(f'{back}&deleted=1')
+    identity = ActivityLog.identify(row)
+    named = identity.get('target_label') or f'{model.__name__} {pk}'
+    row.delete()
+    ActivityLog.record(
+        request.user, f'Deleted the {stype} archive record for {named}',
+        verb='delete', request=request, identity=identity)
     return redirect(f'{back}&deleted=1')
 
 @_vpsea_required

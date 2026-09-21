@@ -140,6 +140,9 @@
       <div class="detail-field"><label>Staff Name</label><span>{{ a.staff_name|default:"—" }}</span></div>
       <div class="detail-field"><label>Employee ID</label><span>{{ a.staff_employee_id|default:"—" }}</span></div>
       <div class="detail-field"><label>Relationship</label><span>{{ a.relationship_to_staff|default:"—" }}</span></div>
+      <div class="detail-field"><label>Student Account</label>
+        <span>{% if a.linked_student %}Linked to {{ a.linked_student.student_id }}{% else %}Not linked — no account carries {{ a.student_id|default:"that number" }} yet{% endif %}</span>
+      </div>
       {% endif %}
       <div class="detail-field"><label>Has Baccalaureate</label><span>{% if a.has_baccalaureate %}Yes{% else %}No{% endif %}</span></div>
     </div>

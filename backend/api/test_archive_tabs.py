@@ -129,6 +129,19 @@ class ChedIsTwoTabsTest(ArchiveTabFixtures, TestCase):
         self.assertEqual(len(groups), 1)
         self.assertIsNone(groups[0]['title'])
 
+    def listed_on(self, **kw):
+        """The names the scholars table on one tab actually lists.
+
+        Read off the table's own rows rather than searched for in the page.
+        The page carries a scholar's name in more than one place — the recent
+        activity card names whoever was added or deleted, whichever tab it
+        happened on — so a page-wide search cannot tell "this tab lists her"
+        from "something else on the page mentions her".
+        """
+        groups = self.page(**kw).context['scholar_groups']
+        return ' '.join(row['search_name'] for group in groups
+                        for row in group['rows']).lower()
+
     def test_a_scholar_added_on_the_full_tab_is_stored_as_full(self):
         response = self.c.post('/vpsea/archives/add/', {
             'scholarship_type': 'CHED', 'tier': 'Full',
@@ -138,7 +151,11 @@ class ChedIsTwoTabsTest(ArchiveTabFixtures, TestCase):
         })
         self.assertEqual(response.status_code, 302)
         self.assertIn('tier=Full', response['Location'])
-        self.assertIn('Torres', self.page(type='CHED', tier='Full').content.decode())
+        self.assertEqual(
+            ImportedScholar.objects.get(student_id='2022-00003').award_tier,
+            'Full')
+        self.assertIn('torres', self.listed_on(type='CHED', tier='Full'))
+        self.assertNotIn('torres', self.listed_on(type='CHED', tier='Half'))
 
     def test_a_scholar_added_on_the_half_tab_is_stored_as_half(self):
         self.c.post('/vpsea/archives/add/', {
@@ -147,8 +164,11 @@ class ChedIsTwoTabsTest(ArchiveTabFixtures, TestCase):
             'student_id': '2022-00004', 'course': 'BSCS', 'year_level': '1',
             'gender': 'Female', 'create_account': 'no',
         })
-        self.assertIn('Torres', self.page(type='CHED', tier='Half').content.decode())
-        self.assertNotIn('Torres', self.page(type='CHED', tier='Full').content.decode())
+        self.assertEqual(
+            ImportedScholar.objects.get(student_id='2022-00004').award_tier,
+            'Half')
+        self.assertIn('torres', self.listed_on(type='CHED', tier='Half'))
+        self.assertNotIn('torres', self.listed_on(type='CHED', tier='Full'))
 
     def test_the_download_link_on_a_tiered_tab_carries_the_tier(self):
         html = self.page(type='CHED', tier='Half').content.decode()

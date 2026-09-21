@@ -12,6 +12,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class FormError(str):
+    def __new__(cls, message, field=''):
+        error = super().__new__(cls, message)
+        error.field = field
+        return error
+
 IMPORT_FAILED = ('That spreadsheet could not be filed. Nothing was saved — check the '
                  'file and try again, or ask IT to read the server log.')
 
@@ -127,23 +133,31 @@ def _declared_scholarship(p, files, slot=''):
 
     errors = []
     if stype not in declarable_type_values():
-        errors.append(f'Say which scholarship you already hold{where}, or clear the '
-                      '"I already hold a scholarship" box.')
+        errors.append(FormError(
+            f'Say which scholarship you already hold{where}, or clear the '
+            '"I already hold a scholarship" box.', f'scholarship_type{slot}'))
     elif stype == 'CHED' and tier not in [t for t, _ in CHED_TIER_CHOICES]:
-        errors.append(f'Please choose whether your CHED award{where} is Full Merit / '
-                      'Full Scholar or Half Merit / Partial Scholar — your award '
-                      'letter says which.')
+        errors.append(FormError(
+            f'Please choose whether your CHED award{where} is Full Merit / '
+            'Full Scholar or Half Merit / Partial Scholar — your award '
+            'letter says which.', f'award_tier{slot}'))
     elif stype == DEPENDENT_DECLARABLE_TYPE:
         if not staff_name:
-            errors.append('Name the BiPSU employee you depend on'
-                          f'{where} — the Staff Scholarship is held through them.')
+            errors.append(FormError(
+                'Name the BiPSU employee you depend on'
+                f'{where} — the Staff Scholarship is held through them.',
+                f'staff_name{slot}'))
         if not staff_employee_id:
-            errors.append(f"Give that employee's number{where}. The office checks "
-                          'the appointment against it.')
+            errors.append(FormError(
+                f"Give that employee's number{where}. The office checks "
+                'the appointment against it.', f'staff_employee_id{slot}'))
         if relationship not in [r for r, _ in RELATIONSHIP_TO_STAFF_CHOICES]:
-            errors.append('Say how you are related to that employee'
-                          f'{where} — son, daughter, spouse or legal ward.')
-    errors += [f'{problem}{where}' if where else problem
+            errors.append(FormError(
+                'Say how you are related to that employee'
+                f'{where} — son, daughter, spouse or legal ward.',
+                f'relationship_to_staff{slot}'))
+    errors += [FormError(f'{problem}{where}' if where else problem,
+                         f'proof_document{slot}')
                for problem in _validate_proof(proof, settings_obj)]
     if errors:
         return None, errors
@@ -188,7 +202,8 @@ def _declared_scholarships(p, files):
 
 def _unanswered(posted, questions):
     """Which of these required questions the form left blank."""
-    return [f'{label} is required.' for name, label in questions
+    return [FormError(f'{label} is required.', name)
+            for name, label in questions
             if not (posted.get(name) or '').strip()]
 
 def _tristate(raw, current):
@@ -229,7 +244,8 @@ def _disability_answer(posted):
         return value, ''
     typed = (posted.get('disability_type_other') or '').strip()
     if not typed:
-        return '', 'Name the disability you chose "Other" for.'
+        return '', FormError('Name the disability you chose "Other" for.',
+                             'disability_type_other')
     return typed, ''
 
 def _disability_fields(posted_value, posted_other, saved):
@@ -252,21 +268,28 @@ def _disability_fields(posted_value, posted_other, saved):
 def held_scholarship_types(profile):
     """Scholarship types this student already holds.
 
-    Counts both approved applications and approved declarations, because
-    an award granted elsewhere exists here only as a declaration and still
-    bars a second one.
+    Counts approved applications, approved declarations and awards an office
+    filed against this account. An award granted elsewhere exists here only as
+    a declaration and still bars a second one, and so does a Staff Scholarship
+    an employee filed on this student's behalf as their dependent - the
+    student never filled in a form for it but they hold it all the same.
     """
     if not profile:
         return set()
     held = set(
         Application.objects.filter(student=profile, status='Approved')
         .values_list('scholarship__type', flat=True))
-    from .models import SystemSettings
+    from .models import ApplicantRecord, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
     held |= set(
         ScholarshipLinkRequest.objects.filter(
             student=profile, status='Approved', term_label=settings_obj.academic_year,
         ).values_list('scholarship_type', flat=True))
+    held |= set(
+        ApplicantRecord.objects.filter(
+            linked_student=profile, status='Approved',
+            term_label=settings_obj.academic_year,
+        ).values_list('qualified_for', flat=True))
     return {t for t in held if t}
 
 def can_hold_alongside(held, wanted):

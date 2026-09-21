@@ -401,6 +401,23 @@
         {% endif %}
       </div>
     </div>
+    <div class="card p-6">
+      <h2 class="font-semibold">Recent Activity</h2>
+      <p class="text-xs mt-0.5 mb-4 u-text-muted">Who added, edited, imported or deleted a record here, and when.</p>
+      {% if recent_activity %}
+      <ul class="activity-feed">
+        {% for entry in recent_activity %}
+        <li class="activity-feed__row">
+          <span class="badge {% if entry.verb == 'delete' %}badge-destructive{% elif entry.verb == 'update' %}badge-warning{% else %}badge-success{% endif %}">{{ entry.get_verb_display }}</span>
+          <span class="activity-feed__what">{{ entry.action }}</span>
+          <span class="activity-feed__who">{% if entry.user %}{{ entry.user.get_full_name|default:entry.user.email }}{% else %}the system{% endif %} &middot; {{ entry.created_at|date:"M j, Y, g:i a" }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="chart-empty">Nothing has been added, edited or deleted here yet.</p>
+      {% endif %}
+    </div>
 </div>
 {% endblock %}
 {% block extra_js %}

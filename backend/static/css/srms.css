@@ -524,6 +524,7 @@ tr:hover td      { background: var(--surface-sunken); }
 }
 
 .type-card {
+  display: block;
   border: 2px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1rem;
@@ -533,6 +534,15 @@ tr:hover td      { background: var(--surface-sunken); }
 }
 .type-card.selected-student { border-color: var(--brand); background: var(--brand-soft); }
 .type-card.selected-staff   { border-color: var(--accent-strong); background: var(--accent-soft, #fffbe0); }
+.type-card.is-selected      { border-color: var(--brand); background: var(--brand-soft); }
+.type-card input[type='radio'] {
+  width: auto;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand);
+}
+.type-card:focus-within { border-color: var(--brand); }
 
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .waiting-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
@@ -2455,6 +2465,19 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+.activity-feed { list-style: none; margin: 0; padding: 0; }
+.activity-feed__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+}
+.activity-feed__row:first-child { border-top: 0; }
+.activity-feed__what { flex: 1 1 16rem; font-size: 0.85rem; }
+.activity-feed__who { font-size: 0.75rem; color: var(--text-muted); }
+
 .decided-by {
   display: block;
   margin-top: 0.25rem;
@@ -3780,6 +3803,12 @@ html.dark .chart-tabs { background: rgba(255, 255, 255, 0.07); }
   color: var(--on-brand);
 }
 
+.form-steps__dot.is-error .form-steps__mark {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .form-steps__name {
   white-space: nowrap;
   overflow: hidden;
@@ -3899,6 +3928,12 @@ html.dark .chart-tabs { background: rgba(255, 255, 255, 0.07); }
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.9);
   color: #1a2168;
+}
+
+.auth-page .form-steps__dot.is-error .form-steps__mark {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
 }
 
 .auth-page .form-steps__count { color: rgba(255, 255, 255, 0.82); }

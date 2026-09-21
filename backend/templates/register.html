@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#080b20" media="(prefers-color-scheme: dark)" />
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=87" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=90" />
   <script>
     if (localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -27,12 +27,12 @@
       <p class="text-sm mt-1">Create your account</p>
     </div>
     {% if errors %}
-    <div class="mb-4 p-3 rounded-lg text-sm badge-destructive u-d-block u-round-radius">
-      {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+    <div class="mb-4 p-3 rounded-lg text-sm badge-destructive u-d-block u-round-radius" data-form-errors>
+      {% for e in errors %}<p{% if e.field %} data-error-field="{{ e.field }}"{% endif %}>{{ e }}</p>{% endfor %}
     </div>
     {% endif %}
     
-    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm" data-utm{% if not errors %} data-steps{% endif %}>
+    <form method="post" enctype="multipart/form-data" class="space-y-4" id="registerForm" data-utm data-steps{% if errors %} data-steps-errors{% endif %}>
       {% csrf_token %}
       <div data-step data-step-label="Account type">
       <div class="auth-card mb-4">
@@ -691,7 +691,7 @@ function selectType(type) {
   }
 }
 </script>
-<script src="{% static 'js/form-steps.js' %}?v=1"></script>
+<script src="{% static 'js/form-steps.js' %}?v=2"></script>
 <script src="{% static 'js/register-scholarship.js' %}?v=9"></script>
 <script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
 <script src="{% static 'js/modal-open.js' %}?v=2"></script>

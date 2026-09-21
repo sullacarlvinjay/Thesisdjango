@@ -159,9 +159,11 @@ def vpsea_affirmative_applications(request):
                     f'the {aff_app.get_qualified_for_display()} application '
                     f'of {aff_app.full_name}')
                 notify.decision(
-                    aff_app.email,
+                    aff_app.linked_student or aff_app.email,
                     f'Your {aff_app.get_qualified_for_display()} application',
                     new_status, remarks,
+                    link='/student/applications/' if aff_app.linked_student
+                         else '',
                 )
                 if (new_status == 'Approved'
                         and aff_app.qualified_for != 'Staff'

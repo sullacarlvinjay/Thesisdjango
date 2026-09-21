@@ -1384,6 +1384,13 @@ class ApplicantRecord(PhilippineAddress, DetailRows, TermStamped):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    linked_student = models.ForeignKey(
+        StudentProfile, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='dependent_records',
+        help_text='The portal account this record belongs to, where the person '
+                  'named on it has one. A dependent filed by an employee is '
+                  'matched to it by student number and date of birth.')
+
     def __str__(self):
         return f"{self.full_name} — {self.qualified_for}"
 
@@ -1971,14 +1978,20 @@ class ActivityLog(models.Model):
     def identify(target):
         """Snapshot a row's identity so it can still be audited once deleted.
 
+        The type is read off the model meta rather than ``type(target)``: a
+        view that audits ``request.user`` hands over Django's lazy wrapper,
+        and its class name is ``SimpleLazyObject``, which names nothing.
+
         ``record(target=...)`` reads the primary key off a live instance, and
         Django clears that key during ``delete()``. A deletion therefore has to
         capture the identity first and hand the snapshot over afterwards —
         which is the one case where the audit entry matters most, because the
         row it describes no longer exists to be looked up.
         """
+        meta = getattr(target, '_meta', None)
         return {
-            'target_type': type(target).__name__,
+            'target_type': (meta.model.__name__ if meta is not None
+                            else type(target).__name__),
             'target_id': str(getattr(target, 'pk', '') or ''),
             'target_label': str(target)[:200],
         }

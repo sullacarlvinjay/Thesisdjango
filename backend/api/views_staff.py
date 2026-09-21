@@ -30,6 +30,25 @@ def _staff_profile(user):
     profile, _ = StaffProfile.objects.get_or_create(user=user)
     return profile
 
+def _as_date(value):
+    """Coerce a stored or posted date to a ``date``.
+
+    A detail field holds whatever was assigned to it until it has been read
+    back from the database, so the same attribute is a ``date`` on a reloaded
+    row and a string on a freshly saved one. Comparing the two forms without
+    this silently answers "different" for the same day.
+    """
+    from datetime import date, datetime
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date) or value is None:
+        return value
+    try:
+        return datetime.strptime(str(value).strip(), '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
 def _parse_date(raw):
     """Parse a posted date.
 
@@ -137,6 +156,8 @@ def nsu_staff_profile(request):
     staff = _staff_profile(user)
     aff_app = ApplicantRecord.objects.filter(
         email=user.email, qualified_for='Staff'
+    ).exclude(
+        staff_eligibility__is_nsu_dependent=True
     ).order_by('-submitted_at').first()
     saved = False
     errors = []
@@ -233,12 +254,23 @@ def nsu_staff_notifications(request):
 
 @_nsu_staff_required
 def nsu_staff_applications(request):
-    """An employee's own applications and renewals."""
+    """An employee's own applications and renewals, and their dependents'.
+
+    A dependent's record is filed under the dependent's email, so it is found
+    by the employee number it was filed against rather than by address.
+    """
+    from django.db.models import Q
     from .models import ApplicantRecord, StaffRenewal
     user = request.user
-    applications = ApplicantRecord.objects.filter(
-        email=user.email
-    ).select_related(*STAFF_APPLICATION_DETAILS).order_by('-submitted_at')
+    mine = (ApplicantRecord.objects.filter(email=user.email)
+            .exclude(staff_eligibility__is_nsu_dependent=True))
+    applications = (ApplicantRecord.objects
+                    .filter(Q(pk__in=mine.values('pk'))
+                            | Q(pk__in=_dependent_records_for(user)
+                                .values('pk')))
+                    .select_related('linked_student__user',
+                                    *STAFF_APPLICATION_DETAILS)
+                    .order_by('-submitted_at'))
     renewals = StaffRenewal.objects.filter(staff_user=user).order_by('-submitted_at')
     return render(request, 'nsu_staff/applications.html', {
         'applications': applications,
@@ -309,6 +341,161 @@ def nsu_staff_renewal(request):
 
     return page()
 
+SELF_KIND = 'self'
+DEPENDENT_KIND = 'dependent'
+
+
+def _applicant_kind(data):
+    """Whether a form is the employee's own application or a dependent's.
+
+    Anything but an explicit dependent choice reads as the employee's own, so
+    a form posted without the field keeps the behaviour it had before
+    dependents could be filed here.
+    """
+    return (DEPENDENT_KIND if data.get('applicant_kind') == DEPENDENT_KIND
+            else SELF_KIND)
+
+
+def _match_dependent_student(student_number, date_of_birth):
+    """Find the portal account a dependent's details point at.
+
+    The student number is the key, because it is unique across profiles. It is
+    confirmed against the date of birth rather than the surname: a dependent
+    may be a spouse or a legal ward who shares no name with the employee, and
+    plenty of unrelated students share one.
+
+    A profile with no recorded date of birth is matched on the number alone.
+    There is nothing to check it against, and refusing the link would punish
+    the student for a field nobody filled in.
+
+    Args:
+        student_number: the dependent's student number as posted.
+        date_of_birth: their date of birth as posted, ``YYYY-MM-DD``.
+
+    Returns:
+        ``(profile, problem)``. Both are empty when no account carries that
+        number, which is not an error: a dependent who has not registered yet
+        may still be applied for. ``problem`` is a sentence for the employee
+        when the number belongs to somebody born on another date.
+    """
+    from .models import StudentProfile
+
+    number = (student_number or '').strip()
+    if not number:
+        return None, ''
+
+    profile = (StudentProfile.objects.select_related('user')
+               .filter(student_id=number).first())
+    if profile is None:
+        return None, ''
+
+    posted, ok = _parse_date(date_of_birth)
+    recorded = _as_date(profile.date_of_birth)
+    if recorded and ok and posted and recorded != posted:
+        return None, (
+            f'Student number {number} belongs to an account with a different '
+            'date of birth. Check the number on your dependent\'s '
+            'registration: filing under it would attach this award to '
+            'somebody else.')
+    return profile, ''
+
+
+def _dependent_records_for(user):
+    """Every dependent application this employee has filed.
+
+    Matched on the employee number they filed under rather than on the email,
+    because a dependent's record carries the dependent's address, not theirs.
+    """
+    from .models import ApplicantRecord
+
+    staff = _staff_profile(user)
+    if not staff.employee_id:
+        return ApplicantRecord.objects.none()
+    return (ApplicantRecord.objects
+            .filter(qualified_for='Staff',
+                    staff_eligibility__is_nsu_dependent=True,
+                    staff_eligibility__staff_employee_id=staff.employee_id)
+            .select_related('linked_student__user', *STAFF_APPLICATION_DETAILS)
+            .order_by('-submitted_at'))
+
+
+def _dependent_already_claimed(profile, student_number, term, existing):
+    """Why this dependent cannot be applied for again, if they cannot.
+
+    Two doors lead to the same award: the employee filing here, and the
+    dependent declaring it themselves at registration. Whichever came first
+    stands, because the office should not be asked to decide one award twice.
+    """
+    from .models import (ApplicantRecord, ScholarshipLinkRequest,
+                         SystemSettings)
+
+    if profile is not None:
+        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+        declared = (ScholarshipLinkRequest.objects
+                    .filter(student=profile, scholarship_type='Staff',
+                            term_label=settings_obj.academic_year)
+                    .exclude(status='Rejected')
+                    .order_by('submitted_at').first())
+        if declared is not None:
+            return (f'{profile.user.get_full_name()} already declared the '
+                    'BiPSU Staff Scholarship on their own account and the '
+                    f'SDSO has it as {declared.status.lower()}. Wait for that '
+                    'decision rather than filing the same award beside it.')
+
+    filed = (ApplicantRecord.objects
+             .filter(qualified_for='Staff',
+                     school_year=term['sy'], semester=term['semester'],
+                     enrollment__student_id=(student_number or '').strip(),
+                     staff_eligibility__is_nsu_dependent=True)
+             .exclude(status='Rejected'))
+    if existing is not None:
+        filed = filed.exclude(pk=existing.pk)
+    first = filed.order_by('submitted_at').first()
+    if first is not None:
+        return (f'Student number {student_number} already has a Staff '
+                f'Scholarship application this term ({first.status}). One '
+                'stands per dependent per term.')
+    return ''
+
+
+def _dependent_apply_errors(posted, files, existing):
+    """Everything wrong with an application filed for a dependent."""
+    from .constants import RELATIONSHIP_TO_STAFF_CHOICES
+
+    errors = [f'{label} is required.'
+              for field, label in DEPENDENT_APPLY_REQUIRED.items()
+              if not posted.get(field, '').strip()]
+
+    relationship = posted.get('relationship_to_staff', '').strip()
+    if not relationship:
+        errors.append('Your relationship to the dependent is required.')
+    elif relationship not in [r for r, _ in RELATIONSHIP_TO_STAFF_CHOICES]:
+        errors.append('Say how your dependent is related to you: son, '
+                      'daughter, spouse or legal ward.')
+
+    employment = posted.get('employment_status', '').strip()
+    if employment and employment != 'Regular':
+        errors.append(
+            'The BiPSU Staff Scholarship rests on a regular appointment. '
+            f'Yours is recorded as {employment} - contact the VPSEA office '
+            'if that is out of date.')
+    if not files.get('appointment_paper') and not (
+            existing and existing.appointment_paper):
+        errors.append('Appointment paper document is required. The award '
+                      'rests on your appointment, not your dependent\'s.')
+
+    profile, mismatch = _match_dependent_student(
+        posted.get('student_number', ''), posted.get('date_of_birth', ''))
+    if mismatch:
+        errors.append(mismatch)
+    else:
+        claimed = _dependent_already_claimed(
+            profile, posted.get('student_number', ''), _active_term(), existing)
+        if claimed:
+            errors.append(claimed)
+    return errors
+
+
 STAFF_APPLY_REQUIRED = {
     'first_name': 'First name',
     'last_name': 'Last name',
@@ -322,9 +509,26 @@ STAFF_APPLY_REQUIRED = {
     'date_of_regularization': 'Date of regularization',
 }
 
+DEPENDENT_APPLY_REQUIRED = {
+    'first_name': "Dependent's first name",
+    'last_name': "Dependent's last name",
+    'date_of_birth': "Dependent's date of birth",
+    'gender': "Dependent's gender",
+    'course': "Dependent's course",
+    'student_number': "Dependent's student number",
+    'employee_number': 'Your employee number',
+    'employment_status': 'Employment status',
+    'designation': 'Designation',
+    'years_of_service': 'Years of service',
+    'date_of_regularization': 'Date of regularization',
+}
+
 
 def _staff_apply_errors(posted, files, existing):
     """Everything wrong with a submitted staff application."""
+    if _applicant_kind(posted) == DEPENDENT_KIND:
+        return _dependent_apply_errors(posted, files, existing)
+
     errors = [f'{label} is required.'
               for field, label in STAFF_APPLY_REQUIRED.items()
               if not posted.get(field, '').strip()]
@@ -377,6 +581,7 @@ def _resubmit_staff_record(record, posted, files, full_name, years):
     if posted.get('date_of_regularization'):
         record.date_of_regularization = posted.get('date_of_regularization')
     record.is_nsu_staff = True
+    record.is_nsu_dependent = False
     record.status = 'Pending Validation'
     record.remarks = ''
     if files.get('appointment_paper'):
@@ -385,8 +590,20 @@ def _resubmit_staff_record(record, posted, files, full_name, years):
     return record
 
 
-def _new_staff_record(user, posted, files, full_name, years):
-    """File a staff application for the first time."""
+def _new_staff_record(user, posted, files, full_name, years, kind=SELF_KIND,
+                      profile=None):
+    """File a staff application for the first time.
+
+    Args:
+        kind: :data:`SELF_KIND` for the employee's own, :data:`DEPENDENT_KIND`
+            for one filed on a dependent's behalf.
+        profile: the dependent's portal account where they have one.
+
+    A dependent's record is filed under the dependent's own email, never the
+    employee's. Under the employee's it would be picked up as their own
+    application everywhere the portal looks one up by address, and the
+    decision would be mailed to the wrong person.
+    """
     from .models import ApplicantRecord
 
     try:
@@ -394,9 +611,15 @@ def _new_staff_record(user, posted, files, full_name, years):
     except (ValueError, TypeError):
         year_level = 1
 
+    if kind == DEPENDENT_KIND:
+        email = (profile.user.email if profile is not None
+                 else posted.get('dependent_email', '').strip())
+    else:
+        email = user.email
+
     return ApplicantRecord.objects.create(
         full_name=full_name,
-        email=user.email,
+        email=email,
         contact_number=posted.get('contact_number', ''),
         barangay=posted.get('barangay', ''),
         municipality=posted.get('municipality', ''),
@@ -406,7 +629,7 @@ def _new_staff_record(user, posted, files, full_name, years):
         course=posted.get('course', ''),
         year_level=year_level,
         student_id=posted.get('student_number', ''),
-        is_nsu_staff=True,
+        is_nsu_staff=(kind == SELF_KIND),
         employment_status=posted.get('employment_status', ''),
         designation=posted.get('designation', ''),
         years_of_service=years or None,
@@ -417,22 +640,49 @@ def _new_staff_record(user, posted, files, full_name, years):
     )
 
 
-def _sync_staff_profile(staff, record, posted, years):
-    """Carry the application's answers back onto the employee's profile."""
-    staff.employee_id = posted.get('student_number', '').strip() or staff.employee_id
-    staff.contact_number = posted.get('contact_number', '').strip() or staff.contact_number
-    staff.gender = posted.get('gender', '') or staff.gender
-    staff.barangay = posted.get('barangay', '') or staff.barangay
-    staff.municipality = posted.get('municipality', '') or staff.municipality
-    staff.province = posted.get('province', '') or staff.province
+def _attach_dependent(record, user, posted, profile):
+    """Stamp a dependent's record with the employee the award rests on.
+
+    The link to the student's account is what makes the award theirs on their
+    own portal. Where they have no account the record still stands, unlinked,
+    the way an imported scholar does.
+    """
+    record.is_nsu_staff = False
+    record.is_nsu_dependent = True
+    record.staff_name = user.get_full_name()
+    record.staff_employee_id = posted.get('employee_number', '').strip()
+    record.relationship_to_staff = posted.get('relationship_to_staff', '').strip()
+    record.linked_student = profile
+    record.save()
+    return record
+
+
+def _sync_staff_profile(staff, record, posted, years, kind=SELF_KIND):
+    """Carry the application's answers back onto the employee's profile.
+
+    Only the employment half of a dependent's application is the employee's.
+    The name, address, birthday and student number on it are the dependent's,
+    and copying those onto the profile would overwrite the employee with their
+    own child.
+    """
+    if kind == SELF_KIND:
+        staff.employee_id = posted.get('student_number', '').strip() or staff.employee_id
+        staff.contact_number = posted.get('contact_number', '').strip() or staff.contact_number
+        staff.gender = posted.get('gender', '') or staff.gender
+        staff.barangay = posted.get('barangay', '') or staff.barangay
+        staff.municipality = posted.get('municipality', '') or staff.municipality
+        staff.province = posted.get('province', '') or staff.province
+        born, ok = _parse_date(posted.get('date_of_birth', ''))
+        if ok and born:
+            staff.date_of_birth = born
+    else:
+        staff.employee_id = posted.get('employee_number', '').strip() or staff.employee_id
+
     staff.employment_status = posted.get('employment_status', '') or staff.employment_status
     staff.designation = posted.get('designation', '') or staff.designation
     if years:
         staff.declared_years_of_service = years
 
-    born, ok = _parse_date(posted.get('date_of_birth', ''))
-    if ok and born:
-        staff.date_of_birth = born
     regularized, ok = _parse_date(posted.get('date_of_regularization', ''))
     if ok and regularized:
         staff.date_of_regularization = regularized
@@ -441,8 +691,31 @@ def _sync_staff_profile(staff, record, posted, years):
     staff.save()
 
 
-def _staff_apply_prefill(existing, staff, user):
+def _dependent_apply_prefill(staff):
+    """What the dependent form opens with.
+
+    Nothing of the employee's own but their employment, because every other
+    field on the form describes the dependent.
+    """
+    return {
+        'first_name': '', 'last_name': '', 'date_of_birth': '', 'gender': '',
+        'contact_number': '', 'barangay': '', 'municipality': '',
+        'province': '', 'student_number': '', 'year_level': 1, 'course': '',
+        'dependent_email': '', 'relationship_to_staff': '',
+        'employee_number': staff.employee_id,
+        'employment_status': staff.employment_status or '',
+        'designation': staff.designation or '',
+        'years_of_service': (staff.years_of_service
+                             if staff.years_of_service is not None else ''),
+        'date_of_regularization': _pick_date(None, staff,
+                                             'date_of_regularization'),
+    }
+
+
+def _staff_apply_prefill(existing, staff, user, kind=SELF_KIND):
     """What the form opens with, preferring the application over the profile."""
+    if kind == DEPENDENT_KIND:
+        return _dependent_apply_prefill(staff)
     parts = (existing.full_name or '').split() if existing else []
     return {
         'first_name': parts[0] if parts else user.first_name,
@@ -472,26 +745,51 @@ def _staff_apply_prefill(existing, staff, user):
 def _save_staff_application(request, staff, existing):
     """Record a valid staff application, new or resubmitted."""
     posted, files = request.POST, request.FILES
+    kind = _applicant_kind(posted)
     full_name = (f"{posted.get('first_name', '').strip()} "
                  f"{posted.get('last_name', '').strip()}").strip()
     years = _years_of_service(posted)
 
-    if existing:
+    if kind == DEPENDENT_KIND:
+        profile, _ = _match_dependent_student(
+            posted.get('student_number', ''), posted.get('date_of_birth', ''))
+        record = _new_staff_record(request.user, posted, files, full_name,
+                                   years, kind, profile)
+        _attach_dependent(record, request.user, posted, profile)
+    elif existing:
         record = _resubmit_staff_record(existing, posted, files, full_name, years)
     else:
         record = _new_staff_record(request.user, posted, files, full_name, years)
-    _sync_staff_profile(staff, record, posted, years)
+    _sync_staff_profile(staff, record, posted, years, kind)
     return record
+
+
+def _dependent_filed_log(record):
+    """What the activity log says about an application filed for a dependent."""
+    who = f'{record.full_name} ({record.student_id})'
+    tie = (record.relationship_to_staff or 'dependent').lower()
+    where = ('linked to their portal account' if record.linked_student_id
+             else 'no portal account matched')
+    return (f'Applied for the BiPSU Staff Scholarship on behalf of {who}, '
+            f'their {tie} - {where} ({record.term_label})')
 
 
 @_nsu_staff_required
 def nsu_staff_apply(request):
-    """Apply for the BiPSU Staff Scholarship."""
-    from .constants import EMPLOYMENT_STATUSES
+    """Apply for the BiPSU Staff Scholarship, for oneself or a dependent.
+
+    The two are one form because they are one programme and one appointment
+    backs both. Which of them is being filed is read from ``applicant_kind``,
+    and an employee who already holds their own application may still file for
+    a dependent - their own record is not what bars it.
+    """
+    from .constants import EMPLOYMENT_STATUSES, RELATIONSHIP_TO_STAFF_CHOICES
 
     user = request.user
     staff = _staff_profile(user)
-    existing = _staff_application_for(user)
+    kind = _applicant_kind(
+        request.POST if request.method == 'POST' else request.GET)
+    existing = _staff_application_for(user) if kind == SELF_KIND else None
 
     if existing and existing.status in ('Approved', 'Pending Validation'):
         return render(request, 'nsu_staff/apply.html', {
@@ -500,6 +798,7 @@ def nsu_staff_apply(request):
                                f'application with status: {existing.status}.'),
             'existing': existing,
             'enrolled': True,
+            'dependent_offer': True,
         })
 
     shut = application_window_reason('Staff')
@@ -514,6 +813,13 @@ def nsu_staff_apply(request):
         errors = _staff_apply_errors(request.POST, request.FILES, existing)
         if not errors:
             record = _save_staff_application(request, staff, existing)
+            if kind == DEPENDENT_KIND:
+                ActivityLog.record(
+                    user, _dependent_filed_log(record), verb='create',
+                    target=record, request=request)
+                landed = 'linked' if record.linked_student_id else 'unlinked'
+                return redirect('/nsu-staff/apply/?applicant_kind=dependent'
+                                f'&submitted={landed}')
             ActivityLog.record(
                 user,
                 f'{"Resubmitted" if existing else "Applied"} for the BiPSU '
@@ -528,9 +834,12 @@ def nsu_staff_apply(request):
         'submitted': request.GET.get('submitted'),
         'errors': errors,
         'user': user,
+        'applicant_kind': kind,
+        'for_dependent': kind == DEPENDENT_KIND,
+        'relationships': RELATIONSHIP_TO_STAFF_CHOICES,
         'bipsu_courses': BIPSU_COURSES,
         'bipsu_schools': BIPSU_SCHOOLS,
         'employment_statuses': EMPLOYMENT_STATUSES,
         'enrolled': _nsu_staff_enrolled(user),
-        'prefill': _staff_apply_prefill(existing, staff, user),
+        'prefill': _staff_apply_prefill(existing, staff, user, kind),
     })

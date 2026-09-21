@@ -7,6 +7,173 @@ several of them removed something that used to work.
 
 ---
 
+## An employee can apply for their dependent
+
+The BiPSU Staff Scholarship is open to an employee or to their qualified
+dependent, but only one of them could reach it. The employee portal's apply form
+filed the employee's own application and nothing else; a dependent had to
+register as a student and declare the award there, which meant the parent could
+not file it and the office heard about it from the child instead.
+
+The apply form now opens with **Who Is This For**, and choosing *My dependent*
+reloads it with the dependent's fields: their name, birthday, gender, course,
+student number, optionally their email, plus your relationship to them and your
+own employee number. The appointment behind the award stays yours, so the
+Employment card and the appointment paper are still about you.
+
+### The award attaches to the dependent's student account
+
+`ApplicantRecord.linked_student` is the link, and the student number is what
+finds it. Matching on the surname was considered and rejected: plenty of
+unrelated students share one, and a spouse or a legal ward may share none. The
+number is confirmed against the **date of birth** instead, which the form
+already asks for. A number belonging to somebody born on another day is refused
+with the number named and the stranger's name withheld.
+
+A dependent with no account yet is still filed, unlinked, the way an imported
+scholar is. Registering later with that student number claims the record, and
+the same date-of-birth check guards that door too.
+
+Once linked, the award is on the student's own file: it shows in My
+Applications with a note saying which employee filed it, an approved one counts
+in `held_scholarship_types` so the student cannot also take a programme that
+excludes it, and the office's decision reaches their portal notifications rather
+than only their inbox.
+
+### The two doors cannot both be used
+
+An employee filing for a dependent who has already declared the same award at
+registration is refused, and so is a second application for a student number
+that already has one this term. Whichever came first stands — the office is not
+asked to decide one award twice.
+
+### What had to be kept apart
+
+A dependent's record is filed under the **dependent's** email, never the
+employee's. Under the employee's it would be picked up as their own application
+everywhere the portal looks one up by address, and the decision would be mailed
+to the wrong person. `_sync_staff_profile` likewise writes back only the
+employment half of a dependent's form: the name, address, birthday and student
+number on it belong to the dependent, and copying them onto the profile would
+overwrite the employee with their own child.
+
+An employee who already has their own pending or approved application may still
+file for a dependent — their own record is not what bars it. `nsu_staff_profile`
+and `_staff_application_for` both exclude dependents so the reverse cannot
+happen either.
+
+The SDSO's staff review table now prints "Daughter of Rosa Delgado (EMP-0042)"
+under the applicant's name. Without it a dependent's row read as an employee's,
+showing the dependent's name beside the employee's appointment, and there was
+nothing on screen to say which of them the office was approving.
+
+## A refused registration keeps the stepped form
+
+`register.html` dropped `data-steps` from the form whenever the view handed it
+errors, so a rejection — "Email already registered." most often — re-rendered
+the page as one long unstepped scroll. The account looked like it had been sent
+back to an older version of the site. `form-steps.js` had carried a comment
+saying that was deliberate: hiding a section behind Continue hides the thing
+that needs fixing.
+
+The form now keeps `data-steps` on a rejection and the complaint travels to the
+field instead. Every message the view builds is a `FormError`, a `str` that also
+remembers which input it is about, so `{{ e }}` renders exactly as before and
+`{{ e.field }}` names the control. `placeServerErrors` moves each tagged message
+out of the banner into the card holding that input, marks the step
+`data-step-error`, and `openFirstProblem` — which already read that attribute and
+had nothing setting it — opens on it. Anything the form cannot point at, such as
+declaring the same scholarship twice, stays in the banner; when nothing is left
+there the banner hides itself.
+
+### Two things had to follow, or the kept design would be worse than the scroll
+
+The submit button is hidden on every step but the last. A rejection that lands
+you on step 2 of 9 would leave nothing to press, so the form carries
+`data-steps-errors` and the stepper keeps **Create Account** visible on every
+step while it is set. Fix the email, press it, done.
+
+That exposes the second one. Native submission validates hidden steps too, and a
+`required` field the user cannot see aborts the submit in silence — Chrome logs
+"not focusable" and nothing moves. The stepper now listens for the first
+`invalid` event and opens the step holding that field. Re-attaching the three
+certificates, which a re-render always clears, is the case that hits it.
+
+An errored step's dot is red in the track, except the one you are standing on —
+that keeps its current-step mark, since its message is already open in front of
+you.
+
+---
+
+## A partner's changes reach the office's activity card
+
+The Recent Activity card selects on `target_type`. Every entry written by the
+partner portal passed `request.user` and no `target`, so the column was empty on
+all of them and the card filtered out the lot. An external partner could add,
+edit, delete or re-import scholars into the same `ImportedScholar` table the
+office reads, and none of it reached the page the office watches.
+
+All four partner entries name their row now. The delete takes its identity
+before the row goes, which is the same mistake the office's own
+`vpsea_archive_delete` had.
+
+### And the sheet kept the wrong importer's name
+
+`partner_archive_import` reuses an existing `ScholarListImport` for the term
+rather than creating a second one, and it updated `scholar_count` without
+touching `imported_by`. A partner re-importing over a sheet the office had
+uploaded left the office named as the importer of rows the partner had just
+replaced. It updates both fields now.
+
+**Still missing:** the partner's own pages show no attribution at all — not who
+imported a sheet, not who changed a row. The office can now see what a partner
+did; the partner cannot. That is a separate decision about what an external
+office should be shown about itself, not an oversight in this change.
+
+---
+
+## The archives page says who added, edited and deleted
+
+Three of the four things an officer does on that page left no trace anywhere.
+Imports, semester rollovers and the two list-level deletes were audited;
+`vpsea_archive_add`, `vpsea_archive_edit`, `vpsea_archive_delete` and
+`vpsea_student_record_edit` were not. A scholar could be created, changed or
+destroyed and the only evidence was that a number in the table had moved.
+
+`vpsea_archive_delete` was the worst of them: `Application.objects.filter(pk=pk)
+.delete()`, with nothing recorded about what had been removed or by whom. All
+four write an entry now, edits carrying field-level `changes`, and the delete
+taking its identity **before** the row goes — `delete` clears the primary key,
+so an entry written afterwards names nothing, which is the one case an audit
+entry exists for.
+
+### And it is on the page, not behind a menu
+
+The importer's name added earlier went into the **Download Excel** dropdown,
+which is shut until you click it — it answered the question only for somebody
+who already knew to look. A **Recent Activity** card now sits under the scholars
+table: the last ten archive entries, each with the verb, what happened, who did
+it and when.
+
+It replaces `recent_imports`, which filtered the log on `action__icontains=
+'Imported'`, was computed on every page load, and was rendered nowhere. The new
+query filters on `target_type` instead of on the wording of a sentence.
+
+### Two things this turned up
+
+`ActivityLog.identify` read `type(target).__name__`. A view auditing
+`request.user` hands over Django's lazy wrapper, so sixteen rows in the dev
+database recorded a target type of `SimpleLazyObject`, which names nothing. It
+reads the model meta now, so those entries say `User`.
+
+`test_archive_tabs` asserted tier separation by searching the whole page for a
+scholar's name. That was already imprecise and the activity card broke it — the
+card names whoever was added, whichever tab it happened on. The two tier cases
+now read the table's own rows and check the stored `award_tier`, which is what
+actually implements the separation. Stricter than what they replaced, not looser.
+
+---
+
 ## Who imported it, and which term an employee registered in
 
 Two attribution gaps, both of them a value that was written and never read.

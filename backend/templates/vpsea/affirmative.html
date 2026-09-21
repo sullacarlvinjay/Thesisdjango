@@ -123,7 +123,10 @@
               </div>
               <div>
                 <p class="font-medium leading-tight">{{ app.full_name }}</p>
-                <p class="text-xs u-text-muted">{{ app.email }}</p>
+                <p class="text-xs u-text-muted">{{ app.email|default:"no portal account" }}</p>
+                {% if app.is_nsu_dependent %}
+                <p class="text-xs u-text-muted">{{ app.relationship_to_staff|default:"Dependent" }} of {{ app.staff_name|default:"an employee" }}{% if app.staff_employee_id %} ({{ app.staff_employee_id }}){% endif %}</p>
+                {% endif %}
               </div>
             </div>
           </td>
