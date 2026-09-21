@@ -50,6 +50,20 @@ class SecurityHeaderTest(TestCase):
             self.client.get('/login/')['Content-Security-Policy'])
         self.assertEqual(directives['default-src'], ["'self'"])
 
+    def test_a_style_attribute_is_no_longer_allowed_to_paint_the_page(self):
+        """The directive that took 1,186 inline declarations to earn.
+
+        Anything that manages to write into a style attribute -- an injected
+        one, a reflected one -- now does nothing at all. The page's whole
+        appearance comes from a file this origin served.
+        """
+        directives = _directives(
+            self.client.get('/login/')['Content-Security-Policy'])
+        self.assertEqual(
+            directives['style-src'], ["'self'"],
+            'style-src has taken a source back; if that is unsafe-inline, the '
+            'templates have started carrying style attributes again')
+
     def test_the_page_denies_the_camera_microphone_and_location(self):
         header = self.client.get('/login/')['Permissions-Policy']
         for feature in ('camera', 'microphone', 'geolocation', 'payment', 'usb'):

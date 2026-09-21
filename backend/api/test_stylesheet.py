@@ -81,3 +81,38 @@ class EveryBadgeVariantTemplatesAskForExistsTest(SimpleTestCase):
     def test_no_template_asks_for_a_badge_the_stylesheet_does_not_define(self):
         missing = sorted(self.used() - self.defined())
         self.assertEqual(missing, [], f'used in a template, no CSS rule: {missing}')
+
+class NoTemplateCarriesAnInlineStyleTest(SimpleTestCase):
+    """The precondition for style-src being 'self', asserted where it is created.
+
+    A style attribute added to a template does not fail loudly: the browser
+    refuses the declaration and the element renders unstyled, which looks like a
+    CSS bug rather than a policy violation. This is the thing that says so.
+
+    Anything a template genuinely cannot express as a class -- a width that is a
+    percentage of a number only the view knows -- goes in a data attribute and is
+    set from JavaScript. A width written through the CSSOM is not an inline style
+    and is not what the directive governs; static/js/meter.js is the example.
+    """
+
+    def test_no_template_sets_a_style_attribute(self):
+        offenders = []
+        for path in template_files():
+            text = path.read_text(encoding='utf-8')
+            for found in re.finditer(r'style\s*=\s*"([^"]*)"', text):
+                line = text[:found.start()].count('\n') + 1
+                offenders.append(
+                    f'{path.name}:{line}  style="{found.group(1)[:60]}"')
+        self.assertEqual(
+            sorted(offenders), [],
+            'these would be dropped by the browser under '
+            "style-src 'self' -- use a u-* class from srms.css, or a data "
+            'attribute read by a script')
+
+    def test_the_utility_layer_the_styles_moved_into_is_still_there(self):
+        css = CSS.read_text(encoding='utf-8')
+        self.assertGreater(
+            len(re.findall(r'^\.u-[\w-]+\.u-[\w-]+\s*\{', css, re.M)), 150,
+            'the u-* utility layer at the foot of srms.css is what the templates '
+            'use in place of inline styles; it has shrunk to the point where '
+            'something has gone missing')

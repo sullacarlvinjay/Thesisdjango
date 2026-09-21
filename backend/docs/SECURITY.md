@@ -142,6 +142,7 @@ fixed window against every credential endpoint:
 | Registration | 5 submissions | 1 hour |
 | Resend confirmation | 4 requests | 1 hour |
 | Change own password | 6 failures | 15 minutes |
+| Two-step sign-in code | 6 failures | 15 minutes |
 
 Every attempt is counted twice: once against the caller's address and once
 against the account being named. The address counter slows one machine working
@@ -153,7 +154,27 @@ Registration counts *every* submission rather than only the failures, because
 the abuse worth stopping there is a script that succeeds — minting accounts and
 sending university mail to arbitrary addresses.
 
-Tests: `api/test_rate_limiting.py`.
+**The REST endpoints spend the same allowance as the forms.** `/api/auth/login/`
+and `/api/auth/register/` used to be counted by nothing at all, which made them
+a second, unguarded allowance on every account the forms protect — and the
+published OpenAPI schema is a map straight to them. They now read and write the
+same cache keys through `ratelimit.LoginThrottle` and `ratelimit.RegisterThrottle`,
+so eight wrong passwords at `/login/` refuse the ninth at `/api/auth/login/` and
+the other way round. The refusal carries the portal's own wording and a
+`Retry-After`.
+
+A throttle only refuses; it never counts. Counting stays in the view, which is
+the only place that can tell a wrong password from a right one.
+
+**Everything else under `/api/` has a ceiling too.** `REST_FRAMEWORK` in
+`config/settings.py` configured no throttle class at all, so every other endpoint
+was limited only by how fast a token holder could ask. `AnonRateThrottle` and
+`UserRateThrottle` now default to 60/hour and 1000/hour, tunable with
+`API_ANON_RATE` and `API_USER_RATE`. These are a floor under the whole surface,
+not a substitute for the credential throttles above, which are far stricter.
+
+Tests: `api/test_rate_limiting.py`, including cases that spend the allowance on
+one surface and assert the other refuses.
 
 **Known limit.** With no `REDIS_URL` configured the cache is per-process, so
 each gunicorn worker keeps its own tally and the effective limit is the
@@ -170,6 +191,7 @@ browser renders in its own viewer.
 |---|---|---|
 | `default-src` | `'self'` | Anything loaded from another origin by default |
 | `script-src` | `'self' 'unsafe-inline' cdn.jsdelivr.net` | A script from a host the university does not control |
+| `style-src` | `'self'` | A style attribute written into the page by anything at all |
 | `object-src` | `'none'` | Flash/Java-style plugin content |
 | `base-uri` | `'self'` | An injected `<base>` repointing every relative URL |
 | `form-action` | `'self'` | A form posting a scholar's data off-site |
@@ -179,6 +201,23 @@ Permissions-Policy denies camera, microphone, geolocation, payment, USB and
 the rest outright; `fullscreen` is allowed to the page itself. Neither header
 has a Django setting, which is why the middleware exists. `CSP_REPORT_ONLY=1`
 switches the policy to report-only while a change is being tried.
+
+**`style-src` no longer needs `'unsafe-inline'`.** It did until the templates
+stopped carrying inline styles. There were 1,186 static declarations across 40
+templates and thirteen more that interpolated a value; all of them are now
+classes in the utility layer at the foot of `static/css/srms.css`, except four
+percentage widths that `static/js/meter.js` sets through the CSSOM — which is not
+a style attribute and is not what the directive governs. A page can no longer be
+repainted by anything that manages to write into an attribute.
+
+`script-src` still carries `'unsafe-inline'`: several templates hold a `<script>`
+block of their own, and moving those out is a separate job.
+
+The one third-party script had to be checked rather than assumed: Chart.js 4.4.0
+draws to a `<canvas>` and contains no `createElement('style')`, `insertRule`,
+`cssText` or `adoptedStyleSheets` anywhere in its 205 KB, so the analytics page
+does not need the directive loosened. It sets `canvas.style` through the CSSOM,
+which `style-src` does not govern.
 
 Tests: `api/test_security_headers.py`, which reads the headers off real
 responses rather than off the settings module.

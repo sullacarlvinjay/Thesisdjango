@@ -19,6 +19,13 @@ services:
     # masterlist render starts allocating. Threads share that memory, and the
     # workload is I/O-bound on Postgres anyway. Raise workers only along with
     # the instance size.
+    #
+    # api/jobs.py adds two more threads to this same process for mail and
+    # spreadsheet imports. That is deliberate and it is why there is no worker
+    # service here: a broker-backed queue needs one, and the free plan has
+    # neither it nor a managed Redis. The cost is that a queued job does not
+    # survive a deploy or an idle suspend, so anything whose loss would be
+    # silent writes a BackgroundJob row first. See docs/OPERATIONS.md.
     startCommand: "gunicorn config.wsgi:application --workers 1 --threads 8 --timeout 120"
     healthCheckPath: /login/
     envVars:

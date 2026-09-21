@@ -81,19 +81,24 @@ class Command(BaseCommand):
 
         checks = (
             ('Application', Application.objects.exclude(award_number=''),
-             ['scholarship__type', 'school_year', 'semester', 'award_number']),
+             ['scholarship_id', 'scholarship__name', 'school_year', 'semester',
+              'award_number'],
+             ['scholarship__name', 'school_year', 'semester', 'award_number']),
             ('ImportedScholar', ImportedScholar.objects.exclude(award_number=''),
+             ['scholarship_type', 'term_label', 'award_number'],
              ['scholarship_type', 'term_label', 'award_number']),
             ('ScholarshipLinkRequest',
              ScholarshipLinkRequest.objects.filter(status='Approved')
              .exclude(award_number=''),
+             ['scholarship_type', 'term_label', 'award_number'],
              ['scholarship_type', 'term_label', 'award_number']),
         )
 
         total = 0
-        for label, queryset, fields in checks:
+        for label, queryset, grouped, shown in checks:
             rows = list(
-                queryset.values(*fields).annotate(seen=Count('pk')).filter(seen__gt=1)
+                queryset.values(*grouped).annotate(seen=Count('pk'))
+                .filter(seen__gt=1).order_by(*grouped)
             )
             if not rows:
                 continue
@@ -101,6 +106,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 f'  repeated award numbers in {label} ({len(rows)}):'))
             for row in rows:
-                detail = ' '.join(str(row[f]) for f in fields if row[f])
+                detail = ' '.join(
+                    str(row[f]) if row[f] not in ('', None) else '(blank)'
+                    for f in shown)
                 self.stdout.write(f"    {detail} — recorded {row['seen']} times")
         return total

@@ -224,6 +224,41 @@ because they need a browser installed, and are run separately.
 
 ---
 
+## The accessibility audit
+
+`api/test_accessibility.py` renders every page in `api/fixtures_portal.py` —
+eighteen of them, signed in as each role — and asks all of them the same
+questions. Before it existed the pieces were there (a skip link, sr-only
+labels, focus-visible rings, reduced-motion, AA contrast gated in CI) but
+nothing checked them together, so which page had what depended on when it was
+last worked on.
+
+| Asserted of every page | Why it is not cosmetic |
+|---|---|
+| Every `<img>` carries `alt` | Without it the file name is read out instead |
+| Every control has a name | A `<label>` with no `for` is a caption: it is not announced and clicking it focuses nothing |
+| Every button and link has a name | An icon-only control is otherwise announced as "button" |
+| Exactly one `<h1>` | Headings are how a page is navigated without sight of it |
+| No heading level skipped | An h1 followed by an h3 reports a section that is not there |
+| No id used twice | Every label and `aria-labelledby` pointing at it resolves to whichever came first |
+| Every `for` / `aria-*` reference resolves | A reference to a missing id is silently no reference at all |
+| Every `<table>` has `<th>` | A table of `<td>` alone is read cell by cell with no column names |
+| No positive `tabindex` | It pulls an element ahead of document order |
+| `target="_blank"` carries `rel=noopener` and says so | Both a security and a disorientation problem |
+
+The first run found 174 failures, 172 of them controls whose label was never
+associated with them. Those are fixed: 344 labels now carry a `for`, and the
+controls that never had a caption — search boxes, term filters, one icon-only
+button — carry an `aria-label`. It also turned up a plain defect: the Contact
+Number label on the archive edit form pointed at the GWA field.
+
+It is static analysis of rendered HTML, not a browser, and it says so. It
+catches structural failures and cannot catch visual or behavioural ones —
+contrast is asserted separately in `api/test_contrast.py`, and keyboard order
+still wants a person.
+
+---
+
 ## Known gaps
 
 Stated rather than papered over:
@@ -233,6 +268,10 @@ Stated rather than papered over:
   report still renders, but sustained concurrent load is not measured.
 - **No mutation testing.** Coverage says a line ran, not that a test would have
   noticed it being wrong.
+- **The accessibility audit is structural only.** It reads rendered HTML. Colour,
+  focus order, motion and whether a live region is announced at a useful moment
+  are outside what it can see, and no automated check replaces trying the site
+  with a screen reader.
 - **Email and object storage are tested at the seam**, not against the live
   services.
 - **Condition and MC/DC coverage are not measured.** `coverage.py` measures

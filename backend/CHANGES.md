@@ -115,6 +115,39 @@ Two things about the migration are deliberate:
 `find_duplicate_awards` is that command; `build.sh` runs it after `migrate` so
 anything predating the constraints is reported rather than hidden.
 
+#### The refusal has to carry the rows with it
+
+That message was written for a shell nobody has. Render's free plan gives
+none, and `build.sh` runs `find_duplicate_awards` **after** `migrate` under
+`set -o errexit` — so a deploy that trips the guard stops before the report it
+points at ever runs. The first real deploy of `0096` proved it: the build log
+named a command and not one row, and there was no way from there to learn
+which awards were at fault.
+
+The `RunPython` step lists them itself now — table, programme, term and award
+number, with an empty term printed as `(blank)` rather than dropped from the
+line, since a batch of imported rows carrying no term is the likeliest reason
+a number collides with itself. The deploy still fails, because the office is
+who settles the data and no migration can decide which of two rows is the real
+award. It fails saying what to settle.
+
+Fifty rows is the cap, with a count of the remainder. A mis-keyed spreadsheet
+column could clash on every row it imported, and a build log holding thousands
+of them answers the question no better than the one naming a command did.
+
+The guard had no test of its own, being the one path the suite cannot reach
+by ordinary means: the constraints are on the test database too, so no test
+can write the rows that trip it. `MigrationGuardTest` drops the three indexes
+first — a partial `UniqueConstraint` is a named index on SQLite and Postgres
+alike, so plain `DROP INDEX` does it inside the test transaction, where the
+schema editor refuses to run.
+
+One divergence surfaced while writing those cases. `find_duplicate_awards`
+grouped `Application` by `scholarship__type` while the constraint keys on
+`scholarship`, so two programmes of one type sharing an award number were
+reported as a clash the database would in fact have allowed. It groups by the
+programme now, and prints its name rather than its type.
+
 ### There was no backup procedure at all
 
 `grep -i backup docs/OPERATIONS.md` returned nothing. No command, no restore
@@ -4080,3 +4113,171 @@ the *I already hold the BiPSU Staff Scholarship* checkbox and
 employee declaring their own, and the dependent declaring the one they hold
 through a parent. They are different claims about different people and the
 office verifies them separately.
+
+---
+
+## The four items left open by the last audit
+
+Two were marked half-done, two not started. Three are now done and the fourth
+is argued against below rather than scheduled.
+
+### `/api/auth/login/` and `/api/auth/register/` were a second way in
+
+The browser endpoints were throttled twice over, per address and per account.
+The REST twins were counted by nothing at all. They reach the same accounts with
+the same passwords, so what existed was not one allowance with a gap in it but
+two allowances on one account, only one of them guarded — and the OpenAPI
+schema this now publishes is a map straight to the unguarded one.
+
+Both endpoints read and write the same cache keys as the forms, through
+`ratelimit.LoginThrottle` and `ratelimit.RegisterThrottle`. Eight wrong
+passwords at `/login/` refuse the ninth at `/api/auth/login/`, and the other way
+round; `api/test_rate_limiting.py` spends the allowance on each surface and
+asserts the other one refuses. The refusal carries the portal's own wording and
+a `Retry-After` rather than DRF's default.
+
+A throttle only refuses — it never counts. Counting stays in the view, which is
+the only place that can tell a wrong password from a right one, so registration
+still counts every submission and a good sign-in still clears the tally.
+
+`REST_FRAMEWORK` also configured no throttle class at all, which left every
+*other* endpoint limited only by how fast a token holder could ask.
+`AnonRateThrottle` and `UserRateThrottle` now default to 60/hour and 1000/hour
+(`API_ANON_RATE`, `API_USER_RATE`). Those are a floor under the whole surface,
+not a substitute for the credential throttles, which are far stricter.
+
+### The accessibility work had no audit behind it
+
+The pieces were all there — a skip link, sr-only labels, focus-visible rings,
+reduced-motion, AA contrast gated in CI, aria on seventeen templates. What was
+missing was anything that checked them together, so which page had what came
+down to when it was last worked on.
+
+`api/test_accessibility.py` renders all eighteen pages, signed in as each role,
+and asks the same ten questions of every one of them. `docs/TESTING.md` has the
+table.
+
+**It found 174 failures on its first run.** 172 were controls nobody could
+name. The templates write `<label>Course</label><input name="course">` — which
+looks associated and is not: the label is read out as loose text and clicking it
+focuses nothing. 344 labels now carry a `for`, including the ones written as an
+`{% if %}`/`{% else %}` pair of a read-only and an editable field, where the id
+has to go on both because only one renders, and the ones inside a `{% for %}`
+where the id has to carry the same `{{ slot.suffix }}` as the name or every pass
+round the loop emits the same id.
+
+The controls that never had a caption at all — four search boxes, two term
+filters, one icon-only button, one scholarship picker — carry an `aria-label`.
+
+It also turned up a plain defect nobody had noticed: on the archive edit form,
+the **Contact Number** label carried `for="editGwa"`. Clicking it focused the
+GWA field, and the contact field was left unnamed.
+
+Everything else it asks was already true and stayed true: alt text, one `h1` a
+page, no skipped heading levels, no repeated ids, no dangling `aria-*`
+reference, `<th>` on every table, no positive `tabindex`, `rel=noopener` on
+every `target=_blank`.
+
+### 1,186 inline styles, and the `unsafe-inline` they were holding open
+
+This was the documented reason the Content-Security-Policy could not tighten
+`style-src`. Of 1,199 style attributes, 1,186 were static and thirteen
+interpolated a value.
+
+The static ones are now 174 utility classes at the foot of `static/css/srms.css`
+— one per distinct declaration, named for what it does (`u-text-muted`,
+`u-bg-danger`, `u-p-0-5rem-0-75rem`). Each selector is **doubled**
+(`.u-text-muted.u-text-muted`) on purpose: an inline declaration outranks every
+selector, so a plain single-class rule would have lost ground the attribute used
+to hold, and rules like `.app-sidebar .badge` would have started winning fights
+they used to lose. Two classes is enough, and it leaves `!important` rules
+winning exactly as they did before.
+
+Of the thirteen that interpolate, nine chose between two fixed appearances, so
+the condition moved to the class name. The other four are a percentage width,
+which no class can hold; they are a `data-meter` attribute that
+`static/js/meter.js` reads. A width set through the CSSOM is not a style
+attribute and is not what `style-src` governs.
+
+**`style-src` is now `'self'`.** `script-src` still carries `'unsafe-inline'`,
+because several templates hold a `<script>` block of their own; moving those out
+is a separate job.
+
+One thing this removed that was load-bearing: the dark theme used to catch
+hard-coded light-mode hexes by matching on the attribute itself —
+`.dark [style*="background:#fff"]` and about thirty more. With the attributes
+gone those rules matched nothing, so they are deleted and the two corrections
+that still had a subject are addressed to the class instead.
+
+**How this was checked.** A mechanical rewrite of 1,186 attributes is not
+something to take on trust. Both versions of every page were rendered from the
+Django test client, served over one origin, loaded into paired iframes and
+compared property by property with `getComputedStyle`: **4,054 elements across
+fifteen page renders, no differences.**
+
+`api/test_stylesheet.py` now refuses a template that carries a style attribute
+at all, because the failure is quiet otherwise — the browser drops the
+declaration and the element renders unstyled, which reads like a CSS bug rather
+than a policy violation.
+
+`static/css/tailwind.css` was regenerated, as `build.sh` asks after a template's
+classes change. The only difference is one rule dropped: `.space-y-0`, which no
+template has used for some time — the committed copy was stale before any of
+this.
+
+### Background jobs
+
+`api/jobs.py` is a thread pool inside the web process. `docs/OPERATIONS.md` has
+the settings and the reasoning; the short version is that Celery wants a worker
+service and a broker, Render's free plan has neither, and `render.yaml` already
+runs gunicorn `--workers 1 --threads 8`, so threads are this deployment's
+concurrency model already.
+
+Mail and spreadsheet imports moved onto it. **Report downloads deliberately did
+not** — the response *is* the file, so backgrounding one turns a download into a
+two-step wait for a link. Measured at 1,000 approved scholars: docx 2.7s, xlsx
+0.6s, pdf 1.4s, against a 120-second timeout. That is a change with a cost and
+no benefit, so it was not made.
+
+The import is the one that needed it. A workbook large enough to take longer
+than the timeout used to have the request killed out from under it mid-read.
+It now files a `BackgroundJob` row *before* queueing — the pool does not survive
+a restart, and a row still marked `running` when nothing is running is the only
+way the office finds out that nobody is going to finish it. Nothing retries by
+itself; the office does, from a row it can see.
+
+Mail leaves on the pool everywhere except two places whose whole job is to
+report the outcome: the mail panel's test message, and the account decision that
+warns the office when the applicant could not be reached. A queued send has no
+outcome to give them. The win is on the public registration path, where a
+student registering with declarations used to pay for a confirmation email plus
+one message per office account, in series, before their own page loaded.
+
+### Class-based to function-based views — not done, and the argument against
+
+This one is a recommendation to decline, which is what the last audit already
+suggested.
+
+Twenty-one CBVs remain and **all of them are in the DRF layer**. Every HTML
+portal view is already function-based; nothing about the pages anyone actually
+uses is affected either way. What is left is `ListAPIView`,
+`RetrieveUpdateAPIView` and `ListCreateAPIView`, which are the idiomatic choice
+there, and converting them costs three things:
+
+* **Pagination would have to be hand-rolled.** `SRMSPagination` is wired in
+  through `DEFAULT_PAGINATION_CLASS`, which generics honour and `@api_view`
+  functions do not. Twenty-one endpoints would each grow their own paging.
+* **The schema would stop inferring itself.** `drf-spectacular` reads the
+  serializer and queryset off a generic. A function view tells it nothing, so
+  every endpoint would need a hand-written `@extend_schema` — and CI runs
+  `spectacular --fail-on-warn`, so each one that was missed would fail the
+  build rather than quietly ship.
+* **Permission and filter wiring would be repeated** instead of declared.
+
+The endpoints where a function view genuinely earns its keep are the ones that
+already are one: `VPSEAStudentRankingView` pages by hand because its response is
+an envelope DRF's would replace, and that reasoning is written where it lives.
+
+If the objection is consistency, the consistent rule the codebase already
+follows is "HTML views are functions, DRF views are generics", and that rule is
+worth more than uniformity for its own sake.

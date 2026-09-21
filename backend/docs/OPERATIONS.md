@@ -15,12 +15,57 @@ time and does, in order:
 2. `collectstatic` — gathers and minifies CSS and JS (see `api/storage.py`)
 3. `migrate`
 4. `bootstrap` — creates the office account from the environment
-5. `check` — configuration warnings that would otherwise surface as 500s
-6. `check_storage` — one round trip against the upload bucket
+5. `find_duplicate_awards` — reports anything predating migration `0096`
+6. `check` — configuration warnings that would otherwise surface as 500s
+7. `check_storage` — one round trip against the upload bucket
 
 `set -o errexit` is at the top for a reason: without it a failed
 `collectstatic` or a half-applied migration would still be followed by a
 "successful" deploy.
+
+### When a migration refuses to apply
+
+Migration `0096_award_integrity` checks for repeated award numbers before it
+adds the unique constraints, and stops the build if it finds any. Read the
+list in the build log: it names the table, the programme, the term and the
+number, and how many rows carry it. Nothing on the server can settle these —
+which of two rows is the real award is a question for the office.
+
+Note the ordering above. Steps 5 to 7 are *after* `migrate`, so a build that
+stops at step 3 never reaches them, and Render's free plan has no shell to run
+them by hand. That is why the refusal prints the rows instead of naming a
+command; do not move the report earlier to compensate, because it queries
+through the current models and would crash on any column a pending migration
+has not added yet.
+
+To see the same rows without waiting for a deploy, run these in the Supabase
+SQL editor. They are what the constraints key on, exactly:
+
+```sql
+select a.scholarship_id, s.name, a.school_year, a.semester, a.award_number,
+       count(*)
+from api_application a join api_scholarship s on s.id = a.scholarship_id
+where a.award_number <> ''
+group by a.scholarship_id, s.name, a.school_year, a.semester, a.award_number
+having count(*) > 1;
+
+select scholarship_type, term_label, award_number, count(*)
+from api_importedscholar
+where award_number <> ''
+group by scholarship_type, term_label, award_number
+having count(*) > 1;
+
+select scholarship_type, term_label, award_number, count(*)
+from api_scholarshiplinkrequest
+where status = 'Approved' and award_number <> ''
+group by scholarship_type, term_label, award_number
+having count(*) > 1;
+```
+
+A blank `school_year` or `semester` counts as a value, not as a wildcard, so a
+batch of imported rows stamped with no term all share one group and collide
+with each other. The build log prints those as `(blank)`. Where that is the
+cause, stamping the term is the fix, not deleting the awards.
 
 The service starts with:
 
@@ -241,35 +286,53 @@ assume a disk which does not survive a redeploy.
 
 ---
 
-## Background jobs — not done, and why
+## Background jobs
 
-The evaluators asked for report generation, email sending and large
-spreadsheet imports to move into background jobs. They are right that those
-are the three slow paths. It has not been done, and the reason is
-infrastructure rather than reluctance.
+[`api/jobs.py`](../api/jobs.py) is a thread pool inside the web process. Mail
+and spreadsheet imports go on it; report downloads deliberately do not.
 
-A background job needs two things this deployment does not have: a **worker
-process** separate from the web service, and a **broker** for them to talk
-through. Render's free plan gives one web service, no worker service and no
-managed Redis. Running a worker inside the web container would not survive the
-container being suspended after fifteen minutes idle, which is the normal state
-of this deployment — jobs would be accepted and then silently lost, which is
-worse than a slow request that at least finishes.
+**Why not Celery.** A broker-backed queue needs a worker service and a broker,
+and Render's free plan gives one web service, no worker service and no managed
+Redis. Celery configured here would be configuration that cannot run. The pool
+needs neither: `render.yaml` already starts gunicorn `--workers 1 --threads 8`,
+so threads are this deployment's concurrency model, and putting work on one
+hands the request thread straight back.
 
-What has been done instead, within that constraint:
+**What it does not do is survive a restart.** Render suspends the container
+after fifteen minutes idle and replaces it on every deploy, and the queue goes
+with it. So anything whose loss would otherwise be silent writes a
+`BackgroundJob` row *before* it is queued. A row still marked `running` long
+after the process came back is one nobody is going to finish, and the archive
+page says so rather than spinning. Nothing retries by itself; the office does,
+from a row it can see.
 
-- **Email already does not block a decision.** Sends go through Brevo's HTTPS
-  API with a timeout, and `api/notify.py` swallows a failure rather than
-  rolling back the approval that triggered it. The office's action completes
-  whether or not the message goes out.
-- **Reports are scoped and cached.** Every masterlist query is now filtered to
-  one term, so the work is bounded by a semester's scholars rather than by
-  every record ever entered. Analytics results are cached for ten minutes.
-- **Volume is tested rather than assumed.** `api/test_report_volume.py`
-  renders the report, the spreadsheet and the PDF against sixty scholars and
-  asserts the query count does not grow with the list.
+| Setting | Default | What it is |
+|---|---|---|
+| `BACKGROUND_WORKERS` | `2` | Threads draining the queue. Each can be holding a workbook, and the instance has 512 MB for all of it |
+| `BACKGROUND_QUEUE_LIMIT` | `50` | How many may be waiting. Past it, a job runs inline — only as bad as it was before the pool existed |
+| `BACKGROUND_JOBS_SYNCHRONOUS` | on under tests | Runs every job on the calling thread, so a test asserts against a finished state rather than a race |
 
-What it would take to do properly: a Render Starter plan or equivalent, a
-second service running `celery -A config worker`, and `REDIS_URL` pointing at
-a shared instance. That last variable is already read by `config/settings.py`
-for the cache and the rate limiter, so the configuration seam exists.
+### What moved, and what did not
+
+- **Mail.** Every send except two now leaves on the pool. The exceptions report
+  their outcome in the response — the mail panel's test message, and the
+  account decision that warns the office when the applicant could not be
+  reached — and a queued send has no outcome to give them. The win is on the
+  public registration path: a student registering with declarations used to pay
+  for a confirmation email *plus* one message per office account, in series,
+  before their own page loaded.
+- **Spreadsheet imports.** `/vpsea/archives/import/` files a `BackgroundJob`,
+  queues the read and redirects with the job id. The archive page shows a
+  progress banner and polls `/vpsea/archives/import/<id>/status/` until it is
+  done. This is the one that needed it: a workbook large enough to take longer
+  than gunicorn's 120-second timeout used to have the request killed out from
+  under it mid-read.
+- **Report downloads stay in the request, on purpose.** The response *is* the
+  file, so backgrounding one converts a download into a two-step wait for a
+  link. Measured on this machine at 1,000 approved scholars: docx 2.7s, xlsx
+  0.6s, pdf 1.4s — nowhere near the timeout. Revisit it if a term ever gets an
+  order of magnitude bigger.
+
+Tests: `api/test_background_jobs.py` for the pool itself, including the
+threaded path the rest of the suite deliberately does not run, and
+`api/test_import_in_background.py` for the import and its status endpoint.

@@ -186,6 +186,12 @@ generated from the views themselves by `drf-spectacular`:
 
 All three need a token, like everything else under `/api/`.
 
+**Rate limits.** `/api/auth/login/` and `/api/auth/register/` share their
+allowance with the `/login/` and `/register/` forms rather than keeping a
+second one — eight wrong passwords on either refuses the ninth on both.
+Everything else under `/api/` has a looser ceiling, 60/hour anonymous and
+1000/hour per token. See [docs/SECURITY.md](docs/SECURITY.md#resistance).
+
 Generating it in CI is a gate: `manage.py spectacular --fail-on-warn` fails the
 build on an endpoint with no declared response shape, so a new endpoint cannot
 ship undocumented. `api/test_openapi_schema.py` goes further and compares the
@@ -213,8 +219,11 @@ api/                     the single Django app
   views.py               the REST API (Django REST Framework)
   api_schema.py          response shapes for the hand-written API views
   analytics_charts.py    the chart logic, with no database in it
+  jobs.py                the background thread pool
+  ratelimit.py           throttling, shared by the forms and the REST API
   mfa.py                 time-based one-time passwords (RFC 6238)
   models.py              every model
+  fixtures_*.py          shared setup for the tests, not tests themselves
   test_*.py              the test suite, one module per behaviour
 config/                  settings, URLs, WSGI
 templates/               server-rendered HTML, one directory per role
@@ -227,6 +236,13 @@ Styling rule: CSS belongs in `static/css/srms.css` and JavaScript in
 `static/js/`. Templates carry structure only. When you change either, bump the
 `?v=` query on the `<link>` or `<script>` that loads it, or browsers will serve
 the old copy.
+
+That rule is now enforced by the Content-Security-Policy rather than by
+convention: `style-src` is `'self'`, so a `style="…"` attribute added to a
+template will simply not be applied by the browser. Reach for one of the
+`u-*` utility classes at the foot of `srms.css`, or add one. A value the
+template only knows at render time goes in a `data-` attribute and is set from
+JavaScript — `static/js/meter.js` is the worked example.
 
 ---
 

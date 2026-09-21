@@ -6,9 +6,11 @@ second award could always be written. These cases assert the refusal happens
 in the database, where no view can forget it.
 """
 
+from django.apps import apps as installed_apps
 from django.core.management import call_command
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from importlib import import_module
 from io import StringIO
 
 from api.models import (
@@ -197,3 +199,124 @@ class DuplicateReportTest(TestCase):
         self._a_student_holding('CHED', 'TDP', student_id='2026-0010')
         with self.assertRaises(CommandError):
             call_command('find_duplicate_awards', '--fail', stdout=StringIO())
+
+
+class MigrationGuardTest(TestCase):
+
+    CONSTRAINTS = (
+        'one_award_number_per_programme_term',
+        'one_imported_award_number_per_term',
+        'one_approved_link_award_number_per_term',
+    )
+
+    def setUp(self):
+        SystemSettings.objects.create(
+            pk=1, academic_year='26-1', active_semester='1st Semester')
+        self.ched = Scholarship.objects.create(
+            name='CHED Merit', type='CHED', category='application',
+            description='x', eligibility='x', requirements=[])
+        self._drop_award_number_constraints()
+
+    def _drop_award_number_constraints(self):
+        with connection.cursor() as cursor:
+            for name in self.CONSTRAINTS:
+                cursor.execute(f'DROP INDEX {name}')
+
+    def _guard(self):
+        module = import_module('api.migrations.0096_award_integrity')
+        module.refuse_duplicate_award_numbers(installed_apps, None)
+
+    def _student(self, student_id):
+        user = User.objects.create_user(
+            username=f'{student_id}@bipsu.edu.ph',
+            email=f'{student_id}@bipsu.edu.ph', password='pw', role='student')
+        return StudentProfile.objects.create(
+            user=user, student_id=student_id, course='BSCS', year_level=2)
+
+    def _awarded(self, student_id, number, programme=None):
+        return Application.objects.create(
+            student=self._student(student_id),
+            scholarship=programme or self.ched,
+            status='Approved', term_label='26-1', award_number=number)
+
+    def test_a_clean_database_lets_the_migration_through(self):
+        self._awarded('2026-0001', 'CHED-1')
+        self._guard()
+
+    def test_the_refusal_names_the_rows_it_found(self):
+        self._awarded('2026-0002', 'CHED-2')
+        self._awarded('2026-0003', 'CHED-2')
+
+        with self.assertRaises(RuntimeError) as refused:
+            self._guard()
+        message = str(refused.exception)
+        self.assertIn('CHED Merit', message)
+        self.assertIn('CHED-2', message)
+        self.assertIn('recorded 2 times', message)
+
+    def test_a_blank_term_is_named_rather_than_left_out(self):
+        self._awarded('2026-0004', 'CHED-3')
+        self._awarded('2026-0005', 'CHED-3')
+        Application.objects.update(term_label='', school_year='', semester='')
+
+        with self.assertRaises(RuntimeError) as refused:
+            self._guard()
+        self.assertIn('(blank)', str(refused.exception))
+
+    def test_two_different_people_under_one_imported_number_are_found(self):
+        for last_name, first_name in (('Dela Cruz', 'Juan'),
+                                      ('Bagasbas', 'Maria')):
+            ImportedScholar.objects.create(
+                last_name=last_name, first_name=first_name,
+                scholarship_type='CHED', term_label='26-1',
+                award_number='IMP-1')
+
+        with self.assertRaises(RuntimeError) as refused:
+            self._guard()
+        message = str(refused.exception)
+        self.assertIn('ImportedScholar', message)
+        self.assertIn('IMP-1', message)
+        self.assertIn('recorded 2 times', message)
+
+        out = StringIO()
+        call_command('find_duplicate_awards', stdout=out)
+        self.assertIn('repeated award numbers in ImportedScholar',
+                      out.getvalue())
+
+    def test_a_wholesale_clash_is_cut_short_with_a_count(self):
+        module = import_module('api.migrations.0096_award_integrity')
+        over = module.CLASH_LIMIT + 3
+        ImportedScholar.objects.bulk_create([
+            ImportedScholar(last_name=f'Scholar{n}', scholarship_type='CHED',
+                            term_label='26-1', award_number=f'IMP-{n}')
+            for n in range(over) for _ in range(2)
+        ])
+
+        with self.assertRaises(RuntimeError) as refused:
+            self._guard()
+        message = str(refused.exception)
+        self.assertIn('... and 3 more', message)
+        self.assertEqual(message.count('recorded 2 times'), module.CLASH_LIMIT)
+
+    def test_two_programmes_of_one_type_are_not_a_repeated_number(self):
+        tulong_dunong = Scholarship.objects.create(
+            name='CHED Tulong Dunong', type='CHED', category='application',
+            description='x', eligibility='x', requirements=[])
+        self._awarded('2026-0006', 'CHED-4')
+        self._awarded('2026-0007', 'CHED-4', programme=tulong_dunong)
+
+        out = StringIO()
+        call_command('find_duplicate_awards', stdout=out)
+        self.assertIn('no repeated award numbers', out.getvalue())
+        self._guard()
+
+    def test_the_report_names_the_programme_the_number_repeats_in(self):
+        self._awarded('2026-0008', 'CHED-5')
+        self._awarded('2026-0009', 'CHED-5')
+
+        out = StringIO()
+        call_command('find_duplicate_awards', stdout=out)
+        printed = out.getvalue()
+        self.assertIn('repeated award numbers in Application', printed)
+        self.assertIn('CHED Merit', printed)
+        self.assertIn('CHED-5', printed)
