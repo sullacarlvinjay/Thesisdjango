@@ -67,7 +67,8 @@
       </div>
       <div class="space-y-1.5">
         <label for="accountRole">Office</label>
-        <input id="accountRole" value="Student Development and Services Office" readonly />
+        <input id="accountRole" name="office_name" value="{{ user.office_name }}"
+               maxlength="120" required />
       </div>
     </div>
   </div>

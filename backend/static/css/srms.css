@@ -1487,7 +1487,7 @@ label.is-required::after { content: ' *'; color: var(--danger); }
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  min-width: 220px;
+  min-width: 264px;
   z-index: 100;
   padding: 0.4rem 0;
   background: var(--surface);

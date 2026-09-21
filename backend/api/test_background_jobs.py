@@ -148,11 +148,11 @@ class ThreadedDatabaseJobTest(ThreadedSqliteMixin, TransactionTestCase):
 
 
 class InlineMailStaysInlineTest(TransactionTestCase):
-    """The two sends whose answer somebody is shown must not be queued.
+    """The one send whose answer somebody is shown must not be queued.
 
-    Both report back in the response: the mail panel says whether the test
-    message was accepted, and the account decision warns the office when the
-    applicant could not be told. A queued send has no answer to give them.
+    The account decision reports back in the response: it warns the office
+    when the applicant could not be told, and a queued send has no answer to
+    give it. Everything else emails somebody who is not waiting on the reply.
     """
 
     @override_settings(**THREADED)

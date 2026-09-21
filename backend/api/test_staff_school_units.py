@@ -6,6 +6,7 @@ from api.constants import (
 )
 from api.models import StaffEmployment, StaffProfile, SystemSettings, User
 from api.fixtures_registration import a_staff_member
+from api.fixtures_portal import labelled_control
 
 
 def values(pairs):
@@ -53,9 +54,10 @@ class TheStaffFormJustTakesWhatIsTypedTest(TestCase):
         return self.c.get('/register/').content.decode()
 
     def test_the_field_is_a_plain_text_input(self):
-        html = self._form()
-        self.assertIn('<label>Office / College / Unit</label>', html)
-        self.assertIn('name="staff_school"', html)
+        field = labelled_control(self._form(), 'Office / College / Unit')
+        self.assertIn(
+            'name="staff_school"', field,
+            'the unit caption no longer reaches the unit field')
 
     def test_nothing_is_offered_alongside_it(self):
         html = self._form()
@@ -122,8 +124,11 @@ class TheStaffProfileOffersThemTooTest(TestCase):
         from django.utils.html import escape
 
         html = self.c.get('/nsu-staff/profile/').content.decode()
-        self.assertIn('<label>Office / College / Unit</label>', html)
-        self.assertIn('list="bipsuStaffUnits"', html)
+        field = labelled_control(html, 'Office / College / Unit')
+        self.assertIn(
+            'name="school"', field,
+            'the unit caption no longer reaches the unit field')
+        self.assertIn('list="bipsuStaffUnits"', field)
         for _name, units in BIPSU_STAFF_UNIT_GROUPS:
             for unit in values(units):
                 with self.subTest(unit=unit):

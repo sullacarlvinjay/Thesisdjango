@@ -607,7 +607,13 @@ def _decide_account(request):
 
 
 def _attach_profiles(accounts):
-    """Hang each account's student and employee profile off the row."""
+    """Hang each account's student and employee profile off the row.
+
+    The term is resolved to a string here rather than reached for in the
+    template. One of the two profiles is always ``None``, and a template
+    only protects the first variable of an expression against a missing
+    lookup — a filter argument that walks into ``None`` raises.
+    """
     from .models import StaffProfile, StudentProfile
 
     students = {p.user_id: p for p in
@@ -617,6 +623,8 @@ def _attach_profiles(accounts):
     for account in accounts:
         account.student_profile = students.get(account.id)
         account.employee_profile = staff.get(account.id)
+        profile = account.student_profile or account.employee_profile
+        account.registered_term = profile.term_display if profile else ''
 
 
 def _attach_archive_candidates(declarations, active_label):
@@ -863,17 +871,24 @@ def vpsea_profile(request):
             elif User.objects.filter(email__iexact=new_email).exclude(pk=user.pk).exists():
                 errors.append(f'{new_email} already signs another account in. '
                               'Two accounts cannot share an address.')
+        office = (request.POST.get('office_name') or '').strip()
+        ceiling = User._meta.get_field('office_name').max_length
+        if len(office) > ceiling:
+            errors.append(f'That office name is {len(office)} characters. '
+                          f'Keep it under {ceiling} so it still fits beside '
+                          'your name in the sidebar.')
         if not errors:
             errors = _change_own_password(request, user)
         if not errors:
             user.first_name = (request.POST.get('first_name') or user.first_name).strip()
             user.last_name = (request.POST.get('last_name') or user.last_name).strip()
+            user.office_name = office or user.office_name
             user.email = new_email
             user.username = new_email
             if request.FILES.get('photo'):
                 user.photo = request.FILES['photo']
-            user.save(update_fields=['first_name', 'last_name', 'email',
-                                     'username', 'photo'])
+            user.save(update_fields=['first_name', 'last_name', 'office_name',
+                                     'email', 'username', 'photo'])
             if wanted_email:
                 ActivityLog.record(
                     user, f'Changed their own sign-in email from {old_email} '

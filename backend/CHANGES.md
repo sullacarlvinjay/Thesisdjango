@@ -7,6 +7,126 @@ several of them removed something that used to work.
 
 ---
 
+## Who imported it, and which term an employee registered in
+
+Two attribution gaps, both of them a value that was written and never read.
+
+### The uploaded sheets did not say who uploaded them
+
+`ScholarListImport.imported_by` is set at all three import paths and was
+referenced by no template at all. The Uploaded files list in the archives
+**Download Excel** menu showed the term, the scholar count, a download link and
+a delete button — enough to remove somebody else's import without ever learning
+it was somebody else's. The rows now carry the importer and the date, and the
+query grew a `select_related` so naming them costs no extra round trip.
+
+### Every BiPSU Staff row read "—" under Registered
+
+The Recently Decided column read `student_profile.term_display`. An employee
+account has no student profile, and a missing relation resolves to empty in a
+template rather than raising, so `|default:"—"` printed a dash and the office
+had no way to tell a missing term from a missing field.
+
+Correcting the template alone would have changed nothing. `StudentProfile`
+inherits `TermStamped`, whose `save` stamps the active term on any new row;
+`StaffProfile` did not inherit it and had no term columns at all, so an employee
+registration had never recorded one. It is term-stamped now, which means new
+employee registrations are stamped by `fill_term` with no change to the
+registration flow.
+
+The term is resolved in `_attach_profiles` and handed to the template as a
+plain string. Reaching for it in the template instead — `{{ a.student_profile.term_display|default:a.employee_profile.term_display }}` — raised
+`VariableDoesNotExist` on every page with both kinds of row. Django protects
+the **first** variable of an expression against a missing lookup and
+substitutes `string_if_invalid`, but it resolves **filter arguments** with no
+such guard, and `_attach_profiles` assigns `None` to whichever of the two
+profiles an account does not have. The first test of it passed because the
+fixture held only an employee row, so the argument never walked into `None`;
+the case now has one of each, on different terms.
+
+**Employees who registered before this are left blank.** The term they signed up
+in was never recorded and cannot be recovered — the system keeps no dated
+history of which term was active when — so filling those rows would mean
+inventing a fact about a real person's record. They keep reading "—" until
+somebody who knows sets them.
+
+**Still missing:** `ActivityLog` holds every office action, with actor, verb,
+target, field-level changes and IP, and is written from six modules and covered
+by `test_audit_trail.py` and `test_audit_coverage.py`. Nothing reads it. There
+is no route, no view and no template — the whole trail is reachable only through
+the Django admin. `recent_imports` in `views_archives.py` is the one query that
+tries, and its result is rendered nowhere, so it is a wasted query on every
+archives page load.
+
+---
+
+## Hovering a chart now tells you which bar you are on
+
+Scholars by Semester pinned Chart.js to `interaction: { mode: 'index' }`. That
+mode answers *everything at this category*, which is the right question for the
+**This academic year** and **All academic years** views and the wrong one for
+**This semester**, where the chart holds a single category.
+
+With one category every pointer position resolved to the same six bars. The
+tooltip read identically wherever it was, sat in the same place whichever bar
+was under the cursor, and named no bar in particular — it was a restatement of
+the data table already printed underneath it. Four of the six bars were also a
+single pixel tall, so they were not hoverable as distinct targets at all.
+
+The mode is now chosen from the category count, in `excel-charts.js`, once:
+one category hovers the **nearest** bar, more than one keeps **index**. Because
+the nearest match does not require the pointer to land inside the bar, the
+one-pixel bars became reachable as a side effect. `buildTrendChart` no longer
+pins a mode of its own — a call-site override defeating the shared rule is what
+the defect was, and `api/test_chart_hover.py` asserts no chart reintroduces one.
+
+The share in the tooltip footer had to move with it. `shareOfTotal` divided by
+the sum of one dataset's own data, which across several semesters is the right
+denominator and across a single one is the bar itself — every bar would have
+read "100% of" its own value. With one category it now divides by the total
+across the bars, so the first one reads `82.5% of 103` instead.
+
+**Known and not fixed:** the tooltip in the multi-semester views is still taller
+than the plot it covers — seven series make a ~176px tooltip over a 103px plot
+area, because the Excel-style data table takes the rest of the canvas. Shrinking
+that table is a design decision about a deliberate feature, not a hover fix.
+
+---
+
+## The Office field on the SDSO profile can be changed
+
+`templates/vpsea/profile.html` showed **Office** as a readonly input with
+`Student Development and Services Office` typed straight into the template. It
+could not be wrong, because it could not be anything else — and it could not be
+right either, for an office that gets renamed.
+
+It is now `User.office_name`, a real field carrying that same string as its
+default, so every account that already exists reads back exactly what the
+template used to show. The input posts with the rest of the Account Information
+card and saves under the **Save changes** button already there — no new page, no
+new button, no second place to look.
+
+The sidebar tooltip under the signed-in account's name in `templates/base.html`
+had the same string hardcoded behind a `user.role == 'vpsea'` test. It follows
+the field now, so renaming the office on the profile does not leave the sidebar
+insisting on the old name.
+
+The name is per account, not per system. Two office accounts can hold different
+office names — which is what the field says it is, the office *this account*
+signs in on behalf of — and a rename by one does not touch the other.
+
+`maxlength` on the input is not the check. A post that skips the browser is
+refused against the column's own `max_length`, and a blank one leaves the office
+named as it was rather than clearing it, which is how the name and email beside
+it already behave.
+
+**Not** touched: the office's name as it reaches applicants — the registration
+prose in `templates/login.html` and `templates/registration_received.html`, and
+the decision emails in `api/notify.py`. Those describe the office to someone
+outside it, and are not this account's field to edit.
+
+---
+
 ## The ISO 25010 / 29119-4 evaluation, round two
 
 A reviewer scored the system against ISO/IEC 25010:2023 and ISO/IEC/IEEE
@@ -4259,12 +4379,12 @@ a restart, and a row still marked `running` when nothing is running is the only
 way the office finds out that nobody is going to finish it. Nothing retries by
 itself; the office does, from a row it can see.
 
-Mail leaves on the pool everywhere except two places whose whole job is to
-report the outcome: the mail panel's test message, and the account decision that
-warns the office when the applicant could not be reached. A queued send has no
-outcome to give them. The win is on the public registration path, where a
-student registering with declarations used to pay for a confirmation email plus
-one message per office account, in series, before their own page loaded.
+Mail leaves on the pool everywhere except one place whose whole job is to report
+the outcome: the account decision that warns the office when the applicant could
+not be reached. A queued send has no outcome to give it. The win is on the
+public registration path, where a student registering with declarations used to
+pay for a confirmation email plus one message per office account, in series,
+before their own page loaded.
 
 ### Class-based to function-based views — not done, and the argument against
 

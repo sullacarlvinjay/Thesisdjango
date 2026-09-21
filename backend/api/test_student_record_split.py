@@ -7,6 +7,7 @@ from api.models import (
     StaffProfile, StaffRenewal, StudentProfile, SystemSettings, User,
 )
 from api.fixtures_registration import a_staff_member
+from api.fixtures_portal import labelled_control
 
 
 def a_document(name='proof.pdf'):
@@ -224,9 +225,11 @@ class StaffRegistrationPicksASchoolTest(TestCase):
 
     def test_the_form_asks_staff_to_type_it(self):
         html = self.c.get('/register/').content.decode()
-        self.assertIn('<label>Office / College / Unit</label>', html)
-        self.assertIn('name="staff_school"', html)
-        self.assertNotIn('list="bipsuStaffUnits"', html)
+        field = labelled_control(html, 'Office / College / Unit')
+        self.assertIn(
+            'name="staff_school"', field,
+            'the unit caption no longer reaches the unit field')
+        self.assertNotIn('list="bipsuStaffUnits"', field)
         self.assertNotIn('<datalist id="bipsuStaffUnits">', html)
 
     def test_a_unit_that_is_not_on_the_list_still_reaches_the_profile(self):

@@ -182,6 +182,10 @@ class User(AbstractUser):
     but cannot sign in until the office has looked at it.
     """
     role = models.CharField(max_length=20, choices=USER_ROLES, default='student')
+    office_name = models.CharField(
+        max_length=120, default='Student Development and Services Office',
+        help_text='The office an SDSO account signs in on behalf of. Shown '
+                  'on its own profile and under its name in the sidebar.')
     email = models.EmailField(unique=True)
 
     verification_status = models.CharField(
@@ -777,8 +781,13 @@ class FamilyBackground(StudentDetail):
                                 self.mother_middle_name)
 
 
-class StaffProfile(PhilippineAddress, DetailRows):
-    """An employee, their appointment and their qualifications."""
+class StaffProfile(PhilippineAddress, DetailRows, TermStamped):
+    """An employee, their appointment and their qualifications.
+
+    Term-stamped for the same reason a student profile is: the office's
+    account list reports which term an account registered in, and without
+    the stamp an employee row can only ever report nothing.
+    """
     DETAIL_RELATIONS = ('employment', 'personal', 'education')
     DETAIL_LINK = 'staff'
     DETAIL_FIELDS = {}

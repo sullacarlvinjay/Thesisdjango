@@ -113,3 +113,23 @@ def render_every_page():
 def pages_that_answered(pages):
     """The names that rendered, for a case that checks none went missing."""
     return sorted(pages)
+
+def labelled_control(html, caption):
+    """The tag of the control a caption is actually attached to, or ``''``.
+
+    A `<label>` with no `for` is a caption, not a label: it is read out as loose
+    text and clicking it focuses nothing. Asserting the literal
+    `<label>Caption</label>` cannot tell the two apart, so this follows the
+    `for` to the id and hands back the control it lands on.
+    """
+    import re
+
+    label = re.search(
+        r'<label[^>]*\bfor="([^"]+)"[^>]*>\s*' + re.escape(caption) + r'\s*</label>',
+        html)
+    if not label:
+        return ''
+    control = re.search(
+        r'<(?:input|select|textarea)[^>]*\bid="' + re.escape(label.group(1))
+        + r'"[^>]*>', html)
+    return control.group(0) if control else ''

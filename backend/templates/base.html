@@ -15,7 +15,7 @@
   </script>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=2" />
-  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=86" />
+  <link rel="stylesheet" href="{% static 'css/srms.css' %}?v=87" />
   
   <script src="{% static 'js/skeleton.js' %}?v=4"></script>
   {% block extra_head %}{% endblock %}
@@ -138,7 +138,7 @@
           {% endif %}
           <div class="hidden md:block text-left">
             <p class="text-xs font-medium leading-tight">{{ user.get_full_name|default:user.username }}</p>
-            <p class="text-xs leading-tight u-text-muted" title="{% if user.role == 'vpsea' %}Student Development and Services Office{% endif %}">
+            <p class="text-xs leading-tight u-text-muted" title="{% if user.role == 'vpsea' %}{{ user.office_name }}{% endif %}">
               {% if user.role == 'vpsea' %}SDSO
               {% elif user.role == 'nsu_staff' %}BiPSU Staff
               {% elif user.role == 'student' %}Student

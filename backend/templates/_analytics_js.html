@@ -1,6 +1,6 @@
 {% load static %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="{% static 'js/excel-charts.js' %}?v=6"></script>
+<script src="{% static 'js/excel-charts.js' %}?v=7"></script>
 <script>
 function chartHasData(canvas) {
   const chart = (window.Chart && Chart.getChart) ? Chart.getChart(canvas) : null;
@@ -53,6 +53,7 @@ function excelChart(canvas, type, labels, series, config) {
     ? [Object.assign({ label: series[0].name }, ExcelChart.slices(series[0].data))]
     : ExcelChart.bars(labels, series);
   settings.pie = pie;
+  settings.categoryCount = (labels || []).length;
   settings.table = settings.table !== false;
   if (settings.legend === undefined) settings.legend = series.length > 1;
   return new Chart(canvas, {
@@ -186,7 +187,6 @@ function buildTrendChart(range) {
              + ' by Semester — ' + scope,
       categoryTitle: 'Semester',
       legend: slice.series.length > 1,
-      interaction: { mode: 'index', intersect: false },
     });
 }
 trendRef.chart = buildTrendChart(TREND_RANGES[0].value);

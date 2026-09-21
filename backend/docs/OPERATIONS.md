@@ -321,13 +321,12 @@ from a row it can see.
 
 ### What moved, and what did not
 
-- **Mail.** Every send except two now leaves on the pool. The exceptions report
-  their outcome in the response — the mail panel's test message, and the
-  account decision that warns the office when the applicant could not be
-  reached — and a queued send has no outcome to give them. The win is on the
-  public registration path: a student registering with declarations used to pay
-  for a confirmation email *plus* one message per office account, in series,
-  before their own page loaded.
+- **Mail.** Every send but one now leaves on the pool. The exception is the
+  account decision, which reports its outcome in the response — it warns the
+  office when the applicant could not be reached, and a queued send has no
+  outcome to give it. The win is on the public registration path: a student
+  registering with declarations used to pay for a confirmation email *plus* one
+  message per office account, in series, before their own page loaded.
 - **Spreadsheet imports.** `/vpsea/archives/import/` files a `BackgroundJob`,
   queues the read and redirects with the job id. The archive page shows a
   progress banner and polls `/vpsea/archives/import/<id>/status/` until it is

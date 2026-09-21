@@ -13,9 +13,9 @@ Mail leaves on the background pool by default — see ``api/jobs.py``. Every sen
 costs a round trip to Brevo, and a registration that also has to tell the whole
 office about a declaration makes several of them; paying for those inline put
 the wait in front of the person registering, who gains nothing by it. Where the
-*answer* is shown to somebody, ``background=False`` keeps the send inline, and
-the two places that do that are the mail panel's test message and the account
-decision that warns the office when the applicant could not be reached.
+*answer* is shown to somebody, ``background=False`` keeps the send inline. The
+one place that does is the account decision, which warns the office when the
+applicant could not be reached.
 """
 
 import logging
@@ -84,8 +84,8 @@ def queue_email(to, subject, body):
 
     The caller gets no outcome because there is not one yet. What there is
     instead is the row :func:`_record_attempt` writes when the send finishes,
-    which the office's mail panel reads — and which outlives the request,
-    where a return value would only have been true for the length of one.
+    which outlives the request — where a return value would only have been
+    true for the length of one, and only to whoever happened to be looking.
     """
     if not to:
         return

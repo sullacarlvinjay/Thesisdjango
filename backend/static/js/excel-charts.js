@@ -52,12 +52,22 @@
     }, 0);
   }
 
+  function indexTotal(context) {
+    var sets = context.chart.data.datasets || [];
+    return sets.reduce(function (sum, set) {
+      var n = (set.data || [])[context.dataIndex];
+      return sum + (typeof n === 'number' ? n : 0);
+    }, 0);
+  }
+
   function shareOfTotal(context) {
     var value = typeof context.parsed === 'number'
       ? context.parsed
       : (context.parsed.x != null && context.chart.options.indexAxis === 'y'
          ? context.parsed.x : context.parsed.y);
-    var total = seriesTotal(context);
+    var oneCategory = (context.chart.data.labels || []).length === 1
+      && (context.chart.data.datasets || []).length > 1;
+    var total = oneCategory ? indexTotal(context) : seriesTotal(context);
     if (!total || typeof value !== 'number') return '';
     return Math.round((value / total) * 1000) / 10 + '% of ' + total;
   }
@@ -550,7 +560,9 @@
 
     base.interaction = config.interaction || (pie
       ? { mode: 'nearest', intersect: true }
-      : { mode: 'index', intersect: false, axis: horizontal ? 'y' : 'x' });
+      : config.categoryCount === 1
+        ? { mode: 'nearest', intersect: false }
+        : { mode: 'index', intersect: false, axis: horizontal ? 'y' : 'x' });
     base.hover = { mode: base.interaction.mode,
                    intersect: base.interaction.intersect,
                    axis: base.interaction.axis };

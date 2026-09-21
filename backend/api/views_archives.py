@@ -248,7 +248,8 @@ def vpsea_archives(request):
     active_sy = parsed['sy']
     active_semester = parsed['semester']
 
-    history = ScholarListImport.objects.filter(scholarship_type=stype).order_by('-created_at')
+    history = (ScholarListImport.objects.filter(scholarship_type=stype)
+               .select_related('imported_by').order_by('-created_at'))
     all_labels, selected_label = _archive_term(request, stype, active_label)
 
     selected_parsed = SystemSettings.parse_label(selected_label)

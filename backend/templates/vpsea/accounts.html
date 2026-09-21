@@ -421,7 +421,7 @@
             <br /><span class="u-text-muted u-fs-0-75rem">{{ account.email }}</span>
           </td>
           <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">{{ account.get_role_display }}</td>
-          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">{{ account.student_profile.term_display|default:"—" }}</td>
+          <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border u-text-muted">{{ account.registered_term|default:"—" }}</td>
           <td class="u-p-0-55rem-0-75rem u-bt-1px-solid-border">
             <span class="badge {% if account.verification_status == 'approved' %}badge-success{% else %}badge-destructive{% endif %}">{{ account.get_verification_status_display }}</span>
           </td>
@@ -482,7 +482,7 @@
         </div>
         <div class="detail-field"><label>Role</label><span>{{ account.get_role_display }}</span></div>
         <div class="detail-field"><label>Registered</label><span>{{ account.date_joined|date:"M j, Y" }}</span></div>
-        <div class="detail-field"><label>Term</label><span>{{ account.student_profile.term_display|default:"—" }}</span></div>
+        <div class="detail-field"><label>Term</label><span>{{ account.registered_term|default:"—" }}</span></div>
         <div class="detail-field"><label>Can sign in</label><span>{% if account.can_sign_in %}Yes{% else %}No{% endif %}</span></div>
       </div>
 

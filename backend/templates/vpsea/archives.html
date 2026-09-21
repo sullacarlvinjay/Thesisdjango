@@ -363,8 +363,12 @@
               <div class="flex items-center" onmouseover="this.style.background='#f6f8fc'" onmouseout="this.style.background=''">
                 <a href="{{ h.excel_file.url }}" download class="flex items-center gap-2 flex-1 u-p-0-45rem-0-75rem u-fs-0-82rem u-text-hex1a202c u-no-underline">
                   <svg class="h-3.5 w-3.5 shrink-0 u-text-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  {{ h.term_label|default:h.school_year }}
-                  <span class="u-fs-0-72rem u-text-muted">{{ h.scholar_count }} scholars</span>
+                  <span class="flex-1">
+                    {{ h.term_label|default:h.school_year }}
+                    <span class="u-fs-0-72rem u-text-muted">{{ h.scholar_count }} scholars</span>
+                    <br />
+                    <span class="u-fs-0-72rem u-text-muted">{% if h.imported_by %}Imported by {{ h.imported_by.get_full_name|default:h.imported_by.email }}{% else %}Importer not recorded{% endif %} &middot; {{ h.created_at|date:"M j, Y" }}</span>
+                  </span>
                 </a>
                 <form class="u-m-0 u-p-0-0-4rem-0-0" method="post" action="/vpsea/archives/rollover/{{ h.pk }}/delete/" data-confirm="Delete the {{ h.term_label|default:h.school_year }} {{ active_type }} import?" data-confirm-detail="The scholars it added are removed with it. This cannot be undone." data-confirm-tone="danger" data-confirm-label="Delete">
                   {% csrf_token %}
