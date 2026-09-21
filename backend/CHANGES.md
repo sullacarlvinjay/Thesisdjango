@@ -44,11 +44,22 @@ profiles an account does not have. The first test of it passed because the
 fixture held only an employee row, so the argument never walked into `None`;
 the case now has one of each, on different terms.
 
-**Employees who registered before this are left blank.** The term they signed up
-in was never recorded and cannot be recovered — the system keeps no dated
-history of which term was active when — so filling those rows would mean
-inventing a fact about a real person's record. They keep reading "—" until
-somebody who knows sets them.
+**Employees who registered before this had no term to show.** It was never
+recorded and cannot be recovered — the system keeps no dated history of which
+term was active when — so it was left blank rather than guessed at, and the
+office was asked what those rows should say.
+
+The office chose 2026-2027 1st Semester, and migration
+`0102_stamp_existing_staff_terms` writes it. It touches only rows carrying no
+term at all, so anything `fill_term` has stamped since 0101 is left alone, and
+it does not unstamp on reverse: nothing records which rows it filled, so
+clearing every row holding that term would also clear the employees who
+genuinely registered in it. That is the same choice 0098 made.
+
+It is a data migration because Render's free plan has no shell, so there is no
+way to run a one-off script against the deployed database. `build.sh` runs
+`migrate` on every deploy, which makes a migration the only route production
+data has.
 
 **Still missing:** `ActivityLog` holds every office action, with actor, verb,
 target, field-level changes and IP, and is written from six modules and covered

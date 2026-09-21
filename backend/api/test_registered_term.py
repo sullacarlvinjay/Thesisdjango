@@ -49,6 +49,30 @@ class ARegistrationRecordsItsTermTest(TestCase):
             '2026-2027 2nd Semester')
 
 
+class AStampedTermIsNotOverwrittenTest(TestCase):
+    """The backfill in 0102 leans on this.
+
+    It stamps only the rows carrying no term, which is only safe because a row
+    that already has one keeps it through every later save.
+    """
+
+    def setUp(self):
+        SystemSettings.objects.create(
+            pk=1, academic_year='26-1', active_semester='1st Semester')
+        self.staff = User.objects.create_user(
+            username='early@bipsu.edu.ph', email='early@bipsu.edu.ph',
+            password='pw', role='nsu_staff')
+
+    def test_a_term_set_by_hand_survives_the_next_save(self):
+        profile = StaffProfile.objects.create(
+            user=self.staff, term_label='25-2', school_year='2025-2026',
+            semester='2nd Semester')
+        profile.employee_id = '32-1-213313'
+        profile.save()
+        profile.refresh_from_db()
+        self.assertEqual(profile.term_display, '2025-2026 2nd Semester')
+
+
 class TheOfficeSeesTheTermOnEveryDecidedRowTest(TestCase):
 
     def setUp(self):
