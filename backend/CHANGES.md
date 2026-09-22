@@ -7,6 +7,85 @@ several of them removed something that used to work.
 
 ---
 
+## Staff registration asks for the appointment, so applying does not
+
+The student form collects, at registration, everything the office needs to read
+a student's eligibility. The staff form did not. It asked for School ID, unit,
+department and position, and stopped - so the one answer the Staff Scholarship
+turns on, whether the appointment is regular, existed nowhere until the employee
+filled in an application. Every applicant typed their appointment details a
+second time, and the office could not read an employee's standing until they
+applied.
+
+Registration now asks for **Employment Status** and **Designation**, and for a
+regular appointment also **Years of Service** and **Date of Regularization**.
+They go onto the staff profile, and `_staff_apply_prefill` was already reading
+all four from there - so the Staff Scholarship form opens filled in and the
+employee confirms rather than retypes. A dependent's application gets the same
+appointment carried across.
+
+Only a regular appointment is asked for the dates. A job order or part-time
+employee has no regularisation date, so requiring one would have shut them out
+of registering entirely for a field their appointment never had. The block is
+hidden until the status says Regular, and `_missing_appointment_details` applies
+the same condition on the server, so a form posted around the JavaScript is held
+to the same rule.
+
+### What this touched that was not obvious
+
+`api/fixtures_registration.py` holds the `STAFF` payload three other test
+modules build their registrations from. Two new required fields meant every one
+of those registrations started failing at once - the fix belonged in the fixture,
+not in each test.
+
+`test_register_optional_labels` is a registry of which fields are required,
+conditionally required or optional, and it checks the form against itself. The
+two new required fields were added to `STAFF_REQUIRED` and the two conditional
+ones to `CONDITIONALLY_REQUIRED`; without that the form would have had fields
+that are neither marked Optional nor required, which is what that test exists to
+catch.
+
+---
+
+## The staff recommendation list holds only who qualified
+
+The Faculty and Staff table mixed Qualified and Not Qualified together, the
+refused ones carrying a red badge and a dash where the rank would be. The list
+is headed "Rule-Based Recommendation" and is what the office sends up, so a row
+in it that is not being recommended is a row somebody has to read twice.
+
+`_staff_ranking_data` now splits three ways instead of two. `rows` is the
+recommendation and holds only applications that met every qualification,
+numbered from one. `refused` and `needs_info` are separate lists rendered as
+their own sections below the table, so nobody drops off the page: a refusal
+appears under **Applied, but not qualified** with the rule it failed and the
+sentence explaining it, and an application nobody can decide yet stays under
+**Applied, but not yet decidable** with what is missing.
+
+`Evaluation.refusals` is what the refused section reads - the rules that
+returned FAIL. A rule that could not be run is deliberately not in it: that is
+missing information, not a reason for refusal, and printing it as one would put
+words in the office's mouth.
+
+### The download follows the page
+
+`ranking_report` built both its sheets from `rows + needs_info`. Left alone,
+narrowing `rows` would have quietly dropped every refused applicant from the
+spreadsheet while they were still visible on screen - the office could then
+send up a file that disagrees with what they reviewed. Both sheets now read
+`rows + refused + needs_info`, so the export still carries everyone screened,
+each with their verdict.
+
+### What did not change
+
+Who qualifies. The rules are untouched: an employee still needs a permanent
+appointment and nothing else, a dependent still needs the employee's
+appointment to be permanent, the dependency stated in full, and no baccalaureate
+already. The counts above the table are unchanged too, so Qualified, For
+Verification and Not Qualified still total every application screened.
+
+---
+
 ## An employee can apply for their dependent
 
 The BiPSU Staff Scholarship is open to an employee or to their qualified

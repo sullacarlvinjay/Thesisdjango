@@ -68,9 +68,11 @@ def _one_per_applicant(applications):
 def _staff_ranking_data():
     """Rank the staff applications for the office's ranking page.
 
-    Applications needing verification are ranked too but numbered
-    separately, so an incomplete application stays visible instead of
-    vanishing from the list the office works from.
+    Three lists, not one. ``rows`` is the recommendation: only applications
+    that met every qualification, numbered from one. A refusal and an
+    application nobody can decide yet are each kept in their own list, so the
+    recommendation reads as a recommendation while neither of the other two
+    vanishes from the page the office works from.
 
     Scoped to the active term, because the list answers "who do we recommend
     now" and last semester's applications are not up for a decision. Records
@@ -92,20 +94,19 @@ def _staff_ranking_data():
 
     evaluations = staff_ranking.rank(_one_per_applicant(applications))
 
-    decided = [e for e in evaluations if e.status != staff_ranking.FOR_VERIFICATION]
-    needs_info = [e for e in evaluations if e.status == staff_ranking.FOR_VERIFICATION]
-    position = 0
-    for evaluation in decided:
-        if evaluation.qualified:
-            position += 1
-            evaluation.rank = position
-        else:
-            evaluation.rank = None
-    for evaluation in needs_info:
+    recommended = [e for e in evaluations if e.status == staff_ranking.QUALIFIED]
+    refused = [e for e in evaluations
+               if e.status == staff_ranking.NOT_QUALIFIED]
+    needs_info = [e for e in evaluations
+                  if e.status == staff_ranking.FOR_VERIFICATION]
+    for position, evaluation in enumerate(recommended, start=1):
+        evaluation.rank = position
+    for evaluation in refused + needs_info:
         evaluation.rank = None
 
     return {
-        'rows': decided,
+        'rows': recommended,
+        'refused': refused,
         'needs_info': needs_info,
         'total': len(evaluations),
         'counts': {
@@ -126,6 +127,7 @@ def _vpsea_staff_ranking(request):
         'ranking_tabs': RANKING_TABS,
         'active_tab': 'Staff',
         'staff_rows': data['rows'],
+        'staff_refused': data['refused'],
         'staff_needs_info': data['needs_info'],
         'staff_total': data['total'],
         'staff_counts': data['counts'],

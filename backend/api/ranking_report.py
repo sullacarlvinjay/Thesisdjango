@@ -219,7 +219,7 @@ def _staff(wb, data, stamp):
         first=True)
 
     rows = []
-    for e in data['rows'] + data['needs_info']:
+    for e in data['rows'] + data['refused'] + data['needs_info']:
         rows.append([
             e.rank or '',
             e.applicant_name,
@@ -238,7 +238,7 @@ def _staff(wb, data, stamp):
         ['Applicant', 'Employee / Student No.', 'Qualification', 'Verdict',
          'Reading', 'Read From'])
     _write(ws, head, _reason_rows(
-        data['rows'] + data['needs_info'],
+        data['rows'] + data['refused'] + data['needs_info'],
         lambda e: e.applicant_name, lambda e: e.application.student_id or ''))
 
 

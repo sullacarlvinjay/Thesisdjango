@@ -48,11 +48,12 @@
           baccalaureate degree</strong> are disqualified from enjoying the scholarship.</li>
     </ol>
     <p>
-      Nothing is scored — the programme has no merit test, so this states a verdict and
-      its reason rather than a position. Open <em>Why?</em> on any row for the
-      qualification-by-qualification reading behind it. An application that cannot answer
-      a qualification is held out into the list below rather than turned down for a
-      question nobody asked.
+      Nothing is scored — the programme has no merit test, so a rank is reading order,
+      not a ranking. This table is the recommendation itself: only applications that met
+      every qualification. Open <em>Why?</em> on any row for the
+      qualification-by-qualification reading behind it. A refusal and an application
+      nobody can decide yet are each kept below, with their reason, rather than sitting
+      in the recommendation or dropping off the page.
     </p>
   </div>
   {% if staff_rows %}
@@ -139,9 +140,53 @@
     </table>
   </div>
   {% else %}
-  <p class="rec-empty">Nobody has applied for the Faculty and Staff Scholars programme yet.</p>
+  <p class="rec-empty">
+    {% if staff_total %}No application met every qualification. The ones that did not are
+    listed below with their reason.{% else %}Nobody has applied for the Faculty and Staff
+    Scholars programme yet.{% endif %}
+  </p>
   {% endif %}
 </div>
+{% if staff_refused %}
+<div class="card p-6 mt-4">
+  <h2 class="font-semibold">Applied, but not qualified</h2>
+  <p class="rec-note rec-note--tight">
+    A qualification was read and failed, so these are not recommended. They are listed
+    with the reason rather than dropped — the office has to be able to say why when
+    somebody asks.
+  </p>
+  <div class="table-scroll">
+    <table class="rec-table">
+      <thead>
+        <tr>
+          <th class="th-cell">Applicant</th>
+          <th class="th-cell">Applying as</th>
+          <th class="th-cell">Employee / Student No.</th>
+          <th class="th-cell">Faculty / staff member named</th>
+          <th class="th-cell">Why not</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in staff_refused %}
+        <tr class="trow">
+          <td class="rec-cell">{{ e.applicant_name }}</td>
+          <td class="rec-cell rec-cell--muted">{{ e.standing }}</td>
+          <td class="rec-cell rec-cell--muted">{{ e.application.student_id|default:"—" }}</td>
+          <td class="rec-cell rec-cell--muted">
+            {{ e.application.staff_name|default:"—" }}{% if e.application.staff_employee_id %}
+            ({{ e.application.staff_employee_id }}){% endif %}
+          </td>
+          <td class="rec-cell rec-cell--missing">
+            {% for r in e.refusals %}<strong>{{ r.label }}</strong> · {{ r.detail }}
+            {% if not forloop.last %}<br/>{% endif %}{% empty %}—{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 {% if staff_needs_info %}
 <div class="card p-6 mt-4">
   <h2 class="font-semibold">Applied, but not yet decidable</h2>

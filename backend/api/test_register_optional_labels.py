@@ -27,8 +27,10 @@ STUDENT_REQUIRED = {
     'is_listahanan_household', 'is_4ps_beneficiary',
     'is_solo_parent_dependent', 'has_previous_degree',
 }
-STAFF_REQUIRED = {'school_id', 'staff_school', 'department', 'position'}
-CONDITIONALLY_REQUIRED = ({'disability_type_other', 'staff_proof_document'}
+STAFF_REQUIRED = {'school_id', 'staff_school', 'department', 'position',
+                  'employment_status', 'designation'}
+CONDITIONALLY_REQUIRED = ({'disability_type_other', 'staff_proof_document',
+                           'years_of_service', 'date_of_regularization'}
                           | per_card('scholarship_type', 'award_tier',
                                      'proof_document',
                                      'staff_name', 'staff_employee_id',

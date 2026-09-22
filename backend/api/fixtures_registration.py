@@ -46,6 +46,8 @@ STAFF = {
     'password': 'pw-for-tests', 'confirm_password': 'pw-for-tests',
     'school_id': 'EMP-0042', 'staff_school': 'School of Engineering',
     'department': 'Civil Engineering', 'position': 'Instructor I',
+    'employment_status': 'Regular', 'designation': 'Teaching',
+    'years_of_service': '11', 'date_of_regularization': '2015-06-01',
     'accept_terms': 'yes', 'terms_version': terms.VERSION,
 }
 

@@ -112,6 +112,16 @@ class Evaluation:
         return self.status == FOR_VERIFICATION
 
     @property
+    def refusals(self) -> list[RuleResult]:
+        """Every qualification this application failed outright.
+
+        What the office reads back when asked why somebody was not
+        recommended. A rule that could not be run is not in here: that is
+        missing information, not a refusal.
+        """
+        return [r for r in self.rules if r.failed]
+
+    @property
     def recommendation(self) -> str:
         """The verdict in the words the office uses."""
         if self.status == NOT_QUALIFIED:

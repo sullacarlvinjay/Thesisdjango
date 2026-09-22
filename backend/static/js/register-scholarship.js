@@ -72,6 +72,22 @@ function syncScholarshipData() {
   if (row) row.hidden = !declaring || closed === 0;
 }
 
+function syncAppointmentDetails() {
+  var status = document.querySelector('[data-appointment-status]');
+  var block = document.querySelector('[data-regular-only]');
+  if (!status || !block) return;
+
+  var card = status.closest('[data-staff-only]');
+  var regular = !(card && card.hidden) && status.value === 'Regular';
+
+  block.hidden = !regular;
+  block.querySelectorAll('input').forEach(function (field) {
+    field.disabled = !regular;
+    field.required = regular;
+    if (!regular) field.value = '';
+  });
+}
+
 function syncStaffScholarshipData() {
   var box = document.getElementById('hasStaffScholarship');
   var card = document.getElementById('staffScholarshipData');
@@ -129,6 +145,10 @@ function syncStaffScholarshipData() {
   var staffBox = document.getElementById('hasStaffScholarship');
   if (staffBox) staffBox.addEventListener('change', syncStaffScholarshipData);
 
+  var appointment = document.querySelector('[data-appointment-status]');
+  if (appointment) appointment.addEventListener('change', syncAppointmentDetails);
+
   syncScholarshipData();
   syncStaffScholarshipData();
+  syncAppointmentDetails();
 })();

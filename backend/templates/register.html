@@ -491,7 +491,10 @@
       <div data-step data-step-label="Employment">
       <div data-staff-only class="card mb-4 u-p-1-5rem" {% if post.account_type != 'nsu_staff' %}hidden{% endif %}>
         <p class="text-xs font-semibold uppercase tracking-wider mb-1 u-text-ok">Employment Information</p>
-        <p class="text-xs mb-4 u-text-muted">Saved to your staff profile. You can correct any of it later under My Profile.</p>
+        <p class="text-xs mb-4 u-text-muted">
+          Saved to your staff profile. The Staff Scholarship form opens already filled in
+          from it, so you answer this once. You can correct any of it later under My Profile.
+        </p>
         <div class="space-y-3">
           <div class="space-y-1.5">
             <label for="f-school-id">School / Employee ID</label>
@@ -511,6 +514,40 @@
             <div class="space-y-1.5">
               <label for="f-position">Position</label>
               <input id="f-position" name="position" value="{{ post.position }}" placeholder="e.g. Instructor I" required />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label for="f-employment-status">Employment Status</label>
+              <select id="f-employment-status" name="employment_status" data-appointment-status required>
+                <option value="">— Select —</option>
+                {% for value, label in employment_statuses %}
+                <option value="{{ value }}" {% if post.employment_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <p class="text-xs u-text-muted">The Staff Scholarship is open to a regular appointment. Recording it here is what lets the office read your eligibility without asking again.</p>
+            </div>
+            <div class="space-y-1.5">
+              <label for="f-designation">Designation</label>
+              <select id="f-designation" name="designation" required>
+                <option value="">— Select —</option>
+                {% for value, label in designations %}
+                <option value="{{ value }}" {% if post.designation == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" data-regular-only
+               {% if post.employment_status != 'Regular' %}hidden{% endif %}>
+            <div class="space-y-1.5">
+              <label for="f-years-of-service">Years of Service</label>
+              <input id="f-years-of-service" name="years_of_service" type="number" min="0" step="1"
+                     value="{{ post.years_of_service }}" placeholder="e.g. 5" />
+            </div>
+            <div class="space-y-1.5">
+              <label for="f-date-of-regularization">Date of Regularization</label>
+              <input id="f-date-of-regularization" name="date_of_regularization" type="date"
+                     value="{{ post.date_of_regularization }}" />
             </div>
           </div>
         </div>
@@ -692,7 +729,7 @@ function selectType(type) {
 }
 </script>
 <script src="{% static 'js/form-steps.js' %}?v=2"></script>
-<script src="{% static 'js/register-scholarship.js' %}?v=9"></script>
+<script src="{% static 'js/register-scholarship.js' %}?v=10"></script>
 <script src="{% static 'js/reveal-on-select.js' %}?v=1"></script>
 <script src="{% static 'js/modal-open.js' %}?v=2"></script>
 <script src="{% static 'js/terms-agree.js' %}?v=1"></script>

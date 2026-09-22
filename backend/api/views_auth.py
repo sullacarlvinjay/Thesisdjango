@@ -395,8 +395,8 @@ def _register_context(post=None):
     """Everything the registration form needs to render."""
     import json
     from . import terms
-    from .constants import (CIVIL_STATUSES, GENDERS,
-                            RELATIONSHIP_TO_STAFF_CHOICES,
+    from .constants import (CIVIL_STATUSES, DESIGNATIONS, EMPLOYMENT_STATUSES,
+                            GENDERS, RELATIONSHIP_TO_STAFF_CHOICES,
                             STAFF_DECLARABLE_LABEL)
     from .models import CHED_TIER_CHOICES, SystemSettings
     settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
@@ -406,6 +406,8 @@ def _register_context(post=None):
         'civil_statuses': CIVIL_STATUSES,
         'genders': GENDERS,
         'staff_relationships': RELATIONSHIP_TO_STAFF_CHOICES,
+        'employment_statuses': EMPLOYMENT_STATUSES,
+        'designations': DESIGNATIONS,
         'scholarship_types': declarable_types(),
         'staff_scholarship_label': STAFF_DECLARABLE_LABEL,
         'ched_tiers': CHED_TIER_CHOICES,
@@ -567,7 +569,32 @@ _REQUIRED_OF_STAFF = (
     ('staff_school', 'Office / College / Unit'),
     ('department', 'Department'),
     ('position', 'Position'),
+    ('employment_status', 'Employment Status'),
+    ('designation', 'Designation'),
 )
+
+REGULAR_APPOINTMENT = 'Regular'
+
+_REQUIRED_OF_REGULAR_STAFF = (
+    ('years_of_service', 'Years of Service'),
+    ('date_of_regularization', 'Date of Regularization'),
+)
+
+
+def _missing_appointment_details(posted):
+    """What a regular appointment still owes the form.
+
+    Asked at registration rather than at application, so the Staff
+    Scholarship form opens already filled in and the recommendation can be
+    read off the profile. Only a regular appointment has a regularisation
+    date, so an employee on a job order is not held up for one they could
+    never give.
+    """
+    if (posted.get('employment_status', '') or '').strip() != REGULAR_APPOINTMENT:
+        return []
+    return [FormError(f'{label} is required for a regular appointment.', name)
+            for name, label in _REQUIRED_OF_REGULAR_STAFF
+            if not (posted.get(name, '') or '').strip()]
 
 def _unanswered_tes(posted, questions):
     """Which TES eligibility questions were left unanswered."""
@@ -667,6 +694,7 @@ def _staff_registration_errors(posted, files):
         ``(errors, declared)``.
     """
     errors = _unanswered(posted, _REQUIRED_OF_STAFF)
+    errors += _missing_appointment_details(posted)
     declared, link_errors = _declared_staff_scholarship(posted, files)
     errors.extend(link_errors)
     return errors, declared
@@ -754,6 +782,7 @@ def _create_staff_profile(request, posted, user, declared):
                          StaffScholarshipDeclaration)
 
     staff_school = posted.get('staff_school', '').strip()
+    regular = (posted.get('employment_status', '') or '').strip() == REGULAR_APPOINTMENT
     StaffProfile.objects.create(
         user=user,
         middle_name=posted.get('middle_name', '').strip(),
@@ -765,6 +794,13 @@ def _create_staff_profile(request, posted, user, declared):
         school=staff_school,
         department=posted.get('department', '').strip(),
         position=posted.get('position', '').strip(),
+        employment_status=posted.get('employment_status', '').strip(),
+        designation=posted.get('designation', '').strip(),
+        declared_years_of_service=(
+            _positive_int(posted.get('years_of_service', ''), None)
+            if regular else None),
+        date_of_regularization=(
+            posted.get('date_of_regularization') or None) if regular else None,
     )
     if declared:
         StaffScholarshipDeclaration.objects.create(staff_user=user, **declared)
@@ -772,6 +808,7 @@ def _create_staff_profile(request, posted, user, declared):
         user,
         f"Staff account created — "
         f"School ID: {posted.get('school_id','—')} | "
+        f"Appointment: {posted.get('employment_status','—')} | "
         f"School: {staff_school or '—'} | "
         f"Department: {posted.get('department','—')} | "
         f"Position: {posted.get('position','—')} | "
