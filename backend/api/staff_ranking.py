@@ -123,12 +123,28 @@ class Evaluation:
 
     @property
     def recommendation(self) -> str:
-        """The verdict in the words the office uses."""
+        """The verdict in the words the office uses.
+
+        Eligibility, not a recommendation. The programme has no merit test and
+        no quota to rank against: an employee is on the list for holding a
+        permanent appointment, and saying "Recommended" would claim a judgment
+        nobody made.
+        """
         if self.status == NOT_QUALIFIED:
-            return 'Not Recommended'
+            return 'Not Eligible'
         if self.status == FOR_VERIFICATION:
             return 'For Verification'
-        return 'Recommended'
+        return 'Eligible'
+
+    @property
+    def applied(self) -> bool:
+        """Whether an application backs this entry, or only the roster.
+
+        An employee reaches the list either way. This is what lets the office
+        tell somebody who asked for the scholarship from somebody who is
+        merely eligible for it.
+        """
+        return getattr(self.application, 'applied', True)
 
     def rule(self, key: str) -> RuleResult | None:
         """The result for one rule key, or ``None`` if it was not run."""
@@ -223,10 +239,10 @@ def _permanent_appointment_rule(application: 'ApplicantRecord',
         if not status:
             return RuleResult(
                 'permanent', 'Permanent appointment', NEEDS_VERIFICATION,
-                'No appointment status is recorded on the application, so '
-                'whether it is permanent cannot be read.',
+                'No appointment status is recorded, so whether it is '
+                'permanent cannot be read.',
                 source='employment_status',
-                missing=('Employment status on the application',))
+                missing=('Employment status',))
         if status in PERMANENT_APPOINTMENTS:
             return RuleResult(
                 'permanent', 'Permanent appointment', PASS,

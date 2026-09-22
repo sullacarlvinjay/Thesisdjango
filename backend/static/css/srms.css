@@ -2242,6 +2242,15 @@ label.is-required::after { content: ' *'; color: var(--danger); }
 .rec-note li { margin-bottom: 0.15rem; }
 .rec-note--tight { margin-bottom: 1rem; }
 
+.rec-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--brand);
+  padding: 0.15rem 0;
+}
+.rec-details summary:hover { text-decoration: underline; }
+.rec-details[open] summary { margin-bottom: 0.4rem; }
+
 .rec-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .rec-table .trow { border-bottom: 1px solid var(--border); }
 

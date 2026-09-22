@@ -5,12 +5,12 @@ from api.models import (ApplicantRecord, Scholarship, StaffProfile,
 from api.views_ranking import _staff_ranking_data
 
 
-class RecommendationListHoldsOnlyTheQualifiedTest(TestCase):
-    """The recommendation list is what the office sends up.
+class EligibilityListHoldsOnlyTheEligibleTest(TestCase):
+    """The eligibility list is what the office works from.
 
-    A refusal and an application nobody can decide yet each belong on the
-    page, with their reason, but not in the list headed "Recommendation" -
-    the office reads that one as the answer.
+    Somebody the rules refused, and somebody the rules cannot read yet, each
+    belong on the page with their reason - but not in the list headed
+    Eligibility, which the office reads as the answer.
     """
 
     def setUp(self):
@@ -125,7 +125,7 @@ class RecommendationListHoldsOnlyTheQualifiedTest(TestCase):
         page = self.c.get('/vpsea/ranking/?type=Staff').content.decode()
         for name in ('Ana Cruz', 'Ben Lim', 'Cely Uy'):
             self.assertIn(name, page, f'{name} vanished from the page')
-        self.assertIn('Applied, but not qualified', page)
+        self.assertIn('Not eligible', page)
 
     def test_the_download_carries_all_three(self):
         self._employee('Ana Cruz', 'EMP-0001', 'Regular')

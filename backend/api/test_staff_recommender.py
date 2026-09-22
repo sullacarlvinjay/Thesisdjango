@@ -37,7 +37,7 @@ class QualificationATest(TestCase):
                                                   employment_status='Regular'))
         self.assertEqual(e.status, staff_ranking.QUALIFIED)
         self.assertEqual(e.standing, staff_ranking.STAFF)
-        self.assertEqual(e.recommendation, 'Recommended')
+        self.assertEqual(e.recommendation, 'Eligible')
 
     def test_the_boards_own_word_for_it_is_accepted_too(self):
         e = staff_ranking.evaluate(an_application(is_nsu_staff=True,
@@ -54,7 +54,7 @@ class QualificationATest(TestCase):
         e = staff_ranking.evaluate(an_application(is_nsu_staff=True,
                                                   employment_status=''))
         self.assertEqual(e.status, staff_ranking.FOR_VERIFICATION)
-        self.assertIn('Employment status on the application', e.missing)
+        self.assertIn('Employment status', e.missing)
 
     def test_an_employee_is_not_asked_to_prove_a_dependency(self):
         e = staff_ranking.evaluate(an_application(is_nsu_staff=True,
@@ -137,7 +137,7 @@ class QualificationCTest(TestCase):
         e = self._dependent(has_baccalaureate=True)
         self.assertEqual(e.status, staff_ranking.NOT_QUALIFIED)
         self.assertEqual(e.rule('baccalaureate').verdict, staff_ranking.FAIL)
-        self.assertEqual(e.recommendation, 'Not Recommended')
+        self.assertEqual(e.recommendation, 'Not Eligible')
 
     def test_even_when_every_other_qualification_is_met(self):
         e = self._dependent(has_baccalaureate=True)
@@ -215,17 +215,17 @@ class TheTabTest(TestCase):
                        employment_status='Regular')
         page = self.c.get('/vpsea/ranking/?type=Staff')
         self.assertContains(page, 'Juan Dela Cruz')
-        self.assertContains(page, 'Recommended')
+        self.assertContains(page, 'Eligible')
 
     def test_an_undecidable_one_is_held_out_with_what_is_missing(self):
         an_application(full_name='Zoe Unknown')
         page = self.c.get('/vpsea/ranking/?type=Staff')
-        self.assertContains(page, 'Applied, but not yet decidable')
+        self.assertContains(page, 'Cannot be read yet')
         self.assertContains(page, 'Whether the applicant is the employee')
 
     def test_an_empty_programme_says_so_rather_than_showing_an_empty_table(self):
         self.assertContains(self.c.get('/vpsea/ranking/?type=Staff'),
-                            'Nobody has applied')
+                            'No employee is registered')
 
     def test_affirmative_applications_are_not_screened_here(self):
         an_application(full_name='Not A Staff Applicant', qualified_for='Affirmative')
@@ -270,7 +270,7 @@ class OneRowPerApplicantTest(TestCase):
         newer = self._an_employee_application(employment_status='Regular')
         rows = self._data()['rows']
         self.assertEqual([e.application.pk for e in rows], [newer.pk])
-        self.assertEqual(rows[0].recommendation, 'Recommended')
+        self.assertEqual(rows[0].recommendation, 'Eligible')
 
     def test_a_refusal_they_have_already_resubmitted_past_does_not_rank(self):
         rejected = self._an_employee_application(status='Rejected',
@@ -307,7 +307,13 @@ class OneRowPerApplicantTest(TestCase):
                            staff_employee_id=employee.employee_id,
                            staff_name='Maria Santos',
                            relationship_to_staff='Child')
-        self.assertEqual(sorted(self._names()), ['Ana Santos', 'Ben Santos'])
+        names = sorted(self._names())
+        self.assertEqual(names.count('Ana Santos'), 1)
+        self.assertEqual(names.count('Ben Santos'), 1)
+        self.assertIn(
+            employee.user.get_full_name(), names,
+            'the employee the two hold it through is on the roster and so '
+            'belongs on the list in their own right')
 
     def test_two_applicants_sharing_no_number_or_address_stay_apart(self):
         an_application(full_name='Ana Cruz', email='', student_id='',
@@ -325,6 +331,8 @@ class OneRowPerApplicantTest(TestCase):
         older = self._an_employee_application()
         self._backdate(older, timezone.now() - timedelta(days=30))
         self._an_employee_application()
-        html = ' '.join(client.get('/vpsea/ranking/?type=Staff')
-                        .content.decode().split())
-        self.assertIn('1 application screened', html)
+        page = client.get('/vpsea/ranking/?type=Staff')
+        self.assertEqual(
+            page.context['staff_total'], 1,
+            'one person with two records was screened as two people')
+        self.assertEqual(page.context['staff_counts']['employees'], 1)

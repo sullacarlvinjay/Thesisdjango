@@ -581,20 +581,37 @@ _REQUIRED_OF_REGULAR_STAFF = (
 )
 
 
-def _missing_appointment_details(posted):
+def _missing_appointment_details(posted, files):
     """What a regular appointment still owes the form.
 
-    Asked at registration rather than at application, so the Staff
-    Scholarship form opens already filled in and the recommendation can be
-    read off the profile. Only a regular appointment has a regularisation
-    date, so an employee on a job order is not held up for one they could
-    never give.
+    Asked at registration rather than at application, because the office's
+    eligibility list is read off the profile: an employee is on it for holding
+    a permanent appointment, not for having filled in a form about it. The
+    appointment paper is collected here for the same reason - it is the
+    evidence behind the entry, and asking for it only at application time
+    would leave every unapplied employee on the list with nothing under them.
+
+    Only a regular appointment is asked. An employee on a job order has no
+    regularisation date and is not held up for one their appointment never
+    had.
     """
     if (posted.get('employment_status', '') or '').strip() != REGULAR_APPOINTMENT:
         return []
-    return [FormError(f'{label} is required for a regular appointment.', name)
-            for name, label in _REQUIRED_OF_REGULAR_STAFF
-            if not (posted.get(name, '') or '').strip()]
+    errors = [FormError(f'{label} is required for a regular appointment.', name)
+              for name, label in _REQUIRED_OF_REGULAR_STAFF
+              if not (posted.get(name, '') or '').strip()]
+    paper = files.get('appointment_paper')
+    if not paper:
+        errors.append(FormError(
+            'Appointment paper is required for a regular appointment. It is '
+            'what the office checks your eligibility against.',
+            'appointment_paper'))
+    else:
+        from .models import SystemSettings
+        settings_obj, _ = SystemSettings.objects.get_or_create(pk=1)
+        errors += [FormError(problem, 'appointment_paper')
+                   for problem in _validate_proof(paper, settings_obj)]
+    return errors
 
 def _unanswered_tes(posted, questions):
     """Which TES eligibility questions were left unanswered."""
@@ -694,7 +711,7 @@ def _staff_registration_errors(posted, files):
         ``(errors, declared)``.
     """
     errors = _unanswered(posted, _REQUIRED_OF_STAFF)
-    errors += _missing_appointment_details(posted)
+    errors += _missing_appointment_details(posted, files)
     declared, link_errors = _declared_staff_scholarship(posted, files)
     errors.extend(link_errors)
     return errors, declared
@@ -777,7 +794,11 @@ def _create_student_profile(request, posted, user, declarations, disability):
 
 
 def _create_staff_profile(request, posted, user, declared):
-    """Attach a staff profile and its declaration to a new account."""
+    """Attach a staff profile and its declaration to a new account.
+
+    The appointment and its paper are recorded here, not left to a later
+    application, because the office reads eligibility off the profile.
+    """
     from .models import (ActivityLog, StaffProfile,
                          StaffScholarshipDeclaration)
 
@@ -801,6 +822,8 @@ def _create_staff_profile(request, posted, user, declared):
             if regular else None),
         date_of_regularization=(
             posted.get('date_of_regularization') or None) if regular else None,
+        appointment_paper=(
+            request.FILES.get('appointment_paper') if regular else None),
     )
     if declared:
         StaffScholarshipDeclaration.objects.create(staff_user=user, **declared)

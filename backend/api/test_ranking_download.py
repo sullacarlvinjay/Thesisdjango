@@ -205,8 +205,8 @@ class TheStaffListTest(RankingDownloadFixtures, TestCase):
         row = next(self.rows_of(wb.worksheets[0]))
         self.assertEqual(row['Applicant'], 'Earl Villablanca')
         self.assertEqual(row['Applying As'], 'Employee')
-        self.assertEqual(row['Qualification'], 'Qualified')
-        self.assertEqual(row['Recommendation'], 'Recommended')
+        self.assertEqual(row['Applied'], 'Yes')
+        self.assertEqual(row['Eligibility'], 'Eligible')
         self.assertEqual(row['Rank'], 1)
 
     def test_an_undecidable_application_carries_no_rank(self):
@@ -214,7 +214,7 @@ class TheStaffListTest(RankingDownloadFixtures, TestCase):
                             student_id='32-1-000222')
         _, wb = self.book('Staff')
         rows = [r for r in self.rows_of(wb.worksheets[0])
-                if r['Qualification'] == 'For Verification']
+                if r['Eligibility'] == 'For Verification']
         self.assertTrue(rows, 'expected an application the rules cannot decide')
         for row in rows:
             self.assertIn(row['Rank'], (None, ''), row['Applicant'])

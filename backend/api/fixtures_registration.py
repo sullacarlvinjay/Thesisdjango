@@ -65,4 +65,11 @@ def a_declared_scholar(**overrides):
 
 
 def a_staff_member(**overrides):
-    return dict(STAFF, **overrides)
+    """A staff registration payload, carrying its appointment paper.
+
+    A regular appointment cannot register without one: it is the evidence the
+    office reads eligibility against, and an employee reaches the eligibility
+    list on the strength of it whether or not they ever apply.
+    """
+    paper = {'appointment_paper': a_certificate('appointment')}
+    return dict(STAFF, **paper, **overrides)

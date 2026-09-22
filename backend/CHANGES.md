@@ -7,6 +7,55 @@ several of them removed something that used to work.
 
 ---
 
+## The staff list is eligibility, not a recommendation, and it does not wait for an application
+
+The Faculty and Staff table only ever held people who had applied. That was
+wrong about what the page is for. The programme has no merit test and no quota -
+the page says so itself - and of an employee it asks exactly one thing: is the
+appointment permanent. Registration now records that, with the appointment paper
+behind it, so the answer exists before anybody fills in a form. Making an
+employee apply before the office could see them was making them ask for a
+judgment that had already been made.
+
+**An employee is on the list for holding a permanent appointment**, applied or
+not. `RosterEmployee` presents a `StaffProfile` in the shape the rules and the
+page already expect, so the same four qualifications run over roster entries and
+applications alike rather than a second set of rules reading a second set of
+fields. An employee who has applied is matched by employee number and listed
+once, from their application.
+
+**A dependent still reaches it only by applying.** Their qualifications need the
+relationship, the employee they hold it through, and whether they already
+graduated - none of which exists anywhere but an application. A dependent cannot
+be derived from a roster, and nothing pretends otherwise.
+
+**The wording follows.** Recommended and Not Recommended are now Eligible and
+Not Eligible, the heading is "Faculty and Staff Scholars - Eligibility", and the
+Qualification column - which said the same thing twice - is replaced by
+**Applied**, which is the distinction that actually matters now: who asked for
+the scholarship, against who is merely eligible for it.
+
+### Registration carries the appointment paper
+
+The evidence objection to listing unapplied employees was a gap left by the
+previous change, not a reason. The appointment paper was collected on the apply
+form only, so an employee who had not applied would have sat on the list with
+nothing under them. Registration asks for it, alongside the status, designation
+and dates, and only of a regular appointment - a job order employee has no
+regularisation date and is not held up for one.
+
+### What this cost elsewhere
+
+Thirteen tests changed. Most were vocabulary. Two were real:
+`test_two_dependents_of_one_employee_are_two_people_not_one` now also expects the
+employee those two hold it through, because they are on the roster in their own
+right; and a test written one change earlier, asserting that registering could
+never put somebody on the list, was the behaviour being deliberately reversed and
+is replaced by `RegisteringIsEnoughToBeListedTest`, which asserts the opposite
+and checks the paper travels with them.
+
+---
+
 ## Staff registration asks for the appointment, so applying does not
 
 The student form collects, at registration, everything the office needs to read

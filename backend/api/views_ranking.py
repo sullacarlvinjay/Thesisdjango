@@ -65,6 +65,70 @@ def _one_per_applicant(applications):
     return list(newest.values())
 
 
+class RosterEmployee:
+    """An employee read straight off the staff roster.
+
+    The programme asks one thing of an employee - whether the appointment is
+    permanent - and the staff profile already answers it, along with the
+    appointment paper behind the answer. Presenting a profile in the shape the
+    rules and the page already expect is what lets the office see every
+    regular employee without a second set of rules reading a second set of
+    fields.
+
+    An application is therefore not what puts an employee on the list. It is
+    only what tells the office they asked, which :attr:`applied` carries.
+    """
+
+    is_nsu_staff = True
+    is_nsu_dependent = False
+    staff_name = ''
+    staff_employee_id = ''
+    relationship_to_staff = ''
+    has_baccalaureate = False
+    applied = False
+
+    def __init__(self, profile):
+        self.profile = profile
+
+    @property
+    def id(self):
+        """A DOM-safe identifier, distinct from any applicant record's."""
+        return f'roster-{self.profile.pk}'
+
+    @property
+    def full_name(self):
+        return self.profile.user.get_full_name()
+
+    @property
+    def student_id(self):
+        return self.profile.employee_id
+
+    @property
+    def employment_status(self):
+        return self.profile.employment_status
+
+    @property
+    def appointment_paper(self):
+        return self.profile.appointment_paper
+
+
+def _roster_employees(applied):
+    """Every employee on the roster who has not already applied.
+
+    Matched on the employee number, which is what the apply form writes back
+    to the profile. A profile carrying no number at all is kept rather than
+    dropped: the office cannot chase somebody who is not on the list.
+    """
+    from .models import StaffProfile
+
+    taken = {(a.student_id or '').strip().lower() for a in applied
+             if a.is_nsu_staff and (a.student_id or '').strip()}
+    return [RosterEmployee(profile)
+            for profile in StaffProfile.objects
+            .select_related('user', 'employment').order_by('user__last_name')
+            if (profile.employee_id or '').strip().lower() not in taken]
+
+
 def _staff_ranking_data():
     """Rank the staff applications for the office's ranking page.
 
@@ -92,7 +156,8 @@ def _staff_ranking_data():
                     .exclude(status='Rejected')
                     .select_related(*STAFF_APPLICATION_DETAILS))
 
-    evaluations = staff_ranking.rank(_one_per_applicant(applications))
+    applied = _one_per_applicant(applications)
+    evaluations = staff_ranking.rank(applied + _roster_employees(applied))
 
     recommended = [e for e in evaluations if e.status == staff_ranking.QUALIFIED]
     refused = [e for e in evaluations
@@ -116,6 +181,7 @@ def _staff_ranking_data():
                                  if e.status == staff_ranking.NOT_QUALIFIED),
             'employees': sum(1 for e in evaluations if e.standing == staff_ranking.STAFF),
             'dependents': sum(1 for e in evaluations if e.standing == staff_ranking.DEPENDENT),
+            'applied': sum(1 for e in evaluations if e.applied),
         },
     }
 

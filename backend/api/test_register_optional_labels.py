@@ -30,7 +30,8 @@ STUDENT_REQUIRED = {
 STAFF_REQUIRED = {'school_id', 'staff_school', 'department', 'position',
                   'employment_status', 'designation'}
 CONDITIONALLY_REQUIRED = ({'disability_type_other', 'staff_proof_document',
-                           'years_of_service', 'date_of_regularization'}
+                           'years_of_service', 'date_of_regularization',
+                           'appointment_paper'}
                           | per_card('scholarship_type', 'award_tier',
                                      'proof_document',
                                      'staff_name', 'staff_employee_id',

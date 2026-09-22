@@ -1,7 +1,8 @@
 from django.test import Client, TestCase
 
 from api.fixtures_registration import a_staff_member
-from api.models import Scholarship, StaffProfile, SystemSettings, User
+from api.models import (ApplicantRecord, Scholarship, StaffProfile,
+                        SystemSettings, User)
 
 
 class StaffRegistrationRecordsTheAppointmentTest(TestCase):
@@ -109,3 +110,84 @@ class TheApplyFormOpensPrefilledTest(TestCase):
             prefill['first_name'], '',
             "the employee's own name was prefilled into their dependent's")
         self.assertEqual(prefill['student_number'], '')
+
+
+class RegisteringIsEnoughToBeListedTest(TestCase):
+    """Registering as a regular employee puts you on the eligibility list.
+
+    The programme asks an employee one thing and registration answers it, with
+    the appointment paper behind the answer. An application is therefore not
+    what makes somebody eligible - it only records that they asked, which the
+    list shows in its own column.
+    """
+
+    def setUp(self):
+        SystemSettings.objects.update_or_create(
+            pk=1, defaults={'academic_year': '26-2',
+                            'active_semester': '2nd Semester'})
+        Scholarship.objects.create(
+            name='Staff Scholarship', type='Staff', category='application',
+            description='x', eligibility='x', requirements=[],
+            accepting_applications=True)
+        self.c = Client()
+
+    def _listed(self, **overrides):
+        from api.views_ranking import _staff_ranking_data
+
+        self.c.post('/register/', a_staff_member(**overrides))
+        self.assertTrue(
+            StaffProfile.objects.filter(
+                user__email=a_staff_member()['email']).exists(),
+            'the account was not created, so this proves nothing')
+        return _staff_ranking_data()
+
+    def test_a_regular_employee_is_eligible_without_applying(self):
+        data = self._listed()
+        self.assertEqual(len(data['rows']), 1)
+        entry = data['rows'][0]
+        self.assertEqual(entry.recommendation, 'Eligible')
+        self.assertFalse(
+            entry.applied,
+            'somebody who never applied was counted as having applied')
+
+    def test_the_appointment_paper_travels_with_them(self):
+        data = self._listed()
+        self.assertTrue(
+            data['rows'][0].application.appointment_paper,
+            'the entry carries no evidence behind its eligibility')
+
+    def test_a_job_order_employee_is_listed_as_not_eligible(self):
+        data = self._listed(employment_status='Job Order',
+                            years_of_service='', date_of_regularization='')
+        self.assertEqual(data['rows'], [])
+        self.assertEqual(len(data['refused']), 1)
+        self.assertEqual(data['refused'][0].recommendation, 'Not Eligible')
+
+    def test_an_employee_who_applies_is_listed_once_and_marked(self):
+        self.c.post('/register/', a_staff_member())
+        user = User.objects.get(email=a_staff_member()['email'])
+        record = ApplicantRecord.objects.create(
+            full_name=user.get_full_name(), email=user.email,
+            qualified_for='Staff', status='Pending Validation', course='BSIT',
+            year_level=1, school_year='2026-2027', semester='2nd Semester',
+            term_label='26-2')
+        record.is_nsu_staff = True
+        record.student_id = a_staff_member()['school_id']
+        record.employment_status = 'Regular'
+        record.save()
+
+        from api.views_ranking import _staff_ranking_data
+        data = _staff_ranking_data()
+        self.assertEqual(
+            data['total'], 1,
+            'the roster listed an employee who had already applied, so they '
+            'appear twice')
+        self.assertTrue(data['rows'][0].applied)
+
+    def test_registering_writes_no_applicant_record(self):
+        from api.models import ApplicantRecord
+
+        self.c.post('/register/', a_staff_member())
+        self.assertFalse(
+            ApplicantRecord.objects.filter(qualified_for='Staff').exists(),
+            'registration filed an application on the employee behalf')

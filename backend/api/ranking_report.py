@@ -202,19 +202,21 @@ def _staff(wb, data, stamp):
     """Write the Faculty and Staff ranking sheet."""
     rules = RULE_COLUMNS['Staff']
     ws, head = _sheet(
-        wb, 'Faculty and Staff', 'Faculty and Staff Scholars — Rule-Based Recommendation',
+        wb, 'Faculty and Staff', 'Faculty and Staff Scholars — Eligibility',
         [
-            f'{data["counts"]["qualified"]} qualified · '
+            f'{data["counts"]["qualified"]} eligible · '
             f'{data["counts"]["verification"]} for verification · '
-            f'{data["counts"]["not_qualified"]} not qualified · '
-            f'{data["total"]} application(s) screened',
+            f'{data["counts"]["not_qualified"]} not eligible · '
+            f'{data["total"]} screened',
             f'{data["counts"]["employees"]} employee(s) · '
-            f'{data["counts"]["dependents"]} dependent(s). Nothing is scored: the '
-            'programme has no merit test, so a rank is reading order, not a ranking.',
+            f'{data["counts"]["dependents"]} dependent(s) · '
+            f'{data["counts"]["applied"]} applied. An employee is listed for holding a '
+            'permanent appointment, applied or not; a dependent only by applying. '
+            'Nothing is scored, so a rank is reading order, not a ranking.',
             stamp,
         ],
         ['Rank', 'Applicant', 'Applying As', 'Employee / Student No.',
-         'Qualification', 'Recommendation']
+         'Applied', 'Eligibility']
         + [label for _, label in rules] + ['Missing Information'],
         first=True)
 
@@ -225,7 +227,7 @@ def _staff(wb, data, stamp):
             e.applicant_name,
             e.standing,
             e.application.student_id or '',
-            e.status,
+            'Yes' if e.applied else 'Not yet',
             e.recommendation,
         ] + [_verdict(e, key) for key, _ in rules]
           + [', '.join(e.missing) if e.missing else 'None'])

@@ -79,7 +79,10 @@ class DependentReachesTheRankingTest(TestCase):
         self._file_for_dependent()
         counts = _staff_ranking_data()['counts']
         self.assertEqual(counts['dependents'], 1)
-        self.assertEqual(counts['employees'], 0)
+        self.assertEqual(
+            counts['employees'], 1,
+            'the employee the award rests on is on the roster in their '
+            'own right, and must not be folded in with their dependent')
 
     def test_the_appointment_rule_reads_the_employees_profile(self):
         self._file_for_dependent()
