@@ -18,16 +18,7 @@ for Higher Education Institution*.
 
 ---
 
-## Contents
 
-| Document | What is in it |
-|---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module map, request flow, data model |
-| [docs/TESTING.md](docs/TESTING.md) | Test design and coverage, mapped to ISO/IEC/IEEE 29119-4 |
-| [docs/SECURITY.md](docs/SECURITY.md) | Authentication, authorisation, throttling, audit trail |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Deployment, environment variables, management commands |
-| [OPTIMIZATION.md](OPTIMIZATION.md) | Performance work already carried out |
-| [CHANGES.md](CHANGES.md) | Development log |
 
 ---
 
